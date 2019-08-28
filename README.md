@@ -14,9 +14,9 @@ a high-performance connection pool.
 `pgagroal` use a process model where the status of the pool is kept in a shared memory segment
 (`mmap()`).
 
-See [Configuration](./blob/master/doc/CONFIGURATION.md) on how to configure `pgagroal`.
+See [Configuration](./doc/CONFIGURATION.md) on how to configure `pgagroal`.
 
-See [Performance](./blob/masterdoc/PERFORMANCE.md) for a performance run.
+See [Performance](./doc/PERFORMANCE.md) for a performance run.
 
 ## Tested platforms
 
