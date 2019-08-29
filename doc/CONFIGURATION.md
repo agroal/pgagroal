@@ -16,6 +16,8 @@ The `Bool` data type supports the following values: `on`, `1`, `true`, `off`, `0
 
 See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `localhost`.
 
+The configuration is loaded from either `./pgagroal.conf` or `/etc/pgagroal.conf`.
+
 ## [pgagroal]
 
 | Property | Default | Unit | Required | Description |
