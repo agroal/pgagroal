@@ -43,8 +43,7 @@ cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 cd src
-cp ../../doc/etc/pgagroal.conf .
-cp ../../doc/etc/pgagroal_hba.conf .
+cp ../../doc/etc/*.conf .
 ./pgagroal
 ```
 
@@ -58,14 +57,13 @@ cd build
 cmake -DCMAKE_BUILD_TYPE=Debug ..
 make
 cd src
-cp ../../doc/etc/pgagroal.conf .
-cp ../../doc/etc/pgagroal_hba.conf .
+cp ../../doc/etc/*.conf .
 ./pgagroal
 ```
 
 ## Contributing
 
-Contributions to are managed on [GitHub.com](https://github.com/agroal/pgagroal/)
+Contributions to `pgagroal` are managed on [GitHub.com](https://github.com/agroal/pgagroal/)
 
 * [Issue](https://github.com/agroal/pgagroal/issues)
 * [Feature request](https://github.com/agroal/pgagroal/issues)
