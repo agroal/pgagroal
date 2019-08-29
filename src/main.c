@@ -31,10 +31,8 @@
 #include <configuration.h>
 #include <logging.h>
 #include <management.h>
-#include <memory.h>
 #include <network.h>
 #include <pool.h>
-#include <security.h>
 #include <shmem.h>
 #include <utils.h>
 #include <worker.h>
@@ -113,7 +111,6 @@ main(int argc, char **argv)
 
    pgagroal_start_logging(shmem);
    pgagroal_pool_init(shmem);
-   pgagroal_memory_init(shmem);
 
    /* Bind Unix Domain Socket for file descriptor transfers */
    unix_socket = pgagroal_bind_unix_socket(config->unix_socket_dir);
@@ -166,9 +163,7 @@ main(int argc, char **argv)
    pgagroal_disconnect(sockfd);
    pgagroal_disconnect(unix_socket);
    
-   pgagroal_memory_destroy();
    pgagroal_stop_logging(shmem);
-
    pgagroal_destroy_shared_memory(shmem, size);
 
    return 0;
