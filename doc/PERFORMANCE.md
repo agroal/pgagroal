@@ -4,7 +4,7 @@ Performance is an important goal for `pgagroal` and effort have been made
 to make `pgagroal` scale and use a limited number of resources.
 
 This report describe `pgagroal` in relationship to 3 other [PostgreSQL](https://www.postgresql.org)
-connection pool implementations.
+connection pool implementations, which we will call `a`, `b` and `c`.
 
 The [pgbench](https://www.postgresql.org/docs/11/pgbench.html) program was used in the runs. All pool
 configurations were made with performance in mind.
