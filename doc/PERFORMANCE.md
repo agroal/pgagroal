@@ -12,6 +12,11 @@ configurations were made with performance in mind.
 All diagrams are using the same identifier for the connection pool in question, so `a` is `a` in all
 diagrams and so on.
 
+The runs were performed on [RHEL](https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux) 7.6 /
+[EPEL](https://access.redhat.com/solutions/3358) / [DevTools](https://developers.redhat.com/products/developertoolset/overview) 8
+based machines. All connection pools were the latest versions as of August 28, 2019. `pgagroal` was using the `epoll` mode
+of [libev](http://software.schmorp.de/pkg/libev.html).
+
 ## Simple
 
 This run uses
