@@ -4,19 +4,20 @@
 
 ## Overview
 
-`pgagroal` uses [libev](http://software.schmorp.de/pkg/libev.html) to drive network traffic,
-and the [atomic operation library](https://en.cppreference.com/w/c/atomic) in order to create
-a high-performance connection pool.
+`pgagroal` makes use of
 
-`pgagroal` use the native [PostgreSQL](https://www.postgresql.org) protocol
-[v3](https://www.postgresql.org/docs/11/protocol-message-formats.html) for its communication.
-
-`pgagroal` use a process model where the status of the pool is kept in a shared memory segment
-(`mmap()`).
+* Process model
+* Shared memory model across processes
+* [libev](http://software.schmorp.de/pkg/libev.html) for fast network interactions
+* [Atomic operations](https://en.cppreference.com/w/c/atomic) is used to keep track of state
+* The [PostgreSQL](https://www.postgresql.org) native protocol
+  [v3](https://www.postgresql.org/docs/11/protocol-message-formats.html) for its communication
 
 See [Configuration](./doc/CONFIGURATION.md) on how to configure `pgagroal`.
 
 See [Performance](./doc/PERFORMANCE.md) for a performance run.
+
+See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
 
 ## Tested platforms
 
