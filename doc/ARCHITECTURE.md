@@ -36,6 +36,31 @@ connection, and move them around in the connection state diagram. The state diag
 
 These state are defined in [pgagroal.h](../src/include/pgagroal.h).
 
+## Pool
+
+The `pgagroal` pool API is defined in [pool.h](../src/include/pool.h) ([pool.c](../src/libpgagroal/pool.c)).
+
+This API defines the functionality of the pool such as getting a connection from the pool, and returning it.
+
+The pool operates on the `struct connection` data type defined in [pgagroal.h](../src/include/pgagroal.h).
+
+## Network and messages
+
+All communication is abstracted using the `struct message` data type defined in [pgagroal.h](../src/include/pgagroal.h).
+
+Reading and writing messages are handled in the [message.h](../src/include/message.h) ([message.c](../src/libpgagroal/message.c))
+files.
+
+Network operations are defined in [network.h](../src/include/network.h) ([network.c](../src/libpgagroal/network.c)).
+
+## Memory
+
+Each process uses a fixed memory block for its network communication, which is allocated upon startup of the worker.
+
+That way we don't have to allocate memory for each network message, and more importantly free it after end of use.
+
+The memory interface is defined in [memory.h](../src/include/memory.h) ([memory.c](../src/libpgagroal/memory.c)).
+
 ## Management
 
 `pgagroal` has a management interface which serves two purposes.
@@ -47,16 +72,28 @@ Second, the interface is used internally to transfer the connection (socket desc
 to the main `pgagroal` process after a new connection has been created. This is necessary since the socket descriptor
 needs to be available to subsequent client and hence processes.
 
-The management interface is defined in [management.h](../src/include/management.h).
+The management interface is defined in [management.h](../src/include/management.h). The management interface
+uses its own protocol which always consist of a header
+
+| Field      | Type | Description |
+|------------|------|-------------|
+| `id` | Byte | The identifier of the message type |
+| `slot` | Int | The slot that the message is for |
+
+The rest of the message is depending on the message type.
 
 ## libev usage
 
 [libev](http://software.schmorp.de/pkg/libev.html) is used to handle network interactions, which is "activated"
 upon an `EV_READ` event.
 
+Each process has its own event loop, such that the process only gets notified when data related only to that process
+is ready. The main loop handles the system wide "services", such as idle timeout checks, as well.
+
 One of the goals for `pgagroal` is performance, so `pgagroal` will only look for the
 [`Terminate`](https://www.postgresql.org/docs/11/protocol-message-formats.html) message from the client and act on that.
-This makes the pipeline very fast, since there is a minimum overhead in the interaction.
+Likewise `pgagroal` will only look for `FATAL` errors from the server. This makes the pipeline very fast, since there
+is a minimum overhead in the interaction.
 
 The pipeline is defined in [worker.c](../src/libpgagroal/worker.c) in the functions
 
@@ -65,3 +102,8 @@ The pipeline is defined in [worker.c](../src/libpgagroal/worker.c) in the functi
 | `client_pgagroal_cb` | Client to `pgagroal` communication |
 | `server_pgagroal_cb` | [PostgreSQL](https://www.postgresql.org) to `pgagroal` communication |
 
+## Logging
+
+[zf_log](https://github.com/wonder-mice/zf_log) is used for the logging framework.
+
+`zf_log` is licensed under the [MIT](https://opensource.org/licenses/MIT) license.
