@@ -115,7 +115,7 @@ main(int argc, char **argv)
    pgagroal_pool_init(shmem);
 
    /* Bind Unix Domain Socket for file descriptor transfers */
-   unix_socket = pgagroal_bind_unix_socket(config->unix_socket_dir);
+   unix_socket = pgagroal_bind_unix_socket(config->unix_socket_dir, shmem);
 
    /* Bind main socket */
    if (pgagroal_bind(config->host, config->port, shmem, &fds, &length))

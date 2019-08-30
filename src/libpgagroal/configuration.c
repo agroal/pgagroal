@@ -97,6 +97,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
    config->keep_alive = true;
    config->nodelay = true;
    config->non_blocking = true;
+   config->backlog = DEFAULT_BACKLOG;
 
    config->log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;

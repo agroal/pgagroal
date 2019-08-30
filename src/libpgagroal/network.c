@@ -50,8 +50,6 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-#define BACKLOG 10
-
 /**
  *
  */
@@ -65,6 +63,9 @@ pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* lengt
    int yes = 1;
    int rv;
    char* sport;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
 
    index = 0;
    size = 0;
@@ -133,7 +134,7 @@ pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* lengt
          continue;
       }
 
-      if (listen(sockfd, BACKLOG) == -1)
+      if (listen(sockfd, config->backlog) == -1)
       {
          pgagroal_disconnect(sockfd);
          ZF_LOGD("server: listen: %s", strerror(errno));
@@ -161,10 +162,13 @@ pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* lengt
  *
  */
 int
-pgagroal_bind_unix_socket(const char* directory)
+pgagroal_bind_unix_socket(const char* directory, void* shmem)
 {
    struct sockaddr_un addr;
    int fd;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
 
    if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
    {
@@ -195,7 +199,7 @@ pgagroal_bind_unix_socket(const char* directory)
       exit(-1);
    }
 
-   if (listen(fd, BACKLOG) == -1)
+   if (listen(fd, config->backlog) == -1)
    {
       perror("listen error");
       exit(-1);

@@ -46,7 +46,7 @@ pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* lengt
  *
  */
 int
-pgagroal_bind_unix_socket(const char* directory);
+pgagroal_bind_unix_socket(const char* directory, void* shmem);
 
 /**
  *

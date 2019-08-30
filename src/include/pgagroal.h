@@ -62,6 +62,8 @@ extern "C" {
 
 #define NUMBER_OF_SECURITY_MESSAGES 5
 
+#define DEFAULT_BACKLOG NUMBER_OF_CONNECTIONS
+
 #define STATE_NOTINIT    -2
 #define STATE_INIT       -1
 #define STATE_FREE        0
@@ -134,6 +136,7 @@ struct configuration
    bool keep_alive;
    bool nodelay;
    bool non_blocking;
+   int backlog;
 
    char unix_socket_dir[MISC_LENGTH];
    
