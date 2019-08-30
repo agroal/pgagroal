@@ -78,11 +78,13 @@ main(int argc, char **argv)
    int ret;
    void* shmem = NULL;
    struct ev_loop *loop;
-   struct accept_info io_main;
+   struct accept_info io_main[64];
    struct accept_info io_mgt;
    ev_signal signal_watcher;
    struct idle_timeout_info idle_timeout;
-   int sockfd, unix_socket;
+   int* fds;
+   int length;
+   int unix_socket;
    size_t size;
    struct configuration* config;
 
@@ -116,7 +118,11 @@ main(int argc, char **argv)
    unix_socket = pgagroal_bind_unix_socket(config->unix_socket_dir);
 
    /* Bind main socket */
-   sockfd = pgagroal_bind(config->host, config->port);
+   if (pgagroal_bind(config->host, config->port, shmem, &fds, &length))
+   {
+      printf("Could not bind to %s:%d\n", config->host, config->port);
+      exit(1);
+   }
    
    /* libev */
    loop = ev_default_loop(EVFLAG_AUTO);
@@ -129,14 +135,19 @@ main(int argc, char **argv)
    ev_signal_init(&signal_watcher, sigint_cb, SIGINT);
    ev_signal_start(loop, &signal_watcher);
 
-   ev_io_init((struct ev_io*)&io_main, accept_main_cb, sockfd, EV_READ);
-   io_main.socket = sockfd;
-   io_main.shmem = shmem;
    ev_io_init((struct ev_io*)&io_mgt, accept_mgt_cb, unix_socket, EV_READ);
-   io_main.socket = unix_socket;
+   io_mgt.socket = unix_socket;
    io_mgt.shmem = shmem;
-   ev_io_start(loop, (struct ev_io*)&io_main);
    ev_io_start(loop, (struct ev_io*)&io_mgt);
+
+   for (int i = 0; i < length; i++)
+   {
+      int sockfd = *(fds + i);
+      ev_io_init((struct ev_io*)&io_main[i], accept_main_cb, sockfd, EV_READ);
+      io_main[i].socket = sockfd;
+      io_main[i].shmem = shmem;
+      ev_io_start(loop, (struct ev_io*)&io_main[i]);
+   }
 
    if (config->idle_timeout > 0)
    {
@@ -146,7 +157,11 @@ main(int argc, char **argv)
    }
 
    ZF_LOGI("pgagroal: started on %s:%d", config->host, config->port);
-   ZF_LOGD("Socket %d Management %d", sockfd, unix_socket);
+   for (int i = 0; i < length; i++)
+   {
+      ZF_LOGD("Socket %d", *(fds + i));
+   }
+   ZF_LOGD("Management %d", unix_socket);
    ZF_LOGD("libev engine: %s", pgagroal_libev_engine(ev_backend(loop)));
    
    while (keep_running)
@@ -157,12 +172,19 @@ main(int argc, char **argv)
    ZF_LOGI("pgagroal: shutdown");
    pgagroal_pool_shutdown(shmem);
    ev_io_stop(loop, (struct ev_io*)&io_mgt);
-   ev_io_stop(loop, (struct ev_io*)&io_main);
+
+   for (int i = 0; i < length; i++)
+   {
+      ev_io_stop(loop, (struct ev_io*)&io_main[i]);
+      pgagroal_disconnect(io_main[i].socket);
+   }
+
    ev_loop_destroy(loop);
 
-   pgagroal_disconnect(sockfd);
    pgagroal_disconnect(unix_socket);
    
+   free(fds);
+
    pgagroal_stop_logging(shmem);
    pgagroal_destroy_shared_memory(shmem, size);
 

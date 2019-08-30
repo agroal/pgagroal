@@ -40,7 +40,7 @@ extern "C" {
  *
  */
 int
-pgagroal_bind(const char* hostname, int port);
+pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* length);
 
 /**
  *

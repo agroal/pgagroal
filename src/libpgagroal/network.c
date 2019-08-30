@@ -30,6 +30,9 @@
 #include <pgagroal.h>
 #include <network.h>
 
+#define ZF_LOG_TAG "network"
+#include <zf_log.h>
+
 /* system */
 #include <errno.h>
 #include <fcntl.h>
@@ -49,95 +52,109 @@
 
 #define BACKLOG 10
 
-static void sigchld_handler(int s);
-
 /**
  *
  */
 int
-pgagroal_bind(const char* hostname, int port)
+pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* length)
 {
+   int *result;
+   int index, size;
    int sockfd;
-   struct addrinfo hints, *servinfo, *p;
-   struct sigaction sa;
+   struct addrinfo hints, *servinfo, *addr;
    int yes = 1;
    int rv;
    char* sport;
+
+   index = 0;
+   size = 0;
 
    sport = malloc(5);
    memset(sport, 0, 5);
    sprintf(sport, "%d", port);
 
-   /* Find IPv4 addresses */
+   /* Find all SOCK_STREAM addresses */
    memset(&hints, 0, sizeof hints);
-   hints.ai_family = AF_INET;
+   hints.ai_family = AF_UNSPEC;
    hints.ai_socktype = SOCK_STREAM;
    hints.ai_flags = AI_PASSIVE;
 
    if ((rv = getaddrinfo(hostname, sport, &hints, &servinfo)) != 0)
    {
       free(sport);
-      fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+      ZF_LOGE("getaddrinfo: %s", gai_strerror(rv));
       return 1;
    }
 
    free(sport);
    
-   /* Loop through all the results and bind to the first we can */
-   for (p = servinfo; p != NULL; p = p->ai_next)
+   for (addr = servinfo; addr != NULL; addr = addr->ai_next)
    {
-      if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
+      size++;
+   }
+
+   result = malloc(size * sizeof(int));
+   memset(result, 0, size * sizeof(int));
+
+   /* Loop through all the results and bind to the first we can */
+   for (addr = servinfo; addr != NULL; addr = addr->ai_next)
+   {
+      if ((sockfd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol)) == -1)
       {
-         perror("server: socket");
+         ZF_LOGD("server: socket: %s", strerror(errno));
          continue;
       }
 
       if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
       {
-         perror("so_reuseaddr");
+         ZF_LOGD("server: so_reuseaddr: %d %s", sockfd, strerror(errno));
          continue;
       }
 
-      if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(int)) == -1)
+      if (pgagroal_socket_nonblocking(sockfd, shmem))
       {
-         perror("tcp_nodelay");
          continue;
       }
 
-      if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
+      if (pgagroal_socket_buffers(sockfd, shmem))
+      {
+         continue;
+      }
+
+      if (pgagroal_tcp_nodelay(sockfd, shmem))
+      {
+         continue;
+      }
+
+      if (bind(sockfd, addr->ai_addr, addr->ai_addrlen) == -1)
       {
          pgagroal_disconnect(sockfd);
-         perror("server: bind");
+         ZF_LOGD("server: bind: %s", strerror(errno));
          continue;
       }
 
-      break;
+      if (listen(sockfd, BACKLOG) == -1)
+      {
+         pgagroal_disconnect(sockfd);
+         ZF_LOGD("server: listen: %s", strerror(errno));
+         continue;
+      }
+
+      *(result + index) = sockfd;
+      index++;
    }
 
    freeaddrinfo(servinfo);
 
-   if (p == NULL)
+   if (index == 0)
    {
-      fprintf(stderr, "server: failed to bind\n");
-      exit(1);
+      return 1;
    }
 
-   if (listen(sockfd, BACKLOG) == -1)
-   {
-      perror("listen");
-      exit(1);
-   }
+   *fds = result;
+   *length = index;
 
-   sa.sa_handler = sigchld_handler;
-   sigemptyset(&sa.sa_mask);
-   sa.sa_flags = SA_RESTART;
-   if (sigaction(SIGCHLD, &sa, NULL) == -1)
-   {
-      perror("sigaction");
-      exit(1);
-   }
-
-   return sockfd;
+   return 0;
 }
 
 /**
@@ -407,6 +424,7 @@ pgagroal_tcp_nodelay(int fd, void* shmem)
    {
       if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &yes, optlen) == -1)
       {
+         ZF_LOGD("tcp_nodelay: %d %s", fd, strerror(errno));
          return 1;
       }
    }
@@ -424,22 +442,15 @@ pgagroal_socket_buffers(int fd, void* shmem)
 
    if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &config->buffer_size, optlen) == -1)
    {
+      ZF_LOGD("socket_buffers: SO_RCVBUF %d %s", fd, strerror(errno));
       return 1;
    }
 
    if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &config->buffer_size, optlen) == -1)
    {
+      ZF_LOGD("socket_buffers: SO_SNDBUF %d %s", fd, strerror(errno));
       return 1;
    }
 
    return 0;
-}
-
-static void sigchld_handler(int s)
-{
-   int saved_errno = errno;
-
-   while (waitpid(-1, NULL, WNOHANG) > 0);
-
-   errno = saved_errno;
 }
