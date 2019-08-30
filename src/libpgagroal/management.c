@@ -130,7 +130,6 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload)
          free(cmptr);
          break;
       case MANAGEMENT_KILL_CONNECTION:
-         read(socket, &buf4, 4 * sizeof(char));
          *payload = 0;
          break;
       case MANAGEMENT_FLUSH:
