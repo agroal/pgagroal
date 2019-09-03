@@ -130,7 +130,7 @@ main(int argc, char **argv)
    }
    
    /* libev */
-   loop = ev_default_loop(EVFLAG_AUTO);
+   loop = ev_default_loop(pgagroal_libev(config->libev));
    if (!loop)
    {
       printf("libev issue: No default loop implementation\n");
@@ -168,6 +168,7 @@ main(int argc, char **argv)
       ZF_LOGD("Socket %d", *(fds + i));
    }
    ZF_LOGD("Management %d", unix_socket);
+   pgagroal_libev_engines();
    ZF_LOGD("libev engine: %s", pgagroal_libev_engine(ev_backend(loop)));
    
    while (keep_running)

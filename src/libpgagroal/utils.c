@@ -108,6 +108,150 @@ pgagroal_write_string(void* data, char* s)
    memcpy(data, s, strlen(s));
 }
 
+void
+pgagroal_libev_engines()
+{
+   unsigned int engines = ev_supported_backends();
+
+   if (engines & EVBACKEND_SELECT)
+   {
+      ZF_LOGD("libev available: select");
+   }
+   if (engines & EVBACKEND_POLL)
+   {
+      ZF_LOGD("libev available: poll");
+   }
+   if (engines & EVBACKEND_EPOLL)
+   {
+      ZF_LOGD("libev available: epoll");
+   }
+#ifdef EVBACKEND_LINUXAIO
+   if (engines & EVBACKEND_LINUXAIO)
+   {
+      ZF_LOGD("libev available: linuxaio");
+   }
+#endif
+#ifdef EVBACKEND_IOURING
+   if (engines & EVBACKEND_IOURING)
+   {
+      ZF_LOGD("libev available: iouring");
+   }
+#endif
+   if (engines & EVBACKEND_KQUEUE)
+   {
+      ZF_LOGD("libev available: kqueue");
+   }
+   if (engines & EVBACKEND_DEVPOLL)
+   {
+      ZF_LOGD("libev available: devpoll");
+   }
+   if (engines & EVBACKEND_PORT)
+   {
+      ZF_LOGD("libev available: port");
+   }
+}
+
+unsigned int
+pgagroal_libev(char* engine)
+{
+   unsigned int engines = ev_supported_backends();
+
+   if (engine)
+   {
+      if (!strcmp("select", engine))
+      {
+         if (engines & EVBACKEND_SELECT)
+         {
+            return EVBACKEND_SELECT;
+         }
+         else
+         {
+            ZF_LOGW("libev not available: select");
+         }
+      }
+      else if (!strcmp("poll", engine))
+      {
+         if (engines & EVBACKEND_POLL)
+         {
+            return EVBACKEND_POLL;
+         }
+         else
+         {
+            ZF_LOGW("libev not available: poll");
+         }
+      }
+      else if (!strcmp("epoll", engine))
+      {
+         if (engines & EVBACKEND_EPOLL)
+         {
+            return EVBACKEND_EPOLL;
+         }
+         else
+         {
+            ZF_LOGW("libev not available: epoll");
+         }
+      }
+      else if (!strcmp("linuxaio", engine))
+      {
+#ifdef EVBACKEND_LINUXAIO
+         if (engines & EVBACKEND_LINUXAIO)
+         {
+            return EVBACKEND_LINUXAIO;
+         }
+         else
+#endif
+         {
+            ZF_LOGW("libev not available: linuxaio");
+         }
+      }
+      else if (!strcmp("iouring", engine))
+      {
+#ifdef EVBACKEND_IOURING
+         if (engines & EVBACKEND_IOURING)
+         {
+            return EVBACKEND_IOURING;
+         }
+         else
+#endif
+         {
+            ZF_LOGW("libev not available: iouring");
+         }
+      }
+      else if (!strcmp("devpoll", engine))
+      {
+         if (engines & EVBACKEND_DEVPOLL)
+         {
+            return EVBACKEND_DEVPOLL;
+         }
+         else
+         {
+            ZF_LOGW("libev not available: devpoll");
+         }
+      }
+      else if (!strcmp("port", engine))
+      {
+         if (engines & EVBACKEND_PORT)
+         {
+            return EVBACKEND_PORT;
+         }
+         else
+         {
+            ZF_LOGW("libev not available: port");
+         }
+      }
+      else if (!strcmp("auto", engine))
+      {
+         return EVFLAG_AUTO;
+      }
+      else
+      {
+         ZF_LOGW("libev unknown option: %s", engine);
+      }
+   }
+
+   return EVFLAG_AUTO;
+}
+
 char*
 pgagroal_libev_engine(unsigned int val)
 {
@@ -121,7 +265,11 @@ pgagroal_libev_engine(unsigned int val)
          return "epoll";
 #ifdef EVBACKEND_LINUXAIO
       case EVBACKEND_LINUXAIO:
-         return "Linux AIO";
+         return "linuxaio";
+#endif
+#ifdef EVBACKEND_IOURING
+      case EVBACKEND_IOURING:
+         return "iouring";
 #endif
       case EVBACKEND_KQUEUE:
          return "kqueue";

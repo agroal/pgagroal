@@ -82,6 +82,18 @@ pgagroal_write_string(void* data, char* s);
 /**
  *
  */
+void
+pgagroal_libev_engines();
+
+/**
+ *
+ */
+unsigned int
+pgagroal_libev(char* engine);
+
+/**
+ *
+ */
 char*
 pgagroal_libev_engine(unsigned int val);
 

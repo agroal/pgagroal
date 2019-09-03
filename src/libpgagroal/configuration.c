@@ -30,6 +30,7 @@
 #include <pgagroal.h>
 #include <configuration.h>
 #include <logging.h>
+#include <utils.h>
 
 /* system */
 #include <stdbool.h>
@@ -93,6 +94,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
 
    config->idle_timeout = 0;
 
+   memset(config->libev, 0, sizeof(config->libev));
    config->buffer_size = DEFAULT_BUFFER_SIZE;
    config->keep_alive = true;
    config->nodelay = true;
@@ -101,6 +103,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
 
    config->log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;
+   memset(config->log_path, 0, sizeof(config->log_path));
 
    while (fgets(line, sizeof(line), file))
    {
@@ -276,6 +279,20 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      if (max > MISC_LENGTH - 1)
                         max = MISC_LENGTH - 1;
                      memcpy(config->unix_socket_dir, value, max);
+                  }
+                  else
+                  {
+                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                  }
+               }
+               else if (!strcmp(key, "libev"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     max = strlen(value);
+                     if (max > MISC_LENGTH - 1)
+                        max = MISC_LENGTH - 1;
+                     memcpy(config->libev, value, max);
                   }
                   else
                   {

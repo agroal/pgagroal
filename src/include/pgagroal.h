@@ -132,6 +132,7 @@ struct configuration
 
    int idle_timeout;
 
+   char libev[MISC_LENGTH];
    int buffer_size;
    bool keep_alive;
    bool nodelay;
