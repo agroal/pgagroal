@@ -52,6 +52,11 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#define MAX(a, b) \
+   ({ __typeof__ (a) _a = (a);  \
+      __typeof__ (b) _b = (b);  \
+      _a > _b ? _a : _b; })
+
 static volatile int keep_running = 1;
 
 static void accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
@@ -151,7 +156,8 @@ main(int argc, char **argv)
 
    if (config->idle_timeout > 0)
    {
-      ev_periodic_init ((struct ev_periodic*)&idle_timeout, idle_timeout_cb, 0., 1. * config->idle_timeout, 0);
+      ev_periodic_init ((struct ev_periodic*)&idle_timeout, idle_timeout_cb, 0.,
+                        MAX(1. * config->idle_timeout / 2., 5.), 0);
       idle_timeout.shmem = shmem;
       ev_periodic_start (loop, (struct ev_periodic*)&idle_timeout);
    }

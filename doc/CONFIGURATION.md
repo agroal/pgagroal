@@ -28,7 +28,7 @@ See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `loc
 | log_level | | String | Yes | The logging level (fatal, error, warn, info, debug1, ..., debug5) |
 | log_path | | String | Yes | The log file location |
 | unix_socket_dir | | String | Yes | The Unix Domain Socket location |
-| idle_timeout | 0 | Int | No | The number of seconds between idle timeout checks (disable = 0) |
+| idle_timeout | 0 | Int | No | The number of seconds a connection is been kept alive (disable = 0) |
 | max_connections | 0 | Int | No | The maximum number of connections (0 = up to 512) |
 | buffer_size | 65535 | Int | No | The network buffer size (`SO_RCVBUF` and `SO_SNDBUF`) |
 | keep_alive | on | Bool | No | Have `SO_KEEPALIVE` on sockets |
