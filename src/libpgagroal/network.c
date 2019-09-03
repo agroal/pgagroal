@@ -36,6 +36,7 @@
 /* system */
 #include <errno.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
 #include <netdb.h>
 #include <signal.h>
 #include <stdio.h>
@@ -43,6 +44,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
@@ -50,112 +52,82 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+static int bind_host(const char* hostname, int port, void* shmem, int** fds, int* length);
+
 /**
  *
  */
 int
 pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* length)
 {
-   int *result;
-   int index, size;
-   int sockfd;
-   struct addrinfo hints, *servinfo, *addr;
-   int yes = 1;
-   int rv;
-   char* sport;
-   struct configuration* config;
+   struct ifaddrs *ifaddr, *ifa;
+   struct sockaddr_in *sa4;
+   struct sockaddr_in6 *sa6;
+   char addr[50];
+   int* star_fds = NULL;
+   int star_length = 0;
 
-   config = (struct configuration*)shmem;
-
-   index = 0;
-   size = 0;
-
-   sport = malloc(5);
-   memset(sport, 0, 5);
-   sprintf(sport, "%d", port);
-
-   /* Find all SOCK_STREAM addresses */
-   memset(&hints, 0, sizeof hints);
-   hints.ai_family = AF_UNSPEC;
-   hints.ai_socktype = SOCK_STREAM;
-   hints.ai_flags = AI_PASSIVE;
-
-   if ((rv = getaddrinfo(hostname, sport, &hints, &servinfo)) != 0)
+   if (!strcmp("*", hostname))
    {
-      free(sport);
-      ZF_LOGE("getaddrinfo: %s", gai_strerror(rv));
-      return 1;
+      if (getifaddrs(&ifaddr) == -1)
+      {
+         ZF_LOGE("getifaddrs: %s", strerror(errno));
+         return 1;
+      }
+
+      for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
+      {
+         if (ifa->ifa_addr != NULL &&
+             (ifa->ifa_addr->sa_family == AF_INET || ifa->ifa_addr->sa_family == AF_INET6) &&
+             (ifa->ifa_flags & IFF_UP))
+         {
+            int* new_fds = NULL;
+            int new_length = 0;
+
+            memset(addr, 0, sizeof(addr));
+
+            if (ifa->ifa_addr->sa_family == AF_INET)
+            {
+               sa4 = (struct sockaddr_in*) ifa->ifa_addr;
+               inet_ntop(AF_INET, &sa4->sin_addr, addr, sizeof(addr));
+            }
+            else
+            {
+               sa6 = (struct sockaddr_in6 *) ifa->ifa_addr;
+               inet_ntop(AF_INET6, &sa6->sin6_addr, addr, sizeof(addr));
+            }
+
+            if (bind_host(addr, port, shmem, &new_fds, &new_length))
+            {
+               free(new_fds);
+               continue;
+            }
+
+            if (star_fds == NULL)
+            {
+               star_fds = malloc(new_length * sizeof(int));
+               memcpy(star_fds, new_fds, new_length * sizeof(int));
+               star_length = new_length;
+            }
+            else
+            {
+               star_fds = realloc(star_fds, (star_length + new_length) * sizeof(int));
+               memcpy(star_fds + star_length, new_fds, new_length * sizeof(int));
+               star_length += new_length;
+            }
+
+            free(new_fds);
+         }
+      }
+
+      *fds = star_fds;
+      *length = star_length;
+
+      freeifaddrs(ifaddr);
+      return 0;
    }
 
-   free(sport);
-   
-   for (addr = servinfo; addr != NULL; addr = addr->ai_next)
-   {
-      size++;
-   }
-
-   result = malloc(size * sizeof(int));
-   memset(result, 0, size * sizeof(int));
-
-   /* Loop through all the results and bind to the first we can */
-   for (addr = servinfo; addr != NULL; addr = addr->ai_next)
-   {
-      if ((sockfd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol)) == -1)
-      {
-         ZF_LOGD("server: socket: %s", strerror(errno));
-         continue;
-      }
-
-      if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
-      {
-         ZF_LOGD("server: so_reuseaddr: %d %s", sockfd, strerror(errno));
-         continue;
-      }
-
-      if (pgagroal_socket_nonblocking(sockfd, shmem))
-      {
-         continue;
-      }
-
-      if (pgagroal_socket_buffers(sockfd, shmem))
-      {
-         continue;
-      }
-
-      if (pgagroal_tcp_nodelay(sockfd, shmem))
-      {
-         continue;
-      }
-
-      if (bind(sockfd, addr->ai_addr, addr->ai_addrlen) == -1)
-      {
-         pgagroal_disconnect(sockfd);
-         ZF_LOGD("server: bind: %s", strerror(errno));
-         continue;
-      }
-
-      if (listen(sockfd, config->backlog) == -1)
-      {
-         pgagroal_disconnect(sockfd);
-         ZF_LOGD("server: listen: %s", strerror(errno));
-         continue;
-      }
-
-      *(result + index) = sockfd;
-      index++;
-   }
-
-   freeaddrinfo(servinfo);
-
-   if (index == 0)
-   {
-      return 1;
-   }
-
-   *fds = result;
-   *length = index;
-
-   return 0;
+   return bind_host(hostname, port, shmem, fds, length);
 }
 
 /**
@@ -455,6 +427,119 @@ pgagroal_socket_buffers(int fd, void* shmem)
       ZF_LOGD("socket_buffers: SO_SNDBUF %d %s", fd, strerror(errno));
       return 1;
    }
+
+   return 0;
+}
+
+/**
+ *
+ */
+static int
+bind_host(const char* hostname, int port, void* shmem, int** fds, int* length)
+{
+   int *result = NULL;
+   int index, size;
+   int sockfd;
+   struct addrinfo hints, *servinfo, *addr;
+   int yes = 1;
+   int rv;
+   char* sport;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   index = 0;
+   size = 0;
+
+   sport = malloc(5);
+   memset(sport, 0, 5);
+   sprintf(sport, "%d", port);
+
+   /* Find all SOCK_STREAM addresses */
+   memset(&hints, 0, sizeof hints);
+   hints.ai_family = AF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+   hints.ai_flags = AI_PASSIVE;
+
+   if ((rv = getaddrinfo(hostname, sport, &hints, &servinfo)) != 0)
+   {
+      free(sport);
+      ZF_LOGE("getaddrinfo: %s:%d (%s)", hostname, port, gai_strerror(rv));
+      return 1;
+   }
+
+   free(sport);
+
+   for (addr = servinfo; addr != NULL; addr = addr->ai_next)
+   {
+      size++;
+   }
+
+   result = malloc(size * sizeof(int));
+   memset(result, 0, size * sizeof(int));
+
+   /* Loop through all the results and bind to the first we can */
+   for (addr = servinfo; addr != NULL; addr = addr->ai_next)
+   {
+      if ((sockfd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol)) == -1)
+      {
+         ZF_LOGD("server: socket: %s:%d (%s)", hostname, port, strerror(errno));
+         continue;
+      }
+
+      if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
+      {
+         ZF_LOGD("server: so_reuseaddr: %d %s", sockfd, strerror(errno));
+         pgagroal_disconnect(sockfd);
+         continue;
+      }
+
+      if (pgagroal_socket_nonblocking(sockfd, shmem))
+      {
+         pgagroal_disconnect(sockfd);
+         continue;
+      }
+
+      if (pgagroal_socket_buffers(sockfd, shmem))
+      {
+         pgagroal_disconnect(sockfd);
+         continue;
+      }
+
+      if (pgagroal_tcp_nodelay(sockfd, shmem))
+      {
+         pgagroal_disconnect(sockfd);
+         continue;
+      }
+
+      if (bind(sockfd, addr->ai_addr, addr->ai_addrlen) == -1)
+      {
+         pgagroal_disconnect(sockfd);
+         ZF_LOGD("server: bind: %s:%d (%s)", hostname, port, strerror(errno));
+         continue;
+      }
+
+      if (listen(sockfd, config->backlog) == -1)
+      {
+         pgagroal_disconnect(sockfd);
+         ZF_LOGD("server: listen: %s:%d (%s)", hostname, port, strerror(errno));
+         continue;
+      }
+
+      *(result + index) = sockfd;
+      index++;
+   }
+
+   freeaddrinfo(servinfo);
+
+   if (index == 0)
+   {
+      free(result);
+      return 1;
+   }
+
+   *fds = result;
+   *length = index;
 
    return 0;
 }
