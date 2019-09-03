@@ -34,7 +34,7 @@ See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `loc
 | keep_alive | on | Bool | No | Have `SO_KEEPALIVE` on sockets |
 | nodelay | on | Bool | No | Have `TCP_NODELAY` on sockets |
 | non_blocking | on | Bool | No | Have `O_NONBLOCK` on sockets |
-| backlog | 512 | Int | No | The backlog for `listen()` |
+| backlog | 128 | Int | No | The backlog for `listen()` |
 
 ## Server section
 
