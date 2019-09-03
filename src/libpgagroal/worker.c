@@ -33,6 +33,7 @@
 #include <memory.h>
 #include <message.h>
 #include <network.h>
+#include <pipeline.h>
 #include <pool.h>
 #include <security.h>
 #include <worker.h>
@@ -42,32 +43,11 @@
 #include <zf_log.h>
 
 /* system */
-#include <errno.h>
 #include <ev.h>
-#include <fcntl.h>
-#include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
-#define WORKER_SUCCESS        0
-#define WORKER_CLIENT_FAILURE 1
-#define WORKER_SERVER_FAILURE 2
-#define WORKER_SERVER_FATAL   3
-
-static volatile int running = 1;
-static volatile int exit_code = WORKER_SUCCESS;
-
-static void client_pgagroal_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void server_pgagroal_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
-
-struct worker_info
-{
-   struct ev_io io;
-   int client_fd;
-   int server_fd;
-};
+volatile int running = 1;
+volatile int exit_code = WORKER_SUCCESS;
 
 void
 pgagroal_worker(int client_fd, void* shmem)
@@ -76,6 +56,7 @@ pgagroal_worker(int client_fd, void* shmem)
    struct worker_info client_io = {0};
    struct worker_info server_io = {0};
    struct configuration* config = NULL;
+   struct pipeline p;
    int32_t slot = -1;
 
    pgagroal_start_logging(shmem);
@@ -110,11 +91,13 @@ pgagroal_worker(int client_fd, void* shmem)
          ZF_LOGW("pgagroal_worker: SO_RCVBUF/SO_SNDBUF failed for %d", client_fd);
       }
       
-      ev_io_init((struct ev_io*)&client_io, client_pgagroal_cb, client_fd, EV_READ);
+      p = performance_pipeline();
+
+      ev_io_init((struct ev_io*)&client_io, p.client, client_fd, EV_READ);
       client_io.client_fd = client_fd;
       client_io.server_fd = config->connections[slot].fd;
       
-      ev_io_init((struct ev_io*)&server_io, server_pgagroal_cb, config->connections[slot].fd, EV_READ);
+      ev_io_init((struct ev_io*)&server_io, p.server, config->connections[slot].fd, EV_READ);
       server_io.client_fd = client_fd;
       server_io.server_fd = config->connections[slot].fd;
       
@@ -158,119 +141,4 @@ pgagroal_worker(int client_fd, void* shmem)
    pgagroal_stop_logging(shmem);
 
    exit(exit_code);
-}
-
-static void
-client_pgagroal_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
-{
-   int status = MESSAGE_STATUS_ERROR;
-   struct worker_info* wi = NULL;
-   struct message* msg = NULL;
-
-   wi = (struct worker_info*)watcher;
-
-   status = pgagroal_read_message(wi->client_fd, &msg);
-   if (likely(status == MESSAGE_STATUS_OK))
-   {
-      if (likely(msg->kind != 'X'))
-      {
-         status = pgagroal_write_message(wi->server_fd, msg);
-         if (unlikely(status != MESSAGE_STATUS_OK))
-         {
-            goto server_error;
-         }
-      }
-      else if (msg->kind == 'X')
-      {
-         exit_code = WORKER_SUCCESS;
-         running = 0;
-      }
-   }
-   else
-   {
-      goto client_error;
-   }
-
-   /* We don't need to "free" the memory for the message */
-   /* pgagroal_free_message(msg); */
-
-   ev_break (loop, EVBREAK_ONE);
-   return;
-
-client_error:
-   ZF_LOGD("client_fd %d - %s (%d)", wi->client_fd, strerror(errno), status);
-
-   ev_break (loop, EVBREAK_ONE);
-   exit_code = WORKER_CLIENT_FAILURE;
-   running = 0;
-   return;
-
-server_error:
-   ZF_LOGD("server_fd %d - %s (%d)", wi->server_fd, strerror(errno), status);
-
-   ev_break (loop, EVBREAK_ONE);
-   exit_code = WORKER_SERVER_FAILURE;
-   running = 0;
-   return;
-}
-
-static void
-server_pgagroal_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
-{
-   int status = MESSAGE_STATUS_ERROR;
-   bool fatal = false;
-   struct worker_info* wi = NULL;
-   struct message* msg = NULL;
-
-   wi = (struct worker_info*)watcher;
-
-   status = pgagroal_read_message(wi->server_fd, &msg);
-   if (likely(status == MESSAGE_STATUS_OK))
-   {
-      status = pgagroal_write_message(wi->client_fd, msg);
-      if (unlikely(status != MESSAGE_STATUS_OK))
-      {
-         goto client_error;
-      }
-
-      if (unlikely(msg->kind == 'E'))
-      {
-         fatal = false;
-
-         if (!strncmp(msg->data + 6, "FATAL", 5))
-            fatal = true;
-
-         if (fatal)
-         {
-            exit_code = WORKER_SERVER_FATAL;
-            running = 0;
-         }
-      }
-   }
-   else
-   {
-      goto server_error;
-   }
-
-   /* We don't need to "free" the memory for the message */
-   /* pgagroal_free_message(msg); */
-
-   ev_break (loop, EVBREAK_ONE);
-   return;
-
-client_error:
-   ZF_LOGD("client_fd %d - %s (%d)", wi->client_fd, strerror(errno), status);
-
-   ev_break (loop, EVBREAK_ONE);
-   exit_code = WORKER_CLIENT_FAILURE;
-   running = 0;
-   return;
-
-server_error:
-   ZF_LOGD("server_fd %d - %s (%d)", wi->server_fd, strerror(errno), status);
-
-   ev_break (loop, EVBREAK_ONE);
-   exit_code = WORKER_SERVER_FAILURE;
-   running = 0;
-   return;
 }

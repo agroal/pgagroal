@@ -26,8 +26,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PGAGROAL_WORKER_H
-#define PGAGROAL_WORKER_H
+#ifndef PGAGROAL_PIPELINE_H
+#define PGAGROAL_PIPELINE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,30 +36,20 @@ extern "C" {
 #include <ev.h>
 #include <stdlib.h>
 
-#define WORKER_SUCCESS        0
-#define WORKER_CLIENT_FAILURE 1
-#define WORKER_SERVER_FAILURE 2
-#define WORKER_SERVER_FATAL   3
+#define PIPELINE_PERFORMANCE 0
 
-struct worker_info
+typedef void (*callback)(struct ev_loop *, struct ev_io *, int);
+
+struct pipeline
 {
-   struct ev_io io;
-   int client_fd;
-   int server_fd;
+   callback client;
+   callback server;
 };
 
-extern volatile int running;
-extern volatile int exit_code;
-
-/**
- *
- */
-void
-pgagroal_worker(int fd, void* shmem);
+struct pipeline performance_pipeline();
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif
-

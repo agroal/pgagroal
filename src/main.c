@@ -87,7 +87,7 @@ main(int argc, char **argv)
    struct accept_info io_mgt;
    ev_signal signal_watcher;
    struct idle_timeout_info idle_timeout;
-   int* fds;
+   int* fds = NULL;
    int length;
    int unix_socket;
    size_t size;

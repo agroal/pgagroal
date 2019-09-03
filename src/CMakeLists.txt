@@ -1,21 +1,7 @@
 #
 # Add files for libpgagroal
 #
-FILE(GLOB SOURCE_FILES
-  "libpgagroal/configuration.c"
-  "libpgagroal/logging.c"
-  "libpgagroal/management.c"
-  "libpgagroal/memory.c"
-  "libpgagroal/message.c"
-  "libpgagroal/network.c"
-  "libpgagroal/pool.c"
-  "libpgagroal/security.c"
-  "libpgagroal/server.c"
-  "libpgagroal/shmem.c"
-  "libpgagroal/utils.c"
-  "libpgagroal/worker.c"
-  "libpgagroal/zf_log.c"
-)
+FILE(GLOB SOURCE_FILES "libpgagroal/*.c")
 FILE(GLOB HEADER_FILES "include/*.h")
 
 set(SOURCES ${SOURCE_FILES} ${HEADER_FILES})
