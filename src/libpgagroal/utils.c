@@ -239,7 +239,7 @@ pgagroal_libev(char* engine)
             ZF_LOGW("libev not available: port");
          }
       }
-      else if (!strcmp("auto", engine))
+      else if (!strcmp("auto", engine) || !strcmp("", engine))
       {
          return EVFLAG_AUTO;
       }
