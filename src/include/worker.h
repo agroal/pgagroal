@@ -37,9 +37,10 @@ extern "C" {
 #include <stdlib.h>
 
 #define WORKER_SUCCESS        0
-#define WORKER_CLIENT_FAILURE 1
-#define WORKER_SERVER_FAILURE 2
-#define WORKER_SERVER_FATAL   3
+#define WORKER_FAILURE        1
+#define WORKER_CLIENT_FAILURE 2
+#define WORKER_SERVER_FAILURE 3
+#define WORKER_SERVER_FATAL   4
 
 struct worker_info
 {

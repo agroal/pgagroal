@@ -61,7 +61,8 @@ static volatile int keep_running = 1;
 
 static void accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void sigint_cb(struct ev_loop *loop, ev_signal *w, int revents);
+static void shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents);
+static void coredump_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents);
 
 struct accept_info
@@ -85,7 +86,7 @@ main(int argc, char **argv)
    struct ev_loop *loop;
    struct accept_info io_main[64];
    struct accept_info io_mgt;
-   ev_signal signal_watcher;
+   struct signal_info signal_watcher[6];
    struct idle_timeout_info idle_timeout;
    int* fds = NULL;
    int length;
@@ -137,8 +138,19 @@ main(int argc, char **argv)
       exit(1);
    }
 
-   ev_signal_init(&signal_watcher, sigint_cb, SIGINT);
-   ev_signal_start(loop, &signal_watcher);
+   ev_signal_init((struct ev_signal*)&signal_watcher[0], shutdown_cb, SIGTERM);
+   ev_signal_init((struct ev_signal*)&signal_watcher[1], shutdown_cb, SIGHUP);
+   ev_signal_init((struct ev_signal*)&signal_watcher[2], shutdown_cb, SIGINT);
+   ev_signal_init((struct ev_signal*)&signal_watcher[3], shutdown_cb, SIGTRAP);
+   ev_signal_init((struct ev_signal*)&signal_watcher[4], coredump_cb, SIGABRT);
+   ev_signal_init((struct ev_signal*)&signal_watcher[5], shutdown_cb, SIGALRM);
+
+   for (int i = 0; i < 6; i++)
+   {
+      signal_watcher[i].shmem = shmem;
+      signal_watcher[i].slot = -1;
+      ev_signal_start(loop, (struct ev_signal*)&signal_watcher[i]);
+   }
 
    ev_io_init((struct ev_io*)&io_mgt, accept_mgt_cb, unix_socket, EV_READ);
    io_mgt.socket = unix_socket;
@@ -184,6 +196,11 @@ main(int argc, char **argv)
    {
       ev_io_stop(loop, (struct ev_io*)&io_main[i]);
       pgagroal_disconnect(io_main[i].socket);
+   }
+
+   for (int i = 0; i < 6; i++)
+   {
+      ev_signal_stop(loop, (struct ev_signal*)&signal_watcher[i]);
    }
 
    ev_loop_destroy(loop);
@@ -303,10 +320,30 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 }
 
 static void
-sigint_cb(struct ev_loop *loop, ev_signal *w, int revents)
+shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents)
 {
+   struct signal_info* si;
+
+   si = (struct signal_info*)w;
+
+   ZF_LOGD("pgagroal: shutdown requested");
+
+   pgagroal_pool_status(si->shmem);
    ev_break(loop, EVBREAK_ALL);
    keep_running = 0;
+}
+
+static void
+coredump_cb(struct ev_loop *loop, ev_signal *w, int revents)
+{
+   struct signal_info* si;
+
+   si = (struct signal_info*)w;
+
+   ZF_LOGI("pgagroal: core dump requested");
+
+   pgagroal_pool_status(si->shmem);
+   abort();
 }
 
 static void

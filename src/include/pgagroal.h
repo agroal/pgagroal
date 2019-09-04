@@ -33,6 +33,7 @@
 extern "C" {
 #endif
 
+#include <ev.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -153,6 +154,13 @@ struct message
    size_t max_length;
    void* data;
 } __attribute__ ((aligned (64)));
+
+struct signal_info
+{
+   struct ev_signal signal;
+   void* shmem;
+   int slot;
+};
 
 #ifdef __cplusplus
 }

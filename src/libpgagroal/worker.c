@@ -49,10 +49,13 @@
 volatile int running = 1;
 volatile int exit_code = WORKER_SUCCESS;
 
+static void signal_cb(struct ev_loop *loop, ev_signal *w, int revents);
+
 void
 pgagroal_worker(int client_fd, void* shmem)
 {
    struct ev_loop *loop = NULL;
+   struct signal_info signal_watcher;
    struct worker_info client_io = {0};
    struct worker_info server_io = {0};
    struct configuration* config = NULL;
@@ -101,7 +104,13 @@ pgagroal_worker(int client_fd, void* shmem)
       server_io.client_fd = client_fd;
       server_io.server_fd = config->connections[slot].fd;
       
-      loop = ev_loop_new(EVFLAG_AUTO);
+      loop = ev_loop_new(pgagroal_libev(config->libev));
+
+      ev_signal_init((struct ev_signal*)&signal_watcher, signal_cb, SIGQUIT);
+      signal_watcher.shmem = shmem;
+      signal_watcher.slot = slot;
+      ev_signal_start(loop, (struct ev_signal*)&signal_watcher);
+
       ev_io_start(loop, (struct ev_io*)&client_io);
       ev_io_start(loop, (struct ev_io*)&server_io);
 
@@ -127,13 +136,16 @@ pgagroal_worker(int client_fd, void* shmem)
    ZF_LOGD("client disconnect: %d", client_fd);
    pgagroal_disconnect(client_fd);
 
-   ZF_LOGD("After client");
+   ZF_LOGD("After client: Slot %d (%d)", slot, exit_code);
    pgagroal_pool_status(shmem);
 
    if (loop)
    {
       ev_io_stop(loop, (struct ev_io*)&client_io);
       ev_io_stop(loop, (struct ev_io*)&server_io);
+
+      ev_signal_stop(loop, (struct ev_signal*)&signal_watcher);
+
       ev_loop_destroy(loop);
    }
 
@@ -141,4 +153,17 @@ pgagroal_worker(int client_fd, void* shmem)
    pgagroal_stop_logging(shmem);
 
    exit(exit_code);
+}
+
+static void
+signal_cb(struct ev_loop *loop, ev_signal *w, int revents)
+{
+   struct signal_info* si;
+
+   si = (struct signal_info*)w;
+
+   ZF_LOGD("pgagroal: signal for slot %d", si->slot);
+
+   exit_code = WORKER_FAILURE;
+   running = 0;
 }

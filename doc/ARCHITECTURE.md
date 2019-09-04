@@ -102,6 +102,16 @@ The pipeline is defined in [worker.c](../src/libpgagroal/worker.c) in the functi
 | `client_pgagroal_cb` | Client to `pgagroal` communication |
 | `server_pgagroal_cb` | [PostgreSQL](https://www.postgresql.org) to `pgagroal` communication |
 
+## Signals
+
+The main process of `pgagroal` supports the following signals `SIGTERM`, `SIGHUP`, `SIGINT`, `SIGTRAP` and `SIGALRM`
+as a mechanism for shutting down. The `SIGABRT` is used to request a core dump (`abort()`).
+
+The child processes support `SIGQUIT` as a mechanism to shutdown. This will not shutdown the pool itself.
+
+It should not be needed to use `SIGKILL` for `pgagroal`. Please, consider using `SIGABRT` instead, and share the
+core dump and debug logs with the `pgagroal` community.
+
 ## Logging
 
 [zf_log](https://github.com/wonder-mice/zf_log) is used for the logging framework.
