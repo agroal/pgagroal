@@ -41,6 +41,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef EVBACKEND_LINUXAIO
+#define EVBACKEND_LINUXAIO 0x00000040U
+#endif
+
+#ifndef EVBACKEND_IOURING
+#define EVBACKEND_IOURING  0x00000080U
+#endif
+
 signed char
 pgagroal_read_byte(void* data)
 {
@@ -125,18 +133,14 @@ pgagroal_libev_engines()
    {
       ZF_LOGD("libev available: epoll");
    }
-#ifdef EVBACKEND_LINUXAIO
    if (engines & EVBACKEND_LINUXAIO)
    {
       ZF_LOGD("libev available: linuxaio");
    }
-#endif
-#ifdef EVBACKEND_IOURING
    if (engines & EVBACKEND_IOURING)
    {
       ZF_LOGD("libev available: iouring");
    }
-#endif
    if (engines & EVBACKEND_KQUEUE)
    {
       ZF_LOGD("libev available: kqueue");
@@ -193,26 +197,22 @@ pgagroal_libev(char* engine)
       }
       else if (!strcmp("linuxaio", engine))
       {
-#ifdef EVBACKEND_LINUXAIO
          if (engines & EVBACKEND_LINUXAIO)
          {
             return EVBACKEND_LINUXAIO;
          }
          else
-#endif
          {
             ZF_LOGW("libev not available: linuxaio");
          }
       }
       else if (!strcmp("iouring", engine))
       {
-#ifdef EVBACKEND_IOURING
          if (engines & EVBACKEND_IOURING)
          {
             return EVBACKEND_IOURING;
          }
          else
-#endif
          {
             ZF_LOGW("libev not available: iouring");
          }
@@ -263,14 +263,10 @@ pgagroal_libev_engine(unsigned int val)
          return "poll";
       case EVBACKEND_EPOLL:
          return "epoll";
-#ifdef EVBACKEND_LINUXAIO
       case EVBACKEND_LINUXAIO:
          return "linuxaio";
-#endif
-#ifdef EVBACKEND_IOURING
       case EVBACKEND_IOURING:
          return "iouring";
-#endif
       case EVBACKEND_KQUEUE:
          return "kqueue";
       case EVBACKEND_DEVPOLL:
