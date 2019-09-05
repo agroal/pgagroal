@@ -64,6 +64,7 @@ static void accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int reven
 static void shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void coredump_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents);
+static void validation_cb(struct ev_loop *loop, ev_periodic *w, int revents);
 
 struct accept_info
 {
@@ -72,7 +73,7 @@ struct accept_info
    void* shmem;
 };
 
-struct idle_timeout_info
+struct periodic_info
 {
    struct ev_periodic periodic;
    void* shmem;
@@ -87,7 +88,8 @@ main(int argc, char **argv)
    struct accept_info io_main[64];
    struct accept_info io_mgt;
    struct signal_info signal_watcher[6];
-   struct idle_timeout_info idle_timeout;
+   struct periodic_info idle_timeout;
+   struct periodic_info validation;
    int* fds = NULL;
    int length;
    int unix_socket;
@@ -172,6 +174,14 @@ main(int argc, char **argv)
                         MAX(1. * config->idle_timeout / 2., 5.), 0);
       idle_timeout.shmem = shmem;
       ev_periodic_start (loop, (struct ev_periodic*)&idle_timeout);
+   }
+
+   if (config->validation == VALIDATION_BACKGROUND)
+   {
+      ev_periodic_init ((struct ev_periodic*)&validation, validation_cb, 0.,
+                        MAX(1. * config->background_interval, 5.), 0);
+      validation.shmem = shmem;
+      ev_periodic_start (loop, (struct ev_periodic*)&validation);
    }
 
    ZF_LOGI("pgagroal: started on %s:%d", config->host, config->port);
@@ -349,7 +359,7 @@ coredump_cb(struct ev_loop *loop, ev_signal *w, int revents)
 static void
 idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 {
-   struct idle_timeout_info* iti;
+   struct periodic_info* pi;
 
    ZF_LOGV("pgagroal: idle_timeout_cb (%d)", revents);
 
@@ -360,11 +370,34 @@ idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents)
       return;
    }
 
-   iti = (struct idle_timeout_info*)w;
+   pi = (struct periodic_info*)w;
 
    /* pgagroal_idle_timeout() is always in a fork() */
    if (!fork())
    {
-      pgagroal_idle_timeout(iti->shmem);
+      pgagroal_idle_timeout(pi->shmem);
+   }
+}
+
+static void
+validation_cb(struct ev_loop *loop, ev_periodic *w, int revents)
+{
+   struct periodic_info* pi;
+
+   ZF_LOGV("pgagroal: validation_cb (%d)", revents);
+
+   if (EV_ERROR & revents)
+   {
+      perror("got invalid event");
+      errno = 0;
+      return;
+   }
+
+   pi = (struct periodic_info*)w;
+
+   /* pgagroal_validation() is always in a fork() */
+   if (!fork())
+   {
+      pgagroal_validation(pi->shmem);
    }
 }

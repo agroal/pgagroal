@@ -29,6 +29,8 @@ See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `loc
 | log_path | | String | Yes | The log file location |
 | unix_socket_dir | | String | Yes | The Unix Domain Socket location |
 | idle_timeout | 0 | Int | No | The number of seconds a connection is been kept alive (disable = 0) |
+| validation | `off` | String | No | Should connection validation be performed. Valid options: `off`, `foreground` and `background` |
+| background_interval | 300 | Int | No | The interval between background validation scans in seconds |
 | max_connections | 0 | Int | No | The maximum number of connections (0 = up to 512) |
 | libev | `auto` | String | No | Select the [libev](http://software.schmorp.de/pkg/libev.html) backend to use. Valid options: `auto`, `select`, `poll`, `epoll`, `linuxaio`, `iouring`, `devpoll` and `port` |
 | buffer_size | 65535 | Int | No | The network buffer size (`SO_RCVBUF` and `SO_SNDBUF`) |

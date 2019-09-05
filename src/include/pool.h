@@ -64,6 +64,12 @@ pgagroal_idle_timeout(void* shmem);
 /**
  *
  */
+void
+pgagroal_validation(void* shmem);
+
+/**
+ *
+ */
 int
 pgagroal_flush(void* shmem, int mode);
 

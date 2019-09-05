@@ -322,7 +322,6 @@ pgagroal_write_unsupported_security_model(int socket, char* username)
 int
 pgagroal_write_deallocate_all(int socket)
 {
-   int ret;
    int status;
    int size = 21;
 
@@ -341,7 +340,11 @@ pgagroal_write_deallocate_all(int socket)
    msg.length = size;
    msg.data = &deallocate;
 
-   ret = write_message(socket, true, &msg);
+   status = write_message(socket, true, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
 
    status = read_message(socket, true, &reply);
    if (status != MESSAGE_STATUS_OK)
@@ -350,7 +353,7 @@ pgagroal_write_deallocate_all(int socket)
    }
    pgagroal_free_message(reply);
    
-   return ret;
+   return 0;
 
 error:
    if (reply)
@@ -376,6 +379,49 @@ pgagroal_write_terminate(int socket)
    msg.data = &terminate;
 
    return write_message(socket, true, &msg);
+}
+
+bool
+pgagroal_connection_isvalid(int socket)
+{
+   int status;
+   int size = 15;
+
+   char valid[size];
+   struct message msg;
+   struct message* reply = NULL;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&valid, 0, sizeof(valid));
+
+   pgagroal_write_byte(&valid, 'Q');
+   pgagroal_write_int32(&(valid[1]), size - 1);
+   pgagroal_write_string(&(valid[5]), "SELECT 1;");
+
+   msg.kind = 'Q';
+   msg.length = size;
+   msg.data = &valid;
+
+   status = write_message(socket, true, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = read_message(socket, true, &reply);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+   pgagroal_free_message(reply);
+
+   return true;
+
+error:
+   if (reply)
+      pgagroal_free_message(reply);
+
+   return false;
 }
 
 static int

@@ -144,6 +144,12 @@ pgagroal_write_deallocate_all(int socket);
 int
 pgagroal_write_terminate(int socket);
 
+/**
+ *
+ */
+bool
+pgagroal_connection_isvalid(int socket);
+
 #ifdef __cplusplus
 }
 #endif

@@ -72,6 +72,7 @@ extern "C" {
 #define STATE_GRACEFULLY  2
 #define STATE_FLUSH       3
 #define STATE_IDLE_CHECK  4
+#define STATE_VALIDATION  5
 
 #define AUTH_SUCCESS 0
 #define AUTH_FAILURE 1
@@ -84,6 +85,10 @@ extern "C" {
 #define FLUSH_IDLE       0
 #define FLUSH_GRACEFULLY 1
 #define FLUSH_ALL        2
+
+#define VALIDATION_OFF        0
+#define VALIDATION_FOREGROUND 1
+#define VALIDATION_BACKGROUND 2
 
 #define likely(x)    __builtin_expect (!!(x), 1)
 #define unlikely(x)  __builtin_expect (!!(x), 0)
@@ -132,6 +137,8 @@ struct configuration
    int max_connections;
 
    int idle_timeout;
+   int validation;
+   int background_interval;
 
    char libev[MISC_LENGTH];
    int buffer_size;

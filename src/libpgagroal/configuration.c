@@ -45,6 +45,7 @@ static int as_int(char* str);
 static bool as_bool(char* str);
 static int as_logging_type(char* str);
 static int as_logging_level(char* str);
+static int as_validation(char* str);
 
 /**
  *
@@ -63,6 +64,19 @@ pgagroal_init_configuration(void* shmem, size_t size)
    {
       config->servers[i].primary = SERVER_NOTINIT;
    }
+
+   config->idle_timeout = 0;
+   config->validation = VALIDATION_OFF;
+   config->background_interval = 300;
+
+   config->buffer_size = DEFAULT_BUFFER_SIZE;
+   config->keep_alive = true;
+   config->nodelay = true;
+   config->non_blocking = true;
+   config->backlog = DEFAULT_BACKLOG;
+
+   config->log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
+   config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;
 
    return 0;
 }
@@ -91,19 +105,6 @@ pgagroal_read_configuration(char* filename, void* shmem)
     
    memset(&section, 0, LINE_LENGTH);
    config = (struct configuration*)shmem;
-
-   config->idle_timeout = 0;
-
-   memset(config->libev, 0, sizeof(config->libev));
-   config->buffer_size = DEFAULT_BUFFER_SIZE;
-   config->keep_alive = true;
-   config->nodelay = true;
-   config->non_blocking = true;
-   config->backlog = DEFAULT_BACKLOG;
-
-   config->log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
-   config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;
-   memset(config->log_path, 0, sizeof(config->log_path));
 
    while (fgets(line, sizeof(line), file))
    {
@@ -214,6 +215,28 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   if (!strcmp(section, "pgagroal"))
                   {
                      config->idle_timeout = as_int(value);
+                  }
+                  else
+                  {
+                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                  }
+               }
+               else if (!strcmp(key, "validation"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->validation = as_validation(value);
+                  }
+                  else
+                  {
+                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                  }
+               }
+               else if (!strcmp(key, "background_interval"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->background_interval = as_int(value);
                   }
                   else
                   {
@@ -488,4 +511,18 @@ static int as_logging_level(char* str)
       return PGAGROAL_LOGGING_LEVEL_FATAL;
 
    return PGAGROAL_LOGGING_LEVEL_INFO;
+}
+
+static int as_validation(char* str)
+{
+   if (!strcasecmp(str, "off"))
+      return VALIDATION_OFF;
+
+   if (!strcasecmp(str, "foreground"))
+      return VALIDATION_FOREGROUND;
+
+   if (!strcasecmp(str, "background"))
+      return VALIDATION_BACKGROUND;
+
+   return VALIDATION_OFF;
 }

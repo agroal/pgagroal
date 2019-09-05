@@ -148,9 +148,20 @@ pgagroal_get_connection(void* shmem, char* username, char* database, int* slot)
       }
       else
       {
+         bool kill = false;
          /* Verify the socket for the slot */
          int r = fcntl(config->connections[*slot].fd, F_GETFL);
          if (r == -1)
+         {
+            kill = true;
+         }
+
+         if (config->validation == VALIDATION_FOREGROUND)
+         {
+            kill = !pgagroal_connection_isvalid(config->connections[*slot].fd);
+         }
+
+         if (kill)
          {
             ZF_LOGD("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
             pgagroal_kill_connection(shmem, *slot);
@@ -281,6 +292,70 @@ pgagroal_idle_timeout(void* shmem)
       }
    }
    
+   pgagroal_pool_status(shmem);
+   pgagroal_stop_logging(shmem);
+
+   exit(0);
+}
+
+void
+pgagroal_validation(void* shmem)
+{
+   time_t now;
+   int free;
+   struct configuration* config;
+
+   pgagroal_start_logging(shmem);
+
+   config = (struct configuration*)shmem;
+   now = time(NULL);
+
+   ZF_LOGD("pgagroal_validation");
+
+   /* We run backwards */
+   for (int i = NUMBER_OF_CONNECTIONS - 1; i >= 0; i--)
+   {
+      free = STATE_FREE;
+
+      if (atomic_compare_exchange_strong(&config->connections[i].state, &free, STATE_VALIDATION))
+      {
+         bool kill = false;
+         double diff;
+
+         /* Verify the socket for the slot */
+         int r = fcntl(config->connections[i].fd, F_GETFL);
+         if (r == -1)
+         {
+            kill = true;
+         }
+
+         /* While we have the connection in validation may as well check for idle_timeout */
+         if (!kill && config->idle_timeout > 0)
+         {
+            diff = difftime(now, config->connections[i].timestamp);
+            if (diff >= (double)config->idle_timeout)
+            {
+               kill = true;
+            }
+         }
+
+         /* Ok, send SELECT 1 */
+         if (!kill)
+         {
+            kill = !pgagroal_connection_isvalid(config->connections[i].fd);
+         }
+
+         if (kill)
+         {
+            pgagroal_kill_connection(shmem, i);
+         }
+         else
+         {
+            atomic_store(&config->connections[i].state, STATE_FREE);
+         }
+      }
+   }
+
    pgagroal_pool_status(shmem);
    pgagroal_stop_logging(shmem);
 
@@ -467,6 +542,22 @@ connection_details(void* shmem, int slot)
          break;
       case STATE_IDLE_CHECK:
          ZF_LOGD("pgagroal_pool_status: State: IDLE CHECK");
+         ZF_LOGD("                      Slot: %d", slot);
+         ZF_LOGD("                      Server: %d", connection.server);
+         ZF_LOGD("                      User: %s", connection.username);
+         ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      Time: %s", time);
+         ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGV("                      Auth: %d", connection.has_security);
+         for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
+         {
+            ZF_LOGV("                      Size: %zd", connection.security_lengths[i]);
+            ZF_LOGV_MEM(&connection.security_messages[i], connection.security_lengths[i],
+                        "                      Message %p:", (const void *)&connection.security_messages[i]);
+         }
+         break;
+      case STATE_VALIDATION:
+         ZF_LOGD("pgagroal_pool_status: State: VALIDATION");
          ZF_LOGD("                      Slot: %d", slot);
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
