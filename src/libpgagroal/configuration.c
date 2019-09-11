@@ -46,6 +46,8 @@ static bool as_bool(char* str);
 static int as_logging_type(char* str);
 static int as_logging_level(char* str);
 static int as_validation(char* str);
+static int extract_value(char* str, int offset, char** value);
+static void extract_hba(char* str, char** type, char** database, char** user, char** address, char** method);
 
 /**
  *
@@ -386,9 +388,17 @@ pgagroal_read_configuration(char* filename, void* shmem)
    }
 
    if (idx_server != -1 && strlen(srv.name) > 0)
+   {
       memcpy(&(config->servers[idx_server]), &srv, sizeof(struct server));
+      idx_server++;
+   }
+
+   config->number_of_servers = idx_server;
 
    fclose(file);
+
+   if (config->number_of_servers == 0)
+      return 1;
 
    return 0;
 }
@@ -399,6 +409,82 @@ pgagroal_read_configuration(char* filename, void* shmem)
 int
 pgagroal_read_hba_configuration(char* filename, void* shmem)
 {
+   FILE* file;
+   char line[LINE_LENGTH];
+   int index;
+   char* type = NULL;
+   char* database = NULL;
+   char* user = NULL;
+   char* address = NULL;
+   char* method = NULL;
+   struct configuration* config;
+
+   file = fopen(filename, "r");
+
+   if (!file)
+      return 1;
+
+   index = 0;
+   config = (struct configuration*)shmem;
+
+   while (fgets(line, sizeof(line), file))
+   {
+      if (strcmp(line, ""))
+      {
+         if (line[0] == '#' || line[0] == ';')
+         {
+            /* Comment, so ignore */
+         }
+         else
+         {
+            extract_hba(line, &type, &database, &user, &address, &method);
+
+            if (type && database && user && address && method)
+            {
+               if (!strcmp("host", type))
+               {
+                  memcpy(&(config->hbas[index].type), type, strlen(type));
+                  memcpy(&(config->hbas[index].database), database, strlen(database));
+                  memcpy(&(config->hbas[index].user), user, strlen(user));
+                  memcpy(&(config->hbas[index].address), address, strlen(address));
+                  memcpy(&(config->hbas[index].method), method, strlen(method));
+
+                  index++;
+
+                  if (index >= NUMBER_OF_HBAS)
+                  {
+                     printf("Too many HBA entries (%d)\n", NUMBER_OF_HBAS);
+                     return 1;
+                  }
+               }
+               else
+               {
+                  printf("Unknown HBA type: %s\n", type);
+               }
+            }
+
+            free(type);
+            free(database);
+            free(user);
+            free(address);
+            free(method);
+
+            type = NULL;
+            database = NULL;
+            user = NULL;
+            address = NULL;
+            method = NULL;
+         }
+      }
+   }
+
+   config->number_of_hbas = index;
+
+   fclose(file);
+
+   if (config->number_of_hbas == 0)
+      return 1;
+
    return 0;
 }
 
@@ -426,7 +512,7 @@ extract_key_value(char* str, char** key, char** value)
 
       offset = c;
 
-      while (str[c] != ' ' && str[c] != '\n' && c < length)
+      while (str[c] != ' ' && str[c] != '\r' && str[c] != '\n' && c < length)
          c++;
 
       if (c < length)
@@ -525,4 +611,69 @@ static int as_validation(char* str)
       return VALIDATION_BACKGROUND;
 
    return VALIDATION_OFF;
+}
+
+static void
+extract_hba(char* str, char** type, char** database, char** user, char** address, char** method)
+{
+   int offset = 0;
+   int length = strlen(str);
+
+   offset = extract_value(str, offset, type);
+
+   if (offset == -1 || offset >= length)
+      return;
+
+   offset = extract_value(str, offset, database);
+
+   if (offset == -1 || offset >= length)
+      return;
+
+   offset = extract_value(str, offset, user);
+
+   if (offset == -1 || offset >= length)
+      return;
+
+   offset = extract_value(str, offset, address);
+
+   if (offset == -1 || offset >= length)
+      return;
+
+   extract_value(str, offset, method);
+
+   return;
+}
+
+static int
+extract_value(char* str, int offset, char** value)
+{
+   int from;
+   int to;
+   int length = strlen(str);
+   char* v = NULL;
+
+   while ((str[offset] == ' ' || str[offset] == '\t') && offset < length)
+      offset++;
+
+   if (offset < length)
+   {
+      from = offset;
+
+      while ((str[offset] != ' ' && str[offset] != '\t' && str[offset] != '\r' && str[offset] != '\n') && offset < length)
+         offset++;
+
+      if (offset < length)
+      {
+         to = offset;
+
+         v = malloc(to - from + 1);
+         memset(v, 0, to - from + 1);
+         memcpy(v, str + from, to - from);
+         *value = v;
+
+         return offset;
+      }
+   }
+
+   return -1;
 }

@@ -41,7 +41,7 @@ extern "C" {
  *
  */
 int
-pgagroal_authenticate(int client_fd, void* shmem, int* slot);
+pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot);
 
 #ifdef __cplusplus
 }

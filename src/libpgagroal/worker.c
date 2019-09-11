@@ -52,7 +52,7 @@ volatile int exit_code = WORKER_SUCCESS;
 static void signal_cb(struct ev_loop *loop, ev_signal *w, int revents);
 
 void
-pgagroal_worker(int client_fd, void* shmem)
+pgagroal_worker(int client_fd, char* address, void* shmem)
 {
    struct ev_loop *loop = NULL;
    struct signal_info signal_watcher;
@@ -68,7 +68,7 @@ pgagroal_worker(int client_fd, void* shmem)
    config = (struct configuration*)shmem;
 
    /* Authentication */
-   if (pgagroal_authenticate(client_fd, shmem, &slot) == AUTH_SUCCESS)
+   if (pgagroal_authenticate(client_fd, address, shmem, &slot) == AUTH_SUCCESS)
    {
       ZF_LOGD("pgagroal_worker: Slot %d (%d -> %d)", slot, client_fd, config->connections[slot].fd);
       pgagroal_pool_status(shmem);
@@ -148,6 +148,8 @@ pgagroal_worker(int client_fd, void* shmem)
 
       ev_loop_destroy(loop);
    }
+
+   free(address);
 
    pgagroal_memory_destroy();
    pgagroal_stop_logging(shmem);

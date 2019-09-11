@@ -144,7 +144,7 @@ pgagroal_bind_unix_socket(const char* directory, void* shmem)
 
    if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
    {
-      perror("socket error");
+      ZF_LOGE("pgagroal_bind_unix_socket: socket: %s %s", directory, strerror(errno));
       exit(-1);
    }
 
@@ -158,22 +158,16 @@ pgagroal_bind_unix_socket(const char* directory, void* shmem)
 
    strncpy(addr.sun_path, directory, sizeof(addr.sun_path) - 1);
    unlink(directory);
-   /*
-   if (unlink(directory) == -1)
-   {
-      perror("unlink error");
-   }
-   */
 
    if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
    {
-      perror("bind error");
+      ZF_LOGE("pgagroal_bind_unix_socket: bind: %s %s", directory, strerror(errno));
       exit(-1);
    }
 
    if (listen(fd, config->backlog) == -1)
    {
-      perror("listen error");
+      ZF_LOGE("pgagroal_bind_unix_socket: listen: %s %s", directory, strerror(errno));
       exit(-1);
    }
 
@@ -217,7 +211,7 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
    {
       if ((*fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
       {
-         perror("server: socket");
+         ZF_LOGD("pgagroal_connect: socket: %s", strerror(errno));
          return 1;
       }
 
@@ -225,8 +219,8 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
       {
          if (setsockopt(*fd, SOL_SOCKET, SO_KEEPALIVE, &yes, optlen) == -1)
          {
+            ZF_LOGD("pgagroal_connect: SO_KEEPALIVE: %d %s", *fd, strerror(errno));
             pgagroal_disconnect(*fd);
-            perror("server: SO_KEEPALIVE");
             return 1;
          }
       }
@@ -235,30 +229,30 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
       {
          if (setsockopt(*fd, IPPROTO_TCP, TCP_NODELAY, &yes, optlen) == -1)
          {
+            ZF_LOGD("pgagroal_connect: TCP_NODELAY: %d %s", *fd, strerror(errno));
             pgagroal_disconnect(*fd);
-            perror("server: TCP_NODELAY");
             return 1;
          }
       }
 
       if (setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &config->buffer_size, optlen) == -1)
       {
+         ZF_LOGD("pgagroal_connect: SO_RCVBUF: %d %s", *fd, strerror(errno));
          pgagroal_disconnect(*fd);
-         perror("server: SO_RCVBUF");
          return 1;
       }
 
       if (setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &config->buffer_size, optlen) == -1)
       {
+         ZF_LOGD("pgagroal_connect: SO_SNDBUF: %d %s", *fd, strerror(errno));
          pgagroal_disconnect(*fd);
-         perror("server: SO_SNDBUF");
          return 1;
       }
 
       if (connect(*fd, p->ai_addr, p->ai_addrlen) == -1)
       {
+         ZF_LOGD("pgagroal_connect: connect: %d %s", *fd, strerror(errno));
          pgagroal_disconnect(*fd);
-         perror("server: connect");
          return 1;
       }
 
@@ -267,11 +261,9 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
 
    if (p == NULL)
    {
-      fprintf(stderr, "server: failed to connect\n");
+      ZF_LOGD("pgagroal_connect: failed to connect");
       return 1;
    }
-
-   /* inet_ntop(p->ai_family, pgagroal_get_sockaddr((struct sockaddr *)p->ai_addr), s, sizeof s); */
 
    freeaddrinfo(servinfo);
 
@@ -294,7 +286,7 @@ pgagroal_connect_unix_socket(const char* directory, int* fd)
 
    if ((*fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
    {
-      perror("socket error");
+      ZF_LOGD("pgagroal_connect_unix_socket: socket: %s %s", directory, strerror(errno));
       return 1;
    }
 
@@ -305,7 +297,7 @@ pgagroal_connect_unix_socket(const char* directory, int* fd)
 
    if (connect(*fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
    {
-      perror("connect error");
+      ZF_LOGD("pgagroal_connect_unix_socket: connect: %s %s", directory, strerror(errno));
       return 1;
    }
 
@@ -333,6 +325,19 @@ pgagroal_get_sockaddr(struct sockaddr *sa)
    }
 
    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+void
+pgagroal_get_address(struct sockaddr *sa, char* address, size_t length)
+{
+   if (sa->sa_family == AF_INET)
+   {
+      inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr), address, length);
+   }
+   else
+   {
+      inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)sa)->sin6_addr), address, length);
+   }
 }
 
 int

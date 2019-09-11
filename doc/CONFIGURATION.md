@@ -46,3 +46,26 @@ See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `loc
 | host | | String | Yes | The address of the PostgreSQL instance |
 | port | | Int | Yes | The port of the PostgreSQL instance |
 | primary | | Bool | No | Identify the instance as primary (hint) |
+
+# pgagroal_hba configuration
+
+The `pgagroal_hba` configuration controls access to `pgagroal` through host-based authentication.
+
+The configuration is loaded from either `./pgagroal_hba.conf` or `/etc/pgagroal_hba.conf`.
+
+The format follows [PostgreSQL](https://www.postgresql.org), and as such looks like
+
+```
+#
+# TYPE  DATABASE USER  ADDRESS  METHOD
+#
+host    all      all   all      all
+```
+
+| Column | Required | Description |
+|--------|----------|-------------|
+| TYPE   | Yes      | Specifies the access method for clients. Only `host` supported |
+| DATABASE | Yes      | Specifies the database for the rule. Either specific name or `all` for all databases |
+| USER | Yes      | Specifies the user for the rule. Either specific name or `all` for all users |
+| ADDRESS | Yes      | Specifies the network for the rule. `all` for all networks, or IPv4 address with a mask (`0.0.0.0/0`) or IPv6 address with a mask (`::0/0`) |
+| METHOD | Yes      | Specifies the authentication mode for the user. `all` for all methods. Currently ignored |

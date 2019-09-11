@@ -56,7 +56,7 @@ extern volatile int exit_code;
  *
  */
 void
-pgagroal_worker(int fd, void* shmem);
+pgagroal_worker(int fd, char* address, void* shmem);
 
 #ifdef __cplusplus
 }

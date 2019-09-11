@@ -320,6 +320,56 @@ pgagroal_write_unsupported_security_model(int socket, char* username)
 }
 
 int
+pgagroal_write_no_hba_entry(int socket, char* username, char* database, char* address)
+{
+   int size = strlen(username);
+   size += strlen(database);
+   size += strlen(address);
+   size += 88;
+
+   char no_hba[size];
+   struct message msg;
+   int offset = 64;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&no_hba, 0, sizeof(no_hba));
+
+   pgagroal_write_byte(&no_hba, 'E');
+   pgagroal_write_int32(&(no_hba[1]), size - 1);
+   pgagroal_write_string(&(no_hba[5]), "SFATAL");
+   pgagroal_write_string(&(no_hba[12]), "VFATAL");
+   pgagroal_write_string(&(no_hba[19]), "C28000");
+   pgagroal_write_string(&(no_hba[26]), "Mno pgagroal_hba.conf entry for host \"");
+   pgagroal_write_string(&(no_hba[64]), address);
+
+   offset += strlen(address);
+
+   pgagroal_write_string(&(no_hba[offset]), "\", user \"");
+
+   offset += 9;
+
+   pgagroal_write_string(&(no_hba[offset]), username);
+
+   offset += strlen(username);
+
+   pgagroal_write_string(&(no_hba[offset]), "\", database \"");
+
+   offset += 13;
+
+   pgagroal_write_string(&(no_hba[offset]), database);
+
+   offset += strlen(database);
+
+   pgagroal_write_string(&(no_hba[offset]), "\"");
+
+   msg.kind = 'E';
+   msg.length = size;
+   msg.data = &no_hba;
+
+   return write_message(socket, true, &msg);
+}
+
+int
 pgagroal_write_deallocate_all(int socket)
 {
    int status;

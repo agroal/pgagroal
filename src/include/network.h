@@ -75,6 +75,12 @@ pgagroal_get_sockaddr(struct sockaddr *sa);
 /**
  *
  */
+void
+pgagroal_get_address(struct sockaddr *sa, char* address, size_t length);
+
+/**
+ *
+ */
 int
 pgagroal_is_ready(int fd);
    

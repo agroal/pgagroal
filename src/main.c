@@ -231,39 +231,41 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    struct sockaddr_in client_addr;
    socklen_t client_addr_length;
    int client_fd;
+   char address[INET6_ADDRSTRLEN];
    struct accept_info* ai;
 
-   ZF_LOGV("pgagroal: sockfd ready (%d)", revents);
+   ZF_LOGV("accept_main_cb: sockfd ready (%d)", revents);
 
    if (EV_ERROR & revents)
    {
-      perror("got invalid event");
-      errno = 0;
+      ZF_LOGD("accept_main_cb: invalid event: %s", strerror(errno));
       return;
    }
+
+   memset(&address, 0, sizeof(address));
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
    if (client_fd == -1)
    {
-      perror("accept");
-      errno = 0;
+      ZF_LOGD("accept_main_cb: accept: %s", strerror(errno));
       return;
    }
 
    ai = (struct accept_info*)watcher;
 
-   /* Verify 's' against pgagroal_hba.conf
-      inet_ntop(client_addr.ss_family,
-      pgagroal_get_sockaddr((struct sockaddr *)&client_addr),
-      s, sizeof(s));
-   */
+   pgagroal_get_address((struct sockaddr *)&client_addr, (char*)&address, sizeof(address));
+
+   ZF_LOGV("accept_main_cb: client address: %s", address);
 
    if (!fork())
    {
+      char* addr = malloc(sizeof(address));
+      memcpy(addr, address, sizeof(address));
+
       ev_loop_fork(loop);
       pgagroal_disconnect(ai->socket);
-      pgagroal_worker(client_fd, ai->shmem);
+      pgagroal_worker(client_fd, addr, ai->shmem);
    }
 
    pgagroal_disconnect(client_fd);

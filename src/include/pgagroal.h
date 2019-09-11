@@ -117,11 +117,11 @@ struct connection
 
 struct hba
 {
-   char type[6];
+   char type[16];
    char database[IDENTIFIER_LENGTH];
-   char username[IDENTIFIER_LENGTH];
-   char cidr[IDENTIFIER_LENGTH];
-   char authentication[IDENTIFIER_LENGTH];
+   char user[IDENTIFIER_LENGTH];
+   char address[IDENTIFIER_LENGTH];
+   char method[IDENTIFIER_LENGTH];
 } __attribute__ ((aligned (64)));
 
 struct configuration
@@ -148,7 +148,10 @@ struct configuration
    int backlog;
 
    char unix_socket_dir[MISC_LENGTH];
-   
+
+   int number_of_servers;
+   int number_of_hbas;
+
    struct server servers[NUMBER_OF_SERVERS];
    struct connection connections[NUMBER_OF_CONNECTIONS];
    struct hba hbas[NUMBER_OF_HBAS];

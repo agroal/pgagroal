@@ -136,6 +136,12 @@ pgagroal_write_unsupported_security_model(int socket, char* username);
  *
  */
 int
+pgagroal_write_no_hba_entry(int socket, char* username, char* database, char* address);
+
+/**
+ *
+ */
+int
 pgagroal_write_deallocate_all(int socket);
 
 /**

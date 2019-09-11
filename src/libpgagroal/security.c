@@ -39,16 +39,22 @@
 #include <zf_log.h>
 
 /* system */
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <arpa/inet.h>
 
 static int get_auth_type(struct message* msg, int* auth_type);
 static int compare_auth_response(struct message* orig, struct message* response, int auth_type);
+static bool is_allowed(char* username, char* database, char* address, int auth_type, void* shmem);
+static bool is_allowed_username(char* username, char* entry);
+static bool is_allowed_database(char* database, char* entry);
+static bool is_allowed_address(char* address, char* entry);
 
 int
-pgagroal_authenticate(int client_fd, void* shmem, int* slot)
+pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
 {
    int status = MESSAGE_STATUS_ERROR;
    int server_fd = -1;
@@ -117,6 +123,16 @@ pgagroal_authenticate(int client_fd, void* shmem, int* slot)
       /* Extract parameters: username / database */
       ZF_LOGV("authenticate: username/database (%d)", client_fd);
       pgagroal_extract_username_database(msg, &username, &database);
+
+      /* Verify client against pgagroal_hba.conf */
+      if (!is_allowed(username, database, address, -1, shmem))
+      {
+         /* User not allowed */
+         ZF_LOGD("authenticate: not allowed: %s / %s / %s", username, database, address);
+         pgagroal_write_no_hba_entry(client_fd, username, database, address);
+         pgagroal_write_empty(client_fd);
+         goto error;
+      }
 
       /* Get connection */
       if (pgagroal_get_connection(shmem, username, database, slot))
@@ -503,4 +519,182 @@ compare_auth_response(struct message* orig, struct message* response, int auth_t
    }
 
    return 1;
+}
+
+static bool
+is_allowed(char* username, char* database, char* address, int auth_type, void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < config->number_of_hbas; i++)
+   {
+      if (is_allowed_address(address, config->hbas[i].address) &&
+          is_allowed_database(database, config->hbas[i].database) &&
+          is_allowed_username(username, config->hbas[i].user))
+      {
+         return true;
+      }
+   }
+
+   return false;
+}
+
+static bool
+is_allowed_username(char* username, char* entry)
+{
+   if (!strcasecmp(entry, "all") || !strcmp(username, entry))
+   {
+      return true;
+   }
+
+   return false;
+}
+
+static bool
+is_allowed_database(char* database, char* entry)
+{
+   if (!strcasecmp(entry, "all") || !strcmp(database, entry))
+   {
+      return true;
+   }
+
+   return false;
+}
+
+static bool
+is_allowed_address(char* address, char* entry)
+{
+   struct sockaddr_in address_sa4;
+   struct sockaddr_in6 address_sa6;
+   struct sockaddr_in entry_sa4;
+   struct sockaddr_in6 entry_sa6;
+   char addr[INET6_ADDRSTRLEN];
+   char s_mask[4];
+   int mask;
+   char* marker;
+   bool ipv4 = true;
+
+   memset(&addr, 0, sizeof(addr));
+   memset(&s_mask, 0, sizeof(s_mask));
+
+   if (!strcasecmp(entry, "all"))
+   {
+      return true;
+   }
+
+   marker = strchr(entry, '/');
+   if (!marker)
+   {
+      ZF_LOGW("Invalid HBA entry: %s", entry);
+      return false;
+   }
+
+   memcpy(&addr, entry, marker - entry);
+   marker += sizeof(char);
+   memcpy(&s_mask, marker, strlen(marker));
+   mask = atoi(s_mask);
+
+   if (strchr(addr, ':') == NULL)
+   {
+      inet_pton(AF_INET, addr, &(entry_sa4.sin_addr));
+
+      if (strchr(address, ':') == NULL)
+      {
+         inet_pton(AF_INET, address, &(address_sa4.sin_addr));
+      }
+      else
+      {
+         return false;
+      }
+   }
+   else
+   {
+      ipv4 = false;
+
+      inet_pton(AF_INET6, addr, &(entry_sa6.sin6_addr));
+
+      if (strchr(address, ':') != NULL)
+      {
+         inet_pton(AF_INET6, address, &(address_sa6.sin6_addr));
+      }
+      else
+      {
+         return false;
+      }
+   }
+
+   if (ipv4)
+   {
+      if (!strcmp(entry, "0.0.0.0/0"))
+      {
+         return true;
+      }
+
+      if (mask < 0 || mask > 32)
+      {
+         ZF_LOGW("Invalid HBA entry: %s", entry);
+         return false;
+      }
+
+      unsigned char a1 = (ntohl(address_sa4.sin_addr.s_addr) >> 24) & 0xff;
+      unsigned char a2 = (ntohl(address_sa4.sin_addr.s_addr) >> 16) & 0xff;
+      unsigned char a3 = (ntohl(address_sa4.sin_addr.s_addr) >> 8) & 0xff;
+      unsigned char a4 = (ntohl(address_sa4.sin_addr.s_addr)) & 0xff;
+
+      unsigned char e1 = (ntohl(entry_sa4.sin_addr.s_addr) >> 24) & 0xff;
+      unsigned char e2 = (ntohl(entry_sa4.sin_addr.s_addr) >> 16) & 0xff;
+      unsigned char e3 = (ntohl(entry_sa4.sin_addr.s_addr) >> 8) & 0xff;
+      unsigned char e4 = (ntohl(entry_sa4.sin_addr.s_addr)) & 0xff;
+
+      if (mask <= 8)
+      {
+         return a1 == e1;
+      }
+      else if (mask <= 16)
+      {
+         return a1 == e1 && a2 == e2;
+      }
+      else if (mask <= 24)
+      {
+         return a1 == e1 && a2 == e2 && a3 == e3;
+      }
+      else
+      {
+         return a1 == e1 && a2 == e2 && a3 == e3 && a4 == e4;
+      }
+   }
+   else
+   {
+      if (!strcmp(entry, "::0/0"))
+      {
+         return true;
+      }
+
+      if (mask < 0 || mask > 128)
+      {
+         ZF_LOGW("Invalid HBA entry: %s", entry);
+         return false;
+      }
+
+      struct sockaddr_in6 netmask;
+      bool result = false;
+
+      memset(&netmask, 0, sizeof(struct sockaddr_in6));
+
+      for (long i = mask, j = 0; i > 0; i -= 8, ++j)
+      {
+         netmask.sin6_addr.s6_addr[j] = i >= 8 ? 0xff : (unsigned long int)((0xffU << (8 - i)) & 0xffU);
+      }
+
+      for (unsigned i = 0; i < 16; i++)
+      {
+         result |= (0 != (address_sa6.sin6_addr.s6_addr[i] & !netmask.sin6_addr.s6_addr[i]));
+      }
+
+      return result;
+   }
+
+   return false;
 }
