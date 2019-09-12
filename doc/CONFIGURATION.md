@@ -1,6 +1,6 @@
 # pgagroal configuration
 
-The configuration is loaded from either `./pgagroal.conf` or `/etc/pgagroal.conf`.
+The configuration is loaded from either the path specified by the `-f` flag or `/etc/pgagroal.conf`.
 
 The configuration of `pgagroal` is split into sections using the `[` and `]` characters.
 
@@ -51,7 +51,7 @@ See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `loc
 
 The `pgagroal_hba` configuration controls access to `pgagroal` through host-based authentication.
 
-The configuration is loaded from either `./pgagroal_hba.conf` or `/etc/pgagroal_hba.conf`.
+The configuration is loaded from either the path specified by the `-a` flag or `/etc/pgagroal_hba.conf`.
 
 The format follows [PostgreSQL](https://www.postgresql.org), and as such looks like
 

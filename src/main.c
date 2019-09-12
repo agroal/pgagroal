@@ -43,6 +43,7 @@
 /* system */
 #include <errno.h>
 #include <ev.h>
+#include <getopt.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -79,10 +80,31 @@ struct periodic_info
    void* shmem;
 };
 
+static void
+usage()
+{
+   printf("pgagroal %s\n", VERSION);
+   printf("  High-performance connection pool for PostgreSQL\n");
+   printf("\n");
+
+   printf("Usage:\n");
+   printf("  pgagroal [ -f CONFIG_FILE ] [ -a HBA_CONFIG_FILE ]\n");
+   printf("\n");
+   printf("Options:\n");
+   printf("  -f, --config-file=CONFIG_FILE  Set the path to the pgagroal.conf file\n");
+   printf("  -a, --hba-file=HBA_CONFIG_FILE Set the path to the pgagroal_hba.conf file\n");
+   printf("  -h, --help                     Display help\n");
+   printf("\n");
+
+   exit(1);
+}
+
 int
 main(int argc, char **argv)
 {
    int ret;
+   char* configuration_path = NULL;
+   char* hba_path = NULL;
    void* shmem = NULL;
    struct ev_loop *loop;
    struct accept_info io_main[64];
@@ -95,28 +117,81 @@ main(int argc, char **argv)
    int unix_socket;
    size_t size;
    struct configuration* config;
+   int c;
+
+   while (1)
+   {
+      static struct option long_options[] =
+      {
+         {"config-file",  required_argument, 0, 'f'},
+         {"hba-file", required_argument, 0, 'a'},
+         {"help", no_argument, 0, 'h'}
+      };
+      int option_index = 0;
+
+      c = getopt_long (argc, argv, "ha:f:",
+                       long_options, &option_index);
+
+      if (c == -1)
+         break;
+
+      switch (c)
+      {
+         case 'a':
+            hba_path = optarg;
+            break;
+         case 'f':
+            configuration_path = optarg;
+            break;
+         case 'h':
+            usage();
+            break;
+         default:
+            break;
+      }
+   }
 
    size = sizeof(struct configuration);
    shmem = pgagroal_create_shared_memory(size);
    pgagroal_init_configuration(shmem, size);
    config = (struct configuration*)shmem;
-   
-   ret = pgagroal_read_configuration("pgagroal.conf", shmem);
-   if (ret)
-      ret = pgagroal_read_configuration("/etc/pgagroal.conf", shmem);
-   if (ret)
+
+   if (configuration_path != NULL)
    {
-      printf("pgagroal: Configuration not found\n");
-      exit(1);
+      ret = pgagroal_read_configuration(configuration_path, shmem);
+      if (ret)
+      {
+         printf("pgagroal: Configuration not found: %s\n", configuration_path);
+         exit(1);
+      }
+   }
+   else
+   {
+      ret = pgagroal_read_configuration("/etc/pgagroal.conf", shmem);
+      if (ret)
+      {
+         printf("pgagroal: Configuration not found: /etc/pgagroal.conf\n");
+         exit(1);
+      }
    }
 
-   ret = pgagroal_read_hba_configuration("pgagroal_hba.conf", shmem);
-   if (ret)
-      ret = pgagroal_read_hba_configuration("/etc/pgagroal_hba.conf", shmem);
-   if (ret)
+   if (hba_path != NULL)
    {
-      printf("pgagroal: HBA configuration not found\n");
-      exit(1);
+      ret = pgagroal_read_hba_configuration(hba_path, shmem);
+      if (ret)
+      {
+         printf("pgagroal: HBA configuration not found: %s\n", hba_path);
+         exit(1);
+      }
+   }
+   else
+   {
+      ret = pgagroal_read_hba_configuration("/etc/pgagroal_hba.conf", shmem);
+      if (ret)
+      {
+         printf("pgagroal: HBA configuration not found: /etc/pgagroal_hba.conf\n");
+         exit(1);
+      }
    }
 
    pgagroal_start_logging(shmem);

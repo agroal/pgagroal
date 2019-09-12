@@ -23,7 +23,8 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -march=native -mtune=nat
 # Build libpgagroal
 #
 add_library(pgagroal SHARED ${SOURCES})
-set_target_properties(pgagroal PROPERTIES LINKER_LANGUAGE C)
+set_target_properties(pgagroal PROPERTIES LINKER_LANGUAGE C VERSION ${VERSION_STRING}
+                               SOVERSION ${VERSION_MAJOR})
 target_link_libraries(pgagroal PUBLIC)
 
 install(TARGETS pgagroal DESTINATION ${CMAKE_INSTALL_LIBDIR}/)
@@ -35,7 +36,7 @@ add_executable(pgagroal-bin main.c ${RESOURCE_OBJECT})
 set_target_properties(pgagroal-bin PROPERTIES LINKER_LANGUAGE C OUTPUT_NAME pgagroal)
 target_link_libraries(pgagroal-bin pgagroal)
 
-install(TARGETS pgagroal DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS pgagroal-bin DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 #
 # Build pgagroal-cli
@@ -45,3 +46,11 @@ set_target_properties(pgagroal-cli-bin PROPERTIES LINKER_LANGUAGE C OUTPUT_NAME 
 target_link_libraries(pgagroal-cli-bin pgagroal)
 
 install(TARGETS pgagroal-cli-bin DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+#
+# Install configuration and documentation
+#
+install(FILES ../doc/etc/pgagroal.conf DESTINATION etc)
+install(FILES ../doc/etc/pgagroal_hba.conf DESTINATION etc)
+
+install(DIRECTORY ../doc/ DESTINATION share/doc/pgagroal FILES_MATCHING PATTERN "*")

@@ -9,7 +9,7 @@
 * Process model
 * Shared memory model across processes
 * [libev](http://software.schmorp.de/pkg/libev.html) for fast network interactions
-* [Atomic operations](https://en.cppreference.com/w/c/atomic) is used to keep track of state
+* [Atomic operations](https://en.cppreference.com/w/c/atomic) are used to keep track of state
 * The [PostgreSQL](https://www.postgresql.org) native protocol
   [v3](https://www.postgresql.org/docs/11/protocol-message-formats.html) for its communication
 
@@ -18,6 +18,8 @@ See [Configuration](./doc/CONFIGURATION.md) on how to configure `pgagroal`.
 See [Performance](./doc/PERFORMANCE.md) for a performance run.
 
 See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
+
+See [RPM](./doc/RPM.md) for how to build a RPM of `pgagroal`.
 
 ## Tested platforms
 
@@ -36,21 +38,25 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
 
 ### Release build
 
-```
+The following commands will install `pgagroal` in the `/usr/local` hierarchy
+and run the default configuration.
+
+```sh
 git clone https://github.com/agroal/pgagroal.git
 cd pgagroal
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..
 make
-cd src
-cp ../../doc/etc/*.conf .
-./pgagroal
+sudo make install
+/usr/local/bin/pgagroal -f /usr/local/etc/pgagroal.conf -a /usr/local/etc/pgagroal_hba.conf
 ```
 
 ### Debug build
 
-```
+The following commands will create a `DEBUG` version of `pgagroal`.
+
+```sh
 git clone https://github.com/agroal/pgagroal.git
 cd pgagroal
 mkdir build
@@ -59,8 +65,10 @@ cmake -DCMAKE_BUILD_TYPE=Debug ..
 make
 cd src
 cp ../../doc/etc/*.conf .
-./pgagroal
+./pgagroal -f pgagroal.conf -a pgagroal_hba.conf
 ```
+
+Remember to set the `log_level` configuration option to `debug5`.
 
 ## Contributing
 
