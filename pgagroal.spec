@@ -36,6 +36,7 @@ mkdir -p %{buildroot}%{_docdir}/%{name}/images
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}%{_docdir}/%{name}/README.md
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/ARCHITECTURE.md %{buildroot}%{_docdir}/%{name}/ARCHITECTURE.md
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/CONFIGURATION.md %{buildroot}%{_docdir}/%{name}/CONFIGURATION.md
+/usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/GETTING_STARTED.md %{buildroot}%{_docdir}/%{name}/GETTING_STARTED.md
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/PERFORMANCE.md %{buildroot}%{_docdir}/%{name}/PERFORMANCE.md
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/RPM.md %{buildroot}%{_docdir}/%{name}/RPM.md
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/images/perf-extended.png %{buildroot}%{_docdir}/%{name}/images/perf-extended.png
@@ -62,6 +63,7 @@ ln -s -f libpgagroal.so.0 libpgagroal.so
 %license %{_docdir}/%{name}/LICENSE
 %{_docdir}/%{name}/ARCHITECTURE.md
 %{_docdir}/%{name}/CONFIGURATION.md
+%{_docdir}/%{name}/GETTING_STARTED.md
 %{_docdir}/%{name}/PERFORMANCE.md
 %{_docdir}/%{name}/README.md
 %{_docdir}/%{name}/RPM.md

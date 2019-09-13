@@ -2,6 +2,19 @@
 
 `pgagroal` is a high-performance protocol-native connection pool for [PostgreSQL](https://www.postgresql.org).
 
+## Features
+
+* High performance
+* Connection pool
+* Remove idle connections
+* Perform connection validation
+
+See [Getting Started](./doc/GETTING_STARTED.md) on how to get started with `pgagroal`.
+
+See [Configuration](./doc/CONFIGURATION.md) on how to configure `pgagroal`.
+
+See [Performance](./doc/PERFORMANCE.md) for a performance run.
+
 ## Overview
 
 `pgagroal` makes use of
@@ -13,13 +26,7 @@
 * The [PostgreSQL](https://www.postgresql.org) native protocol
   [v3](https://www.postgresql.org/docs/11/protocol-message-formats.html) for its communication
 
-See [Configuration](./doc/CONFIGURATION.md) on how to configure `pgagroal`.
-
-See [Performance](./doc/PERFORMANCE.md) for a performance run.
-
 See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
-
-See [RPM](./doc/RPM.md) for how to build a RPM of `pgagroal`.
 
 ## Tested platforms
 
@@ -56,6 +63,8 @@ make
 sudo make install
 /usr/local/bin/pgagroal -c /usr/local/etc/pgagroal.conf -a /usr/local/etc/pgagroal_hba.conf
 ```
+
+See [RPM](./doc/RPM.md) for how to build a RPM of `pgagroal`.
 
 ### Debug build
 
