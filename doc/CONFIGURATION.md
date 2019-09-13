@@ -1,6 +1,6 @@
 # pgagroal configuration
 
-The configuration is loaded from either the path specified by the `-f` flag or `/etc/pgagroal.conf`.
+The configuration is loaded from either the path specified by the `-c` flag or `/etc/pgagroal.conf`.
 
 The configuration of `pgagroal` is split into sections using the `[` and `]` characters.
 

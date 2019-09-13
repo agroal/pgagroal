@@ -37,59 +37,145 @@
 #include <zf_log.h>
 
 /* system */
+#include <getopt.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 
+static void
+version()
+{
+   printf("pgagroal-cli %s\n", VERSION);
+   exit(1);
+}
+
+static void
+usage()
+{
+   printf("pgagroal-cli %s\n", VERSION);
+   printf("  Command line utility for pgagroal\n");
+   printf("\n");
+
+   printf("Usage:\n");
+   printf("  pgagroal-cli [ -f CONFIG_FILE ] [ COMMAND ] \n");
+   printf("\n");
+   printf("Options:\n");
+   printf("  -c, --config CONFIG_FILE Set the path to the pgagroal.conf file\n");
+   printf("  -V, --version            Display version information\n");
+   printf("  -?, --help               Display help\n");
+   printf("\n");
+   printf("Commands:\n");
+   printf("  flush-idle               Flush idle connections\n");
+   printf("  flush-gracefully         Flush all connections gracefully\n");
+   printf("  flush-all                Flush all connections. USE WITH CAUTION !\n");
+   printf("\n");
+}
+
 int
 main(int argc, char **argv)
 {
    int ret;
+   int exit_code = 0;
+   char* configuration_path = NULL;
+   int c;
+   int option_index = 0;
    void* shmem = NULL;
    size_t size;
+   bool flush = false;
    int32_t mode = FLUSH_IDLE;
+
+   while (1)
+   {
+      static struct option long_options[] =
+      {
+         {"config",  required_argument, 0, 'c'},
+         {"version", no_argument, 0, 'V'},
+         {"help", no_argument, 0, '?'}
+      };
+
+      c = getopt_long(argc, argv, "V?c:",
+                      long_options, &option_index);
+
+      if (c == -1)
+         break;
+
+      switch (c)
+      {
+         case 'c':
+            configuration_path = optarg;
+            break;
+         case 'V':
+            version();
+            break;
+         case '?':
+            usage();
+            exit(1);
+            break;
+         default:
+            break;
+      }
+   }
 
    size = sizeof(struct configuration);
    shmem = pgagroal_create_shared_memory(size);
    pgagroal_init_configuration(shmem, size);
    
-   ret = pgagroal_read_configuration("pgagroal.conf", shmem);
-   if (ret)
-      ret = pgagroal_read_configuration("/etc/pgagroal.conf", shmem);
-   if (ret)
+   if (configuration_path != NULL)
    {
-      printf("pgagroal: Configuration not found\n");
-      exit(1);
+      ret = pgagroal_read_configuration(configuration_path, shmem);
+      if (ret)
+      {
+         printf("pgagroal-cli: Configuration not found: %s\n", configuration_path);
+         exit(1);
+      }
+   }
+   else
+   {
+      ret = pgagroal_read_configuration("/etc/pgagroal.conf", shmem);
+      if (ret)
+      {
+         printf("pgagroal-cli: Configuration not found: /etc/pgagroal.conf\n");
+         exit(1);
+      }
    }
 
    pgagroal_start_logging(shmem);
 
-   if (argc > 1)
+   if (argc > 0)
    {
-      if (!strcmp("flush-idle", argv[1]))
+      if (!strcmp("flush-idle", argv[argc - 1]))
       {
          mode = FLUSH_IDLE;
+         flush = true;
       }
-      else if (!strcmp("flush-gracefully", argv[1]))
+      else if (!strcmp("flush-gracefully", argv[argc - 1]))
       {
          mode = FLUSH_GRACEFULLY;
+         flush = true;
       }
-      if (!strcmp("flush-all", argv[1]))
+      else if (!strcmp("flush-all", argv[argc - 1]))
       {
          mode = FLUSH_ALL;
+         flush = true;
       }
 
-      pgagroal_management_flush(shmem, mode);
+      if (flush)
+      {
+         pgagroal_management_flush(shmem, mode);
+      }
    }
-   else
+
+   if (!flush)
    {
-      printf("Usage: %s [flush-idle|flush-gracefully|flush-all]\n", argv[0]);
+      usage();
+      exit_code = 1;
    }
    
    pgagroal_stop_logging(shmem);
 
    munmap(shmem, size);
 
-   return 0;
+   return exit_code;
 }

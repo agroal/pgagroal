@@ -81,6 +81,13 @@ struct periodic_info
 };
 
 static void
+version()
+{
+   printf("pgagroal %s\n", VERSION);
+   exit(1);
+}
+
+static void
 usage()
 {
    printf("pgagroal %s\n", VERSION);
@@ -88,12 +95,13 @@ usage()
    printf("\n");
 
    printf("Usage:\n");
-   printf("  pgagroal [ -f CONFIG_FILE ] [ -a HBA_CONFIG_FILE ]\n");
+   printf("  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ]\n");
    printf("\n");
    printf("Options:\n");
-   printf("  -f, --config-file=CONFIG_FILE  Set the path to the pgagroal.conf file\n");
-   printf("  -a, --hba-file=HBA_CONFIG_FILE Set the path to the pgagroal_hba.conf file\n");
-   printf("  -h, --help                     Display help\n");
+   printf("  -c, --config CONFIG_FILE  Set the path to the pgagroal.conf file\n");
+   printf("  -a, --hba HBA_CONFIG_FILE Set the path to the pgagroal_hba.conf file\n");
+   printf("  -V, --version             Display version information\n");
+   printf("  -?, --help                Display help\n");
    printf("\n");
 
    exit(1);
@@ -123,13 +131,14 @@ main(int argc, char **argv)
    {
       static struct option long_options[] =
       {
-         {"config-file",  required_argument, 0, 'f'},
-         {"hba-file", required_argument, 0, 'a'},
-         {"help", no_argument, 0, 'h'}
+         {"config",  required_argument, 0, 'c'},
+         {"hba", required_argument, 0, 'a'},
+         {"version", no_argument, 0, 'V'},
+         {"help", no_argument, 0, '?'}
       };
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "ha:f:",
+      c = getopt_long (argc, argv, "V?a:c:",
                        long_options, &option_index);
 
       if (c == -1)
@@ -140,10 +149,13 @@ main(int argc, char **argv)
          case 'a':
             hba_path = optarg;
             break;
-         case 'f':
+         case 'c':
             configuration_path = optarg;
             break;
-         case 'h':
+         case 'V':
+            version();
+            break;
+         case '?':
             usage();
             break;
          default:
@@ -203,7 +215,7 @@ main(int argc, char **argv)
    /* Bind main socket */
    if (pgagroal_bind(config->host, config->port, shmem, &fds, &length))
    {
-      printf("Could not bind to %s:%d\n", config->host, config->port);
+      printf("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
       exit(1);
    }
    
@@ -211,7 +223,8 @@ main(int argc, char **argv)
    loop = ev_default_loop(pgagroal_libev(config->libev));
    if (!loop)
    {
-      printf("libev issue: No default loop implementation\n");
+      printf("pgagroal: No loop implementation (%x) (%x)\n",
+             pgagroal_libev(config->libev), ev_supported_backends());
       exit(1);
    }
 

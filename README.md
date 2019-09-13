@@ -34,7 +34,12 @@ See [RPM](./doc/RPM.md) for how to build a RPM of `pgagroal`.
 
 * [gcc 8+](https://gcc.gnu.org) (C17)
 * [cmake](https://cmake.org)
+* [make](https://www.gnu.org/software/make/)
 * [libev](http://software.schmorp.de/pkg/libev.html)
+
+```sh
+dnf install gcc cmake make libev libev-devel
+```
 
 ### Release build
 
@@ -49,7 +54,7 @@ cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..
 make
 sudo make install
-/usr/local/bin/pgagroal -f /usr/local/etc/pgagroal.conf -a /usr/local/etc/pgagroal_hba.conf
+/usr/local/bin/pgagroal -c /usr/local/etc/pgagroal.conf -a /usr/local/etc/pgagroal_hba.conf
 ```
 
 ### Debug build
@@ -65,7 +70,7 @@ cmake -DCMAKE_BUILD_TYPE=Debug ..
 make
 cd src
 cp ../../doc/etc/*.conf .
-./pgagroal -f pgagroal.conf -a pgagroal_hba.conf
+./pgagroal -c pgagroal.conf -a pgagroal_hba.conf
 ```
 
 Remember to set the `log_level` configuration option to `debug5`.
