@@ -41,6 +41,7 @@ These state are defined in [pgagroal.h](../src/include/pgagroal.h).
 The `pgagroal` pool API is defined in [pool.h](../src/include/pool.h) ([pool.c](../src/libpgagroal/pool.c)).
 
 This API defines the functionality of the pool such as getting a connection from the pool, and returning it.
+There is no ordering between processes, so a newly created process can obtain a connection before an older process.
 
 The pool operates on the `struct connection` data type defined in [pgagroal.h](../src/include/pgagroal.h).
 

@@ -60,11 +60,15 @@ pgagroal_get_connection(void* shmem, char* username, char* database, int* slot)
    int server;
    int fd;
    size_t max;
+   time_t start_time;
    struct configuration* config;
 
    config = (struct configuration*)shmem;
    *slot = -1;
 
+   start_time = time(NULL);
+
+start:
    /* Try and find an existing free connection */
    for (int i = 0; *slot == -1 && i < config->max_connections; i++)
    {
@@ -163,7 +167,7 @@ pgagroal_get_connection(void* shmem, char* username, char* database, int* slot)
             ZF_LOGD("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
             pgagroal_kill_connection(shmem, *slot);
 
-            return pgagroal_get_connection(shmem, username, database, slot);
+            goto start;
          }
       }
 
@@ -171,7 +175,18 @@ pgagroal_get_connection(void* shmem, char* username, char* database, int* slot)
    }
    else
    {
-      /* Try and free connections, and recurse */
+      if (config->blocking_timeout > 0)
+      {
+         sleep(1);
+
+         double diff = difftime(time(NULL), start_time);
+         if (diff >= (double)config->blocking_timeout)
+         {
+            goto error;
+         }
+
+         goto start;
+      }
    }
 
 error:

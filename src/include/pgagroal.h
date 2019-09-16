@@ -138,6 +138,7 @@ struct configuration
    atomic_int number_of_connections;
    int max_connections;
 
+   int blocking_timeout;
    int idle_timeout;
    int validation;
    int background_interval;

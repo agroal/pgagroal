@@ -67,6 +67,7 @@ pgagroal_init_configuration(void* shmem, size_t size)
       config->servers[i].primary = SERVER_NOTINIT;
    }
 
+   config->blocking_timeout = 30;
    config->idle_timeout = 0;
    config->validation = VALIDATION_OFF;
    config->background_interval = 300;
@@ -208,6 +209,17 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      {
                         srv.primary = SERVER_NOTINIT;
                      }
+                  }
+                  else
+                  {
+                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                  }
+               }
+               else if (!strcmp(key, "blocking_timeout"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->blocking_timeout = as_int(value);
                   }
                   else
                   {
