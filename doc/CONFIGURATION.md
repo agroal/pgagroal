@@ -32,7 +32,7 @@ See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `loc
 | idle_timeout | 0 | Int | No | The number of seconds a connection is been kept alive (disable = 0) |
 | validation | `off` | String | No | Should connection validation be performed. Valid options: `off`, `foreground` and `background` |
 | background_interval | 300 | Int | No | The interval between background validation scans in seconds |
-| max_connections | 512 | Int | No | The maximum number of connections (max 512) |
+| max_connections | 1000 | Int | No | The maximum number of connections (max 1000) |
 | libev | `auto` | String | No | Select the [libev](http://software.schmorp.de/pkg/libev.html) backend to use. Valid options: `auto`, `select`, `poll`, `epoll`, `linuxaio`, `iouring`, `devpoll` and `port` |
 | buffer_size | 65535 | Int | No | The network buffer size (`SO_RCVBUF` and `SO_SNDBUF`) |
 | keep_alive | on | Bool | No | Have `SO_KEEPALIVE` on sockets |
