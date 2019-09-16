@@ -10,9 +10,9 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: mkdir
-      run: mkdir build
+      run: mkdir /home/runner/work/pgagroal/build
     - name: cd
-      run: cd build
+      run: cd /home/runner/work/pgagroal/build
     - name: list
       run: ls -la && ls -la ..
     - name: cmake
