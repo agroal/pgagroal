@@ -80,6 +80,8 @@ pgagroal_init_configuration(void* shmem, size_t size)
    config->log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;
 
+   config->max_connections = MAX_NUMBER_OF_CONNECTIONS;
+
    return 0;
 }
 
@@ -286,9 +288,9 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   if (!strcmp(section, "pgagroal"))
                   {
                      config->max_connections = as_int(value);
-                     if (config->max_connections > NUMBER_OF_CONNECTIONS)
+                     if (config->max_connections > MAX_NUMBER_OF_CONNECTIONS)
                      {
-                        config->max_connections = NUMBER_OF_CONNECTIONS;
+                        config->max_connections = MAX_NUMBER_OF_CONNECTIONS;
                      }
                   }
                   else

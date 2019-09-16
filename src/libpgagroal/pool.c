@@ -66,7 +66,7 @@ pgagroal_get_connection(void* shmem, char* username, char* database, int* slot)
    *slot = -1;
 
    /* Try and find an existing free connection */
-   for (int i = 0; *slot == -1 && i < NUMBER_OF_CONNECTIONS; i++)
+   for (int i = 0; *slot == -1 && i < config->max_connections; i++)
    {
       free = STATE_FREE;
 
@@ -86,20 +86,17 @@ pgagroal_get_connection(void* shmem, char* username, char* database, int* slot)
 
    if (*slot == -1)
    {
-      if (config->max_connections > 0)
+      connections = atomic_fetch_add(&config->number_of_connections, 1);
+      if (connections > config->max_connections)
       {
-         connections = atomic_fetch_add(&config->number_of_connections, 1);
-         if (connections > config->max_connections)
-         {
-            create_connection = false;
-            atomic_fetch_sub(&config->number_of_connections, 1);
-         }
+         create_connection = false;
+         atomic_fetch_sub(&config->number_of_connections, 1);
       }
 
       if (create_connection)
       {
          /* Ok, try and create a new connection */
-         for (int i = 0; *slot == -1 && i < NUMBER_OF_CONNECTIONS; i++)
+         for (int i = 0; *slot == -1 && i < config->max_connections; i++)
          {
             not_init = STATE_NOTINIT;
 
@@ -220,6 +217,8 @@ pgagroal_return_connection(void* shmem, int slot)
 
          config->connections[slot].new = false;
          atomic_store(&config->connections[slot].state, STATE_FREE);
+         atomic_fetch_sub(&config->number_of_connections, 1);
+
          return 0;
       }
    }
@@ -251,10 +250,7 @@ pgagroal_kill_connection(void* shmem, int slot)
    config->connections[slot].new = true;
    atomic_store(&config->connections[slot].state, STATE_NOTINIT);
 
-   if (config->max_connections > 0)
-   {
-      atomic_fetch_sub(&config->number_of_connections, 1);
-   }
+   atomic_fetch_sub(&config->number_of_connections, 1);
    
    return 0;
 }
@@ -274,7 +270,7 @@ pgagroal_idle_timeout(void* shmem)
    ZF_LOGD("pgagroal_idle_timeout");
 
    /* Here we run backwards in order to keep hot connections in the beginning */
-   for (int i = NUMBER_OF_CONNECTIONS - 1; i >= 0; i--)
+   for (int i = config->max_connections - 1; i >= 0; i--)
    {
       free = STATE_FREE;
 
@@ -313,7 +309,7 @@ pgagroal_validation(void* shmem)
    ZF_LOGD("pgagroal_validation");
 
    /* We run backwards */
-   for (int i = NUMBER_OF_CONNECTIONS - 1; i >= 0; i--)
+   for (int i = config->max_connections - 1; i >= 0; i--)
    {
       free = STATE_FREE;
 
@@ -372,7 +368,7 @@ pgagroal_flush(void* shmem, int mode)
    config = (struct configuration*)shmem;
 
    ZF_LOGD("pgagroal_flush");
-   for (int i = NUMBER_OF_CONNECTIONS - 1; i >= 0; i--)
+   for (int i = config->max_connections - 1; i >= 0; i--)
    {
       free = STATE_FREE;
       in_use = STATE_IN_USE;
@@ -408,7 +404,7 @@ pgagroal_pool_init(void* shmem)
 
    config = (struct configuration*)shmem;
 
-   for (int i = 0; i < NUMBER_OF_CONNECTIONS; i++)
+   for (int i = 0; i < config->max_connections; i++)
    {
       atomic_init(&config->connections[i].state, STATE_NOTINIT);
       config->connections[i].new = true;
@@ -425,7 +421,7 @@ pgagroal_pool_shutdown(void* shmem)
 
    config = (struct configuration*)shmem;
 
-   for (int i = 0; i < NUMBER_OF_CONNECTIONS; i++)
+   for (int i = 0; i < config->max_connections; i++)
    {
       int state = atomic_load(&config->connections[i].state);
 
@@ -442,7 +438,11 @@ pgagroal_pool_shutdown(void* shmem)
 int
 pgagroal_pool_status(void* shmem)
 {
-   for (int i = 0; i < NUMBER_OF_CONNECTIONS; i++)
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < config->max_connections; i++)
    {
       connection_details(shmem, i);
    }

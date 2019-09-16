@@ -57,15 +57,15 @@ extern "C" {
 #define MISC_LENGTH 128
 #define NUMBER_OF_SERVERS 64
 #ifdef DEBUG
-#define NUMBER_OF_CONNECTIONS 8
+#define MAX_NUMBER_OF_CONNECTIONS 8
 #else
-#define NUMBER_OF_CONNECTIONS 512
+#define MAX_NUMBER_OF_CONNECTIONS 512
 #endif
 #define NUMBER_OF_HBAS 64
 
 #define NUMBER_OF_SECURITY_MESSAGES 5
 
-#define DEFAULT_BACKLOG NUMBER_OF_CONNECTIONS / 4
+#define DEFAULT_BACKLOG MAX_NUMBER_OF_CONNECTIONS / 4
 
 #define STATE_NOTINIT    -2
 #define STATE_INIT       -1
@@ -155,7 +155,7 @@ struct configuration
    int number_of_hbas;
 
    struct server servers[NUMBER_OF_SERVERS];
-   struct connection connections[NUMBER_OF_CONNECTIONS];
+   struct connection connections[MAX_NUMBER_OF_CONNECTIONS];
    struct hba hbas[NUMBER_OF_HBAS];
 } __attribute__ ((aligned (64)));
 
