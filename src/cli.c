@@ -59,7 +59,7 @@ usage()
    printf("\n");
 
    printf("Usage:\n");
-   printf("  pgagroal-cli [ -f CONFIG_FILE ] [ COMMAND ] \n");
+   printf("  pgagroal-cli [ -c CONFIG_FILE ] [ COMMAND ] \n");
    printf("\n");
    printf("Options:\n");
    printf("  -c, --config CONFIG_FILE Set the path to the pgagroal.conf file\n");

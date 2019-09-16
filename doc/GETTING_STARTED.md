@@ -3,7 +3,7 @@
 First of all, make sure that `pgagroal` is installed and in your path by
 using `pgagroal -?`. You should see
 
-```sh
+```
 pgagroal 0.1.0
   High-performance connection pool for PostgreSQL
 
@@ -74,7 +74,7 @@ See [Configuration](./CONFIGURATION.md) for all configuration options.
 
 We will run `pgagroal` using the command
 
-```sh
+```
 pgagroal -c pgagroal.conf -a pgagroal_hba.conf
 ```
 
@@ -89,7 +89,7 @@ and [add a database](https://www.postgresql.org/docs/current/app-createdb.html).
 We will connect to `pgagroal` using the [psql](https://www.postgresql.org/docs/current/app-psql.html)
 application.
 
-```sh
+```
 psql -h localhost -p 2345 -U test test
 ```
 
@@ -119,7 +119,7 @@ pgagroal-cli 0.1.0
   Command line utility for pgagroal
 
 Usage:
-  pgagroal-cli [ -f CONFIG_FILE ] [ COMMAND ] 
+  pgagroal-cli [ -c CONFIG_FILE ] [ COMMAND ]
 
 Options:
   -c, --config CONFIG_FILE Set the path to the pgagroal.conf file
@@ -136,7 +136,7 @@ This tool can be used on the machine running `pgagroal` to flush connections.
 
 To flush all idle connections you would use
 
-```sh
+```
 pgagroal-cli -c pgagroal.conf flush-idle
 ```
 
