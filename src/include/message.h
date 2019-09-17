@@ -43,115 +43,164 @@ extern "C" {
 #define MESSAGE_STATUS_ERROR 2
 
 /**
- *
+ * Read a message
+ * @param socket The socket descriptor
+ * @param msg The resulting message
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
  */
 int
 pgagroal_read_message(int socket, struct message** msg);
 
 /**
- *
+ * Read a message in blocking mode
+ * @param socket The socket descriptor
+ * @param msg The resulting message
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
  */
 int
 pgagroal_read_block_message(int socket, struct message** msg);
 
 /**
- *
+ * Write a message
+ * @param socket The socket descriptor
+ * @param msg The message
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
  */
 int
 pgagroal_write_message(int socket, struct message* msg);
 
 /**
- *
+ * Write a message with NODELAY
+ * @param socket The socket descriptor
+ * @param msg The message
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
  */
 int
 pgagroal_write_nodelay_message(int socket, struct message* msg);
 
 /**
- *
+ * Create a message
+ * @param data A pointer to the data
+ * @param length The length of the message
+ * @param msg The resulting message
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_create_message(void* data, ssize_t length, struct message** msg);
    
 /**
- *
+ * Copy a message
+ * @param msg The resulting message
+ * @return The copy
  */
 struct message*
 pgagroal_copy_message(struct message* msg);
 
 /**
- *
+ * Free a message
+ * @param msg The resulting message
  */
 void
 pgagroal_free_message(struct message* msg);
 
 /**
- *
+ * Free a copy message
+ * @param msg The resulting message
  */
 void
 pgagroal_free_copy_message(struct message* msg);
 
 /**
- *
+ * Get the request identifier
+ * @param msg The message
+ * @return The identifier
  */
 int32_t
 pgagroal_get_request(struct message* msg);
 
 /**
- *
+ * Extract the user name and database from a message
+ * @param msg The message
+ * @param username The resulting user name
+ * @param database The resulting database
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_extract_username_database(struct message* msg, char** username, char** database);
 
 /**
- *
+ * Write an empty message
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_write_empty(int socket);
 
 /**
- *
+ * Write a notice message
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_write_notice(int socket);
 
 /**
- *
+ * Write a pool is full message
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_write_pool_full(int socket);
 
 /**
- *
+ * Write a bad password message
+ * @param socket The socket descriptor
+ * @param username The user name
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_write_bad_password(int socket, char* username);
 
 /**
- *
+ * Write an unsupported security model message
+ * @param socket The socket descriptor
+ * @param username The user name
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_write_unsupported_security_model(int socket, char* username);
 
 /**
- *
+ * Write a no HBA entry message
+ * @param socket The socket descriptor
+ * @param username The user name
+ * @param database The database
+ * @param address The client address
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_write_no_hba_entry(int socket, char* username, char* database, char* address);
 
 /**
- *
+ * Write a deallocate all message
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_write_deallocate_all(int socket);
 
 /**
- *
+ * Write a terminate message
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_write_terminate(int socket);
 
 /**
- *
+ * Is the connection valid
+ * @param socket The socket descriptor
+ * @return true upon success, otherwise false
  */
 bool
 pgagroal_connection_isvalid(int socket);

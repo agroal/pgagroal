@@ -36,13 +36,18 @@ extern "C" {
 #include <stdlib.h>
 
 /**
- *
+ * Create a shared memory segment
+ * @param size The size of the segment
+ * @return The pointer to the segment
  */
 void*
 pgagroal_create_shared_memory(size_t size);
 
 /**
- *
+ * Destroy a shared memory segment
+ * @param shmem The shared memory segment
+ * @param size The size
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_destroy_shared_memory(void* shmem, size_t size);

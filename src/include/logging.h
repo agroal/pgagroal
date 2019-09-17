@@ -50,13 +50,17 @@ extern "C" {
 #define PGAGROAL_LOGGING_LEVEL_FATAL   6
 
 /**
- *
+ * Start the logging system
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_start_logging(void* shmem);
 
 /**
- *
+ * Stop the logging system
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_stop_logging(void* shmem);

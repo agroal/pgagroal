@@ -40,12 +40,19 @@ extern "C" {
 
 typedef void (*callback)(struct ev_loop *, struct ev_io *, int);
 
+/** @struct
+ * Define the structure for a pipeline
+ */
 struct pipeline
 {
-   callback client;
-   callback server;
+   callback client; /**< The callback for the client */
+   callback server; /**< The callback for the server */
 };
 
+/**
+ * Get the performance pipeline
+ * @return The structure
+ */
 struct pipeline performance_pipeline();
 
 #ifdef __cplusplus

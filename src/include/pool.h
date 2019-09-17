@@ -38,55 +38,77 @@ extern "C" {
 #include <stdlib.h>
 
 /**
- *
+ * Get a connection
+ * @param shmem The shared memory segment
+ * @param username The user name
+ * @param database The database
+ * @param slot The resulting slot
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_get_connection(void* shmem, char* username, char* database, int* slot);
 
 /**
- *
+ * Return a connection
+ * @param shmem The shared memory segment
+ * @param slot The slot
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_return_connection(void* shmem, int slot);
 
 /**
- *
+ * Kill a connection
+ * @param shmem The shared memory segment
+ * @param slot The slot
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_kill_connection(void* shmem, int slot);
 
 /**
- *
+ * Perform idle timeout
+ * @param shmem The shared memory segment
  */
 void
 pgagroal_idle_timeout(void* shmem);
 
 /**
- *
+ * Perform connection validation
+ * @param shmem The shared memory segment
  */
 void
 pgagroal_validation(void* shmem);
 
 /**
- *
+ * Flush the pool
+ * @param shmem The shared memory segment
+ * @param mode The flush mode
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_flush(void* shmem, int mode);
 
 /**
- *
+ * Initialize the pool
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_pool_init(void* shmem);
 
 /**
- *
+ * Shutdown the pool
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_pool_shutdown(void* shmem);
 
 /**
- *
+ * Print the status of the pool
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_pool_status(void* shmem);

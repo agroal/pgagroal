@@ -341,47 +341,6 @@ pgagroal_get_address(struct sockaddr *sa, char* address, size_t length)
 }
 
 int
-pgagroal_is_ready(int fd)
-{
-   fd_set readmask;
-   fd_set exceptmask;
-   int fds;
-   struct timeval timeout;
-   struct timeval *timeoutp;
-
-   timeout.tv_sec = 0;
-   timeout.tv_usec = 1;
-   timeoutp = &timeout;
-   
-   for (;;)
-   {
-      FD_ZERO(&readmask);
-      FD_ZERO(&exceptmask);
-      FD_SET(fd, &readmask);
-      FD_SET(fd, &exceptmask);
-
-      fds = select(fd + 1, &readmask, NULL, &exceptmask, timeoutp);
-      if (fds == -1)
-      {
-         return -1;
-      }
-      else if (fds == 0)
-      {
-         return 0;
-      }
-
-      if (FD_ISSET(fd, &exceptmask))
-      {
-         return -1;
-      }
-
-      return 1;
-   }
-
-   return -1;
-}
-
-int
 pgagroal_socket_nonblocking(int fd, void* shmem)
 {
    int flags;

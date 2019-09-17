@@ -37,67 +37,94 @@ extern "C" {
 #include <sys/socket.h>
 
 /**
- *
+ * Bind sockets for a host
+ * @param hostname The host name
+ * @param port The port number
+ * @param shmem The shared memory segment
+ * @param fds The resulting descriptors
+ * @param length The resulting length of descriptors
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* length);
 
 /**
- *
+ * Bind a Unix Domain Socket
+ * @param directory The directory
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_bind_unix_socket(const char* directory, void* shmem);
 
 /**
- *
+ * Connect to a host
+ * @param shmem The shared memory segment
+ * @param hostname The host name
+ * @param port The port number
+ * @param fd The resulting descriptor
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_connect(void* shmem, const char* hostname, int port, int* fd);
 
 /**
- *
+ * Connect to a Unix Domain Socket
+ * @param directory The directory
+ * @param fd The resulting descriptor
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_connect_unix_socket(const char* directory, int* fd);
 
 /**
- *
+ * Disconnect from a descriptor
+ * @param fd The descriptor
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_disconnect(int fd);
 
 /**
- *
+ * Get the sockaddr_in structure
+ * @param sa The sockaddr structure
+ * @return The sockaddr_in / sockaddr_in6 structure
  */
 void*
 pgagroal_get_sockaddr(struct sockaddr *sa);
    
 /**
- *
+ * Get the address of a sockaddr
+ * @param sa The sockaddr structure
+ * @param address The result address
+ * @param length The length
  */
 void
 pgagroal_get_address(struct sockaddr *sa, char* address, size_t length);
 
 /**
- *
- */
-int
-pgagroal_is_ready(int fd);
-   
-/**
- *
+ * Apply TCP/NODELAY to a descriptor
+ * @param fd The descriptor
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_tcp_nodelay(int fd, void* shmem);
 
 /**
- *
+ * Set the configured socket buffer size to a descriptor
+ * @param fd The descriptor
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_socket_buffers(int fd, void* shmem);
 
 /**
- *
+ * Apply O_NONBLOCK to a descriptor
+ * @param fd The descriptor
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_socket_nonblocking(int fd, void* shmem);

@@ -95,84 +95,102 @@ extern "C" {
 #define likely(x)    __builtin_expect (!!(x), 1)
 #define unlikely(x)  __builtin_expect (!!(x), 0)
 
+/** @struct
+ * Defines a server
+ */
 struct server
 {
-   char name[MISC_LENGTH];
-   char host[MISC_LENGTH];
-   int port;
-   int primary;
+   char name[MISC_LENGTH]; /**< The name of the server */
+   char host[MISC_LENGTH]; /**< The host name of the server */
+   int port;               /**< The port of the server */
+   int primary;            /**< The status of the server */
 } __attribute__ ((aligned (64)));
 
+/** @struct
+ * Defines a connection
+ */
 struct connection
 {
-   atomic_int state;
-   bool new;
-   int server;
-   char username[IDENTIFIER_LENGTH];
-   char database[IDENTIFIER_LENGTH];
-   int has_security;
-   ssize_t security_lengths[NUMBER_OF_SECURITY_MESSAGES];
-   char security_messages[NUMBER_OF_SECURITY_MESSAGES][SECURITY_BUFFER_SIZE];
-   time_t timestamp;
-   int fd;
+   atomic_int state; /**< The state */
+   bool new;         /**< Is the connection new */
+   int server;       /**< The server identifier */
+   char username[IDENTIFIER_LENGTH]; /**< The user name */
+   char database[IDENTIFIER_LENGTH]; /**< The database */
+   int has_security;                 /**< The security identifier */
+   ssize_t security_lengths[NUMBER_OF_SECURITY_MESSAGES]; /**< The lengths of the security messages */
+   char security_messages[NUMBER_OF_SECURITY_MESSAGES][SECURITY_BUFFER_SIZE]; /**< The security messages */
+   time_t timestamp; /**< The last used timestamp */
+   int fd;           /**< The descriptor */
 } __attribute__ ((aligned (64)));
 
+/** @struct
+ * Defines a HBA entry
+ */
 struct hba
 {
-   char type[16];
-   char database[IDENTIFIER_LENGTH];
-   char user[IDENTIFIER_LENGTH];
-   char address[IDENTIFIER_LENGTH];
-   char method[IDENTIFIER_LENGTH];
+   char type[16];                    /**< The type */
+   char database[IDENTIFIER_LENGTH]; /**< The database */
+   char user[IDENTIFIER_LENGTH];     /**< The user name */
+   char address[IDENTIFIER_LENGTH];  /**< The address / mask */
+   char method[IDENTIFIER_LENGTH];   /**< The access method */
 } __attribute__ ((aligned (64)));
 
+/** @struct
+ * Defines the configuration and state of pgagroal
+ */
 struct configuration
 {
-   char host[MISC_LENGTH];
-   int port;
+   char host[MISC_LENGTH]; /**< The host */
+   int port;               /**< The port */
 
-   int log_type;
-   int log_level;
-   char log_path[MISC_LENGTH];
+   int log_type;               /**< The logging type */
+   int log_level;              /**< The logging level */
+   char log_path[MISC_LENGTH]; /**< The logging path */
 
-   atomic_int number_of_connections;
-   int max_connections;
+   atomic_int number_of_connections; /**< The current number of connections */
+   int max_connections;              /**< The maximum number of connections */
 
-   int blocking_timeout;
-   int idle_timeout;
-   int validation;
-   int background_interval;
+   int blocking_timeout;    /**< The blocking timeout in seconds */
+   int idle_timeout;        /**< The idle timeout in seconds */
+   int validation;          /**< Validation mode */
+   int background_interval; /**< Background validation timer in seconds */
 
-   char libev[MISC_LENGTH];
-   int buffer_size;
-   bool keep_alive;
-   bool nodelay;
-   bool non_blocking;
-   int backlog;
+   char libev[MISC_LENGTH]; /**< Name of libev mode */
+   int buffer_size;         /**< Socket buffer size */
+   bool keep_alive;         /**< Use keep alive */
+   bool nodelay;            /**< Use NODELAY */
+   bool non_blocking;       /**< Use non blocking */
+   int backlog;             /**< The backlog for listen */
 
-   char unix_socket_dir[MISC_LENGTH];
+   char unix_socket_dir[MISC_LENGTH]; /**< The directory for the Unix Domain Socket */
 
-   int number_of_servers;
-   int number_of_hbas;
+   int number_of_servers; /**< The number of active servers */
+   int number_of_hbas;    /**< The number of active HBA entries */
 
-   struct server servers[NUMBER_OF_SERVERS];
-   struct connection connections[MAX_NUMBER_OF_CONNECTIONS];
-   struct hba hbas[NUMBER_OF_HBAS];
+   struct server servers[NUMBER_OF_SERVERS];                 /**< The servers */
+   struct connection connections[MAX_NUMBER_OF_CONNECTIONS]; /**< The connections */
+   struct hba hbas[NUMBER_OF_HBAS];                          /**< The HBA entries */
 } __attribute__ ((aligned (64)));
 
+/** @struct
+ * Defines a message
+ */
 struct message
 {
-   signed char kind;
-   ssize_t length;
-   size_t max_length;
-   void* data;
+   signed char kind;  /**< The kind of the message */
+   ssize_t length;    /**< The length of the message */
+   size_t max_length; /**< The maximum size of the message */
+   void* data;        /**< The message data */
 } __attribute__ ((aligned (64)));
 
+/** @struct
+ * Defines the signal structure
+ */
 struct signal_info
 {
-   struct ev_signal signal;
-   void* shmem;
-   int slot;
+   struct ev_signal signal; /**< The libev base type */
+   void* shmem;             /**< The shared memory segment */
+   int slot;                /**< The slot */
 };
 
 #ifdef __cplusplus

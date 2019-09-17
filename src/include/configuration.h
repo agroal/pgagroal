@@ -36,19 +36,28 @@ extern "C" {
 #include <stdlib.h>
 
 /**
- *
+ * Initialize the configuration structure
+ * @param shmem The shared memory segment
+ * @param size The size of the configuration
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_init_configuration(void* shmem, size_t size);
 
 /**
- *
+ * Read the configuration from a file
+ * @param filename The file name
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_read_configuration(char* filename, void* shmem);
 
 /**
- *
+ * Read the HBA configuration from a file
+ * @param filename The file name
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_read_hba_configuration(char* filename, void* shmem);

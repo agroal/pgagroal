@@ -38,61 +38,79 @@ extern "C" {
 #include <stdlib.h>
 
 /**
- *
+ * Read a byte
+ * @param data Pointer to the data
+ * @return The byte
  */
 signed char
 pgagroal_read_byte(void* data);
 
 /**
- *
+ * Read an int16
+ * @param data Pointer to the data
+ * @return The int16
  */
 int16_t
 pgagroal_read_int16(void* data);
 
 /**
- *
+ * Read an int32
+ * @param data Pointer to the data
+ * @return The int32
  */
 int32_t
 pgagroal_read_int32(void* data);
 
 /**
- *
+ * Read a string
+ * @param data Pointer to the data
+ * @return The string
  */
 char*
 pgagroal_read_string(void* data);
 
 /**
- *
+ * Write a byte
+ * @param data Pointer to the data
+ * @param b The byte
  */
 void
 pgagroal_write_byte(void* data, signed char b);
 
 /**
- *
+ * Write an int32
+ * @param data Pointer to the data
+ * @param i The int32
  */
 void
 pgagroal_write_int32(void* data, int32_t i);
 
 /**
- *
+ * Write a string
+ * @param data Pointer to the data
+ * @param s The string
  */
 void
 pgagroal_write_string(void* data, char* s);
 
 /**
- *
+ * Print the available libev engines
  */
 void
 pgagroal_libev_engines();
 
 /**
- *
+ * Get the constant for a libev engine
+ * @param engine The name of the engine
+ * @return The constant
  */
 unsigned int
 pgagroal_libev(char* engine);
 
 /**
- *
+ * Get the name for a libev engine
+ * @param val The constant
+ * @return The name
  */
 char*
 pgagroal_libev_engine(unsigned int val);
@@ -100,7 +118,8 @@ pgagroal_libev_engine(unsigned int val);
 #ifdef DEBUG
 
 /**
- *
+ * Decode a message
+ * @param msg The message
  */
 void
 pgagroal_decode_message(struct message* msg);

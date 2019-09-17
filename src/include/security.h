@@ -38,7 +38,12 @@ extern "C" {
 #include <stdlib.h>
 
 /**
- *
+ * Authenticate a user
+ * @param client_fd The descriptor
+ * @param address The client address
+ * @param shmem The shared memory segment
+ * @param slot The resulting slot
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot);

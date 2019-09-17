@@ -38,19 +38,28 @@ extern "C" {
 #include <stdlib.h>
 
 /**
- *
+ * Get the primary server
+ * @param shmem The shared memory segment
+ * @param server The resulting server identifier
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_get_primary(void* shmem, int* server);
 
 /**
- *
+ * Update the server state
+ * @param shmem The shared memory segment
+ * @param slot The slot
+ * @param socket The descriptor
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_update_server_state(void* shmem, int slot, int socket);
 
 /**
- *
+ * Print the state of the servers
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_server_status(void* shmem);

@@ -42,18 +42,24 @@ extern "C" {
 #define WORKER_SERVER_FAILURE 3
 #define WORKER_SERVER_FATAL   4
 
+/** @struct
+ * The worker structure for each IO event
+ */
 struct worker_info
 {
-   struct ev_io io;
-   int client_fd;
-   int server_fd;
+   struct ev_io io; /**< The libev base type */
+   int client_fd;   /**< The client descriptor */
+   int server_fd;   /**< The server descriptor */
 };
 
 extern volatile int running;
 extern volatile int exit_code;
 
 /**
- *
+ * Create a worker instance
+ * @param fd The client descriptor
+ * @param address The client address
+ * @param shmem The shared memory segment
  */
 void
 pgagroal_worker(int fd, char* address, void* shmem);

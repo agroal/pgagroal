@@ -42,37 +42,55 @@ extern "C" {
 #define MANAGEMENT_FLUSH               3
 
 /**
- *
+ * Read the management header
+ * @param socket The socket descriptor
+ * @param id The resulting management identifier
+ * @param slot The resulting slot
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_management_read_header(int socket, signed char* id, int32_t* slot);
 
 /**
- *
+ * Read the management payload
+ * @param socket The socket descriptor
+ * @param id The management identifier
+ * @param payload The resulting payload
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_management_read_payload(int socket, signed char id, int* payload);
 
 /**
- *
+ * Free the management payload
+ * @param payload The payload
  */
 void
 pgagroal_management_free_payload(void* payload);
 
 /**
- *
+ * Management operation: Transfer a connection
+ * @param shmem The shared memory segment
+ * @param slot The slot
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_management_transfer_connection(void* shmem, int32_t slot);
 
 /**
- *
+ * Management operation: Kill a connection
+ * @param shmem The shared memory segment
+ * @param slot The slot
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_management_kill_connection(void* shmem, int32_t slot);
 
 /**
- *
+ * Management operation: Flush the pool
+ * @param shmem The shared memory segment
+ * @param mode The flush mode
+ * @return 0 upon success, otherwise 1
  */
 int
 pgagroal_management_flush(void* shmem, int32_t mode);
