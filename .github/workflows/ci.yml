@@ -15,8 +15,4 @@ jobs:
       run: cd /home/runner/work/pgagroal/build
     - name: list
       run: ls -la && ls -la ..
-    - name: cmake
-      run: cmake -DCMAKE_BUILD_TYPE=Release ..
-    - name: make
-      run: make
       
