@@ -9,6 +9,6 @@ layout: default
     </h1>
     <ul class="posts">
         {% for release in site.data.releases %}
-        <li class="posts"><span class="date">{{ release.date | date: "%Y %m %d" }}</span></a><a href="{{ release.announce }}">{{ release.name }}</a>
+        <li class="posts"><span class="date">{{ release.date | date: "%Y %m %d" }}</span></a><a href="{{ site.root }}/{{ release.announce }}">{{ release.name }}</a>
         {% endfor %}
     </ul>
