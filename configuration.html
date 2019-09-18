@@ -1,0 +1,258 @@
+---
+layout: default
+---
+
+<div id="home">
+    <h1>
+        {% for header in site.headers %}
+        <a class="header" href="{{ header.url }}">{{ header.name }}</a>
+        {% endfor %}
+    </h1>
+    <p/>
+
+    <h2>pgagroal.conf</h2>
+
+    <h3>[pgagroal]</h3>
+
+    Main configuration of pgagroal.
+    <p/>
+    
+    <table border="1">
+      <thead>
+        <th align="left">Property</th>
+        <th align="left">Default</th>
+        <th align="left">Unit</th>
+        <th align="left">Required</th>
+        <th align="left">Description</th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>host</td>
+          <td></td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>The bind address for pgagroal</td>
+        </tr>
+        <tr>
+          <td>port</td>
+          <td></td>
+          <td>Int</td>
+          <td>Yes</td>
+          <td>The bind port for pgagroal</td>
+        </tr>
+        <tr>
+          <td>log_type</td>
+          <td></td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>The logging type (console, file, syslog)</td>
+        </tr>
+        <tr>
+          <td>log_level</td>
+          <td></td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>The logging level (fatal, error, warn, info, debug1, ..., debug5)</td>
+        </tr>
+        <tr>
+          <td>log_path</td>
+          <td></td>
+          <td>String</td>
+          <td>Yes, if file</td>
+          <td>The log file location</td>
+        </tr>
+        <tr>
+          <td>unix_socket_dir</td>
+          <td></td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>The Unix Domain Socket location</td>
+        </tr>
+        <tr>
+          <td>blocking_timeout</td>
+          <td>30</td>
+          <td>Int</td>
+          <td>No</td>
+          <td>The number of seconds the process will be blocking for a connection (disable = 0)</td>
+        </tr>
+        <tr>
+          <td>idle_timeout</td>
+          <td>0</td>
+          <td>Int</td>
+          <td>No</td>
+          <td>The number of seconds a connection is been kept alive (disable = 0)</td>
+        </tr>
+        <tr>
+          <td>validation</td>
+          <td>off</td>
+          <td>String</td>
+          <td>No</td>
+          <td>Should connection validation be performed. Valid options: off, foreground and background</td>
+        </tr>
+        <tr>
+          <td>background_interval</td>
+          <td>300</td>
+          <td>Int</td>
+          <td>No</td>
+          <td>The interval between background validation scans in seconds</td>
+        </tr>
+        <tr>
+          <td>max_connections</td>
+          <td>1000</td>
+          <td>Int</td>
+          <td>No</td>
+          <td>The maximum number of connections (max 1000)</td>
+        </tr>
+        <tr>
+          <td>libev</td>
+          <td>auto</td>
+          <td>String</td>
+          <td>No</td>
+          <td>Select the <a href="http://software.schmorp.de/pkg/libev.html">libev</a> backend to use. Valid options: auto, select, poll, epoll, linuxaio, iouring, devpoll and port</td>
+        </tr>
+        <tr>
+          <td>buffer_size</td>
+          <td>65535</td>
+          <td>Int</td>
+          <td>No</td>
+          <td>The network buffer size (SO_RCVBUF and SO_SNDBUF)</td>
+        </tr>
+        <tr>
+          <td>keep_alive</td>
+          <td>on</td>
+          <td>Bool</td>
+          <td>No</td>
+          <td>Have SO_KEEPALIVE on sockets</td>
+        </tr>
+        <tr>
+          <td>nodelay</td>
+          <td>on</td>
+          <td>Bool</td>
+          <td>No</td>
+          <td>Have TCP_NODELAY on sockets</td>
+        </tr>
+        <tr>
+          <td>non_blocking</td>
+          <td>on</td>
+          <td>Bool</td>
+          <td>No</td>
+          <td>Have O_NONBLOCK on sockets</td>
+        </tr>
+        <tr>
+          <td>backlog</td>
+          <td>250</td>
+          <td>Int</td>
+          <td>No</td>
+          <td>The backlog for listen()</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Server section</h3>
+
+    Specifies the PostgreSQL instances.
+    <p/>
+
+    <table border="1">
+      <thead>
+        <th align="left">Property</th>
+        <th align="left">Default</th>
+        <th align="left">Unit</th>
+        <th align="left">Required</th>
+        <th align="left">Description</th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>host</td>
+          <td></td>
+          <td>String</td>
+          <td>Yes</td>
+          <td>The address of the PostgreSQL instance</td>
+        </tr>
+        <tr>
+          <td>port</td>
+          <td></td>
+          <td>Int</td>
+          <td>Yes</td>
+          <td>The port of the PostgreSQL instance</td>
+        </tr>
+        <tr>
+          <td>primary</td>
+          <td></td>
+          <td>Bool</td>
+          <td>No</td>
+          <td>Identify the instance as primary (hint)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Example</h3>
+
+    <pre>
+[pgagroal]
+host = *
+port = 2345
+
+log_type = file
+log_level = info
+log_path = /tmp/pgagroal.log
+
+idle_timeout = 600
+validation = off
+unix_socket_dir = /tmp/.s.pgagroal
+
+[primary]
+host = localhost
+port = 5432
+    </pre>
+    
+    <h2>pgagroal_hba.conf</h2>
+
+    Specifies the host based authentication configuration of pgagroal.
+    <p/>
+    
+    <table border="1">
+      <thead>
+        <th align="left">Column</th>
+        <th align="left">Required</th>
+        <th align="left">Description</th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>TYPE</td>
+          <td>Yes</td>
+          <td>Specifies the access method for clients. Only host supported</td>
+        </tr>
+        <tr>
+          <td>DATABASE</td>
+          <td>Yes</td>
+          <td>Specifies the database for the rule. Either specific name or all for all databases</td>
+        </tr>
+        <tr>
+          <td>USER</td>
+          <td>Yes</td>
+          <td>Specifies the user for the rule. Either specific name or all for all users</td>
+        </tr>
+        <tr>
+          <td>ADDRESS</td>
+          <td>Yes</td>
+          <td>Specifies the network for the rule. all for all networks, or IPv4 address with a mask (0.0.0.0/0) or IPv6 address with a mask (::0/0)</td>
+        </tr>
+        <tr>
+          <td>METHOD</td>
+          <td>Yes</td>
+          <td>Specifies the authentication mode for the user. `all` for all methods. Currently ignored</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Example</h3>
+    
+    <pre>
+#
+# TYPE  DATABASE USER  ADDRESS  METHOD
+#
+host    all      all   all      all
+    </pre>
+
+</div>

@@ -1,0 +1,14 @@
+---
+layout: default
+---
+
+    <h1>
+        {% for header in site.headers %}
+        <a class="header" href="{{ header.url }}">{{ header.name }}</a>
+        {% endfor %}
+    </h1>
+    <ul class="posts">
+        {% for release in site.data.releases %}
+        <li class="posts"><span class="date">{{ release.date | date: "%Y %m %d" }}</span></a><a href="{{ release.announce }}">{{ release.name }}</a>
+        {% endfor %}
+    </ul>

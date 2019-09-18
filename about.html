@@ -1,0 +1,37 @@
+---
+layout: default
+---
+
+<div id="home">
+    <h1>
+        {% for header in site.headers %}
+        <a class="header" href="{{ header.url }}">{{ header.name }}</a>
+        {% endfor %}
+    </h1>
+    <p/>
+    pgagroal is a high-performance protocol-native connection pool for <a href="https://www.postgresql.org">PostgreSQL</a>.
+
+    <h2>Features</h2>
+    <ul>
+      <li><a href="performance.html">High performance</a></li>
+      <li>Connection pool</li>
+      <li>Remove idle connections</li>
+      <li>Connection validation</li>
+    </ul>
+
+    <h2>Overview</h2>
+
+    pgagroal makes use of
+    <p/>
+    <ul>
+      <li>Process model</li>
+      <li>Shared memory model across processes</li>
+      <li><a href="http://software.schmorp.de/pkg/libev.html">libev</a> for fast network interactions</li>
+      <li><a href="https://en.cppreference.com/w/c/atomic">Atomic operations</a> are used to keep track of state</li>
+      <li>The <a href="https://www.postgresql.org">PostgreSQL</a> native protocol
+        <a href="https://www.postgresql.org/docs/11/protocol-message-formats.html">v3</a> for its communication</li>
+    </ul>
+    <p/>
+    <p/>
+    See our <a href="https://github.com/agroal/pgagroal">GitHub</a> site for further information.
+</div>

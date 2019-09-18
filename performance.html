@@ -1,0 +1,78 @@
+---
+layout: default
+---
+
+<div id="home">
+    <h1>
+        {% for header in site.headers %}
+        <a class="header" href="{{ header.url }}">{{ header.name }}</a>
+        {% endfor %}
+    </h1>
+    <p/>
+
+    <h2>pgagroal performance</h2>
+
+    Performance is an important goal for pgagroal and effort have been made
+    to make `pgagroal` scale and use a limited number of resources.
+    <p/>
+    This report describe pgagroal in relationship to 3 other <a href="https://www.postgresql.org">PostgreSQL</a>
+    connection pool implementations, which we will call "a", "b" and "c".
+    <p/>
+    The <a href="https://www.postgresql.org/docs/11/pgbench.html">pgbench</a> program was used in the runs. All pool
+    configurations were made with performance in mind.
+    <p/>
+    All diagrams are using the same identifier for the connection pool in question, so "a" is "a" in all
+    diagrams and so on.
+    <p/>
+    The runs were performed on <a href="https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux">RHEL</a> 7.6 /
+    <a href="https://access.redhat.com/solutions/3358">EPEL</a> /
+    <a href="https://developers.redhat.com/products/developertoolset/overview">DevTools</a> 8
+    based machines on 10G network. All connection pools were the latest versions as of August 28, 2019. pgagroal was
+    using the epoll mode of <a href="http://software.schmorp.de/pkg/libev.html">libev</a>.
+
+    <h3>Simple</h3>
+
+    This run uses
+
+    <pre>
+pgbench -M simple
+    </pre>
+
+    <img src="images/perf-simple.png"/>
+    
+    <h3>Extended</h3>
+
+    This run uses
+
+    <pre>
+pgbench -M extended
+    </pre>
+
+    <img src="images/perf-extended.png"/>
+    
+    <h3>Prepared</h3>
+
+    This run uses
+
+    <pre>
+pgbench -M prepared
+    </pre>
+
+    <img src="images/perf-prepared.png"/>
+    
+    <h3>ReadOnly</h3>
+
+    This run uses
+
+    <pre>
+pgbench -S -M prepared
+    </pre>
+
+    <img src="images/perf-readonly.png"/>
+    
+    <h3>Closing</h3>
+    
+    <b>Please</b>, run your own benchmarks to see how pgagroal compare to your existing connection pool
+    deployment.
+
+</div>

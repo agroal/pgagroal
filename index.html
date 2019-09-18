@@ -1,0 +1,19 @@
+---
+layout: default
+---
+
+<div id="home">
+    <h1>
+        {% for header in site.headers %}
+        <a class="header" href="{{ header.url }}">{{ header.name }}</a>
+        {% endfor %}
+    </h1>
+    pgagroal is a high-performance protocol-native connection pool for <a href="https://www.postgresql.org">PostgreSQL</a>.
+    <p/>
+    <h3>News</h3>
+    <ul class="posts">
+        {% for post in site.posts %}
+        <li class="posts"><span class="date">{{ post.date | date: "%Y %m %d" }}</span><a href="{{ post.url }}">{{ post.title }}</a></li>
+        {% endfor %}
+    </ul>
+</div>

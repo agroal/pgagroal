@@ -1,0 +1,172 @@
+---
+layout: default
+---
+
+<div id="home">
+    <h1>
+        {% for header in site.headers %}
+        <a class="header" href="{{ header.url }}">{{ header.name }}</a>
+        {% endfor %}
+    </h1>
+    <p/>
+
+    <h2>Getting started with pgagroal</h2>
+
+    First of all, make sure that pgagroal is installed and in your path by
+    using "pgagroal -?". You should see
+
+    <pre>
+pgagroal 0.1.0
+  High-performance connection pool for PostgreSQL
+
+Usage:
+  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ]
+
+Options:
+  -c, --config CONFIG_FILE  Set the path to the pgagroal.conf file
+  -a, --hba HBA_CONFIG_FILE Set the path to the pgagroal_hba.conf file
+  -V, --version             Display version information
+  -?, --help                Display help
+    </pre>
+
+    If you don't have pgagroal in your path see our <a href="https://github.com/agroal/pgagroal/README.md">README</a>
+    on how to compile and install pgagroal in your system.
+
+    <h3>Configuration</h3>
+
+    Lets create a simple configuration file called <b>pgagroal.conf</b> with the content
+
+    <pre>
+[pgagroal]
+host = *
+port = 2345
+
+log_type = file
+log_level = info
+log_path = /tmp/pgagroal.log
+
+idle_timeout = 600
+validation = off
+unix_socket_dir = /tmp/.s.pgagroal
+
+[primary]
+host = localhost
+port = 5432
+    </pre>
+
+    In our main section called <b>[pgagroal]</b> we setup pgagroal to listen on all
+    network addresses on port 2345. Logging will be performed at "info" level and
+    put in a file called "/tmp/pgagroal.log". Then we specify that we want connections
+    to be closed if they have been idle for 10 minutes, and we also specify that
+    we don't want any connection validation to be performed. Last we specify the
+    location of the "unix_socket_dir" used for management operations.
+    <p/>
+    Next we create a section called <b>[primary]</b> which has the information about our
+    <a href="https://www.postgresql.org">PostgreSQL</a> instance. In this case it is running
+    on "localhost" on port "5432".
+    <p/>
+    Now we need a host based authentication (HBA) file. Create one called <b>pgagroal_hba.conf</b>
+    with the content
+
+    <pre>
+#
+# TYPE  DATABASE USER  ADDRESS  METHOD
+#
+host    all      all   all      all
+    </pre>
+
+    This tells pgagroal that it can accept connections from all network addresses
+    for all database and all user names.
+    <p/>
+    We are now ready to run pgagroal.
+
+    See <a href="configuration.html">Configuration</a> for all configuration options.
+
+    <h3>Running</h3>
+
+    We will run pgagroal using the command
+
+    <pre>
+pgagroal -c pgagroal.conf -a pgagroal_hba.conf
+    </pre>
+
+    If this doesn't give an error, then we are ready to connect.
+    <p/>
+    We will assume that we have a user called "test" with the password "test" in our
+    <a href="https://www.postgresql.org">PostgreSQL</a> instance. See their
+    <a href="https://www.postgresql.org/docs/current/index.html">documentation</a> on
+    how to setup PostgreSQL,
+    <a href="https://www.postgresql.org/docs/current/app-createuser.html">add a user</a>,
+    and
+    <a href="https://www.postgresql.org/docs/current/app-createdb.html">add a database</a>.
+    <p/>
+    We will connect to pgagroal using the <a href="https://www.postgresql.org/docs/current/app-psql.html">psql</a>
+    application.
+
+    <pre>
+psql -h localhost -p 2345 -U test test
+    </pre>
+
+    That should give you a password prompt where "test" should be typed in. You are now connected
+    to <a href="https://www.postgresql.org">PostgreSQL</a> through pgagroal.
+    <p/>
+    Type "\q" to quit <a href="https://www.postgresql.org/docs/current/app-psql.html">psql</a> and pgagroal
+    will now put the connection that you used into its pool.
+    <p/>
+    If you type the above psql command again pgagroal will reuse the existing connection and
+    thereby lower the overhead of getting a connection to <a href="https://www.postgresql.org">PostgreSQL</a>.
+    <p/>
+    Now you are ready to point your applications to use pgagroal instead of going directly to
+    <a href="https://www.postgresql.org">PostgreSQL</a>.
+    <p/>
+    pgagroal is stopped by pressing Ctrl-C (`^C`) in the console where you started it, or by sending
+    the SIGTERM signal to the process using "kill pid".
+
+    <h3>Administration</h3>
+
+    pgagroal has an administration tool called pgagroal-cli.
+    <p/>
+    You can see the commands it supports by using "pgagroal-cli -?" which will give
+
+    <pre>
+pgagroal-cli 0.1.0
+  Command line utility for pgagroal
+
+Usage:
+  pgagroal-cli [ -c CONFIG_FILE ] [ COMMAND ]
+
+Options:
+  -c, --config CONFIG_FILE Set the path to the pgagroal.conf file
+  -V, --version            Display version information
+  -?, --help               Display help
+
+Commands:
+  flush-idle               Flush idle connections
+  flush-gracefully         Flush all connections gracefully
+  flush-all                Flush all connections. USE WITH CAUTION !
+    </pre>
+
+    This tool can be used on the machine running pgagroal to flush connections.
+    <p/>
+    To flush all idle connections you would use
+
+    <pre>
+pgagroal-cli -c pgagroal.conf flush-idle
+    </pre>
+
+    <h3>Closing</h3>
+
+    The <a href="https://github.com/agroal/pgagroal">pgagroal</a> community hopes that you find
+    the project interesting.
+    <p/>
+    Feel free to
+
+    <ul>
+      <li><a href="https://github.com/agroal/pgagroal/issues">Ask a question</a></li>
+      <li><a href="https://github.com/agroal/pgagroal/issues">Raise an issue</a></li>
+      <li><a href="https://github.com/agroal/pgagroal/issues">Submit a feature request</a></li>
+      <li><a href="https://github.com/agroal/pgagroal/pulls">Write a code submission</a></li>
+    </ul>
+    <p/>
+    All contributions are most welcome !
+</div>

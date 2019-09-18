@@ -1,0 +1,166 @@
+/* Master styling */
+@font-face {
+  font-family: 'Overpass';
+  font-style: normal;
+  font-weight: 300;
+  src: local('Overpass Light'), local('Overpass-Light'), url(https://fonts.gstatic.com/s/overpass/v1/tgqY5qOfB6w1HP32JTSrLCYE0-AqJ3nfInTTiDXDjU4.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20AB, U+20AD-20CF, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Overpass';
+  font-style: normal;
+  font-weight: 300;
+  src: local('Overpass Light'), local('Overpass-Light'), url(https://fonts.gstatic.com/s/overpass/v1/tgqY5qOfB6w1HP32JTSrLI4P5ICox8Kq3LLUNMylGO4.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2212, U+2215;
+}
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Source Code Pro'), local('SourceCodePro-Regular'), url(https://fonts.gstatic.com/s/sourcecodepro/v6/mrl8jkM18OlOQN8JLgasDy2Q8seG17bfDXYR_jUsrzg.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20AB, U+20AD-20CF, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Source Code Pro'), local('SourceCodePro-Regular'), url(https://fonts.gstatic.com/s/sourcecodepro/v6/mrl8jkM18OlOQN8JLgasD9V_2ngZ8dMf8fLgjYEouxg.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2212, U+2215;
+}
+
+body {
+  font-family: 'Overpass', Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  background-color: #FFFFFF;
+  color: #000000;
+}
+
+/* Font and link declarations */
+span.date {
+  color: #000000;
+  font-size: 11px;
+  padding: 11px;
+  float: right;
+  font-family: 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+h1 {
+  font-weight: normal;
+  color: #336791;
+  margin-top: 10px;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+}
+
+h2 {
+  font-weight: normal;
+  margin-bottom: 5px;
+  color: #336791;
+}
+
+h3 {
+  font-weight: normal;
+  margin-bottom: 5px;
+  color: #336791;
+  text-decoration: underline;
+}
+
+a, a:link, a:active {
+  text-decoration: none;
+  color: #336791;
+}
+
+a:hover {
+  color: #336791;
+  text-decoration: underline;
+}
+
+/* Container element */
+div#container {
+  width: 1200px;
+  margin: auto;
+  float: center;
+}
+
+/* Right aka content column formatting */
+div.right {
+  width: 800px;
+  float: left;
+  margin-top: 16px;
+  margin-left: 16px;
+}
+
+div.content {
+  border-top: 1px solid #000000;
+  margin-top: 5px;
+  padding-top: 5px;
+}
+
+figure.highlight {
+  margin: 0px;
+}
+
+pre {
+  background: #000000;
+  width: 100%;
+  padding-top: 0.5em;
+  padding-left: 1em;
+  line-height: 1.5em;
+  color: #FFF;
+  overflow-x: auto;
+  font-family: 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace;
+  font-size: 13px;
+}
+div.content .highlight {
+  background: #000000;
+}
+a.header {
+  padding-right: 32px;
+  text-transform: uppercase;
+}
+a.icon {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+div.right li.posts {
+  margin-top: 10px;
+  margin-left: 0;
+  padding: 0;
+  font-size: 22px;
+}
+
+/* Left column aka nav bar formatting */
+div.left {
+  float: left;
+  font-size: 16px;
+  color: #000000;
+  text-align: right;
+  margin-top: 16px;
+  margin-right: 16px;
+}
+
+div.left a.about {
+  line-height: 2em;
+}
+
+/* footer */
+div.right footer {
+  font-size: 12px;
+}
+
+footer {
+  margin-top: 16px;
+  border-top: 1px solid #000000;
+  padding-top: 16px;
+  color: #000000;
+}
+
+footer span.right {
+  vertical-align: bottom;
+  float: right;
+}
+
+footer a {
+  color: #336791;
+}
+

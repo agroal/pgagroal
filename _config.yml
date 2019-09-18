@@ -1,0 +1,38 @@
+name: pgagroal
+encoding: utf-8
+markdown: kramdown
+kramdown:
+  input: GFM
+  auto_ids: true
+  hard_wrap: false
+  highlighter: rouge
+###
+copyright: © 2019 <a href="https://www.redhat.com">RedHat Inc.</a>
+about: <a href="performance.html">High performance</a> connection pool for <a href="https://www.postgresql.org">PostgreSQL</a>
+root: https://agroal.github.io/pgagroal
+headers:
+    - name: Configuration
+      url: /configuration.html
+    - name: About
+      url: /about.html
+urls:
+    - text: home
+      url: https://agroal.github.io/pgagroal
+      icon: /images/icomoon/001-home.png
+    - text: releases
+      url: /releases.html
+      icon: /images/icomoon/097-download.png
+    - text: getting started
+      url: /gettingstarted.html
+      icon: /images/icomoon/027-bullhorn.png
+
+github:
+    - text: github
+      url: https://github.com/agroal/pgagroal
+      icon: /images/icomoon/433-github.png
+    - text: license
+      url: https://opensource.org/licenses/BSD-3-Clause
+      icon: /images/icomoon/034-library.png
+    - text: issues
+      url: https://github.com/agroal/pgagroal/issues
+      icon: /images/icomoon/154-bug.png

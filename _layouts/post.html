@@ -1,0 +1,18 @@
+---
+layout: default
+---
+
+<h1>
+  {% for header in site.headers %}
+  <a class="header" href="{{ header.url }}">{{ header.name }}</a>
+  {% endfor %}
+</h1>
+
+<h2>
+  {{ page.title }}
+  <span class="date">{{ page.date | date: "%Y %m %d" }}</span>
+</h2>
+
+<div class="content">
+  {{ content }}
+</div>

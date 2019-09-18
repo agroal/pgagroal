@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>{% if page.title %} {{ page.title }} {% else %} {{ site.name }} {% endif %}</title>
+    <meta name="viewport" content="width=device-width">
+    <link rel="stylesheet" href="/css/main.css">
+
+</head>
+<body>
+
+<div id="container">
+
+    <div class="left">
+        <h1 id="project"><a href="/">{{ site.name }}</a></h1>
+
+        {% for i in site.urls %}
+        <a class="about" href="{{ i.url }}">{{ i.text }} &nbsp; <img src="{{ i.icon }}"/></a><br/>
+        {% endfor %}
+        <p/>
+        {% for i in site.github %}
+        <a class="about" href="{{ i.url }}">{{ i.text }} &nbsp; <img src="{{ i.icon }}"/></a><br/>
+        {% endfor %}
+
+    </div>
+
+    <div class="right">
+
+        {{ content }}
+
+        <footer>
+          {{ site.about }}
+          <span class="right">
+            {{ site.copyright }}
+            (<a rel="license" href="http://creativecommons.org/licenses/by/4.0/">
+              CC BY 4.0
+            </a>)
+          </span>
+        </footer>
+
+    </div>
+
+</div>
+
+</body>
+</html>
