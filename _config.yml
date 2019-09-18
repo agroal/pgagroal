@@ -12,27 +12,27 @@ about: <a href="performance.html">High performance</a> connection pool for <a hr
 root: https://agroal.github.io/pgagroal
 headers:
     - name: Configuration
-      url: /configuration.html
+      url: https://agroal.github.io/pgagroal/configuration.html
     - name: About
-      url: /about.html
+      url: https://agroal.github.io/pgagroal/about.html
 urls:
     - text: home
       url: https://agroal.github.io/pgagroal
-      icon: /images/icomoon/001-home.png
+      icon: images/icomoon/001-home.png
     - text: releases
-      url: /releases.html
-      icon: /images/icomoon/097-download.png
+      url: https://agroal.github.io/pgagroal/releases.html
+      icon: images/icomoon/097-download.png
     - text: getting started
-      url: /gettingstarted.html
-      icon: /images/icomoon/027-bullhorn.png
+      url: https://agroal.github.io/pgagroal/gettingstarted.html
+      icon: images/icomoon/027-bullhorn.png
 
 github:
     - text: github
       url: https://github.com/agroal/pgagroal
-      icon: /images/icomoon/433-github.png
+      icon: images/icomoon/433-github.png
     - text: license
       url: https://opensource.org/licenses/BSD-3-Clause
-      icon: /images/icomoon/034-library.png
+      icon: images/icomoon/034-library.png
     - text: issues
       url: https://github.com/agroal/pgagroal/issues
-      icon: /images/icomoon/154-bug.png
+      icon: images/icomoon/154-bug.png
