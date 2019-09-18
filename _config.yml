@@ -8,7 +8,7 @@ kramdown:
   highlighter: rouge
 ###
 copyright: © 2019 <a href="https://www.redhat.com">RedHat Inc.</a>
-about: <a href="performance.html">High performance</a> connection pool for <a href="https://www.postgresql.org">PostgreSQL</a>
+about: <a href="https://agroal.github.io/pgagroal/performance.html">High performance</a> connection pool for <a href="https://www.postgresql.org">PostgreSQL</a>
 root: https://agroal.github.io/pgagroal
 headers:
     - name: Configuration
@@ -18,21 +18,21 @@ headers:
 urls:
     - text: home
       url: https://agroal.github.io/pgagroal
-      icon: images/icomoon/001-home.png
+      icon: https://agroal.github.io/pgagroal/images/icomoon/001-home.png
     - text: releases
       url: https://agroal.github.io/pgagroal/releases.html
-      icon: images/icomoon/097-download.png
+      icon: https://agroal.github.io/pgagroal/images/icomoon/097-download.png
     - text: getting started
       url: https://agroal.github.io/pgagroal/gettingstarted.html
-      icon: images/icomoon/027-bullhorn.png
+      icon: https://agroal.github.io/pgagroal/images/icomoon/027-bullhorn.png
 
 github:
     - text: github
       url: https://github.com/agroal/pgagroal
-      icon: images/icomoon/433-github.png
+      icon: https://agroal.github.io/pgagroal/images/icomoon/433-github.png
     - text: license
       url: https://opensource.org/licenses/BSD-3-Clause
-      icon: images/icomoon/034-library.png
+      icon: https://agroal.github.io/pgagroal/images/icomoon/034-library.png
     - text: issues
       url: https://github.com/agroal/pgagroal/issues
-      icon: images/icomoon/154-bug.png
+      icon: https://agroal.github.io/pgagroal/images/icomoon/154-bug.png
