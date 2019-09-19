@@ -40,12 +40,14 @@
 
 /* system */
 #include <fcntl.h>
+#include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/types.h>
 
 static void connection_details(void* shmem, int slot);
 
@@ -231,6 +233,7 @@ pgagroal_return_connection(void* shmem, int slot)
          }
 
          config->connections[slot].new = false;
+         config->connections[slot].pid = -1;
          atomic_store(&config->connections[slot].state, STATE_FREE);
          atomic_fetch_sub(&config->number_of_connections, 1);
 
@@ -255,6 +258,7 @@ pgagroal_kill_connection(void* shmem, int slot)
    pgagroal_management_kill_connection(shmem, slot);
    pgagroal_disconnect(fd);
    config->connections[slot].fd = -1;
+   config->connections[slot].pid = -1;
 
    for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
    {
@@ -398,6 +402,11 @@ pgagroal_flush(void* shmem, int mode)
          {
             if (mode == FLUSH_ALL)
             {
+               if (config->connections[i].pid != -1)
+               {
+                  kill(config->connections[i].pid, SIGQUIT);
+               }
+
                pgagroal_kill_connection(shmem, i);
             }
             else if (mode == FLUSH_GRACEFULLY)
@@ -424,6 +433,7 @@ pgagroal_pool_init(void* shmem)
       atomic_init(&config->connections[i].state, STATE_NOTINIT);
       config->connections[i].new = true;
       config->connections[i].fd = -1;
+      config->connections[i].pid = -1;
    }
 
    return 0;
@@ -443,6 +453,12 @@ pgagroal_pool_shutdown(void* shmem)
       if (state != STATE_NOTINIT)
       {
          pgagroal_disconnect(config->connections[i].fd);
+
+         if (config->connections[i].pid != -1)
+         {
+            kill(config->connections[i].pid, SIGQUIT);
+         }
+
          atomic_store(&config->connections[i].state, STATE_NOTINIT);
       }
    }
@@ -499,6 +515,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {
@@ -515,6 +532,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {
@@ -531,6 +549,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {
@@ -547,6 +566,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {
@@ -563,6 +583,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {
@@ -579,6 +600,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {

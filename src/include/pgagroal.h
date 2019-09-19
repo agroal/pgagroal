@@ -120,6 +120,7 @@ struct connection
    ssize_t security_lengths[NUMBER_OF_SECURITY_MESSAGES]; /**< The lengths of the security messages */
    char security_messages[NUMBER_OF_SECURITY_MESSAGES][SECURITY_BUFFER_SIZE]; /**< The security messages */
    time_t timestamp; /**< The last used timestamp */
+   pid_t pid;        /**< The associated process id */
    int fd;           /**< The descriptor */
 } __attribute__ ((aligned (64)));
 
