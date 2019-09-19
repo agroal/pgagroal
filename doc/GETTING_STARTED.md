@@ -45,7 +45,7 @@ port = 5432
 In our main section called `[pgagroal]` we setup `pgagroal` to listen on all
 network addresses on port 2345. Logging will be performed at `info` level and
 put in a file called `/tmp/pgagroal.log`. Then we specify that we want connections
-to be closed if they have been idle for 10 minutes, and we also specific that
+to be closed if they have been idle for 10 minutes, and we also specify that
 we don't want any connection validation to be performed. Last we specify the
 location of the `unix_socket_dir` used for management operations.
 
