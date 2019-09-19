@@ -307,3 +307,40 @@ error:
 
    return 1;
 }
+
+int
+pgagroal_management_stop(void* shmem)
+{
+   char header[MANAGEMENT_HEADER_SIZE];
+   ssize_t w;
+   int fd;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   pgagroal_write_byte(&(header), MANAGEMENT_STOP);
+   pgagroal_write_int32(&(header[1]), 0);
+
+   if (pgagroal_connect_unix_socket(config->unix_socket_dir, &fd))
+   {
+      goto error;
+   }
+
+   ZF_LOGD("Write %d to %d (%d)", MANAGEMENT_STOP, fd, MANAGEMENT_HEADER_SIZE);
+
+   w = write(fd, &(header), MANAGEMENT_HEADER_SIZE);
+   if (w == -1)
+   {
+      perror("management write");
+      goto error;
+   }
+
+   pgagroal_disconnect(fd);
+
+   return 0;
+
+error:
+   pgagroal_disconnect(fd);
+
+   return 1;
+}

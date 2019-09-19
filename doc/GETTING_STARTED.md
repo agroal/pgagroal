@@ -13,6 +13,7 @@ Usage:
 Options:
   -c, --config CONFIG_FILE  Set the path to the pgagroal.conf file
   -a, --hba HBA_CONFIG_FILE Set the path to the pgagroal_hba.conf file
+  -d, --daemon              Run as a daemon
   -V, --version             Display version information
   -?, --help                Display help
 ```
@@ -130,6 +131,7 @@ Commands:
   flush-idle               Flush idle connections
   flush-gracefully         Flush all connections gracefully
   flush-all                Flush all connections. USE WITH CAUTION !
+  stop                     Stop pgagroal
 ```
 
 This tool can be used on the machine running `pgagroal` to flush connections.
@@ -138,6 +140,12 @@ To flush all idle connections you would use
 
 ```
 pgagroal-cli -c pgagroal.conf flush-idle
+```
+
+To stop pgagroal, if you are running in daemon mode, you would use
+
+```
+pgagroal-cli -c pgagroal.conf stop
 ```
 
 ## Closing

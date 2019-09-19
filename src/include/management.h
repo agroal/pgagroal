@@ -40,6 +40,7 @@ extern "C" {
 #define MANAGEMENT_TRANSFER_CONNECTION 1
 #define MANAGEMENT_KILL_CONNECTION     2
 #define MANAGEMENT_FLUSH               3
+#define MANAGEMENT_STOP                4
 
 /**
  * Read the management header
@@ -94,6 +95,14 @@ pgagroal_management_kill_connection(void* shmem, int32_t slot);
  */
 int
 pgagroal_management_flush(void* shmem, int32_t mode);
+
+/**
+ * Management operation: Stop
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_stop(void* shmem);
 
 #ifdef __cplusplus
 }

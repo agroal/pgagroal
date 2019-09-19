@@ -44,6 +44,10 @@
 #include <string.h>
 #include <sys/mman.h>
 
+#define ACTION_UNKNOWN 0
+#define ACTION_FLUSH   1
+#define ACTION_STOP    2
+
 static void
 version()
 {
@@ -70,6 +74,7 @@ usage()
    printf("  flush-idle               Flush idle connections\n");
    printf("  flush-gracefully         Flush all connections gracefully\n");
    printf("  flush-all                Flush all connections. USE WITH CAUTION !\n");
+   printf("  stop                     Stop pgagroal\n");
    printf("\n");
 }
 
@@ -83,7 +88,7 @@ main(int argc, char **argv)
    int option_index = 0;
    void* shmem = NULL;
    size_t size;
-   bool flush = false;
+   int32_t action = ACTION_UNKNOWN;
    int32_t mode = FLUSH_IDLE;
 
    while (1)
@@ -148,26 +153,34 @@ main(int argc, char **argv)
       if (!strcmp("flush-idle", argv[argc - 1]))
       {
          mode = FLUSH_IDLE;
-         flush = true;
+         action = ACTION_FLUSH;
       }
       else if (!strcmp("flush-gracefully", argv[argc - 1]))
       {
          mode = FLUSH_GRACEFULLY;
-         flush = true;
+         action = ACTION_FLUSH;
       }
       else if (!strcmp("flush-all", argv[argc - 1]))
       {
          mode = FLUSH_ALL;
-         flush = true;
+         action = ACTION_FLUSH;
+      }
+      else if (!strcmp("stop", argv[argc - 1]))
+      {
+         action = ACTION_STOP;
       }
 
-      if (flush)
+      if (action == ACTION_FLUSH)
       {
          pgagroal_management_flush(shmem, mode);
       }
+      else if (action == ACTION_STOP)
+      {
+         pgagroal_management_stop(shmem);
+      }
    }
 
-   if (!flush)
+   if (action == ACTION_UNKNOWN)
    {
       usage();
       exit_code = 1;

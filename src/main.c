@@ -51,6 +51,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #define MAX(a, b) \
@@ -95,11 +96,12 @@ usage()
    printf("\n");
 
    printf("Usage:\n");
-   printf("  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ]\n");
+   printf("  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] [ -d ]\n");
    printf("\n");
    printf("Options:\n");
    printf("  -c, --config CONFIG_FILE  Set the path to the pgagroal.conf file\n");
    printf("  -a, --hba HBA_CONFIG_FILE Set the path to the pgagroal_hba.conf file\n");
+   printf("  -d, --daemon              Run as a daemon\n");
    printf("  -V, --version             Display version information\n");
    printf("  -?, --help                Display help\n");
    printf("\n");
@@ -113,6 +115,8 @@ main(int argc, char **argv)
    int ret;
    char* configuration_path = NULL;
    char* hba_path = NULL;
+   bool daemon = false;
+   pid_t pid, sid;
    void* shmem = NULL;
    struct ev_loop *loop;
    struct accept_info io_main[64];
@@ -133,12 +137,13 @@ main(int argc, char **argv)
       {
          {"config",  required_argument, 0, 'c'},
          {"hba", required_argument, 0, 'a'},
+         {"daemon", no_argument, 0, 'd'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "V?a:c:",
+      c = getopt_long (argc, argv, "dV?a:c:",
                        long_options, &option_index);
 
       if (c == -1)
@@ -151,6 +156,9 @@ main(int argc, char **argv)
             break;
          case 'c':
             configuration_path = optarg;
+            break;
+         case 'd':
+            daemon = true;
             break;
          case 'V':
             version();
@@ -202,6 +210,37 @@ main(int argc, char **argv)
       if (ret)
       {
          printf("pgagroal: HBA configuration not found: /etc/pgagroal_hba.conf\n");
+         exit(1);
+      }
+   }
+
+   if (daemon)
+   {
+      if (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
+      {
+         printf("pgagroal: Daemon mode can't be used with console logging\n");
+         exit(1);
+      }
+
+      pid = fork();
+
+      if (pid < 0)
+      {
+         printf("pgagroal: Daemon mode failed\n");
+         exit(1);
+      }
+
+      if (pid > 0)
+      {
+         exit(0);
+      }
+
+      /* We are a daemon now */
+      umask(0);
+      sid = setsid();
+
+      if (sid < 0)
+      {
          exit(1);
       }
    }
@@ -409,6 +448,12 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       case MANAGEMENT_FLUSH:
          ZF_LOGD("pgagroal: Management flush (%d)", payload);
          pgagroal_flush(ai->shmem, payload);
+         break;
+      case MANAGEMENT_STOP:
+         ZF_LOGD("pgagroal: Management stop");
+         pgagroal_pool_status(ai->shmem);
+         ev_break(loop, EVBREAK_ALL);
+         keep_running = 0;
          break;
       default:
          ZF_LOGD("pgagroal: Unknown management id: %d", id);
