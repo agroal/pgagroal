@@ -40,7 +40,7 @@ extern "C" {
 #include <time.h>
 #include <sys/types.h>
 
-#define VERSION "0.1.0"
+#define VERSION "0.1.1"
 
 /* Setup zf_log to include DEBUG support even for release builds */
 #ifdef DEBUG
