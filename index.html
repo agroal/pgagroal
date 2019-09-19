@@ -12,7 +12,7 @@ layout: default
     <p/>
     <h3>News</h3>
     <ul class="posts">
-        {% for post in site.posts %}
+        {% for post in site.posts limit:10 %}
         <li class="posts"><span class="date">{{ post.date | date: "%Y %m %d" }}</span><a href="{{ site.root }}/{{ post.url }}">{{ post.title }}</a></li>
         {% endfor %}
     </ul>
