@@ -1,1 +1,4 @@
+.bundle/
 build/
+_site/
+vendor/
