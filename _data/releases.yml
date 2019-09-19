@@ -1,3 +1,6 @@
 - name: pgagroal 0.1.0
   date: 2019-09-17
   announce: release/announcement/2019/09/17/pgagroal-0.1.0.html
+- name: pgagroal 0.1.1
+  date: 2019-09-19
+  announce: release/announcement/2019/09/19/pgagroal-0.1.1.html
