@@ -45,6 +45,8 @@
 /* system */
 #include <ev.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 volatile int running = 1;
 volatile int exit_code = WORKER_SUCCESS;
@@ -71,6 +73,9 @@ pgagroal_worker(int client_fd, char* address, void* shmem)
    if (pgagroal_authenticate(client_fd, address, shmem, &slot) == AUTH_SUCCESS)
    {
       ZF_LOGD("pgagroal_worker: Slot %d (%d -> %d)", slot, client_fd, config->connections[slot].fd);
+
+      config->connections[slot].pid = getpid();
+
       pgagroal_pool_status(shmem);
 
       if (config->nodelay)
@@ -168,4 +173,5 @@ signal_cb(struct ev_loop *loop, ev_signal *w, int revents)
 
    exit_code = WORKER_FAILURE;
    running = 0;
+   ev_break(loop, EVBREAK_ALL);
 }
