@@ -105,8 +105,8 @@ The pipeline is defined in [worker.c](../src/libpgagroal/worker.c) in the functi
 
 ## Signals
 
-The main process of `pgagroal` supports the following signals `SIGTERM`, `SIGHUP`, `SIGTRAP` and `SIGALRM`
-as a mechanism for shutting down. The `SIGINT` signal will put `pgagroal` into graceful shutdown, meaning that
+The main process of `pgagroal` supports the following signals `SIGTERM`, `SIGHUP`, `SIGINT` and `SIGALRM`
+as a mechanism for shutting down. The `SIGTRAP` signal will put `pgagroal` into graceful shutdown, meaning that
 exisiting connections are allowed to finish their session. The `SIGABRT` is used to request a core dump (`abort()`).
 
 The child processes support `SIGQUIT` as a mechanism to shutdown. This will not shutdown the pool itself.

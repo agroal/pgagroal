@@ -289,8 +289,8 @@ main(int argc, char **argv)
 
    ev_signal_init((struct ev_signal*)&signal_watcher[0], shutdown_cb, SIGTERM);
    ev_signal_init((struct ev_signal*)&signal_watcher[1], shutdown_cb, SIGHUP);
-   ev_signal_init((struct ev_signal*)&signal_watcher[2], graceful_cb, SIGINT);
-   ev_signal_init((struct ev_signal*)&signal_watcher[3], shutdown_cb, SIGTRAP);
+   ev_signal_init((struct ev_signal*)&signal_watcher[2], shutdown_cb, SIGINT);
+   ev_signal_init((struct ev_signal*)&signal_watcher[3], graceful_cb, SIGTRAP);
    ev_signal_init((struct ev_signal*)&signal_watcher[4], coredump_cb, SIGABRT);
    ev_signal_init((struct ev_signal*)&signal_watcher[5], shutdown_cb, SIGALRM);
 
@@ -518,14 +518,23 @@ static void
 graceful_cb(struct ev_loop *loop, ev_signal *w, int revents)
 {
    struct signal_info* si;
+   struct configuration* config;
 
    si = (struct signal_info*)w;
+   config = (struct configuration*)si->shmem;
 
    ZF_LOGD("pgagroal: gracefully requested");
 
    pgagroal_pool_status(si->shmem);
    gracefully = true;
    shutdown_io(loop);
+
+   if (atomic_load(&config->number_of_connections) == 0)
+   {
+      pgagroal_pool_status(si->shmem);
+      keep_running = 0;
+      ev_break(loop, EVBREAK_ALL);
+   }
 }
 
 static void
