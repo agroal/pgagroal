@@ -57,6 +57,7 @@ int
 pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
 {
    int status = MESSAGE_STATUS_ERROR;
+   int ret;
    int server_fd = -1;
    int auth_index = 0;
    int auth_type = -1;
@@ -135,11 +136,21 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
       }
 
       /* Get connection */
-      if (pgagroal_get_connection(shmem, username, database, slot))
+      ret = pgagroal_get_connection(shmem, username, database, slot);
+      if (ret != 0)
       {
-         /* Pool full */
-         ZF_LOGD("authenticate: pool is full");
-         pgagroal_write_pool_full(client_fd);
+         if (ret == 1)
+         {
+            /* Pool full */
+            ZF_LOGD("authenticate: pool is full");
+            pgagroal_write_pool_full(client_fd);
+         }
+         else
+         {
+            /* Other error */
+            ZF_LOGD("authenticate: connection error");
+            pgagroal_write_connection_refused(client_fd);
+         }
          pgagroal_write_empty(client_fd);
          goto error;
       }

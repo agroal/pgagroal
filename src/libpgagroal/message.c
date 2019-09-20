@@ -264,6 +264,30 @@ pgagroal_write_pool_full(int socket)
 }
 
 int
+pgagroal_write_connection_refused(int socket)
+{
+   int size = 46;
+   char connection_refused[size];
+   struct message msg;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&connection_refused, 0, sizeof(connection_refused));
+
+   pgagroal_write_byte(&connection_refused, 'E');
+   pgagroal_write_int32(&(connection_refused[1]), size - 1);
+   pgagroal_write_string(&(connection_refused[5]), "SFATAL");
+   pgagroal_write_string(&(connection_refused[12]), "VFATAL");
+   pgagroal_write_string(&(connection_refused[19]), "C53300");
+   pgagroal_write_string(&(connection_refused[26]), "Mconnection refused");
+
+   msg.kind = 'E';
+   msg.length = size;
+   msg.data = &connection_refused;
+
+   return write_message(socket, true, &msg);
+}
+
+int
 pgagroal_write_bad_password(int socket, char* username)
 {
    int size = strlen(username);

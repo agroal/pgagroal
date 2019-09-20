@@ -126,6 +126,7 @@ start:
          
          if (pgagroal_connect(shmem, config->servers[server].host, config->servers[server].port, &fd))
          {
+            ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
             goto error;
          }
 
@@ -184,16 +185,18 @@ start:
          double diff = difftime(time(NULL), start_time);
          if (diff >= (double)config->blocking_timeout)
          {
-            goto error;
+            goto timeout;
          }
 
          goto start;
       }
    }
 
-error:
-
+timeout:
    return 1;
+
+error:
+   return 2;
 }
 
 int

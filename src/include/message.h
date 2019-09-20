@@ -153,6 +153,14 @@ int
 pgagroal_write_pool_full(int socket);
 
 /**
+ * Write a connection refused message
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_write_connection_refused(int socket);
+
+/**
  * Write a bad password message
  * @param socket The socket descriptor
  * @param username The user name

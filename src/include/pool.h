@@ -43,7 +43,7 @@ extern "C" {
  * @param username The user name
  * @param database The database
  * @param slot The resulting slot
- * @return 0 upon success, otherwise 1
+ * @return 0 upon success, 1 if pool is full, otherwise 2
  */
 int
 pgagroal_get_connection(void* shmem, char* username, char* database, int* slot);
