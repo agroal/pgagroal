@@ -38,9 +38,11 @@ extern "C" {
 #include <stdlib.h>
 
 #define MANAGEMENT_TRANSFER_CONNECTION 1
-#define MANAGEMENT_KILL_CONNECTION     2
-#define MANAGEMENT_FLUSH               3
-#define MANAGEMENT_STOP                4
+#define MANAGEMENT_RETURN_CONNECTION   2
+#define MANAGEMENT_KILL_CONNECTION     3
+#define MANAGEMENT_FLUSH               4
+#define MANAGEMENT_GRACEFULLY          5
+#define MANAGEMENT_STOP                6
 
 /**
  * Read the management header
@@ -79,6 +81,15 @@ int
 pgagroal_management_transfer_connection(void* shmem, int32_t slot);
 
 /**
+ * Management operation: Return a connection
+ * @param shmem The shared memory segment
+ * @param slot The slot
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_return_connection(void* shmem, int32_t slot);
+
+/**
  * Management operation: Kill a connection
  * @param shmem The shared memory segment
  * @param slot The slot
@@ -95,6 +106,14 @@ pgagroal_management_kill_connection(void* shmem, int32_t slot);
  */
 int
 pgagroal_management_flush(void* shmem, int32_t mode);
+
+/**
+ * Management operation: Gracefully
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_gracefully(void* shmem);
 
 /**
  * Management operation: Stop

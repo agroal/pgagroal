@@ -44,9 +44,10 @@
 #include <string.h>
 #include <sys/mman.h>
 
-#define ACTION_UNKNOWN 0
-#define ACTION_FLUSH   1
-#define ACTION_STOP    2
+#define ACTION_UNKNOWN    0
+#define ACTION_FLUSH      1
+#define ACTION_GRACEFULLY 2
+#define ACTION_STOP       3
 
 static void
 version()
@@ -74,6 +75,7 @@ usage()
    printf("  flush-idle               Flush idle connections\n");
    printf("  flush-gracefully         Flush all connections gracefully\n");
    printf("  flush-all                Flush all connections. USE WITH CAUTION !\n");
+   printf("  gracefully               Stop pgagroal gracefully\n");
    printf("  stop                     Stop pgagroal\n");
    printf("\n");
 }
@@ -165,6 +167,10 @@ main(int argc, char **argv)
          mode = FLUSH_ALL;
          action = ACTION_FLUSH;
       }
+      else if (!strcmp("gracefully", argv[argc - 1]))
+      {
+         action = ACTION_GRACEFULLY;
+      }
       else if (!strcmp("stop", argv[argc - 1]))
       {
          action = ACTION_STOP;
@@ -173,6 +179,10 @@ main(int argc, char **argv)
       if (action == ACTION_FLUSH)
       {
          pgagroal_management_flush(shmem, mode);
+      }
+      else if (action == ACTION_GRACEFULLY)
+      {
+         pgagroal_management_gracefully(shmem);
       }
       else if (action == ACTION_STOP)
       {

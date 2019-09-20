@@ -8,6 +8,7 @@
 * Connection pool
 * Remove idle connections
 * Perform connection validation
+* Graceful / fast shutdown
 * Daemon mode
 
 See [Getting Started](./doc/GETTING_STARTED.md) on how to get started with `pgagroal`.

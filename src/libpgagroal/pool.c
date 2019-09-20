@@ -232,6 +232,8 @@ pgagroal_return_connection(void* shmem, int slot)
             pgagroal_management_transfer_connection(shmem, slot);
          }
 
+         pgagroal_management_return_connection(shmem, slot);
+
          config->connections[slot].new = false;
          config->connections[slot].pid = -1;
          atomic_store(&config->connections[slot].state, STATE_FREE);
@@ -402,11 +404,7 @@ pgagroal_flush(void* shmem, int mode)
          {
             if (mode == FLUSH_ALL)
             {
-               if (config->connections[i].pid != -1)
-               {
-                  kill(config->connections[i].pid, SIGQUIT);
-               }
-
+               kill(config->connections[i].pid, SIGQUIT);
                pgagroal_kill_connection(shmem, i);
             }
             else if (mode == FLUSH_GRACEFULLY)

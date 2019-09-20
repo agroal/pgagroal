@@ -131,6 +131,7 @@ Commands:
   flush-idle               Flush idle connections
   flush-gracefully         Flush all connections gracefully
   flush-all                Flush all connections. USE WITH CAUTION !
+  gracefully               Stop pgagroal gracefully
   stop                     Stop pgagroal
 ```
 

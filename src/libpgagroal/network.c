@@ -304,6 +304,15 @@ pgagroal_connect_unix_socket(const char* directory, int* fd)
    return 0;
 }
 
+int
+pgagroal_shutdown(int fd)
+{
+   if (fd == -1)
+      return 1;
+
+   return shutdown(fd, SHUT_RDWR);
+}
+
 /**
  *
  */

@@ -78,6 +78,14 @@ int
 pgagroal_connect_unix_socket(const char* directory, int* fd);
 
 /**
+ * Shutdown a descriptor
+ * @param fd The descriptor
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_shutdown(int fd);
+
+/**
  * Disconnect from a descriptor
  * @param fd The descriptor
  * @return 0 upon success, otherwise 1

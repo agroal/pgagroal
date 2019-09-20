@@ -39,6 +39,7 @@
 #include <zf_log.h>
 
 /* system */
+#include <errno.h>
 #include <stdio.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -129,12 +130,21 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload)
 
          free(cmptr);
          break;
+      case MANAGEMENT_RETURN_CONNECTION:
+         *payload = 0;
+         break;
       case MANAGEMENT_KILL_CONNECTION:
          *payload = 0;
          break;
       case MANAGEMENT_FLUSH:
          read(socket, &buf4, 4 * sizeof(char));
          *payload = pgagroal_read_int32(&buf4);
+         break;
+      case MANAGEMENT_GRACEFULLY:
+         *payload = 0;
+         break;
+      case MANAGEMENT_STOP:
+         *payload = 0;
          break;
       default:
          break;
@@ -185,7 +195,7 @@ pgagroal_management_transfer_connection(void* shmem, int32_t slot)
    w = write(fd, &(header), MANAGEMENT_HEADER_SIZE);
    if (w == -1)
    {
-      perror("management write");
+      ZF_LOGD("pgagroal_management_transfer_connection: write: %d %s", fd, strerror(errno));
       goto error;
    }
 
@@ -226,6 +236,43 @@ error:
 }
 
 int
+pgagroal_management_return_connection(void* shmem, int32_t slot)
+{
+   char header[MANAGEMENT_HEADER_SIZE];
+   ssize_t w;
+   int fd;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   pgagroal_write_byte(&(header), MANAGEMENT_RETURN_CONNECTION);
+   pgagroal_write_int32(&(header[1]), slot);
+
+   if (pgagroal_connect_unix_socket(config->unix_socket_dir, &fd))
+   {
+      goto error;
+   }
+
+   ZF_LOGD("Write %d to %d (%d)", MANAGEMENT_RETURN_CONNECTION, fd, MANAGEMENT_HEADER_SIZE);
+
+   w = write(fd, &(header), MANAGEMENT_HEADER_SIZE);
+   if (w == -1)
+   {
+      ZF_LOGD("pgagroal_management_return_connection: write: %d %s", fd, strerror(errno));
+      goto error;
+   }
+
+   pgagroal_disconnect(fd);
+
+   return 0;
+
+error:
+   pgagroal_disconnect(fd);
+
+   return 1;
+}
+
+int
 pgagroal_management_kill_connection(void* shmem, int32_t slot)
 {
    char header[MANAGEMENT_HEADER_SIZE];
@@ -248,7 +295,7 @@ pgagroal_management_kill_connection(void* shmem, int32_t slot)
    w = write(fd, &(header), MANAGEMENT_HEADER_SIZE);
    if (w == -1)
    {
-      perror("management write");
+      ZF_LOGD("pgagroal_management_kill_connection: write: %d %s", fd, strerror(errno));
       goto error;
    }
 
@@ -286,7 +333,7 @@ pgagroal_management_flush(void* shmem, int32_t mode)
    w = write(fd, &(header), MANAGEMENT_HEADER_SIZE);
    if (w == -1)
    {
-      perror("management write");
+      ZF_LOGD("pgagroal_management_flush: write: %d %s", fd, strerror(errno));
       goto error;
    }
 
@@ -294,10 +341,47 @@ pgagroal_management_flush(void* shmem, int32_t mode)
    w = write(fd, &buf, 4 * sizeof(char));
    if (w == -1)
    {
-      perror("management write");
+      ZF_LOGD("pgagroal_management_flush: write: %d %s", fd, strerror(errno));
       goto error;
    }
    
+   pgagroal_disconnect(fd);
+
+   return 0;
+
+error:
+   pgagroal_disconnect(fd);
+
+   return 1;
+}
+
+int
+pgagroal_management_gracefully(void* shmem)
+{
+   char header[MANAGEMENT_HEADER_SIZE];
+   ssize_t w;
+   int fd;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   pgagroal_write_byte(&(header), MANAGEMENT_GRACEFULLY);
+   pgagroal_write_int32(&(header[1]), 0);
+
+   if (pgagroal_connect_unix_socket(config->unix_socket_dir, &fd))
+   {
+      goto error;
+   }
+
+   ZF_LOGD("Write %d to %d (%d)", MANAGEMENT_GRACEFULLY, fd, MANAGEMENT_HEADER_SIZE);
+
+   w = write(fd, &(header), MANAGEMENT_HEADER_SIZE);
+   if (w == -1)
+   {
+      ZF_LOGD("pgagroal_management_gracefully: write: %d %s", fd, strerror(errno));
+      goto error;
+   }
+
    pgagroal_disconnect(fd);
 
    return 0;
@@ -331,7 +415,7 @@ pgagroal_management_stop(void* shmem)
    w = write(fd, &(header), MANAGEMENT_HEADER_SIZE);
    if (w == -1)
    {
-      perror("management write");
+      ZF_LOGD("pgagroal_management_stop: write: %d %s", fd, strerror(errno));
       goto error;
    }
 
