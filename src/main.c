@@ -32,6 +32,7 @@
 #include <logging.h>
 #include <management.h>
 #include <network.h>
+#include <pipeline.h>
 #include <pool.h>
 #include <shmem.h>
 #include <utils.h>
@@ -68,11 +69,12 @@ static void coredump_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents);
 static void validation_cb(struct ev_loop *loop, ev_periodic *w, int revents);
 
-struct accept_info
+struct accept_io
 {
    struct ev_io io;
    int socket;
    void* shmem;
+   void* pipeline_shmem;
 };
 
 struct periodic_info
@@ -83,7 +85,7 @@ struct periodic_info
 
 static volatile int keep_running = 1;
 static bool gracefully = false;
-static struct accept_info io_main[MAX_FDS];
+static struct accept_io io_main[MAX_FDS];
 static int length;
 
 static void
@@ -135,7 +137,7 @@ main(int argc, char **argv)
    pid_t pid, sid;
    void* shmem = NULL;
    struct ev_loop *loop;
-   struct accept_info io_mgt;
+   struct accept_io io_mgt;
    struct signal_info signal_watcher[6];
    struct periodic_info idle_timeout;
    struct periodic_info validation;
@@ -144,6 +146,8 @@ main(int argc, char **argv)
    size_t size;
    struct configuration* config;
    int c;
+   struct pipeline p;
+   void* pipeline_shmem = NULL;
 
    while (1)
    {
@@ -301,9 +305,13 @@ main(int argc, char **argv)
       ev_signal_start(loop, (struct ev_signal*)&signal_watcher[i]);
    }
 
+   p = performance_pipeline();
+   pipeline_shmem = p.initialize(shmem);
+
    ev_io_init((struct ev_io*)&io_mgt, accept_mgt_cb, unix_socket, EV_READ);
    io_mgt.socket = unix_socket;
    io_mgt.shmem = shmem;
+   io_mgt.pipeline_shmem = pipeline_shmem;
    ev_io_start(loop, (struct ev_io*)&io_mgt);
 
    for (int i = 0; i < length; i++)
@@ -312,6 +320,7 @@ main(int argc, char **argv)
       ev_io_init((struct ev_io*)&io_main[i], accept_main_cb, sockfd, EV_READ);
       io_main[i].socket = sockfd;
       io_main[i].shmem = shmem;
+      io_main[i].pipeline_shmem = pipeline_shmem;
       ev_io_start(loop, (struct ev_io*)&io_main[i]);
    }
 
@@ -365,6 +374,8 @@ main(int argc, char **argv)
    
    free(fds);
 
+   p.destroy(pipeline_shmem);
+
    pgagroal_stop_logging(shmem);
    pgagroal_destroy_shared_memory(shmem, size);
 
@@ -378,7 +389,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    socklen_t client_addr_length;
    int client_fd;
    char address[INET6_ADDRSTRLEN];
-   struct accept_info* ai;
+   struct accept_io* ai;
 
    ZF_LOGV("accept_main_cb: sockfd ready (%d)", revents);
 
@@ -398,7 +409,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       return;
    }
 
-   ai = (struct accept_info*)watcher;
+   ai = (struct accept_io*)watcher;
 
    pgagroal_get_address((struct sockaddr *)&client_addr, (char*)&address, sizeof(address));
 
@@ -411,7 +422,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
       ev_loop_fork(loop);
       pgagroal_disconnect(ai->socket);
-      pgagroal_worker(client_fd, addr, ai->shmem);
+      pgagroal_worker(client_fd, addr, ai->shmem, ai->pipeline_shmem);
    }
 
    pgagroal_disconnect(client_fd);
@@ -426,7 +437,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    signed char id;
    int32_t slot;
    int payload;
-   struct accept_info* ai;
+   struct accept_io* ai;
    struct configuration* config;
 
    ZF_LOGV("pgagroal: unix_socket ready (%d)", revents);
@@ -437,7 +448,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       return;
    }
 
-   ai = (struct accept_info*)watcher;
+   ai = (struct accept_io*)watcher;
    config = (struct configuration*)ai->shmem;
 
    client_addr_length = sizeof(client_addr);

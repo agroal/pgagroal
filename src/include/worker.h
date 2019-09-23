@@ -45,11 +45,14 @@ extern "C" {
 /** @struct
  * The worker structure for each IO event
  */
-struct worker_info
+struct worker_io
 {
-   struct ev_io io; /**< The libev base type */
-   int client_fd;   /**< The client descriptor */
-   int server_fd;   /**< The server descriptor */
+   struct ev_io io;      /**< The libev base type */
+   int client_fd;        /**< The client descriptor */
+   int server_fd;        /**< The server descriptor */
+   int slot;             /**< The slot */
+   void* shmem;          /**< The shared memory segment */
+   void* pipeline_shmem; /**< The shared memory segment for the pipeline */
 };
 
 extern volatile int running;
@@ -60,9 +63,10 @@ extern volatile int exit_code;
  * @param fd The client descriptor
  * @param address The client address
  * @param shmem The shared memory segment
+ * @param pipeline_shmem The shared memory segment for the pipeline
  */
 void
-pgagroal_worker(int fd, char* address, void* shmem);
+pgagroal_worker(int fd, char* address, void* shmem, void* pipeline_shmem);
 
 #ifdef __cplusplus
 }

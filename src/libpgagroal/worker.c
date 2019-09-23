@@ -54,13 +54,13 @@ volatile int exit_code = WORKER_SUCCESS;
 static void signal_cb(struct ev_loop *loop, ev_signal *w, int revents);
 
 void
-pgagroal_worker(int client_fd, char* address, void* shmem)
+pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
 {
    struct ev_loop *loop = NULL;
    struct signal_info signal_watcher;
-   struct worker_info client_io = {0};
-   struct worker_info server_io = {0};
-   struct configuration* config = NULL;
+   struct worker_io client_io;
+   struct worker_io server_io;
+   struct configuration* config;
    struct pipeline p;
    int32_t slot = -1;
 
@@ -68,6 +68,9 @@ pgagroal_worker(int client_fd, char* address, void* shmem)
    pgagroal_memory_init(shmem);
 
    config = (struct configuration*)shmem;
+
+   memset(&client_io, 0, sizeof(struct worker_io));
+   memset(&server_io, 0, sizeof(struct worker_io));
 
    /* Authentication */
    if (pgagroal_authenticate(client_fd, address, shmem, &slot) == AUTH_SUCCESS)
@@ -104,10 +107,16 @@ pgagroal_worker(int client_fd, char* address, void* shmem)
       ev_io_init((struct ev_io*)&client_io, p.client, client_fd, EV_READ);
       client_io.client_fd = client_fd;
       client_io.server_fd = config->connections[slot].fd;
+      client_io.slot = slot;
+      client_io.shmem = shmem;
+      client_io.pipeline_shmem = pipeline_shmem;
       
       ev_io_init((struct ev_io*)&server_io, p.server, config->connections[slot].fd, EV_READ);
       server_io.client_fd = client_fd;
       server_io.server_fd = config->connections[slot].fd;
+      server_io.slot = slot;
+      server_io.shmem = shmem;
+      server_io.pipeline_shmem = pipeline_shmem;
       
       loop = ev_loop_new(pgagroal_libev(config->libev));
 
@@ -115,6 +124,8 @@ pgagroal_worker(int client_fd, char* address, void* shmem)
       signal_watcher.shmem = shmem;
       signal_watcher.slot = slot;
       ev_signal_start(loop, (struct ev_signal*)&signal_watcher);
+
+      p.start(&client_io);
 
       ev_io_start(loop, (struct ev_io*)&client_io);
       ev_io_start(loop, (struct ev_io*)&server_io);
@@ -128,6 +139,8 @@ pgagroal_worker(int client_fd, char* address, void* shmem)
    /* Return to pool */
    if (slot != -1)
    {
+      p.stop(&client_io);
+
       if (exit_code == WORKER_SUCCESS || exit_code == WORKER_CLIENT_FAILURE)
       {
          pgagroal_return_connection(shmem, slot);

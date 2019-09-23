@@ -89,19 +89,72 @@ The rest of the message is depending on the message type.
 upon an `EV_READ` event.
 
 Each process has its own event loop, such that the process only gets notified when data related only to that process
-is ready. The main loop handles the system wide "services", such as idle timeout checks, as well.
+is ready. The main loop handles the system wide "services" such as idle timeout checks and so on.
 
-One of the goals for `pgagroal` is performance, so `pgagroal` will only look for the
-[`Terminate`](https://www.postgresql.org/docs/11/protocol-message-formats.html) message from the client and act on that.
-Likewise `pgagroal` will only look for `FATAL` errors from the server. This makes the pipeline very fast, since there
-is a minimum overhead in the interaction.
+## Pipeline
 
-The pipeline is defined in [worker.c](../src/libpgagroal/worker.c) in the functions
+`pgagroal` has the concept of a pipeline that defines how communication is routed from the client through `pgagroal` to
+[PostgreSQL](https://www.postgresql.org). Likewise in the other direction.
+
+A pipeline is defined by
+
+```C
+struct pipeline
+{
+   initialize initialize;
+   start start;
+   callback client;
+   callback server;
+   stop stop;
+   destroy destroy;
+};
+```
+
+in [pipeline.h](../src/include/pipeline.h).
+
+The functions in the pipeline are defined as
 
 | Function | Description |
 |----------|-------------|
-| `client_pgagroal_cb` | Client to `pgagroal` communication |
-| `server_pgagroal_cb` | [PostgreSQL](https://www.postgresql.org) to `pgagroal` communication |
+| `initialize` | Global initialization of the pipeline, may return a pointer to a shared memory segment |
+| `start` | Called when the pipeline instance is started |
+| `client` | Client to `pgagroal` communication |
+| `server` | [PostgreSQL](https://www.postgresql.org) to `pgagroal` communication |
+| `stop` | Called when the pipeline instance is stopped |
+| `destroy` | Global destruction of the pipeline |
+
+The functions `start`, `client`, `server` and `stop` has access to the following information
+
+```C
+struct worker_io
+{
+   struct ev_io io;      /* The libev base type */
+   int client_fd;        /* The client descriptor */
+   int server_fd;        /* The server descriptor */
+   int slot;             /* The slot */
+   void* shmem;          /* The shared memory segment */
+   void* pipeline_shmem; /* The shared memory segment for the pipeline */
+};
+```
+defined in [worker.h](../src/include/worker.h).
+
+### Performance pipeline
+
+One of the goals for `pgagroal` is performance, so the performance pipeline will only look for the
+[`Terminate`](https://www.postgresql.org/docs/11/protocol-message-formats.html) message from the client and act on that.
+Likewise the performance pipeline will only look for `FATAL` errors from the server. This makes the pipeline very fast, since there
+is a minimum overhead in the interaction.
+
+The pipeline is defined in [pipeline_perf.c](../src/libpgagroal/pipeline_perf.c) in the functions
+
+| Function | Description |
+|----------|-------------|
+| `performance_initialize` | Nothing |
+| `performance_start` | Nothing |
+| `performance_client` | Client to `pgagroal` communication |
+| `performance_server` | [PostgreSQL](https://www.postgresql.org) to `pgagroal` communication |
+| `performance_stop` | Nothing |
+| `performance_destroy` | Nothing |
 
 ## Signals
 

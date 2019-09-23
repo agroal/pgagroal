@@ -33,20 +33,30 @@
 extern "C" {
 #endif
 
+#include <worker.h>
+
 #include <ev.h>
 #include <stdlib.h>
 
 #define PIPELINE_PERFORMANCE 0
 
+typedef void* (*initialize)(void*);
+typedef void (*start)(struct worker_io*);
 typedef void (*callback)(struct ev_loop *, struct ev_io *, int);
+typedef void (*stop)(struct worker_io*);
+typedef void (*destroy)(void*);
 
 /** @struct
  * Define the structure for a pipeline
  */
 struct pipeline
 {
-   callback client; /**< The callback for the client */
-   callback server; /**< The callback for the server */
+   initialize initialize; /**< The initialize function for the pipeline */
+   start start;           /**< The start function */
+   callback client;       /**< The callback for the client */
+   callback server;       /**< The callback for the server */
+   stop stop;             /**< The stop function */
+   destroy destroy;       /**< The destroy function for the pipeline */
 };
 
 /**

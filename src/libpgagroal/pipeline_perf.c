@@ -40,27 +40,56 @@
 #include <ev.h>
 #include <stdlib.h>
 
-static void client_pgagroal_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void server_pgagroal_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
+static void* performance_initialize(void*);
+static void performance_start(struct worker_io*);
+static void performance_client(struct ev_loop *loop, struct ev_io *watcher, int revents);
+static void performance_server(struct ev_loop *loop, struct ev_io *watcher, int revents);
+static void performance_stop(struct worker_io*);
+static void performance_destroy(void*);
 
 struct pipeline performance_pipeline()
 {
    struct pipeline pipeline;
 
-   pipeline.client = &client_pgagroal_cb;
-   pipeline.server = &server_pgagroal_cb;
+   pipeline.initialize = &performance_initialize;
+   pipeline.start = &performance_start;
+   pipeline.client = &performance_client;
+   pipeline.server = &performance_server;
+   pipeline.stop = &performance_stop;
+   pipeline.destroy = &performance_destroy;
 
    return pipeline;
 }
 
+static void*
+performance_initialize(void* shmem)
+{
+   return NULL;
+}
+
 static void
-client_pgagroal_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+performance_start(struct worker_io* w)
+{
+}
+
+static void
+performance_stop(struct worker_io* w)
+{
+}
+
+static void
+performance_destroy(void* pointer)
+{
+}
+
+static void
+performance_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
-   struct worker_info* wi = NULL;
+   struct worker_io* wi = NULL;
    struct message* msg = NULL;
 
-   wi = (struct worker_info*)watcher;
+   wi = (struct worker_io*)watcher;
 
    status = pgagroal_read_message(wi->client_fd, &msg);
    if (likely(status == MESSAGE_STATUS_OK))
@@ -108,14 +137,14 @@ server_error:
 }
 
 static void
-server_pgagroal_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+performance_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    bool fatal = false;
-   struct worker_info* wi = NULL;
+   struct worker_io* wi = NULL;
    struct message* msg = NULL;
 
-   wi = (struct worker_info*)watcher;
+   wi = (struct worker_io*)watcher;
 
    status = pgagroal_read_message(wi->server_fd, &msg);
    if (likely(status == MESSAGE_STATUS_OK))
