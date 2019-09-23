@@ -33,6 +33,7 @@ connection, and move them around in the connection state diagram. The state diag
 | `STATE_GRACEFULLY` | The connection will be killed upon return to the pool |
 | `STATE_FLUSH` | The connection is being flushed |
 | `STATE_IDLE_CHECK` | The connection is being idle timeout checked |
+| `STATE_VALIDATION` | The connection is being validated |
 
 These state are defined in [pgagroal.h](../src/include/pgagroal.h).
 
