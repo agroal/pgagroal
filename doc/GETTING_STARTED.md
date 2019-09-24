@@ -4,7 +4,7 @@ First of all, make sure that `pgagroal` is installed and in your path by
 using `pgagroal -?`. You should see
 
 ```
-pgagroal 0.2.0
+pgagroal 0.3.0
   High-performance connection pool for PostgreSQL
 
 Usage:
@@ -117,7 +117,7 @@ the `SIGTERM` signal to the process using `kill <pid>`.
 You can see the commands it supports by using `pgagroal-cli -?` which will give
 
 ```
-pgagroal-cli 0.2.0
+pgagroal-cli 0.3.0
   Command line utility for pgagroal
 
 Usage:
