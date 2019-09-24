@@ -16,15 +16,16 @@ layout: default
     using "pgagroal -?". You should see
 
     <pre>
-pgagroal 0.1.1
+pgagroal 0.2.0
   High-performance connection pool for PostgreSQL
 
 Usage:
-  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ]
+  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] [ -d ]
 
 Options:
   -c, --config CONFIG_FILE  Set the path to the pgagroal.conf file
   -a, --hba HBA_CONFIG_FILE Set the path to the pgagroal_hba.conf file
+  -d, --daemon              Run as a daemon
   -V, --version             Display version information
   -?, --help                Display help
     </pre>
@@ -45,6 +46,7 @@ log_type = file
 log_level = info
 log_path = /tmp/pgagroal.log
 
+max_connections = 100
 idle_timeout = 600
 validation = off
 unix_socket_dir = /tmp/.s.pgagroal
@@ -56,8 +58,8 @@ port = 5432
 
     In our main section called <b>[pgagroal]</b> we setup pgagroal to listen on all
     network addresses on port 2345. Logging will be performed at "info" level and
-    put in a file called "/tmp/pgagroal.log". Then we specify that we want connections
-    to be closed if they have been idle for 10 minutes, and we also specify that
+    put in a file called "/tmp/pgagroal.log". We want a maximum of 100 connections
+    that are being closed if they have been idle for 10 minutes, and we also specify that
     we don't want any connection validation to be performed. Last we specify the
     location of the "unix_socket_dir" used for management operations.
     <p/>
@@ -119,7 +121,7 @@ psql -h localhost -p 2345 -U test test
     Now you are ready to point your applications to use pgagroal instead of going directly to
     <a href="https://www.postgresql.org">PostgreSQL</a>.
     <p/>
-    pgagroal is stopped by pressing Ctrl-C (`^C`) in the console where you started it, or by sending
+    pgagroal is stopped by pressing Ctrl-C (^C) in the console where you started it, or by sending
     the SIGTERM signal to the process using "kill pid".
 
     <h3>Administration</h3>
@@ -129,7 +131,7 @@ psql -h localhost -p 2345 -U test test
     You can see the commands it supports by using "pgagroal-cli -?" which will give
 
     <pre>
-pgagroal-cli 0.1.1
+pgagroal-cli 0.2.0
   Command line utility for pgagroal
 
 Usage:
@@ -144,6 +146,9 @@ Commands:
   flush-idle               Flush idle connections
   flush-gracefully         Flush all connections gracefully
   flush-all                Flush all connections. USE WITH CAUTION !
+  gracefully               Stop pgagroal gracefully
+  stop                     Stop pgagroal
+  status                   Status of pgagroal
     </pre>
 
     This tool can be used on the machine running pgagroal to flush connections.
@@ -152,6 +157,12 @@ Commands:
 
     <pre>
 pgagroal-cli -c pgagroal.conf flush-idle
+    </pre>
+
+    To stop pgagroal you would use
+
+    <pre>
+pgagroal-cli -c pgagroal.conf stop
     </pre>
 
     <h3>Closing</h3>
