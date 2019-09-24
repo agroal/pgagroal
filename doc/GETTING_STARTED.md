@@ -8,7 +8,7 @@ pgagroal 0.2.0
   High-performance connection pool for PostgreSQL
 
 Usage:
-  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ]
+  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] [ -d ]
 
 Options:
   -c, --config CONFIG_FILE  Set the path to the pgagroal.conf file
@@ -134,6 +134,7 @@ Commands:
   flush-all                Flush all connections. USE WITH CAUTION !
   gracefully               Stop pgagroal gracefully
   stop                     Stop pgagroal
+  status                   Status of pgagroal
 ```
 
 This tool can be used on the machine running `pgagroal` to flush connections.
@@ -144,7 +145,7 @@ To flush all idle connections you would use
 pgagroal-cli -c pgagroal.conf flush-idle
 ```
 
-To stop pgagroal, if you are running in daemon mode, you would use
+To stop pgagroal you would use
 
 ```
 pgagroal-cli -c pgagroal.conf stop
@@ -157,7 +158,8 @@ the project interesting.
 
 Feel free to
 
-* [Raise an issue or a question](https://github.com/agroal/pgagroal/issues)
+* [Ask a question](https://github.com/agroal/pgagroal/issues)
+* [Raise an issue](https://github.com/agroal/pgagroal/issues)
 * [Submit a feature request](https://github.com/agroal/pgagroal/issues)
 * [Write a code submission](https://github.com/agroal/pgagroal/pulls)
 
