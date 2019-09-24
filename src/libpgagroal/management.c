@@ -146,6 +146,9 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload)
       case MANAGEMENT_STOP:
          *payload = 0;
          break;
+      case MANAGEMENT_STATUS:
+         *payload = 0;
+         break;
       default:
          break;
    }   
@@ -425,6 +428,141 @@ pgagroal_management_stop(void* shmem)
 
 error:
    pgagroal_disconnect(fd);
+
+   return 1;
+}
+
+int
+pgagroal_management_status(void* shmem, int* socket)
+{
+   char header[MANAGEMENT_HEADER_SIZE];
+   ssize_t w;
+   int fd;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   pgagroal_write_byte(&(header), MANAGEMENT_STATUS);
+   pgagroal_write_int32(&(header[1]), 0);
+
+   if (pgagroal_connect_unix_socket(config->unix_socket_dir, &fd))
+   {
+      goto error;
+   }
+
+   ZF_LOGD("Write %d to %d (%d)", MANAGEMENT_STATUS, fd, MANAGEMENT_HEADER_SIZE);
+
+   w = write(fd, &(header), MANAGEMENT_HEADER_SIZE);
+   if (w == -1)
+   {
+      ZF_LOGD("pgagroal_management_status: write: %d %s", fd, strerror(errno));
+      goto error;
+   }
+
+   *socket = fd;
+
+   return 0;
+
+error:
+   pgagroal_disconnect(fd);
+
+   return 1;
+}
+
+int
+pgagroal_management_read_status(int socket)
+{
+   char buf[16];
+   ssize_t r;
+   int status;
+   int active;
+   int total;
+   int max;
+
+   memset(&buf, 0, sizeof(buf));
+
+   r = read(socket, &buf, sizeof(buf));
+   if (r == -1)
+   {
+      ZF_LOGD("pgagroal_management_read_status: write: %d %s", socket, strerror(errno));
+      goto error;
+   }
+
+   status = pgagroal_read_int32(&buf);
+   active = pgagroal_read_int32(&(buf[4]));
+   total = pgagroal_read_int32(&(buf[8]));
+   max = pgagroal_read_int32(&(buf[12]));
+
+   printf("Status:             %s\n", (status == 1 ? "Running" : "Graceful shutdown"));
+   printf("Active connections: %d\n", active);
+   printf("Total connections:  %d\n", total);
+   printf("Max connections:    %d\n", max);
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+int
+pgagroal_management_write_status(bool graceful, void* shmem, int socket)
+{
+   char buf[16];
+   int active;
+   int total;
+   ssize_t w;
+   struct configuration* config;
+
+   memset(&buf, 0, sizeof(buf));
+   active = 0;
+   total = 0;
+
+   config = (struct configuration*)shmem;
+
+   if (!graceful)
+   {
+      pgagroal_write_int32(&buf, 1);
+   }
+   else
+   {
+      pgagroal_write_int32(&buf, 2);
+   }
+
+   for (int i = 0; i < config->max_connections; i++)
+   {
+      int state = atomic_load(&config->connections[i].state);
+      switch (state)
+      {
+         case STATE_IN_USE:
+            active++;
+         case STATE_INIT:
+         case STATE_FREE:
+         case STATE_GRACEFULLY:
+         case STATE_FLUSH:
+         case STATE_IDLE_CHECK:
+         case STATE_VALIDATION:
+            total++;
+            break;
+         default:
+            break;
+      }
+   }
+
+   pgagroal_write_int32(&(buf[4]), active);
+   pgagroal_write_int32(&(buf[8]), total);
+   pgagroal_write_int32(&(buf[12]), config->max_connections);
+
+   w = write(socket, &buf, sizeof(buf));
+   if (w == -1)
+   {
+      ZF_LOGD("pgagroal_management_write_status: write: %d %s", socket, strerror(errno));
+      goto error;
+   }
+
+   return 0;
+
+error:
 
    return 1;
 }

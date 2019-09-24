@@ -35,6 +35,7 @@ extern "C" {
 
 #include <pgagroal.h>
 
+#include <stdbool.h>
 #include <stdlib.h>
 
 #define MANAGEMENT_TRANSFER_CONNECTION 1
@@ -43,6 +44,7 @@ extern "C" {
 #define MANAGEMENT_FLUSH               4
 #define MANAGEMENT_GRACEFULLY          5
 #define MANAGEMENT_STOP                6
+#define MANAGEMENT_STATUS              7
 
 /**
  * Read the management header
@@ -122,6 +124,33 @@ pgagroal_management_gracefully(void* shmem);
  */
 int
 pgagroal_management_stop(void* shmem);
+
+/**
+ * Management operation: Status
+ * @param shmem The shared memory segment
+ * @param socket The resulting socket
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_status(void* shmem, int* socket);
+
+/**
+ * Management: Read status
+ * @param socket The socket
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_read_status(int socket);
+
+/**
+ * Management: Write status
+ * @param graceful Is pgagroal in graceful shutdown
+ * @param shmem The shared memory segment
+ * @param socket The socket
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_write_status(bool graceful, void* shmem, int socket);
 
 #ifdef __cplusplus
 }

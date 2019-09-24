@@ -31,6 +31,7 @@
 #include <configuration.h>
 #include <logging.h>
 #include <management.h>
+#include <network.h>
 #include <shmem.h>
 
 #define ZF_LOG_TAG "cli"
@@ -48,6 +49,7 @@
 #define ACTION_FLUSH      1
 #define ACTION_GRACEFULLY 2
 #define ACTION_STOP       3
+#define ACTION_STATUS     4
 
 static void
 version()
@@ -77,6 +79,7 @@ usage()
    printf("  flush-all                Flush all connections. USE WITH CAUTION !\n");
    printf("  gracefully               Stop pgagroal gracefully\n");
    printf("  stop                     Stop pgagroal\n");
+   printf("  status                   Status of pgagroal\n");
    printf("\n");
 }
 
@@ -92,6 +95,7 @@ main(int argc, char **argv)
    size_t size;
    int32_t action = ACTION_UNKNOWN;
    int32_t mode = FLUSH_IDLE;
+   struct configuration* config;
 
    while (1)
    {
@@ -149,6 +153,7 @@ main(int argc, char **argv)
    }
 
    pgagroal_start_logging(shmem);
+   config = (struct configuration*)shmem;
 
    if (argc > 0)
    {
@@ -175,18 +180,45 @@ main(int argc, char **argv)
       {
          action = ACTION_STOP;
       }
+      else if (!strcmp("status", argv[argc - 1]))
+      {
+         action = ACTION_STATUS;
+      }
 
       if (action == ACTION_FLUSH)
       {
-         pgagroal_management_flush(shmem, mode);
+         if (pgagroal_management_flush(shmem, mode))
+         {
+            exit_code = 1;
+         }
       }
       else if (action == ACTION_GRACEFULLY)
       {
-         pgagroal_management_gracefully(shmem);
+         if (pgagroal_management_gracefully(shmem))
+         {
+            exit_code = 1;
+         }
       }
       else if (action == ACTION_STOP)
       {
-         pgagroal_management_stop(shmem);
+         if (pgagroal_management_stop(shmem))
+         {
+            exit_code = 1;
+         }
+      }
+      else if (action == ACTION_STATUS)
+      {
+         int socket;
+
+         if (pgagroal_management_status(shmem, &socket) == 0)
+         {
+            pgagroal_management_read_status(socket);
+            pgagroal_disconnect(socket);
+         }
+         else
+         {
+            exit_code = 1;
+         }
       }
    }
 
@@ -196,6 +228,11 @@ main(int argc, char **argv)
       exit_code = 1;
    }
    
+   if (action != ACTION_UNKNOWN && exit_code != 0)
+   {
+      printf("No connection to pgagroal on %s\n", config->unix_socket_dir);
+   }
+
    pgagroal_stop_logging(shmem);
 
    munmap(shmem, size);

@@ -492,6 +492,11 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          ev_break(loop, EVBREAK_ALL);
          keep_running = 0;
          break;
+      case MANAGEMENT_STATUS:
+         ZF_LOGD("pgagroal: Management status");
+         pgagroal_pool_status(ai->shmem);
+         pgagroal_management_write_status(gracefully, ai->shmem, client_fd);
+         break;
       default:
          ZF_LOGD("pgagroal: Unknown management id: %d", id);
          break;
