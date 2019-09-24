@@ -49,7 +49,7 @@
 #include <sys/types.h>
 
 volatile int running = 1;
-volatile int exit_code = WORKER_SUCCESS;
+volatile int exit_code = WORKER_FAILURE;
 
 static void signal_cb(struct ev_loop *loop, ev_signal *w, int revents);
 
@@ -60,6 +60,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    struct signal_info signal_watcher;
    struct worker_io client_io;
    struct worker_io server_io;
+   bool started = false;
    struct configuration* config;
    struct pipeline p;
    int32_t slot = -1;
@@ -126,6 +127,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
       ev_signal_start(loop, (struct ev_signal*)&signal_watcher);
 
       p.start(&client_io);
+      started = true;
 
       ev_io_start(loop, (struct ev_io*)&client_io);
       ev_io_start(loop, (struct ev_io*)&server_io);
@@ -139,7 +141,10 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    /* Return to pool */
    if (slot != -1)
    {
-      p.stop(&client_io);
+      if (started)
+      {
+         p.stop(&client_io);
+      }
 
       if (exit_code == WORKER_SUCCESS || exit_code == WORKER_CLIENT_FAILURE)
       {
