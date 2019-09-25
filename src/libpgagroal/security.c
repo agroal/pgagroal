@@ -456,9 +456,11 @@ get_auth_type(struct message* msg, int* auth_type)
          break;
       case 5:
          ZF_LOGV("Backend: R - MD5Password");
-         ZF_LOGV("             Salt %02hhx%02hhx%02hhx%02hhx", pgagroal_read_byte(msg->data + 9) & 0xFF,
-                 pgagroal_read_byte(msg->data + 10) & 0xFF, pgagroal_read_byte(msg->data + 11) & 0xFF,
-                 pgagroal_read_byte(msg->data + 12) & 0xFF);
+         ZF_LOGV("             Salt %02hhx%02hhx%02hhx%02hhx",
+                 (signed char)(pgagroal_read_byte(msg->data + 9) & 0xFF),
+                 (signed char)(pgagroal_read_byte(msg->data + 10) & 0xFF),
+                 (signed char)(pgagroal_read_byte(msg->data + 11) & 0xFF),
+                 (signed char)(pgagroal_read_byte(msg->data + 12) & 0xFF));
          break;
       case 6:
          ZF_LOGV("Backend: R - SCMCredential");
