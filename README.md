@@ -50,6 +50,12 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
 dnf install gcc cmake make libev libev-devel
 ```
 
+Alternative
+
+* [clang 8+](https://clang.llvm.org/)
+
+can be used.
+
 ### Release build
 
 The following commands will install `pgagroal` in the `/usr/local` hierarchy
@@ -60,7 +66,7 @@ git clone https://github.com/agroal/pgagroal.git
 cd pgagroal
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..
+cmake -DCMAKE_INSTALL_PREFIX=/usr/local ..
 make
 sudo make install
 /usr/local/bin/pgagroal -c /usr/local/etc/pgagroal.conf -a /usr/local/etc/pgagroal_hba.conf

@@ -15,7 +15,7 @@ If(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
   message(FATAL_ERROR "In-source builds are not permitted. Make a separate folder for building:\nmkdir build; cd build; cmake ..\nBefore that, remove the files already created:\nrm -rf CMakeCache.txt CMakeFiles")
 endif(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
 
-project(pgagroal C)
+project(pgagroal VERSION ${VERSION_STRING} LANGUAGES  C)
 
 set(CPACK_PACKAGE_VERSION_MAJOR ${VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${VERSION_MINOR})
@@ -30,29 +30,25 @@ include(CPack)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+message(STATUS "pgagroal ${VERSION_STRING}")
+
 include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
 include(FindPackageHandleStandardArgs)
-
-# Check if this is source package build
-if(NOT IS_DIRECTORY ${CMAKE_SOURCE_DIR}/.git)
-  set(SOURCE_PACKAGE 1)
-else()
-  set(SOURCE_PACKAGE 0)
-endif()
-
 include(GNUInstallDirs)
 
-if(CMAKE_COMPILER_IS_GNUCC)
-  execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
-  if (GCC_VERSION VERSION_GREATER 8.0 OR GCC_VERSION VERSION_EQUAL 8.0)
-    message(STATUS "gcc 8.x found")
-  else ()
-    message(FATAL_ERROR "gcc 8.x needed")
-  endif()
-else()
-  message(FATAL_ERROR "gcc 8.x needed")
-endif(CMAKE_COMPILER_IS_GNUCC)
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: Debug Release" FORCE)
+endif ()
+
+message(STATUS "Build type is ${CMAKE_BUILD_TYPE}")
+
+set(SUPPORTED_COMPILERS "GNU" "Clang" "AppleClang")
+
+# Check for a supported compiler
+if (NOT CMAKE_C_COMPILER_ID IN_LIST SUPPORTED_COMPILERS)
+   message(FATAL_ERROR "Unsupported compiler ${CMAKE_C_COMPILER_ID}. Supported compilers are: ${SUPPORTED_COMPILERS}")
+endif ()
 
 CHECK_C_COMPILER_FLAG("-std=c17" COMPILER_SUPPORTS_C17)
 if(NOT COMPILER_SUPPORTS_C17)

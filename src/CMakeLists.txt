@@ -6,18 +6,42 @@ FILE(GLOB HEADER_FILES "include/*.h")
 
 set(SOURCES ${SOURCE_FILES} ${HEADER_FILES})
 
+#
+# Include directories
+#
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${LIBEV_INCLUDE_DIRS}
 )
 
+#
+# Library directories
+#
 link_libraries(
   ${LIBEV_LIBRARIES}
 )
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wall -std=c17 -D_POSIX_C_SOURCE=200809L -D__USE_ISOC11 -D_GNU_SOURCE")
+#
+# Compile options
+#
+add_compile_options(-g)
+add_compile_options(-Wall)
+add_compile_options(-std=c17)
+add_compile_options(-D_POSIX_C_SOURCE=200809L)
+add_compile_options(-D__USE_ISOC11)
+add_compile_options(-D_GNU_SOURCE)
+
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fno-omit-frame-pointer -DDEBUG")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -march=native -mtune=native -flto")
+
+if (CMAKE_BUILD_TYPE MATCHES Release)
+  add_compile_options(-O2)
+
+  if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(-march=native)
+    add_compile_options(-mtune=native)
+    add_compile_options(-flto)
+  endif()
+endif (CMAKE_BUILD_TYPE MATCHES Release)
 
 #
 # Build libpgagroal
