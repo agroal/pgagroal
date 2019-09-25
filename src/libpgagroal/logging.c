@@ -100,7 +100,7 @@ pgagroal_start_logging(void* shmem)
 
    if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
    {
-      if (config->log_path && strlen(config->log_path) > 0)
+      if (strlen(config->log_path) > 0)
       {
          log_file = fopen(config->log_path, "a");
       }
