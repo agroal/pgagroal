@@ -32,6 +32,7 @@ See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `loc
 | idle_timeout | 0 | Int | No | The number of seconds a connection is been kept alive (disable = 0) |
 | validation | `off` | String | No | Should connection validation be performed. Valid options: `off`, `foreground` and `background` |
 | background_interval | 300 | Int | No | The interval between background validation scans in seconds |
+| max_retries | 5 | Int | No | The maximum number of iterations to obtain a connection |
 | max_connections | 1000 | Int | No | The maximum number of connections (max 1000) |
 | libev | `auto` | String | No | Select the [libev](http://software.schmorp.de/pkg/libev.html) backend to use. Valid options: `auto`, `select`, `poll`, `epoll`, `linuxaio`, `iouring`, `devpoll` and `port` |
 | buffer_size | 65535 | Int | No | The network buffer size (`SO_RCVBUF` and `SO_SNDBUF`) |
@@ -70,3 +71,22 @@ host    all      all   all      all
 | USER | Yes      | Specifies the user for the rule. Either specific name or `all` for all users |
 | ADDRESS | Yes      | Specifies the network for the rule. `all` for all networks, or IPv4 address with a mask (`0.0.0.0/0`) or IPv6 address with a mask (`::0/0`) |
 | METHOD | Yes      | Specifies the authentication mode for the user. `all` for all methods. Currently ignored |
+
+# pgagroal_databases configuration
+
+The `pgagroal_databases` configuration defines limits for a database or a user or both.
+
+The configuration is loaded from either the path specified by the `-l` flag or `/etc/pgagroal_databases.conf`.
+
+```
+#
+# DATABASE USER  MAX_CONNECTIONS
+#
+all        all   all
+```
+
+| Column | Required | Description |
+|--------|----------|-------------|
+| DATABASE | Yes      | Specifies the database for the rule. Either specific name or `all` for all databases |
+| USER | Yes      | Specifies the user for the rule. Either specific name or `all` for all users |
+| MAX_CONNECTIONS | Yes      | Specifies the maximum number of connections for the entry. `all` for all connections |

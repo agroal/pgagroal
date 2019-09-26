@@ -114,14 +114,15 @@ usage()
    printf("\n");
 
    printf("Usage:\n");
-   printf("  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] [ -d ]\n");
+   printf("  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] [ -l LIMIT_CONFIG_FILE ] [ -d ]\n");
    printf("\n");
    printf("Options:\n");
-   printf("  -c, --config CONFIG_FILE  Set the path to the pgagroal.conf file\n");
-   printf("  -a, --hba HBA_CONFIG_FILE Set the path to the pgagroal_hba.conf file\n");
-   printf("  -d, --daemon              Run as a daemon\n");
-   printf("  -V, --version             Display version information\n");
-   printf("  -?, --help                Display help\n");
+   printf("  -c, --config CONFIG_FILE      Set the path to the pgagroal.conf file\n");
+   printf("  -a, --hba HBA_CONFIG_FILE     Set the path to the pgagroal_hba.conf file\n");
+   printf("  -l, --limit LIMIT_CONFIG_FILE Set the path to the pgagroal_databases.conf file\n");
+   printf("  -d, --daemon                  Run as a daemon\n");
+   printf("  -V, --version                 Display version information\n");
+   printf("  -?, --help                    Display help\n");
    printf("\n");
 
    exit(1);
@@ -133,6 +134,7 @@ main(int argc, char **argv)
    int ret;
    char* configuration_path = NULL;
    char* hba_path = NULL;
+   char* limit_path = NULL;
    bool daemon = false;
    pid_t pid, sid;
    void* shmem = NULL;
@@ -155,13 +157,14 @@ main(int argc, char **argv)
       {
          {"config",  required_argument, 0, 'c'},
          {"hba", required_argument, 0, 'a'},
+         {"limit", required_argument, 0, 'l'},
          {"daemon", no_argument, 0, 'd'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "dV?a:c:",
+      c = getopt_long (argc, argv, "dV?a:c:l:",
                        long_options, &option_index);
 
       if (c == -1)
@@ -174,6 +177,9 @@ main(int argc, char **argv)
             break;
          case 'c':
             configuration_path = optarg;
+            break;
+         case 'l':
+            limit_path = optarg;
             break;
          case 'd':
             daemon = true;
@@ -218,7 +224,10 @@ main(int argc, char **argv)
       ret = pgagroal_read_hba_configuration(hba_path, shmem);
       if (ret)
       {
-         printf("pgagroal: HBA configuration not found: %s\n", hba_path);
+         if (ret == 1)
+         {
+            printf("pgagroal: HBA configuration not found: %s\n", hba_path);
+         }
          exit(1);
       }
    }
@@ -227,9 +236,29 @@ main(int argc, char **argv)
       ret = pgagroal_read_hba_configuration("/etc/pgagroal_hba.conf", shmem);
       if (ret)
       {
-         printf("pgagroal: HBA configuration not found: /etc/pgagroal_hba.conf\n");
+         if (ret == 1)
+         {
+            printf("pgagroal: HBA configuration not found: /etc/pgagroal_hba.conf\n");
+         }
          exit(1);
       }
+   }
+
+   if (limit_path != NULL)
+   {
+      ret = pgagroal_read_limit_configuration(limit_path, shmem);
+      if (ret)
+      {
+         if (ret == 1)
+         {
+            printf("pgagroal: LIMIT configuration not found: %s\n", limit_path);
+         }
+         exit(1);
+      }
+   }
+   else
+   {
+      pgagroal_read_limit_configuration("/etc/pgagroal_databases.conf", shmem);
    }
 
    if (daemon)

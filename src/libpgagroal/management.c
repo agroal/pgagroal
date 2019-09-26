@@ -542,6 +542,7 @@ pgagroal_management_write_status(bool graceful, void* shmem, int socket)
          case STATE_FLUSH:
          case STATE_IDLE_CHECK:
          case STATE_VALIDATION:
+         case STATE_REMOVE:
             total++;
             break;
          default:

@@ -545,7 +545,7 @@ is_allowed(char* username, char* database, char* address, int auth_type, void* s
    {
       if (is_allowed_address(address, config->hbas[i].address) &&
           is_allowed_database(database, config->hbas[i].database) &&
-          is_allowed_username(username, config->hbas[i].user))
+          is_allowed_username(username, config->hbas[i].username))
       {
          return true;
       }

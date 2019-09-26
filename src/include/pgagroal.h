@@ -61,7 +61,8 @@ extern "C" {
 #else
 #define MAX_NUMBER_OF_CONNECTIONS 1000
 #endif
-#define NUMBER_OF_HBAS 64
+#define NUMBER_OF_HBAS   64
+#define NUMBER_OF_LIMITS 64
 
 #define NUMBER_OF_SECURITY_MESSAGES 5
 
@@ -75,6 +76,7 @@ extern "C" {
 #define STATE_FLUSH       3
 #define STATE_IDLE_CHECK  4
 #define STATE_VALIDATION  5
+#define STATE_REMOVE      6
 
 #define AUTH_SUCCESS 0
 #define AUTH_FAILURE 1
@@ -119,6 +121,7 @@ struct connection
    int has_security;                 /**< The security identifier */
    ssize_t security_lengths[NUMBER_OF_SECURITY_MESSAGES]; /**< The lengths of the security messages */
    char security_messages[NUMBER_OF_SECURITY_MESSAGES][SECURITY_BUFFER_SIZE]; /**< The security messages */
+   int limit_rule;   /**< The limit rule used */
    time_t timestamp; /**< The last used timestamp */
    pid_t pid;        /**< The associated process id */
    int fd;           /**< The descriptor */
@@ -131,9 +134,20 @@ struct hba
 {
    char type[16];                    /**< The type */
    char database[IDENTIFIER_LENGTH]; /**< The database */
-   char user[IDENTIFIER_LENGTH];     /**< The user name */
+   char username[IDENTIFIER_LENGTH]; /**< The user name */
    char address[IDENTIFIER_LENGTH];  /**< The address / mask */
    char method[IDENTIFIER_LENGTH];   /**< The access method */
+} __attribute__ ((aligned (64)));
+
+/** @struct
+ * Defines a limit entry
+ */
+struct limit
+{
+   char database[IDENTIFIER_LENGTH]; /**< The database */
+   char username[IDENTIFIER_LENGTH]; /**< The user name */
+   int max_connections;              /**< The maximum number of connections */
+   atomic_int number_of_connections; /**< The active number of connections */
 } __attribute__ ((aligned (64)));
 
 /** @struct
@@ -155,6 +169,7 @@ struct configuration
    int idle_timeout;        /**< The idle timeout in seconds */
    int validation;          /**< Validation mode */
    int background_interval; /**< Background validation timer in seconds */
+   int max_retries;         /**< The maximum number of retries */
 
    char libev[MISC_LENGTH]; /**< Name of libev mode */
    int buffer_size;         /**< Socket buffer size */
@@ -165,12 +180,14 @@ struct configuration
 
    char unix_socket_dir[MISC_LENGTH]; /**< The directory for the Unix Domain Socket */
 
-   int number_of_servers; /**< The number of active servers */
-   int number_of_hbas;    /**< The number of active HBA entries */
+   int number_of_servers; /**< The number of servers */
+   int number_of_hbas;    /**< The number of HBA entries */
+   int number_of_limits;  /**< The number of limit entries */
 
    struct server servers[NUMBER_OF_SERVERS];                 /**< The servers */
    struct connection connections[MAX_NUMBER_OF_CONNECTIONS]; /**< The connections */
    struct hba hbas[NUMBER_OF_HBAS];                          /**< The HBA entries */
+   struct limit limits[NUMBER_OF_LIMITS];                    /**< The limit entries */
 } __attribute__ ((aligned (64)));
 
 /** @struct

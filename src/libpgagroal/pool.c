@@ -49,6 +49,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 
+static int find_best_rule(void* shmem, char* username, char* database);
+static bool remove_connection(void* shmem, char* username, char* database);
 static void connection_details(void* shmem, int slot);
 
 int
@@ -63,14 +65,29 @@ pgagroal_get_connection(void* shmem, char* username, char* database, int* slot)
    int fd;
    size_t max;
    time_t start_time;
+   int best_rule;
+   int retries;
    struct configuration* config;
 
    config = (struct configuration*)shmem;
    *slot = -1;
+   best_rule = find_best_rule(shmem, username, database);
+   retries = 0;
 
    start_time = time(NULL);
 
+   ZF_LOGD("best_rule: %d", best_rule);
 start:
+
+   if (best_rule >= 0)
+   {
+      int current = atomic_fetch_add(&config->limits[best_rule].number_of_connections, 1);
+      if (current >= config->limits[best_rule].max_connections)
+      {
+         goto retry;
+      }
+   }
+
    /* Try and find an existing free connection */
    for (int i = 0; *slot == -1 && i < config->max_connections; i++)
    {
@@ -93,7 +110,7 @@ start:
    if (*slot == -1)
    {
       connections = atomic_fetch_add(&config->number_of_connections, 1);
-      if (connections > config->max_connections)
+      if (connections >= config->max_connections)
       {
          create_connection = false;
          atomic_fetch_sub(&config->number_of_connections, 1);
@@ -144,6 +161,7 @@ start:
             max = IDENTIFIER_LENGTH - 1;
          memcpy(&config->connections[*slot].database, database, max);
 
+         config->connections[*slot].limit_rule = best_rule;
          config->connections[*slot].has_security = -1;
          config->connections[*slot].timestamp = time(NULL);
          config->connections[*slot].fd = fd;
@@ -172,12 +190,21 @@ start:
 
             goto start;
          }
+
+         config->connections[*slot].limit_rule = best_rule;
+         config->connections[*slot].timestamp = time(NULL);
       }
 
       return 0;
    }
    else
    {
+retry:
+      if (best_rule >= 0)
+      {
+         atomic_fetch_sub(&config->limits[best_rule].number_of_connections, 1);
+      }
+
       if (config->blocking_timeout > 0)
       {
          sleep(1);
@@ -188,7 +215,19 @@ start:
             goto timeout;
          }
 
+         remove_connection(shmem, username, database);
          goto start;
+      }
+      else
+      {
+         if (remove_connection(shmem, username, database))
+         {
+            if (retries < config->max_retries)
+            {
+               retries++;
+               goto start;
+            }
+         }
       }
    }
 
@@ -196,6 +235,11 @@ timeout:
    return 1;
 
 error:
+   if (best_rule >= 0)
+   {
+      atomic_fetch_sub(&config->limits[best_rule].number_of_connections, 1);
+   }
+
    return 2;
 }
 
@@ -237,6 +281,12 @@ pgagroal_return_connection(void* shmem, int slot)
 
          pgagroal_management_return_connection(shmem, slot);
 
+         if (config->connections[slot].limit_rule >= 0)
+         {
+            atomic_fetch_sub(&config->limits[config->connections[slot].limit_rule].number_of_connections, 1);
+         }
+
+         config->connections[slot].limit_rule = -1;
          config->connections[slot].new = false;
          config->connections[slot].pid = -1;
          atomic_store(&config->connections[slot].state, STATE_FREE);
@@ -262,6 +312,13 @@ pgagroal_kill_connection(void* shmem, int slot)
    fd = config->connections[slot].fd;
    pgagroal_management_kill_connection(shmem, slot);
    pgagroal_disconnect(fd);
+
+   if (config->connections[slot].limit_rule >= 0)
+   {
+      atomic_fetch_sub(&config->limits[config->connections[slot].limit_rule].number_of_connections, 1);
+   }
+
+   config->connections[slot].limit_rule = -1;
    config->connections[slot].fd = -1;
    config->connections[slot].pid = -1;
 
@@ -432,6 +489,7 @@ pgagroal_pool_init(void* shmem)
    for (int i = 0; i < config->max_connections; i++)
    {
       atomic_init(&config->connections[i].state, STATE_NOTINIT);
+      config->connections[i].limit_rule = -1;
       config->connections[i].new = true;
       config->connections[i].fd = -1;
       config->connections[i].pid = -1;
@@ -480,6 +538,91 @@ pgagroal_pool_status(void* shmem)
    }
 
    return 0;
+}
+
+static int
+find_best_rule(void* shmem, char* username, char* database)
+{
+   int best_rule;
+   struct configuration* config;
+
+   best_rule = -1;
+   config = (struct configuration*)shmem;
+
+   if (config->number_of_limits > 0)
+   {
+      for (int i = 0; i < config->number_of_limits; i++)
+      {
+         ZF_LOGD("rule: %d - %s %s %d", i, config->limits[i].database, config->limits[i].username, config->limits[i].max_connections);
+
+         /* There is a match */
+         if ((!strcmp("all", config->limits[i].username) || !strcmp(username, config->limits[i].username)) &&
+             (!strcmp("all", config->limits[i].database) || !strcmp(database, config->limits[i].database)))
+         {
+            if (best_rule == -1)
+            {
+               best_rule = i;
+            }
+            else
+            {
+               if (!strcmp(username, config->limits[best_rule].username) &&
+                   !strcmp(database, config->limits[best_rule].database))
+               {
+                  /* We have a precise rule already */
+               }
+               else if (!strcmp("all", config->limits[best_rule].username))
+               {
+                  /* User is better */
+                  if (strcmp("all", config->limits[i].username))
+                  {
+                     best_rule = i;
+                  }
+               }
+               else if (!strcmp("all", config->limits[best_rule].database))
+               {
+                  /* Database is better */
+                  if (strcmp("all", config->limits[i].database))
+                  {
+                     best_rule = i;
+                  }
+               }
+            }
+         }
+      }
+   }
+
+   return best_rule;
+}
+
+static bool
+remove_connection(void* shmem, char* username, char* database)
+{
+   int free;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   ZF_LOGD("remove_connection");
+   for (int i = config->max_connections - 1; i >= 0; i--)
+   {
+      free = STATE_FREE;
+
+      if (atomic_compare_exchange_strong(&config->connections[i].state, &free, STATE_REMOVE))
+      {
+         if (!strcmp(username, config->connections[i].username) && !strcmp(database, config->connections[i].database))
+         {
+            atomic_store(&config->connections[i].state, STATE_FREE);
+         }
+         else
+         {
+            pgagroal_kill_connection(shmem, i);
+         }
+
+         return true;
+      }
+   }
+
+   return false;
 }
 
 static void
@@ -595,6 +738,23 @@ connection_details(void* shmem, int slot)
          break;
       case STATE_VALIDATION:
          ZF_LOGD("pgagroal_pool_status: State: VALIDATION");
+         ZF_LOGD("                      Slot: %d", slot);
+         ZF_LOGD("                      Server: %d", connection.server);
+         ZF_LOGD("                      User: %s", connection.username);
+         ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      Time: %s", time);
+         ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGV("                      PID: %d", connection.pid);
+         ZF_LOGV("                      Auth: %d", connection.has_security);
+         for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
+         {
+            ZF_LOGV("                      Size: %zd", connection.security_lengths[i]);
+            ZF_LOGV_MEM(&connection.security_messages[i], connection.security_lengths[i],
+                        "                      Message %p:", (const void *)&connection.security_messages[i]);
+         }
+         break;
+      case STATE_REMOVE:
+         ZF_LOGD("pgagroal_pool_status: State: REMOVE");
          ZF_LOGD("                      Slot: %d", slot);
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);

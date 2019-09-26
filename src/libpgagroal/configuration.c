@@ -33,6 +33,7 @@
 #include <utils.h>
 
 /* system */
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,6 +49,7 @@ static int as_logging_level(char* str);
 static int as_validation(char* str);
 static int extract_value(char* str, int offset, char** value);
 static void extract_hba(char* str, char** type, char** database, char** user, char** address, char** method);
+static void extract_limit(char* str, int server_max, char** database, char** user, int* max_connections);
 
 /**
  *
@@ -71,6 +73,7 @@ pgagroal_init_configuration(void* shmem, size_t size)
    config->idle_timeout = 0;
    config->validation = VALIDATION_OFF;
    config->background_interval = 300;
+   config->max_retries = 5;
 
    config->buffer_size = DEFAULT_BUFFER_SIZE;
    config->keep_alive = true;
@@ -259,6 +262,17 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
                   }
                }
+               else if (!strcmp(key, "max_retries"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->max_retries = as_int(value);
+                  }
+                  else
+                  {
+                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                  }
+               }
                else if (!strcmp(key, "log_type"))
                {
                   if (!strcmp(section, "pgagroal"))
@@ -428,7 +442,7 @@ pgagroal_read_hba_configuration(char* filename, void* shmem)
    int index;
    char* type = NULL;
    char* database = NULL;
-   char* user = NULL;
+   char* username = NULL;
    char* address = NULL;
    char* method = NULL;
    struct configuration* config;
@@ -451,15 +465,15 @@ pgagroal_read_hba_configuration(char* filename, void* shmem)
          }
          else
          {
-            extract_hba(line, &type, &database, &user, &address, &method);
+            extract_hba(line, &type, &database, &username, &address, &method);
 
-            if (type && database && user && address && method)
+            if (type && database && username && address && method)
             {
                if (!strcmp("host", type))
                {
                   memcpy(&(config->hbas[index].type), type, strlen(type));
                   memcpy(&(config->hbas[index].database), database, strlen(database));
-                  memcpy(&(config->hbas[index].user), user, strlen(user));
+                  memcpy(&(config->hbas[index].username), username, strlen(username));
                   memcpy(&(config->hbas[index].address), address, strlen(address));
                   memcpy(&(config->hbas[index].method), method, strlen(method));
 
@@ -467,25 +481,26 @@ pgagroal_read_hba_configuration(char* filename, void* shmem)
 
                   if (index >= NUMBER_OF_HBAS)
                   {
-                     printf("Too many HBA entries (%d)\n", NUMBER_OF_HBAS);
-                     return 1;
+                     printf("pgagroal: Too many HBA entries (%d)\n", NUMBER_OF_HBAS);
+                     fclose(file);
+                     return 2;
                   }
                }
                else
                {
-                  printf("Unknown HBA type: %s\n", type);
+                  printf("pgagroal: Unknown HBA type: %s\n", type);
                }
             }
 
             free(type);
             free(database);
-            free(user);
+            free(username);
             free(address);
             free(method);
 
             type = NULL;
             database = NULL;
-            user = NULL;
+            username = NULL;
             address = NULL;
             method = NULL;
          }
@@ -497,7 +512,84 @@ pgagroal_read_hba_configuration(char* filename, void* shmem)
    fclose(file);
 
    if (config->number_of_hbas == 0)
+      return 2;
+
+   return 0;
+}
+
+/**
+ *
+ */
+int
+pgagroal_read_limit_configuration(char* filename, void* shmem)
+{
+   FILE* file;
+   char line[LINE_LENGTH];
+   int index;
+   char* database = NULL;
+   char* username = NULL;
+   int max_connections;
+   int total_connections;
+   struct configuration* config;
+
+   file = fopen(filename, "r");
+
+   if (!file)
       return 1;
+
+   index = 0;
+   total_connections = 0;
+   config = (struct configuration*)shmem;
+
+   while (fgets(line, sizeof(line), file))
+   {
+      if (strcmp(line, ""))
+      {
+         if (line[0] == '#' || line[0] == ';')
+         {
+            /* Comment, so ignore */
+         }
+         else
+         {
+            extract_limit(line, config->max_connections, &database, &username, &max_connections);
+
+            if (database && username && max_connections > 0)
+            {
+               memcpy(&(config->limits[index].database), database, strlen(database));
+               memcpy(&(config->limits[index].username), username, strlen(username));
+               config->limits[index].max_connections = max_connections;
+               atomic_init(&config->limits[index].number_of_connections, 0);
+
+               index++;
+               total_connections += max_connections;
+
+               if (index >= NUMBER_OF_LIMITS)
+               {
+                  printf("pgagroal: Too many LIMIT entries (%d)\n", NUMBER_OF_LIMITS);
+                  fclose(file);
+                  return 2;
+               }
+            }
+
+            free(database);
+            free(username);
+
+            database = NULL;
+            username = NULL;
+            max_connections = 0;
+         }
+      }
+   }
+
+   config->number_of_limits = index;
+
+   fclose(file);
+
+   if (total_connections > config->max_connections)
+   {
+      printf("pgagroal: LIMIT: Too many connections defined %d (max %d)\n", total_connections, config->max_connections);
+      return 2;
+   }
 
    return 0;
 }
@@ -654,8 +746,40 @@ extract_hba(char* str, char** type, char** database, char** user, char** address
       return;
 
    extract_value(str, offset, method);
+}
 
-   return;
+static void
+extract_limit(char* str, int server_max, char** database, char** user, int* max_connections)
+{
+   int offset = 0;
+   int length = strlen(str);
+   char* value = NULL;
+
+   offset = extract_value(str, offset, database);
+
+   if (offset == -1 || offset >= length)
+      return;
+
+   offset = extract_value(str, offset, user);
+
+   if (offset == -1 || offset >= length)
+      return;
+
+   offset = extract_value(str, offset, &value);
+
+   if (offset == -1)
+      return;
+
+   if (!strcmp("all", value))
+   {
+      *max_connections = server_max;
+   }
+   else
+   {
+      *max_connections = atoi(value);
+   }
+
+   free(value);
 }
 
 static int

@@ -62,6 +62,15 @@ pgagroal_read_configuration(char* filename, void* shmem);
 int
 pgagroal_read_hba_configuration(char* filename, void* shmem);
 
+/**
+ * Read the LIMIT configuration from a file
+ * @param filename The file name
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_read_limit_configuration(char* filename, void* shmem);
+
 #ifdef __cplusplus
 }
 #endif

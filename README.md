@@ -6,6 +6,7 @@
 
 * High performance
 * Connection pool
+* Limit connections for users and databases
 * Remove idle connections
 * Perform connection validation
 * Graceful / fast shutdown
@@ -50,11 +51,7 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
 dnf install gcc cmake make libev libev-devel
 ```
 
-Alternative
-
-* [clang 8+](https://clang.llvm.org/)
-
-can be used.
+Alternative [clang 8+](https://clang.llvm.org/) can be used.
 
 ### Release build
 

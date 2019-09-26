@@ -34,6 +34,7 @@ connection, and move them around in the connection state diagram. The state diag
 | `STATE_FLUSH` | The connection is being flushed |
 | `STATE_IDLE_CHECK` | The connection is being idle timeout checked |
 | `STATE_VALIDATION` | The connection is being validated |
+| `STATE_REMOVE` | The connection is being removed |
 
 These state are defined in [pgagroal.h](../src/include/pgagroal.h).
 
