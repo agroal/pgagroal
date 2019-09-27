@@ -44,6 +44,16 @@ void*
 pgagroal_create_shared_memory(size_t size);
 
 /**
+ * Resize a shared memory segment
+ * @param size The size of the segment
+ * @param shmem The pointer to the segment
+ * @param new_size The size of the new segment
+ * @param new_shmem The pointer to the new segment
+ */
+void
+pgagroal_resize_shared_memory(size_t size, void* shmem, size_t* new_size, void** new_shmem);
+
+/**
  * Destroy a shared memory segment
  * @param shmem The shared memory segment
  * @param size The size

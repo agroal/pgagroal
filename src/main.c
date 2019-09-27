@@ -138,6 +138,7 @@ main(int argc, char **argv)
    bool daemon = false;
    pid_t pid, sid;
    void* shmem = NULL;
+   void* tmp_shmem = NULL;
    struct ev_loop *loop;
    struct accept_io io_mgt;
    struct signal_info signal_watcher[6];
@@ -146,6 +147,7 @@ main(int argc, char **argv)
    int* fds = NULL;
    int unix_socket;
    size_t size;
+   size_t tmp_size;
    struct configuration* config;
    int c;
    struct pipeline p;
@@ -198,7 +200,6 @@ main(int argc, char **argv)
    size = sizeof(struct configuration);
    shmem = pgagroal_create_shared_memory(size);
    pgagroal_init_configuration(shmem, size);
-   config = (struct configuration*)shmem;
 
    if (configuration_path != NULL)
    {
@@ -260,6 +261,13 @@ main(int argc, char **argv)
    {
       pgagroal_read_limit_configuration("/etc/pgagroal_databases.conf", shmem);
    }
+
+   pgagroal_resize_shared_memory(size, shmem, &tmp_size, &tmp_shmem);
+   pgagroal_destroy_shared_memory(shmem, size);
+   size = tmp_size;
+   shmem = tmp_shmem;
+
+   config = (struct configuration*)shmem;
 
    if (daemon)
    {
@@ -377,6 +385,8 @@ main(int argc, char **argv)
    ZF_LOGD("Management %d", unix_socket);
    pgagroal_libev_engines();
    ZF_LOGD("libev engine: %s", pgagroal_libev_engine(ev_backend(loop)));
+   ZF_LOGD("Configuration size: %lu", size);
+   ZF_LOGD("Max connections: %d", config->max_connections);
 
    while (keep_running)
    {

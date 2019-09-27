@@ -51,7 +51,7 @@ extern "C" {
 
 #define MAX_BUFFER_SIZE      65535
 #define DEFAULT_BUFFER_SIZE  65535
-#define SECURITY_BUFFER_SIZE  2048
+#define SECURITY_BUFFER_SIZE   512
 
 #define IDENTIFIER_LENGTH 64
 #define MISC_LENGTH 128
@@ -113,18 +113,20 @@ struct server
  */
 struct connection
 {
-   atomic_int state; /**< The state */
-   bool new;         /**< Is the connection new */
-   int server;       /**< The server identifier */
    char username[IDENTIFIER_LENGTH]; /**< The user name */
    char database[IDENTIFIER_LENGTH]; /**< The database */
-   int has_security;                 /**< The security identifier */
-   ssize_t security_lengths[NUMBER_OF_SECURITY_MESSAGES]; /**< The lengths of the security messages */
+
+   bool new;             /**< Is the connection new */
+   unsigned char server; /**< The server identifier */
+
+   signed char has_security;                                                  /**< The security identifier */
+   ssize_t security_lengths[NUMBER_OF_SECURITY_MESSAGES];                     /**< The lengths of the security messages */
    char security_messages[NUMBER_OF_SECURITY_MESSAGES][SECURITY_BUFFER_SIZE]; /**< The security messages */
-   int limit_rule;   /**< The limit rule used */
-   time_t timestamp; /**< The last used timestamp */
-   pid_t pid;        /**< The associated process id */
-   int fd;           /**< The descriptor */
+
+   signed char limit_rule; /**< The limit rule used */
+   time_t timestamp;       /**< The last used timestamp */
+   pid_t pid;              /**< The associated process id */
+   int fd;                 /**< The descriptor */
 } __attribute__ ((aligned (64)));
 
 /** @struct
@@ -144,10 +146,10 @@ struct hba
  */
 struct limit
 {
-   char database[IDENTIFIER_LENGTH]; /**< The database */
-   char username[IDENTIFIER_LENGTH]; /**< The user name */
-   int max_connections;              /**< The maximum number of connections */
-   atomic_int number_of_connections; /**< The active number of connections */
+   char database[IDENTIFIER_LENGTH];    /**< The database */
+   char username[IDENTIFIER_LENGTH];    /**< The user name */
+   int max_connections;                 /**< The maximum number of connections */
+   atomic_ushort number_of_connections; /**< The active number of connections */
 } __attribute__ ((aligned (64)));
 
 /** @struct
@@ -162,8 +164,8 @@ struct configuration
    int log_level;              /**< The logging level */
    char log_path[MISC_LENGTH]; /**< The logging path */
 
-   atomic_int number_of_connections; /**< The current number of connections */
-   int max_connections;              /**< The maximum number of connections */
+   atomic_ushort number_of_connections; /**< The current number of connections */
+   int max_connections;                 /**< The maximum number of connections */
 
    int blocking_timeout;    /**< The blocking timeout in seconds */
    int idle_timeout;        /**< The idle timeout in seconds */
@@ -184,10 +186,11 @@ struct configuration
    int number_of_hbas;    /**< The number of HBA entries */
    int number_of_limits;  /**< The number of limit entries */
 
-   struct server servers[NUMBER_OF_SERVERS];                 /**< The servers */
-   struct connection connections[MAX_NUMBER_OF_CONNECTIONS]; /**< The connections */
-   struct hba hbas[NUMBER_OF_HBAS];                          /**< The HBA entries */
-   struct limit limits[NUMBER_OF_LIMITS];                    /**< The limit entries */
+   atomic_schar states[MAX_NUMBER_OF_CONNECTIONS]; /**< The states */
+   struct server servers[NUMBER_OF_SERVERS];       /**< The servers */
+   struct hba hbas[NUMBER_OF_HBAS];                /**< The HBA entries */
+   struct limit limits[NUMBER_OF_LIMITS];          /**< The limit entries */
+   struct connection connections[];                /**< The connections (FMA) */
 } __attribute__ ((aligned (64)));
 
 /** @struct

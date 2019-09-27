@@ -59,8 +59,8 @@ pgagroal_get_connection(void* shmem, char* username, char* database, int* slot)
    bool create_connection = true;
    bool do_init = false;
    int connections;
-   int not_init;
-   int free;
+   signed char not_init;
+   signed char free;
    int server;
    int fd;
    size_t max;
@@ -93,7 +93,7 @@ start:
    {
       free = STATE_FREE;
 
-      if (atomic_compare_exchange_strong(&config->connections[i].state, &free, STATE_IN_USE))
+      if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_IN_USE))
       {
          if (!strcmp((const char*)(&config->connections[i].username), username) &&
              !strcmp((const char*)(&config->connections[i].database), database))
@@ -102,7 +102,7 @@ start:
          }
          else
          {
-            atomic_store(&config->connections[i].state, STATE_FREE);
+            atomic_store(&config->states[i], STATE_FREE);
          }
       }
    }
@@ -123,7 +123,7 @@ start:
          {
             not_init = STATE_NOTINIT;
 
-            if (atomic_compare_exchange_strong(&config->connections[i].state, &not_init, STATE_INIT))
+            if (atomic_compare_exchange_strong(&config->states[i], &not_init, STATE_INIT))
             {
                *slot = i;
                do_init = true;
@@ -166,7 +166,7 @@ start:
          config->connections[*slot].timestamp = time(NULL);
          config->connections[*slot].fd = fd;
 
-         atomic_store(&config->connections[*slot].state, STATE_IN_USE);
+         atomic_store(&config->states[*slot], STATE_IN_USE);
       }
       else
       {
@@ -263,7 +263,7 @@ pgagroal_return_connection(void* shmem, int slot)
    /* We can't cache SCRAM-SHA-256 connections atm */
    if (config->connections[slot].has_security != -1 && config->connections[slot].has_security != 10)
    {
-      state = atomic_load(&config->connections[slot].state);
+      state = atomic_load(&config->states[slot]);
 
       /* Return the connection, if not GRACEFULLY */
       if (state == STATE_IN_USE)
@@ -289,7 +289,7 @@ pgagroal_return_connection(void* shmem, int slot)
          config->connections[slot].limit_rule = -1;
          config->connections[slot].new = false;
          config->connections[slot].pid = -1;
-         atomic_store(&config->connections[slot].state, STATE_FREE);
+         atomic_store(&config->states[slot], STATE_FREE);
          atomic_fetch_sub(&config->number_of_connections, 1);
 
          return 0;
@@ -329,7 +329,7 @@ pgagroal_kill_connection(void* shmem, int slot)
    }
 
    config->connections[slot].new = true;
-   atomic_store(&config->connections[slot].state, STATE_NOTINIT);
+   atomic_store(&config->states[slot], STATE_NOTINIT);
 
    atomic_fetch_sub(&config->number_of_connections, 1);
    
@@ -340,7 +340,7 @@ void
 pgagroal_idle_timeout(void* shmem)
 {
    time_t now;
-   int free;
+   signed char free;
    struct configuration* config;
 
    pgagroal_start_logging(shmem);
@@ -355,7 +355,7 @@ pgagroal_idle_timeout(void* shmem)
    {
       free = STATE_FREE;
 
-      if (atomic_compare_exchange_strong(&config->connections[i].state, &free, STATE_IDLE_CHECK))
+      if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_IDLE_CHECK))
       {
          double diff = difftime(now, config->connections[i].timestamp);
          if (diff >= (double)config->idle_timeout)
@@ -364,7 +364,7 @@ pgagroal_idle_timeout(void* shmem)
          }
          else
          {
-            atomic_store(&config->connections[i].state, STATE_FREE);
+            atomic_store(&config->states[i], STATE_FREE);
          }
       }
    }
@@ -379,7 +379,7 @@ void
 pgagroal_validation(void* shmem)
 {
    time_t now;
-   int free;
+   signed char free;
    struct configuration* config;
 
    pgagroal_start_logging(shmem);
@@ -394,7 +394,7 @@ pgagroal_validation(void* shmem)
    {
       free = STATE_FREE;
 
-      if (atomic_compare_exchange_strong(&config->connections[i].state, &free, STATE_VALIDATION))
+      if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_VALIDATION))
       {
          bool kill = false;
          double diff;
@@ -428,7 +428,7 @@ pgagroal_validation(void* shmem)
          }
          else
          {
-            atomic_store(&config->connections[i].state, STATE_FREE);
+            atomic_store(&config->states[i], STATE_FREE);
          }
       }
    }
@@ -442,8 +442,8 @@ pgagroal_validation(void* shmem)
 int
 pgagroal_flush(void* shmem, int mode)
 {
-   int free;
-   int in_use;
+   signed char free;
+   signed char in_use;
    struct configuration* config;
 
    config = (struct configuration*)shmem;
@@ -454,13 +454,13 @@ pgagroal_flush(void* shmem, int mode)
       free = STATE_FREE;
       in_use = STATE_IN_USE;
 
-      if (atomic_compare_exchange_strong(&config->connections[i].state, &free, STATE_FLUSH))
+      if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_FLUSH))
       {
          pgagroal_kill_connection(shmem, i);
       }
       else if (mode == FLUSH_ALL || mode == FLUSH_GRACEFULLY)
       {
-         if (atomic_compare_exchange_strong(&config->connections[i].state, &in_use, STATE_FLUSH))
+         if (atomic_compare_exchange_strong(&config->states[i], &in_use, STATE_FLUSH))
          {
             if (mode == FLUSH_ALL)
             {
@@ -469,7 +469,7 @@ pgagroal_flush(void* shmem, int mode)
             }
             else if (mode == FLUSH_GRACEFULLY)
             {
-               atomic_store(&config->connections[i].state, STATE_GRACEFULLY);
+               atomic_store(&config->states[i], STATE_GRACEFULLY);
             }
          }
       }
@@ -486,9 +486,15 @@ pgagroal_pool_init(void* shmem)
 
    config = (struct configuration*)shmem;
 
+   /* States */
+   for (int i = 0; i < MAX_NUMBER_OF_CONNECTIONS; i++)
+   {
+      atomic_init(&config->states[i], STATE_NOTINIT);
+   }
+
+   /* Connections */
    for (int i = 0; i < config->max_connections; i++)
    {
-      atomic_init(&config->connections[i].state, STATE_NOTINIT);
       config->connections[i].limit_rule = -1;
       config->connections[i].new = true;
       config->connections[i].fd = -1;
@@ -507,7 +513,7 @@ pgagroal_pool_shutdown(void* shmem)
 
    for (int i = 0; i < config->max_connections; i++)
    {
-      int state = atomic_load(&config->connections[i].state);
+      int state = atomic_load(&config->states[i]);
 
       if (state != STATE_NOTINIT)
       {
@@ -518,7 +524,7 @@ pgagroal_pool_shutdown(void* shmem)
             kill(config->connections[i].pid, SIGQUIT);
          }
 
-         atomic_store(&config->connections[i].state, STATE_NOTINIT);
+         atomic_store(&config->states[i], STATE_NOTINIT);
       }
    }
 
@@ -597,7 +603,7 @@ find_best_rule(void* shmem, char* username, char* database)
 static bool
 remove_connection(void* shmem, char* username, char* database)
 {
-   int free;
+   signed char free;
    struct configuration* config;
 
    config = (struct configuration*)shmem;
@@ -607,11 +613,11 @@ remove_connection(void* shmem, char* username, char* database)
    {
       free = STATE_FREE;
 
-      if (atomic_compare_exchange_strong(&config->connections[i].state, &free, STATE_REMOVE))
+      if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_REMOVE))
       {
          if (!strcmp(username, config->connections[i].username) && !strcmp(database, config->connections[i].database))
          {
-            atomic_store(&config->connections[i].state, STATE_FREE);
+            atomic_store(&config->states[i], STATE_FREE);
          }
          else
          {
@@ -636,7 +642,7 @@ connection_details(void* shmem, int slot)
    config = (struct configuration*)shmem;
 
    connection = config->connections[slot];
-   state = atomic_load(&connection.state);
+   state = atomic_load(&config->states[slot]);
    time = ctime(&(connection.timestamp));
 
    switch (state)

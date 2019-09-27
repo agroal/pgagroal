@@ -43,6 +43,20 @@ pgagroal_create_shared_memory(size_t size)
    return mmap(NULL, size, protection, visibility, 0, 0);
 }
 
+void
+pgagroal_resize_shared_memory(size_t size, void* shmem, size_t* new_size, void** new_shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   *new_size = size + (config->max_connections * sizeof(struct connection));
+   *new_shmem = pgagroal_create_shared_memory(*new_size);
+
+   memset(*new_shmem, 0, *new_size);
+   memcpy(*new_shmem, shmem, size);
+}
+
 int
 pgagroal_destroy_shared_memory(void* shmem, size_t size)
 {

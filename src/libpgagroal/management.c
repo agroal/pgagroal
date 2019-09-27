@@ -531,7 +531,7 @@ pgagroal_management_write_status(bool graceful, void* shmem, int socket)
 
    for (int i = 0; i < config->max_connections; i++)
    {
-      int state = atomic_load(&config->connections[i].state);
+      int state = atomic_load(&config->states[i]);
       switch (state)
       {
          case STATE_IN_USE:
