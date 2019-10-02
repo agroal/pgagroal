@@ -146,10 +146,10 @@ struct hba
  */
 struct limit
 {
-   char database[IDENTIFIER_LENGTH];    /**< The database */
-   char username[IDENTIFIER_LENGTH];    /**< The user name */
-   int max_connections;                 /**< The maximum number of connections */
-   atomic_ushort number_of_connections; /**< The active number of connections */
+   char database[IDENTIFIER_LENGTH]; /**< The database */
+   char username[IDENTIFIER_LENGTH]; /**< The user name */
+   atomic_ushort active_connections; /**< The active number of connections */
+   int max_connections;              /**< The maximum number of connections */
 } __attribute__ ((aligned (64)));
 
 /** @struct
@@ -164,8 +164,8 @@ struct configuration
    int log_level;              /**< The logging level */
    char log_path[MISC_LENGTH]; /**< The logging path */
 
-   atomic_ushort number_of_connections; /**< The current number of connections */
-   int max_connections;                 /**< The maximum number of connections */
+   atomic_ushort active_connections; /**< The active number of connections */
+   int max_connections;              /**< The maximum number of connections */
 
    int blocking_timeout;    /**< The blocking timeout in seconds */
    int idle_timeout;        /**< The idle timeout in seconds */

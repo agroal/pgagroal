@@ -56,8 +56,8 @@ static void connection_details(void* shmem, int slot);
 int
 pgagroal_get_connection(void* shmem, char* username, char* database, int* slot)
 {
-   bool create_connection = true;
-   bool do_init = false;
+   bool do_init;
+   bool has_lock;
    int connections;
    signed char not_init;
    signed char free;
@@ -76,16 +76,25 @@ pgagroal_get_connection(void* shmem, char* username, char* database, int* slot)
 
    start_time = time(NULL);
 
-   ZF_LOGD("best_rule: %d", best_rule);
 start:
+
+   do_init = false;
+   has_lock = false;
 
    if (best_rule >= 0)
    {
-      int current = atomic_fetch_add(&config->limits[best_rule].number_of_connections, 1);
-      if (current >= config->limits[best_rule].max_connections)
+      connections = atomic_fetch_add(&config->limits[best_rule].active_connections, 1);
+      if (connections >= config->limits[best_rule].max_connections)
       {
          goto retry;
       }
+   }
+
+   connections = atomic_fetch_add(&config->active_connections, 1);
+   has_lock = true;
+   if (connections >= config->max_connections)
+   {
+      goto retry;
    }
 
    /* Try and find an existing free connection */
@@ -95,7 +104,8 @@ start:
 
       if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_IN_USE))
       {
-         if (!strcmp((const char*)(&config->connections[i].username), username) &&
+         if (best_rule == config->connections[i].limit_rule &&
+             !strcmp((const char*)(&config->connections[i].username), username) &&
              !strcmp((const char*)(&config->connections[i].database), database))
          {
             *slot = i;
@@ -109,25 +119,15 @@ start:
 
    if (*slot == -1)
    {
-      connections = atomic_fetch_add(&config->number_of_connections, 1);
-      if (connections >= config->max_connections)
+      /* Ok, try and create a new connection */
+      for (int i = 0; *slot == -1 && i < config->max_connections; i++)
       {
-         create_connection = false;
-         atomic_fetch_sub(&config->number_of_connections, 1);
-      }
+         not_init = STATE_NOTINIT;
 
-      if (create_connection)
-      {
-         /* Ok, try and create a new connection */
-         for (int i = 0; *slot == -1 && i < config->max_connections; i++)
+         if (atomic_compare_exchange_strong(&config->states[i], &not_init, STATE_INIT))
          {
-            not_init = STATE_NOTINIT;
-
-            if (atomic_compare_exchange_strong(&config->states[i], &not_init, STATE_INIT))
-            {
-               *slot = i;
-               do_init = true;
-            }
+            *slot = i;
+            do_init = true;
          }
       }
    }
@@ -164,6 +164,7 @@ start:
          config->connections[*slot].limit_rule = best_rule;
          config->connections[*slot].has_security = -1;
          config->connections[*slot].timestamp = time(NULL);
+         config->connections[*slot].pid = getpid();
          config->connections[*slot].fd = fd;
 
          atomic_store(&config->states[*slot], STATE_IN_USE);
@@ -171,6 +172,11 @@ start:
       else
       {
          bool kill = false;
+
+         config->connections[*slot].limit_rule = best_rule;
+         config->connections[*slot].pid = getpid();
+         config->connections[*slot].timestamp = time(NULL);
+
          /* Verify the socket for the slot */
          int r = fcntl(config->connections[*slot].fd, F_GETFL);
          if (r == -1)
@@ -188,11 +194,8 @@ start:
             ZF_LOGD("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
             pgagroal_kill_connection(shmem, *slot);
 
-            goto start;
+            goto retry2;
          }
-
-         config->connections[*slot].limit_rule = best_rule;
-         config->connections[*slot].timestamp = time(NULL);
       }
 
       return 0;
@@ -202,12 +205,20 @@ start:
 retry:
       if (best_rule >= 0)
       {
-         atomic_fetch_sub(&config->limits[best_rule].number_of_connections, 1);
+         atomic_fetch_sub(&config->limits[best_rule].active_connections, 1);
       }
-
+      if (has_lock)
+      {
+         atomic_fetch_sub(&config->active_connections, 1);
+      }
+retry2:
       if (config->blocking_timeout > 0)
       {
-         sleep(1);
+         /* Sleep for 500ms */
+         struct timespec ts;
+         ts.tv_sec = 0;
+         ts.tv_nsec = 500000000L;
+         nanosleep(&ts, NULL);
 
          double diff = difftime(time(NULL), start_time);
          if (diff >= (double)config->blocking_timeout)
@@ -237,8 +248,9 @@ timeout:
 error:
    if (best_rule >= 0)
    {
-      atomic_fetch_sub(&config->limits[best_rule].number_of_connections, 1);
+      atomic_fetch_sub(&config->limits[best_rule].active_connections, 1);
    }
+   atomic_fetch_sub(&config->active_connections, 1);
 
    return 2;
 }
@@ -283,14 +295,13 @@ pgagroal_return_connection(void* shmem, int slot)
 
          if (config->connections[slot].limit_rule >= 0)
          {
-            atomic_fetch_sub(&config->limits[config->connections[slot].limit_rule].number_of_connections, 1);
+            atomic_fetch_sub(&config->limits[config->connections[slot].limit_rule].active_connections, 1);
          }
 
-         config->connections[slot].limit_rule = -1;
          config->connections[slot].new = false;
          config->connections[slot].pid = -1;
          atomic_store(&config->states[slot], STATE_FREE);
-         atomic_fetch_sub(&config->number_of_connections, 1);
+         atomic_fetch_sub(&config->active_connections, 1);
 
          return 0;
       }
@@ -307,15 +318,22 @@ pgagroal_kill_connection(void* shmem, int slot)
 
    config = (struct configuration*)shmem;
 
-   ZF_LOGD("pgagroal_kill_connection: Slot %d FD %d", slot, config->connections[slot].fd);
+   ZF_LOGD("pgagroal_kill_connection: Slot %d FD %d State %d PID %d",
+           slot, config->connections[slot].fd, atomic_load(&config->states[slot]),
+           config->connections[slot].pid);
 
    fd = config->connections[slot].fd;
    pgagroal_management_kill_connection(shmem, slot);
    pgagroal_disconnect(fd);
 
-   if (config->connections[slot].limit_rule >= 0)
+   if (config->connections[slot].pid != -1)
    {
-      atomic_fetch_sub(&config->limits[config->connections[slot].limit_rule].number_of_connections, 1);
+      if (config->connections[slot].limit_rule >= 0)
+      {
+         atomic_fetch_sub(&config->limits[config->connections[slot].limit_rule].active_connections, 1);
+      }
+
+      atomic_fetch_sub(&config->active_connections, 1);
    }
 
    config->connections[slot].limit_rule = -1;
@@ -331,8 +349,6 @@ pgagroal_kill_connection(void* shmem, int slot)
    config->connections[slot].new = true;
    atomic_store(&config->states[slot], STATE_NOTINIT);
 
-   atomic_fetch_sub(&config->number_of_connections, 1);
-   
    return 0;
 }
 
@@ -538,6 +554,8 @@ pgagroal_pool_status(void* shmem)
 
    config = (struct configuration*)shmem;
 
+   ZF_LOGD("pgagroal_pool_status: %d/%d", atomic_load(&config->active_connections), config->max_connections);
+
    for (int i = 0; i < config->max_connections; i++)
    {
       connection_details(shmem, i);
@@ -559,8 +577,6 @@ find_best_rule(void* shmem, char* username, char* database)
    {
       for (int i = 0; i < config->number_of_limits; i++)
       {
-         ZF_LOGD("rule: %d - %s %s %d", i, config->limits[i].database, config->limits[i].username, config->limits[i].max_connections);
-
          /* There is a match */
          if ((!strcmp("all", config->limits[i].username) || !strcmp(username, config->limits[i].username)) &&
              (!strcmp("all", config->limits[i].database) || !strcmp(database, config->limits[i].database)))
@@ -663,6 +679,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
@@ -680,6 +697,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
@@ -697,6 +715,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
@@ -714,6 +733,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
@@ -731,6 +751,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
@@ -748,6 +769,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
@@ -765,6 +787,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", time);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);

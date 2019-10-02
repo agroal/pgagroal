@@ -543,7 +543,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
    if (keep_running && gracefully)
    {
-      if (atomic_load(&config->number_of_connections) == 0)
+      if (atomic_load(&config->active_connections) == 0)
       {
          pgagroal_pool_status(ai->shmem);
          keep_running = 0;
@@ -584,7 +584,7 @@ graceful_cb(struct ev_loop *loop, ev_signal *w, int revents)
    gracefully = true;
    shutdown_io(loop);
 
-   if (atomic_load(&config->number_of_connections) == 0)
+   if (atomic_load(&config->active_connections) == 0)
    {
       pgagroal_pool_status(si->shmem);
       keep_running = 0;

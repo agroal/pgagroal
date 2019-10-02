@@ -78,8 +78,6 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    {
       ZF_LOGD("pgagroal_worker: Slot %d (%d -> %d)", slot, client_fd, config->connections[slot].fd);
 
-      config->connections[slot].pid = getpid();
-
       pgagroal_pool_status(shmem);
 
       if (config->nodelay)

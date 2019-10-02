@@ -62,7 +62,7 @@ pgagroal_init_configuration(void* shmem, size_t size)
    config = (struct configuration*)shmem;
    memset(config, 0, size);
 
-   atomic_init(&config->number_of_connections, 0);
+   atomic_init(&config->active_connections, 0);
    
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -558,7 +558,7 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
                memcpy(&(config->limits[index].database), database, strlen(database));
                memcpy(&(config->limits[index].username), username, strlen(username));
                config->limits[index].max_connections = max_connections;
-               atomic_init(&config->limits[index].number_of_connections, 0);
+               atomic_init(&config->limits[index].active_connections, 0);
 
                index++;
                total_connections += max_connections;
