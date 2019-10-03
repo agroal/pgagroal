@@ -49,6 +49,34 @@
 #define EVBACKEND_IOURING  0x00000080U
 #endif
 
+char*
+pgagroal_get_state_string(signed char state)
+{
+   switch (state)
+   {
+      case STATE_NOTINIT:
+         return "Not initialized";
+      case STATE_INIT:
+         return "Initializing";
+      case STATE_FREE:
+         return "Free";
+      case STATE_IN_USE:
+         return "Active";
+      case STATE_GRACEFULLY:
+         return "Graceful";
+      case STATE_FLUSH:
+         return "Flush";
+      case STATE_IDLE_CHECK:
+         return "Idle check";
+      case STATE_VALIDATION:
+         return "Validating";
+      case STATE_REMOVE:
+         return "Removing";
+   }
+
+   return "Unknown";
+}
+
 signed char
 pgagroal_read_byte(void* data)
 {
@@ -83,6 +111,30 @@ pgagroal_read_int32(void* data)
    return res;
 }
 
+long
+pgagroal_read_long(void* data)
+{
+   unsigned char bytes[] = {*((unsigned char*)data),
+                            *((unsigned char*)(data + 1)),
+                            *((unsigned char*)(data + 2)),
+                            *((unsigned char*)(data + 3)),
+                            *((unsigned char*)(data + 4)),
+                            *((unsigned char*)(data + 5)),
+                            *((unsigned char*)(data + 6)),
+                            *((unsigned char*)(data + 7))};
+
+   long res = (long)(((long)bytes[0]) << 56) |
+                    (((long)bytes[1]) << 48) |
+                    (((long)bytes[2]) << 40) |
+                    (((long)bytes[3]) << 32) |
+                    (((long)bytes[4]) << 24) |
+                    (((long)bytes[5]) << 16) |
+                    (((long)bytes[6]) <<  8) |
+                    (((long)bytes[7])      );
+
+   return res;
+}
+
 char*
 pgagroal_read_string(void* data)
 {
@@ -101,6 +153,28 @@ pgagroal_write_int32(void* data, int32_t i)
 {
    char *ptr = (char*)&i;
 
+   *((char*)(data + 3)) = *ptr;
+   ptr++;
+   *((char*)(data + 2)) = *ptr;
+   ptr++;
+   *((char*)(data + 1)) = *ptr;
+   ptr++;
+   *((char*)(data)) = *ptr;
+}
+
+void
+pgagroal_write_long(void* data, long l)
+{
+   char *ptr = (char*)&l;
+
+   *((char*)(data + 7)) = *ptr;
+   ptr++;
+   *((char*)(data + 6)) = *ptr;
+   ptr++;
+   *((char*)(data + 5)) = *ptr;
+   ptr++;
+   *((char*)(data + 4)) = *ptr;
+   ptr++;
    *((char*)(data + 3)) = *ptr;
    ptr++;
    *((char*)(data + 2)) = *ptr;

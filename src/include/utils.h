@@ -38,6 +38,14 @@ extern "C" {
 #include <stdlib.h>
 
 /**
+ * Get a string for the state
+ * @param state
+ * @return The string
+ */
+char*
+pgagroal_get_state_string(signed char state);
+
+/**
  * Read a byte
  * @param data Pointer to the data
  * @return The byte
@@ -62,6 +70,14 @@ int32_t
 pgagroal_read_int32(void* data);
 
 /**
+ * Read a long
+ * @param data Pointer to the data
+ * @return The long
+ */
+long
+pgagroal_read_long(void* data);
+
+/**
  * Read a string
  * @param data Pointer to the data
  * @return The string
@@ -84,6 +100,14 @@ pgagroal_write_byte(void* data, signed char b);
  */
 void
 pgagroal_write_int32(void* data, int32_t i);
+
+/**
+ * Write a long
+ * @param data Pointer to the data
+ * @param l The long int
+ */
+void
+pgagroal_write_long(void* data, long l);
 
 /**
  * Write a string

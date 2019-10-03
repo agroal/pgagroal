@@ -45,6 +45,7 @@ extern "C" {
 #define MANAGEMENT_GRACEFULLY          5
 #define MANAGEMENT_STOP                6
 #define MANAGEMENT_STATUS              7
+#define MANAGEMENT_DETAILS             8
 
 /**
  * Read the management header
@@ -65,13 +66,6 @@ pgagroal_management_read_header(int socket, signed char* id, int32_t* slot);
  */
 int
 pgagroal_management_read_payload(int socket, signed char id, int* payload);
-
-/**
- * Free the management payload
- * @param payload The payload
- */
-void
-pgagroal_management_free_payload(void* payload);
 
 /**
  * Management operation: Transfer a connection
@@ -151,6 +145,32 @@ pgagroal_management_read_status(int socket);
  */
 int
 pgagroal_management_write_status(bool graceful, void* shmem, int socket);
+
+/**
+ * Management operation: Details
+ * @param shmem The shared memory segment
+ * @param socket The resulting socket
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_details(void* shmem, int* socket);
+
+/**
+ * Management: Read details
+ * @param socket The socket
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_read_details(int socket);
+
+/**
+ * Management: Write details
+ * @param shmem The shared memory segment
+ * @param socket The socket
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_write_details(void* shmem, int socket);
 
 #ifdef __cplusplus
 }

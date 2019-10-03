@@ -50,6 +50,7 @@
 #define ACTION_GRACEFULLY 2
 #define ACTION_STOP       3
 #define ACTION_STATUS     4
+#define ACTION_DETAILS    5
 
 static void
 version()
@@ -80,6 +81,7 @@ usage()
    printf("  gracefully               Stop pgagroal gracefully\n");
    printf("  stop                     Stop pgagroal\n");
    printf("  status                   Status of pgagroal\n");
+   printf("  details                  Detailed status of pgagroal\n");
    printf("\n");
 }
 
@@ -184,6 +186,10 @@ main(int argc, char **argv)
       {
          action = ACTION_STATUS;
       }
+      else if (!strcmp("details", argv[argc - 1]))
+      {
+         action = ACTION_DETAILS;
+      }
 
       if (action == ACTION_FLUSH)
       {
@@ -213,6 +219,21 @@ main(int argc, char **argv)
          if (pgagroal_management_status(shmem, &socket) == 0)
          {
             pgagroal_management_read_status(socket);
+            pgagroal_disconnect(socket);
+         }
+         else
+         {
+            exit_code = 1;
+         }
+      }
+      else if (action == ACTION_DETAILS)
+      {
+         int socket;
+
+         if (pgagroal_management_details(shmem, &socket) == 0)
+         {
+            pgagroal_management_read_status(socket);
+            pgagroal_management_read_details(socket);
             pgagroal_disconnect(socket);
          }
          else

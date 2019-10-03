@@ -136,6 +136,7 @@ Commands:
   gracefully               Stop pgagroal gracefully
   stop                     Stop pgagroal
   status                   Status of pgagroal
+  details                  Detailed status of pgagroal
 ```
 
 This tool can be used on the machine running `pgagroal` to flush connections.

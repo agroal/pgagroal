@@ -536,6 +536,12 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          pgagroal_pool_status(ai->shmem);
          pgagroal_management_write_status(gracefully, ai->shmem, client_fd);
          break;
+      case MANAGEMENT_DETAILS:
+         ZF_LOGD("pgagroal: Management details");
+         pgagroal_pool_status(ai->shmem);
+         pgagroal_management_write_status(gracefully, ai->shmem, client_fd);
+         pgagroal_management_write_details(ai->shmem, client_fd);
+         break;
       default:
          ZF_LOGD("pgagroal: Unknown management id: %d", id);
          break;
@@ -551,7 +557,6 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       }
    }
 
-   /* pgagroal_management_free_payload(payload); */
    pgagroal_disconnect(client_fd);
 }
 
