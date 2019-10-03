@@ -336,17 +336,24 @@ pgagroal_kill_connection(void* shmem, int slot)
       atomic_fetch_sub(&config->active_connections, 1);
    }
 
-   config->connections[slot].limit_rule = -1;
-   config->connections[slot].fd = -1;
-   config->connections[slot].pid = -1;
+   memset(&config->connections[slot].username, 0, sizeof(config->connections[slot].username));
+   memset(&config->connections[slot].database, 0, sizeof(config->connections[slot].database));
 
+   config->connections[slot].new = true;
+   config->connections[slot].server = 0;
+
+   config->connections[slot].has_security = -1;
    for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
    {
       config->connections[slot].security_lengths[i] = 0;
       memset(&config->connections[slot].security_messages[i], 0, SECURITY_BUFFER_SIZE);
    }
 
-   config->connections[slot].new = true;
+   config->connections[slot].limit_rule = -1;
+   config->connections[slot].timestamp = -1;
+   config->connections[slot].fd = -1;
+   config->connections[slot].pid = -1;
+
    atomic_store(&config->states[slot], STATE_NOTINIT);
 
    return 0;
@@ -511,8 +518,10 @@ pgagroal_pool_init(void* shmem)
    /* Connections */
    for (int i = 0; i < config->max_connections; i++)
    {
-      config->connections[i].limit_rule = -1;
       config->connections[i].new = true;
+      config->connections[i].has_security = -1;
+      config->connections[i].limit_rule = -1;
+      config->connections[i].timestamp = -1;
       config->connections[i].fd = -1;
       config->connections[i].pid = -1;
    }
