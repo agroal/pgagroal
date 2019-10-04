@@ -131,7 +131,6 @@ usage()
 int
 main(int argc, char **argv)
 {
-   int ret;
    char* configuration_path = NULL;
    char* hba_path = NULL;
    char* limit_path = NULL;
@@ -203,8 +202,7 @@ main(int argc, char **argv)
 
    if (configuration_path != NULL)
    {
-      ret = pgagroal_read_configuration(configuration_path, shmem);
-      if (ret)
+      if (pgagroal_read_configuration(configuration_path, shmem))
       {
          printf("pgagroal: Configuration not found: %s\n", configuration_path);
          exit(1);
@@ -212,8 +210,7 @@ main(int argc, char **argv)
    }
    else
    {
-      ret = pgagroal_read_configuration("/etc/pgagroal.conf", shmem);
-      if (ret)
+      if (pgagroal_read_configuration("/etc/pgagroal.conf", shmem))
       {
          printf("pgagroal: Configuration not found: /etc/pgagroal.conf\n");
          exit(1);
@@ -222,44 +219,45 @@ main(int argc, char **argv)
 
    if (hba_path != NULL)
    {
-      ret = pgagroal_read_hba_configuration(hba_path, shmem);
-      if (ret)
+      if (pgagroal_read_hba_configuration(hba_path, shmem))
       {
-         if (ret == 1)
-         {
-            printf("pgagroal: HBA configuration not found: %s\n", hba_path);
-         }
+         printf("pgagroal: HBA configuration not found: %s\n", hba_path);
          exit(1);
       }
    }
    else
    {
-      ret = pgagroal_read_hba_configuration("/etc/pgagroal_hba.conf", shmem);
-      if (ret)
+      if (pgagroal_read_hba_configuration("/etc/pgagroal_hba.conf", shmem))
       {
-         if (ret == 1)
-         {
-            printf("pgagroal: HBA configuration not found: /etc/pgagroal_hba.conf\n");
-         }
+         printf("pgagroal: HBA configuration not found: /etc/pgagroal_hba.conf\n");
          exit(1);
       }
    }
 
    if (limit_path != NULL)
    {
-      ret = pgagroal_read_limit_configuration(limit_path, shmem);
-      if (ret)
+      if (pgagroal_read_limit_configuration(limit_path, shmem))
       {
-         if (ret == 1)
-         {
-            printf("pgagroal: LIMIT configuration not found: %s\n", limit_path);
-         }
+         printf("pgagroal: LIMIT configuration not found: %s\n", limit_path);
          exit(1);
       }
    }
    else
    {
       pgagroal_read_limit_configuration("/etc/pgagroal_databases.conf", shmem);
+   }
+
+   if (pgagroal_validate_configuration(shmem))
+   {
+      exit(1);
+   }
+   if (pgagroal_validate_hba_configuration(shmem))
+   {
+      exit(1);
+   }
+   if (pgagroal_validate_limit_configuration(shmem))
+   {
+      exit(1);
    }
 
    pgagroal_resize_shared_memory(size, shmem, &tmp_size, &tmp_shmem);

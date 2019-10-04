@@ -142,6 +142,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
 
                   memset(&srv, 0, sizeof(struct server));
+                  memcpy(&srv.name, &section, strlen(section));
                }
             }
          }
@@ -425,8 +426,57 @@ pgagroal_read_configuration(char* filename, void* shmem)
 
    fclose(file);
 
-   if (config->number_of_servers == 0)
+   return 0;
+}
+
+/**
+ *
+ */
+int
+pgagroal_validate_configuration(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (strlen(config->host) == 0)
+   {
+      printf("pgagroal: No host defined\n");
       return 1;
+   }
+
+   if (config->port == 0)
+   {
+      printf("pgagroal: No port defined\n");
+      return 1;
+   }
+
+   if (strlen(config->unix_socket_dir) == 0)
+   {
+      printf("pgagroal: No unix_socket_dir defined\n");
+      return 1;
+   }
+
+   if (config->number_of_servers <= 0)
+   {
+      printf("pgagroal: No servers defined\n");
+      return 1;
+   }
+
+   for (int i = 0; i < config->number_of_servers; i++)
+   {
+      if (strlen(config->servers[i].host) == 0)
+      {
+         printf("pgagroal: No host defined for %s\n", config->servers[i].name);
+         return 1;
+      }
+
+      if (config->servers[i].port == 0)
+      {
+         printf("pgagroal: No port defined for %s\n", config->servers[i].name);
+         return 1;
+      }
+   }
 
    return 0;
 }
@@ -469,26 +519,19 @@ pgagroal_read_hba_configuration(char* filename, void* shmem)
 
             if (type && database && username && address && method)
             {
-               if (!strcmp("host", type))
-               {
-                  memcpy(&(config->hbas[index].type), type, strlen(type));
-                  memcpy(&(config->hbas[index].database), database, strlen(database));
-                  memcpy(&(config->hbas[index].username), username, strlen(username));
-                  memcpy(&(config->hbas[index].address), address, strlen(address));
-                  memcpy(&(config->hbas[index].method), method, strlen(method));
+               memcpy(&(config->hbas[index].type), type, strlen(type));
+               memcpy(&(config->hbas[index].database), database, strlen(database));
+               memcpy(&(config->hbas[index].username), username, strlen(username));
+               memcpy(&(config->hbas[index].address), address, strlen(address));
+               memcpy(&(config->hbas[index].method), method, strlen(method));
 
-                  index++;
+               index++;
 
-                  if (index >= NUMBER_OF_HBAS)
-                  {
-                     printf("pgagroal: Too many HBA entries (%d)\n", NUMBER_OF_HBAS);
-                     fclose(file);
-                     return 2;
-                  }
-               }
-               else
+               if (index >= NUMBER_OF_HBAS)
                {
-                  printf("pgagroal: Unknown HBA type: %s\n", type);
+                  printf("pgagroal: Too many HBA entries (%d)\n", NUMBER_OF_HBAS);
+                  fclose(file);
+                  return 2;
                }
             }
 
@@ -511,8 +554,33 @@ pgagroal_read_hba_configuration(char* filename, void* shmem)
 
    fclose(file);
 
+   return 0;
+}
+
+/**
+ *
+ */
+int
+pgagroal_validate_hba_configuration(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
    if (config->number_of_hbas == 0)
-      return 2;
+   {
+      printf("pgagroal: No HBA entry defined\n");
+      return 1;
+   }
+
+   for (int i = 0; i < config->number_of_hbas; i++)
+   {
+      if (strcmp("host", config->hbas[i].type))
+      {
+         printf("pgagroal: Unknown HBA type: %s\n", config->hbas[i].type);
+         return 1;
+      }
+   }
 
    return 0;
 }
@@ -591,6 +659,15 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
       return 2;
    }
 
+   return 0;
+}
+
+/**
+ *
+ */
+int
+pgagroal_validate_limit_configuration(void* shmem)
+{
    return 0;
 }
 

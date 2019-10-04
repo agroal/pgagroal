@@ -24,10 +24,10 @@ See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `loc
 |----------|---------|------|----------|-------------|
 | host | | String | Yes | The bind address for pgagroal |
 | port | | Int | Yes | The bind port for pgagroal |
-| log_type | | String | Yes | The logging type (console, file, syslog) |
-| log_level | | String | Yes | The logging level (fatal, error, warn, info, debug1, ..., debug5) |
-| log_path | | String | Yes | The log file location |
 | unix_socket_dir | | String | Yes | The Unix Domain Socket location |
+| log_type | console | String | No | The logging type (console, file, syslog) |
+| log_level | info | String | No | The logging level (fatal, error, warn, info, debug1, ..., debug5) |
+| log_path | pgagroal.log | String | No | The log file location |
 | blocking_timeout | 30 | Int | No | The number of seconds the process will be blocking for a connection (disable = 0) |
 | idle_timeout | 0 | Int | No | The number of seconds a connection is been kept alive (disable = 0) |
 | validation | `off` | String | No | Should connection validation be performed. Valid options: `off`, `foreground` and `background` |

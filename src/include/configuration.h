@@ -54,6 +54,14 @@ int
 pgagroal_read_configuration(char* filename, void* shmem);
 
 /**
+ * Validate the configuration
+ * @param filename The file name
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_validate_configuration(void* shmem);
+
+/**
  * Read the HBA configuration from a file
  * @param filename The file name
  * @param shmem The shared memory segment
@@ -63,6 +71,14 @@ int
 pgagroal_read_hba_configuration(char* filename, void* shmem);
 
 /**
+ * Validate the HBA configuration from a file
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_validate_hba_configuration(void* shmem);
+
+/**
  * Read the LIMIT configuration from a file
  * @param filename The file name
  * @param shmem The shared memory segment
@@ -70,6 +86,14 @@ pgagroal_read_hba_configuration(char* filename, void* shmem);
  */
 int
 pgagroal_read_limit_configuration(char* filename, void* shmem);
+
+/**
+ * Validate the LIMIT configuration from a file
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_validate_limit_configuration(void* shmem);
 
 #ifdef __cplusplus
 }
