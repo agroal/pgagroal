@@ -66,8 +66,6 @@ extern "C" {
 
 #define NUMBER_OF_SECURITY_MESSAGES 5
 
-#define DEFAULT_BACKLOG MAX_NUMBER_OF_CONNECTIONS / 4
-
 #define STATE_NOTINIT    -2
 #define STATE_INIT       -1
 #define STATE_FREE        0

@@ -79,7 +79,7 @@ pgagroal_init_configuration(void* shmem, size_t size)
    config->keep_alive = true;
    config->nodelay = true;
    config->non_blocking = true;
-   config->backlog = DEFAULT_BACKLOG;
+   config->backlog = -1;
 
    config->log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;
@@ -402,6 +402,17 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
                   }
                }
+               else if (!strcmp(key, "backlog"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->backlog = as_int(value);
+                  }
+                  else
+                  {
+                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                  }
+               }
                else
                {
                   printf("Unknown: Section=%s, Key=%s, Value=%s\n", strlen(section) > 0 ? section : "<unknown>", key, value);
@@ -455,6 +466,11 @@ pgagroal_validate_configuration(void* shmem)
    {
       printf("pgagroal: No unix_socket_dir defined\n");
       return 1;
+   }
+
+   if (config->backlog <= 0)
+   {
+      config->backlog = config->max_connections / 4;
    }
 
    if (config->number_of_servers <= 0)
