@@ -156,6 +156,8 @@ pgagroal_read_configuration(char* filename, void* shmem)
 
             if (key && value)
             {
+               bool unknown = false;
+
                /* printf("|%s|%s|\n", key, value); */
 
                if (!strcmp(key, "host"))
@@ -181,7 +183,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "port"))
@@ -198,7 +200,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "primary"))
@@ -216,7 +218,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "blocking_timeout"))
@@ -227,7 +229,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "idle_timeout"))
@@ -238,7 +240,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "validation"))
@@ -249,7 +251,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "background_interval"))
@@ -260,7 +262,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "max_retries"))
@@ -271,7 +273,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "log_type"))
@@ -282,7 +284,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "log_level"))
@@ -293,7 +295,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "log_path"))
@@ -307,7 +309,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "max_connections"))
@@ -322,7 +324,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "unix_socket_dir"))
@@ -336,7 +338,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "libev"))
@@ -350,7 +352,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "buffer_size"))
@@ -366,7 +368,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "keep_alive"))
@@ -377,7 +379,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "nodelay"))
@@ -388,7 +390,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "non_blocking"))
@@ -399,7 +401,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
                else if (!strcmp(key, "backlog"))
@@ -410,10 +412,11 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
                   else
                   {
-                     printf("Unknown: Section=<unknown>, Key=%s, Value=%s\n", key, value);
+                     unknown = true;
                   }
                }
-               else
+
+               if (unknown)
                {
                   printf("Unknown: Section=%s, Key=%s, Value=%s\n", strlen(section) > 0 ? section : "<unknown>", key, value);
                }
