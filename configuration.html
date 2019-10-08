@@ -41,32 +41,32 @@ layout: default
           <td>The bind port for pgagroal</td>
         </tr>
         <tr>
-          <td>log_type</td>
-          <td></td>
-          <td>String</td>
-          <td>Yes</td>
-          <td>The logging type (console, file, syslog)</td>
-        </tr>
-        <tr>
-          <td>log_level</td>
-          <td></td>
-          <td>String</td>
-          <td>Yes</td>
-          <td>The logging level (fatal, error, warn, info, debug1, ..., debug5)</td>
-        </tr>
-        <tr>
-          <td>log_path</td>
-          <td></td>
-          <td>String</td>
-          <td>Yes, if file</td>
-          <td>The log file location</td>
-        </tr>
-        <tr>
           <td>unix_socket_dir</td>
           <td></td>
           <td>String</td>
           <td>Yes</td>
           <td>The Unix Domain Socket location</td>
+        </tr>
+        <tr>
+          <td>log_type</td>
+          <td>console</td>
+          <td>String</td>
+          <td>No</td>
+          <td>The logging type (console, file, syslog)</td>
+        </tr>
+        <tr>
+          <td>log_level</td>
+          <td>info</td>
+          <td>String</td>
+          <td>No</td>
+          <td>The logging level (fatal, error, warn, info, debug1, ..., debug5)</td>
+        </tr>
+        <tr>
+          <td>log_path</td>
+          <td>pgagroal.log</td>
+          <td>String</td>
+          <td>No</td>
+          <td>The log file location</td>
         </tr>
         <tr>
           <td>blocking_timeout</td>
@@ -95,6 +95,13 @@ layout: default
           <td>Int</td>
           <td>No</td>
           <td>The interval between background validation scans in seconds</td>
+        </tr>
+        <tr>
+          <td>max_retries</td>
+          <td>5</td>
+          <td>Int</td>
+          <td>No</td>
+          <td>The maximum number of iterations to obtain a connection</td>
         </tr>
         <tr>
           <td>max_connections</td>
@@ -140,7 +147,7 @@ layout: default
         </tr>
         <tr>
           <td>backlog</td>
-          <td>250</td>
+          <td>max_connections / 4</td>
           <td>Int</td>
           <td>No</td>
           <td>The backlog for listen()</td>
@@ -242,7 +249,7 @@ port = 5432
         <tr>
           <td>METHOD</td>
           <td>Yes</td>
-          <td>Specifies the authentication mode for the user. `all` for all methods. Currently ignored</td>
+          <td>Specifies the authentication mode for the user. all for all methods. Currently ignored</td>
         </tr>
       </tbody>
     </table>
@@ -254,6 +261,45 @@ port = 5432
 # TYPE  DATABASE USER  ADDRESS  METHOD
 #
 host    all      all   all      all
+    </pre>
+
+    <h2>pgagroal_databases.conf</h2>
+
+    Specifies the limits for a database or a user or both.
+    <p/>
+    
+    <table border="1">
+      <thead>
+        <th align="left">Column</th>
+        <th align="left">Required</th>
+        <th align="left">Description</th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>DATABASE</td>
+          <td>Yes</td>
+          <td>Specifies the database for the rule. Either specific name or all for all databases</td>
+        </tr>
+        <tr>
+          <td>USER</td>
+          <td>Yes</td>
+          <td>Specifies the user for the rule. Either specific name or all for all users</td>
+        </tr>
+        <tr>
+          <td>MAX_CONNECTIONS</td>
+          <td>Yes</td>
+          <td>Specifies the maximum number of connections for the entry. all for all connections</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Example</h3>
+    
+    <pre>
+#
+# DATABASE USER MAX_CONNECTIONS
+#
+all        all  all
     </pre>
 
 </div>

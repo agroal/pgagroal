@@ -16,18 +16,19 @@ layout: default
     using "pgagroal -?". You should see
 
     <pre>
-pgagroal 0.2.0
+pgagroal 0.3.0
   High-performance connection pool for PostgreSQL
 
 Usage:
   pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] [ -d ]
 
 Options:
-  -c, --config CONFIG_FILE  Set the path to the pgagroal.conf file
-  -a, --hba HBA_CONFIG_FILE Set the path to the pgagroal_hba.conf file
-  -d, --daemon              Run as a daemon
-  -V, --version             Display version information
-  -?, --help                Display help
+  -c, --config CONFIG_FILE      Set the path to the pgagroal.conf file
+  -a, --hba HBA_CONFIG_FILE     Set the path to the pgagroal_hba.conf file
+  -l, --limit LIMIT_CONFIG_FILE Set the path to the pgagroal_databases.conf file
+  -d, --daemon                  Run as a daemon
+  -V, --version                 Display version information
+  -?, --help                    Display help
     </pre>
 
     If you don't have pgagroal in your path see our <a href="https://github.com/agroal/pgagroal/README.md">README</a>
@@ -131,7 +132,7 @@ psql -h localhost -p 2345 -U test test
     You can see the commands it supports by using "pgagroal-cli -?" which will give
 
     <pre>
-pgagroal-cli 0.2.0
+pgagroal-cli 0.3.0
   Command line utility for pgagroal
 
 Usage:
@@ -149,6 +150,7 @@ Commands:
   gracefully               Stop pgagroal gracefully
   stop                     Stop pgagroal
   status                   Status of pgagroal
+  details                  Detailed status of pgagroal
     </pre>
 
     This tool can be used on the machine running pgagroal to flush connections.
