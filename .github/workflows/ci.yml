@@ -10,9 +10,11 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: mkdir
-      run: mkdir /home/runner/work/pgagroal/build
+      run: mkdir build
+      working-directory: ./
     - name: cd
-      run: cd /home/runner/work/pgagroal/build
+      run: cd build
+      working-directory: ./
     - name: cmake
       run: cmake -DCMAKE_BUILD_TYPE=Release ..
     - name: make
