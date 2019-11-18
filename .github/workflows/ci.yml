@@ -12,7 +12,7 @@ jobs:
     - name: Update system
       run: sudo apt update -y
     - name: Install libev
-      run: sudo apt install -y libev4 libev4-dev
+      run: sudo apt install -y libev4 libev-dev
     - name: Install gcc-9
       run: sudo apt install -y gcc-9
     - name: Update alternatives
