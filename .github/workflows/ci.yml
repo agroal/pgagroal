@@ -10,11 +10,11 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Update system
-      run: sudo apt update
+      run: sudo apt update -y
     - name: Install libev
-      run: sudo apt install libev libev-dev
+      run: sudo apt install -y libev4 libev4-dev
     - name: Install gcc-9
-      run: sudo apt install gcc-9
+      run: sudo apt install -y gcc-9
     - name: Update alternatives
       run: sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60
     - name: mkdir
