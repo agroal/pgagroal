@@ -9,6 +9,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
+    - name: Update system
+      run: sudo apt update
     - name: Install gcc-9
       run: sudo apt install gcc-9
     - name: Update alternatives
