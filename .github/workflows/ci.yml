@@ -9,11 +9,12 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
+    - name: Install gcc-9
+      run: sudo apt install gcc-9
+    - name: Update alternatives
+      run: sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60
     - name: mkdir
       run: mkdir build
-      working-directory: /home/runner/work/pgagroal/pgagroal/
-    - name: cd
-      run: cd build
       working-directory: /home/runner/work/pgagroal/pgagroal/
     - name: cmake
       run: cmake -DCMAKE_BUILD_TYPE=Release ..
