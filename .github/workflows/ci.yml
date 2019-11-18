@@ -11,11 +11,13 @@ jobs:
     - uses: actions/checkout@v1
     - name: mkdir
       run: mkdir build
-      working-directory: ./
+      working-directory: /home/runner/work/pgagroal/pgagroal/
     - name: cd
       run: cd build
-      working-directory: ./
+      working-directory: /home/runner/work/pgagroal/pgagroal/
     - name: cmake
       run: cmake -DCMAKE_BUILD_TYPE=Release ..
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/
     - name: make
       run: make
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/
