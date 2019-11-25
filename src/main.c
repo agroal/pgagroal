@@ -196,6 +196,12 @@ main(int argc, char **argv)
       }
    }
 
+   if (getuid() == 0)
+   {
+      printf("pgagroal: Using the root account is not allowed\n");
+      exit(1);
+   }
+
    size = sizeof(struct configuration);
    shmem = pgagroal_create_shared_memory(size);
    pgagroal_init_configuration(shmem, size);
