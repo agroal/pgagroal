@@ -139,6 +139,31 @@ pgagroal_libev(char* engine);
 char*
 pgagroal_libev_engine(unsigned int val);
 
+/**
+ * Get the home directory
+ * @return The directory
+ */
+char*
+pgagroal_get_home_directory();
+
+/**
+ * BASE64 encode a string
+ * @param raw The string
+ * @param encoded The encoded string
+ * @return 0 if success, otherwise 1
+ */
+int
+pgagroal_base64_encode(char* raw, char** encoded);
+
+/**
+ * BASE64 decode a string
+ * @param encoded The encoded string
+ * @param raw The raw string
+ * @return 0 if success, otherwise 1
+ */
+int
+pgagroal_base64_decode(char* encoded, char** raw);
+
 #ifdef DEBUG
 
 /**

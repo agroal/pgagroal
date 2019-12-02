@@ -120,6 +120,7 @@ usage()
    printf("  -c, --config CONFIG_FILE      Set the path to the pgagroal.conf file\n");
    printf("  -a, --hba HBA_CONFIG_FILE     Set the path to the pgagroal_hba.conf file\n");
    printf("  -l, --limit LIMIT_CONFIG_FILE Set the path to the pgagroal_databases.conf file\n");
+   printf("  -u, --users USERS_FILE        Set the path to the pgagroal_users.conf file\n");
    printf("  -d, --daemon                  Run as a daemon\n");
    printf("  -V, --version                 Display version information\n");
    printf("  -?, --help                    Display help\n");
@@ -134,6 +135,7 @@ main(int argc, char **argv)
    char* configuration_path = NULL;
    char* hba_path = NULL;
    char* limit_path = NULL;
+   char* users_path = NULL;
    bool daemon = false;
    pid_t pid, sid;
    void* shmem = NULL;
@@ -147,7 +149,8 @@ main(int argc, char **argv)
    int unix_socket;
    size_t size;
    size_t tmp_size;
-   struct configuration* config;
+   struct configuration* config = NULL;
+   int ret;
    int c;
    struct pipeline p;
    void* pipeline_shmem = NULL;
@@ -159,13 +162,14 @@ main(int argc, char **argv)
          {"config",  required_argument, 0, 'c'},
          {"hba", required_argument, 0, 'a'},
          {"limit", required_argument, 0, 'l'},
+         {"users", required_argument, 0, 'u'},
          {"daemon", no_argument, 0, 'd'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "dV?a:c:l:",
+      c = getopt_long (argc, argv, "dV?a:c:l:u:",
                        long_options, &option_index);
 
       if (c == -1)
@@ -181,6 +185,9 @@ main(int argc, char **argv)
             break;
          case 'l':
             limit_path = optarg;
+            break;
+         case 'u':
+            users_path = optarg;
             break;
          case 'd':
             daemon = true;
@@ -253,6 +260,30 @@ main(int argc, char **argv)
       pgagroal_read_limit_configuration("/etc/pgagroal_databases.conf", shmem);
    }
 
+   if (users_path != NULL)
+   {
+      ret = pgagroal_read_users_configuration(users_path, shmem);
+      if (ret == 1)
+      {
+         printf("pgagroal: USERS configuration not found: %s\n", users_path);
+         exit(1);
+      }
+      else if (ret == 2)
+      {
+         printf("pgagroal: Invalid master key file\n");
+         exit(1);
+      }
+      else if (ret == 3)
+      {
+         printf("pgagroal: USERS: Too many users defined %d (max %d)\n", config->number_of_users, NUMBER_OF_USERS);
+         exit(1);
+      }
+   }
+   else
+   {
+      pgagroal_read_users_configuration("/etc/pgagroal_users.conf", shmem);
+   }
+
    if (pgagroal_validate_configuration(shmem))
    {
       exit(1);
@@ -262,6 +293,10 @@ main(int argc, char **argv)
       exit(1);
    }
    if (pgagroal_validate_limit_configuration(shmem))
+   {
+      exit(1);
+   }
+   if (pgagroal_validate_users_configuration(shmem))
    {
       exit(1);
    }
@@ -391,6 +426,7 @@ main(int argc, char **argv)
    ZF_LOGD("libev engine: %s", pgagroal_libev_engine(ev_backend(loop)));
    ZF_LOGD("Configuration size: %lu", size);
    ZF_LOGD("Max connections: %d", config->max_connections);
+   ZF_LOGD("Known users: %d", config->number_of_users);
 
    while (keep_running)
    {

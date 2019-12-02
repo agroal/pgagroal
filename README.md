@@ -11,6 +11,7 @@
 * Perform connection validation
 * Graceful / fast shutdown
 * Daemon mode
+* User vault
 
 See [Getting Started](./doc/GETTING_STARTED.md) on how to get started with `pgagroal`.
 
@@ -46,9 +47,10 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
 * [cmake](https://cmake.org)
 * [make](https://www.gnu.org/software/make/)
 * [libev](http://software.schmorp.de/pkg/libev.html)
+* [OpenSSL](http://www.openssl.org/)
 
 ```sh
-dnf install gcc cmake make libev libev-devel
+dnf install gcc cmake make libev libev-devel openssl openssl-devel
 ```
 
 Alternative [clang 8+](https://clang.llvm.org/) can be used.

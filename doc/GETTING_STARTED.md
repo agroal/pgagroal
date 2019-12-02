@@ -14,6 +14,7 @@ Options:
   -c, --config CONFIG_FILE      Set the path to the pgagroal.conf file
   -a, --hba HBA_CONFIG_FILE     Set the path to the pgagroal_hba.conf file
   -l, --limit LIMIT_CONFIG_FILE Set the path to the pgagroal_databases.conf file
+  -u, --users USERS_FILE        Set the path to the pgagroal_users.conf file
   -d, --daemon                  Run as a daemon
   -V, --version                 Display version information
   -?, --help                    Display help
@@ -111,9 +112,9 @@ Now you are ready to point your applications to use `pgagroal` instead of going 
 `pgagroal` is stopped by pressing Ctrl-C (`^C`) in the console where you started it, or by sending
 the `SIGTERM` signal to the process using `kill <pid>`.
 
-## Administration
+## Run-time administration
 
-`pgagroal` has an administration tool called `pgagroal-cli`.
+`pgagroal` has a run-time administration tool called `pgagroal-cli`.
 
 You can see the commands it supports by using `pgagroal-cli -?` which will give
 
@@ -151,6 +152,55 @@ To stop pgagroal you would use
 
 ```
 pgagroal-cli -c pgagroal.conf stop
+```
+
+## Administration
+
+`pgagroal` has an administration tool called `pgagroal-admin`, which is used to control user
+registration with `pgagroal`.
+
+You can see the commands it supports by using `pgagroal-admin -?` which will give
+
+```
+pgagroal-admin 0.4.0
+  Administration utility for pgagroal
+
+Usage:
+  pgagroal-admin [ -u USERS_FILE ] [ COMMAND ]
+
+Options:
+  -c, --config CONFIG_FILE Set the path to the pgagroal.conf file
+  -V, --version            Display version information
+  -?, --help               Display help
+
+Commands:
+  master-key               Create or update the master key
+  add-user                 Add a user
+  update-user              Update a user
+  remove-user              Remove a user
+  list-users               List all users
+```
+
+In order to set the master key for all users use
+
+```
+pgagroal-admin master-key
+```
+
+The master key must have the following properties
+
+* At least 8 characters long
+* Use at least 1 upper case letter (`A`, `B`, `C`, ...)
+* Use at least 1 lower case letter (`a`, `b`, `c`, ...)
+* Use at least 1 number  (`1`, `2`, `3`, ...)
+* Use at least 1 special character (`!`, `@`, `#`, ...)
+
+in order to be considered valid.
+
+Then use the other commands to add, update, remove or list the current user names, f.ex.
+
+```
+pgagroal-admin -u pgagroal_users.conf add-user
 ```
 
 ## Closing

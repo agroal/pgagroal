@@ -36,10 +36,14 @@
 
 /* system */
 #include <ev.h>
-#include <stdio.h>
+#include <pwd.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <openssl/pem.h>
+#include <sys/types.h>
 
 #ifndef EVBACKEND_LINUXAIO
 #define EVBACKEND_LINUXAIO 0x00000040U
@@ -350,6 +354,77 @@ pgagroal_libev_engine(unsigned int val)
    }
 
    return "Unknown";
+}
+
+char*
+pgagroal_get_home_directory()
+{
+   struct passwd *pw = getpwuid(getuid());
+
+   return pw->pw_dir;
+}
+
+int
+pgagroal_base64_encode(char* raw, char** encoded)
+{
+   BIO* b64_bio;
+   BIO* mem_bio;
+   BUF_MEM* mem_bio_mem_ptr;
+
+   b64_bio = BIO_new(BIO_f_base64());
+   mem_bio = BIO_new(BIO_s_mem());
+
+   BIO_push(b64_bio, mem_bio);
+   BIO_set_flags(b64_bio, BIO_FLAGS_BASE64_NO_NL);
+   BIO_write(b64_bio, raw, strlen(raw));
+   BIO_flush(b64_bio);
+
+   BIO_get_mem_ptr(mem_bio, &mem_bio_mem_ptr);
+
+   BIO_set_close(mem_bio, BIO_NOCLOSE);
+   BIO_free_all(b64_bio);
+
+   BUF_MEM_grow(mem_bio_mem_ptr, (*mem_bio_mem_ptr).length + 1);
+   (*mem_bio_mem_ptr).data[(*mem_bio_mem_ptr).length] = '\0';
+
+   *encoded = (*mem_bio_mem_ptr).data;
+
+   return 0;
+}
+
+int
+pgagroal_base64_decode(char* encoded, char** raw)
+{
+   BIO* b64_bio;
+   BIO* mem_bio;
+   int length;
+   size_t size;
+   char* decoded;
+   int index;
+
+   length = strlen(encoded);
+   size = (length * 3) / 4 + 1;
+   decoded = malloc(size);
+   memset(decoded, 0, size);
+
+   b64_bio = BIO_new(BIO_f_base64());
+   mem_bio = BIO_new(BIO_s_mem());
+
+   BIO_write(mem_bio, encoded, length);
+   BIO_push(b64_bio, mem_bio);
+   BIO_set_flags(b64_bio, BIO_FLAGS_BASE64_NO_NL);
+
+   index = 0;
+   while (0 < BIO_read(b64_bio, decoded + index, 1) )
+   {
+      index++;
+   }
+
+   BIO_free_all(b64_bio);
+
+   *raw = decoded;
+
+   return 0;
 }
 
 #ifdef DEBUG

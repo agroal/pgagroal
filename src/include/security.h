@@ -48,6 +48,43 @@ extern "C" {
 int
 pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot);
 
+/**
+ * Get the master key
+ * @param masterkey The master key
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_get_master_key(char** masterkey);
+
+/**
+ * Encrypt a string
+ * @param plaintext The string
+ * @param password The master password
+ * @param ciphertext The ciphertext output
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_encrypt(char* plaintext, char* password, char** ciphertext);
+
+/**
+ * Decrypt a string
+ * @param ciphertext The string
+ * @param password The master password
+ * @param plaintext The plaintext output
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_decrypt(char* ciphertext, char* password, char** plaintext);
+
+/**
+ * MD5 a string
+ * @param str The string
+ * @param md5 The MD5 string
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_md5(char* str, char** md5);
+
 #ifdef __cplusplus
 }
 #endif

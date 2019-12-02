@@ -63,6 +63,7 @@ extern "C" {
 #endif
 #define NUMBER_OF_HBAS   64
 #define NUMBER_OF_LIMITS 64
+#define NUMBER_OF_USERS  64
 
 #define NUMBER_OF_SECURITY_MESSAGES 5
 
@@ -151,6 +152,15 @@ struct limit
 } __attribute__ ((aligned (64)));
 
 /** @struct
+ * Defines a user
+ */
+struct user
+{
+   char username[IDENTIFIER_LENGTH]; /**< The user name */
+   char password[IDENTIFIER_LENGTH]; /**< The password */
+} __attribute__ ((aligned (64)));
+
+/** @struct
  * Defines the configuration and state of pgagroal
  */
 struct configuration
@@ -183,11 +193,13 @@ struct configuration
    int number_of_servers; /**< The number of servers */
    int number_of_hbas;    /**< The number of HBA entries */
    int number_of_limits;  /**< The number of limit entries */
+   int number_of_users;   /**< The number of users */
 
    atomic_schar states[MAX_NUMBER_OF_CONNECTIONS]; /**< The states */
    struct server servers[NUMBER_OF_SERVERS];       /**< The servers */
    struct hba hbas[NUMBER_OF_HBAS];                /**< The HBA entries */
    struct limit limits[NUMBER_OF_LIMITS];          /**< The limit entries */
+   struct user users[NUMBER_OF_USERS];             /**< The users */
    struct connection connections[];                /**< The connections (FMA) */
 } __attribute__ ((aligned (64)));
 

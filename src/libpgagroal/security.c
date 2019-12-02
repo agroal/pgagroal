@@ -45,6 +45,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <openssl/evp.h>
+#include <openssl/md5.h>
 
 static int get_auth_type(struct message* msg, int* auth_type);
 static int compare_auth_response(struct message* orig, struct message* response, int auth_type);
@@ -52,6 +54,10 @@ static bool is_allowed(char* username, char* database, char* address, int auth_t
 static bool is_allowed_username(char* username, char* entry);
 static bool is_allowed_database(char* database, char* entry);
 static bool is_allowed_address(char* address, char* entry);
+
+static int derive_key_iv(char* password, unsigned char* key, unsigned char* iv);
+static int encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphertext);
+static int decrypt(char* ciphertext, unsigned char* key, unsigned char* iv, char** plaintext);
 
 int
 pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
@@ -710,4 +716,281 @@ is_allowed_address(char* address, char* entry)
    }
 
    return false;
+}
+
+int
+pgagroal_get_master_key(char** masterkey)
+{
+   FILE* master_key_file = NULL;
+   char buf[MISC_LENGTH];
+   char line[MISC_LENGTH];
+   char* mk = NULL;
+   struct stat st = {0};
+
+   memset(&buf, 0, sizeof(buf));
+   snprintf(&buf[0], sizeof(buf), "%s/.pgagroal", pgagroal_get_home_directory());
+
+   if (stat(&buf[0], &st) == -1)
+   {
+      goto error;
+   }
+   else
+   {
+      if (S_ISDIR(st.st_mode) && st.st_mode & S_IRWXU && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
+      {
+         /* Ok */
+      }
+      else
+      {
+         goto error;
+      }
+   }
+
+   memset(&buf, 0, sizeof(buf));
+   snprintf(&buf[0], sizeof(buf), "%s/.pgagroal/master.key", pgagroal_get_home_directory());
+
+   if (stat(&buf[0], &st) == -1)
+   {
+      goto error;
+   }
+   else
+   {
+      if (S_ISREG(st.st_mode) && st.st_mode & (S_IRUSR | S_IWUSR) && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
+      {
+         /* Ok */
+      }
+      else
+      {
+         goto error;
+      }
+   }
+
+   master_key_file = fopen(&buf[0], "r");
+
+   memset(&line, 0, sizeof(line));
+   if (fgets(line, sizeof(line), master_key_file) == NULL)
+   {
+      goto error;
+   }
+
+   pgagroal_base64_decode(&line[0], &mk);
+
+   *masterkey = mk;
+
+   fclose(master_key_file);
+
+   return 0;
+
+error:
+
+   free(mk);
+
+   if (master_key_file)
+   {
+      fclose(master_key_file);
+   }
+
+   return 1;
+}
+
+int
+pgagroal_encrypt(char* plaintext, char* password, char** ciphertext)
+{
+   unsigned char key[EVP_MAX_KEY_LENGTH];
+   unsigned char iv[EVP_MAX_IV_LENGTH];
+
+   memset(&key, 0, sizeof(key));
+   memset(&iv, 0, sizeof(iv));
+
+   if (derive_key_iv(password, key, iv) != 0)
+   {
+      return 1;
+   }
+
+   return encrypt(plaintext, key, iv, ciphertext);
+}
+
+int
+pgagroal_decrypt(char* ciphertext, char* password, char** plaintext)
+{
+   unsigned char key[EVP_MAX_KEY_LENGTH];
+   unsigned char iv[EVP_MAX_IV_LENGTH];
+
+   memset(&key, 0, sizeof(key));
+   memset(&iv, 0, sizeof(iv));
+
+   if (derive_key_iv(password, key, iv) != 0)
+   {
+      return 1;
+   }
+
+   return decrypt(ciphertext, key, iv, plaintext);
+}
+
+int
+pgagroal_md5(char* str, char** md5)
+{
+   int n;
+   MD5_CTX c;
+   unsigned char digest[16];
+   int length;
+   char *out;
+
+   length = strlen(str);
+   out = malloc(33);
+
+   memset(out, 0, 33);
+
+   MD5_Init(&c);
+
+   while (length > 0)
+   {
+      if (length > 512)
+      {
+         MD5_Update(&c, str, 512);
+      }
+      else
+      {
+         MD5_Update(&c, str, length);
+      }
+      length -= 512;
+      str += 512;
+   }
+
+   MD5_Final(digest, &c);
+
+   for (n = 0; n < 16; ++n)
+   {
+      snprintf(&(out[n * 2]), 32, "%02x", (unsigned int)digest[n]);
+   }
+
+   *md5 = out;
+
+   return 0;
+}
+
+static int
+derive_key_iv(char *password, unsigned char *key, unsigned char *iv)
+{
+
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
+   OpenSSL_add_all_algorithms();
+#endif
+
+   if (!EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha1(), NULL,
+                       (unsigned char *) password, strlen(password), 1,
+                       key, iv))
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphertext)
+{
+   EVP_CIPHER_CTX *ctx = NULL;
+   int length;
+   size_t size;
+   char* ct = NULL;
+
+   if (!(ctx = EVP_CIPHER_CTX_new()))
+   {
+      goto error;
+   }
+
+   if (EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv) != 1)
+   {
+      goto error;
+   }
+
+   size = strlen(plaintext) + EVP_CIPHER_block_size(EVP_aes_256_cbc());
+   ct = malloc(size);
+   memset(ct, 0, size);
+
+   if (EVP_EncryptUpdate(ctx,
+                         (unsigned char*)ct, &length,
+                         (unsigned char*)plaintext, strlen(plaintext)) != 1)
+   {
+      goto error;
+   }
+
+   if (EVP_EncryptFinal_ex(ctx, (unsigned char*)ct + length, &length) != 1)
+   {
+      goto error;
+   }
+
+   EVP_CIPHER_CTX_free(ctx);
+
+   *ciphertext = ct;
+
+   return 0;
+
+error:
+   if (ctx)
+   {
+      EVP_CIPHER_CTX_free(ctx);
+   }
+
+   free(ct);
+
+   return 1;
+}
+
+static int
+decrypt(char* ciphertext, unsigned char* key, unsigned char* iv, char** plaintext)
+{
+   EVP_CIPHER_CTX *ctx = NULL;
+   int plaintext_length;
+   int length;
+   size_t size;
+   char* pt = NULL;
+
+   if (!(ctx = EVP_CIPHER_CTX_new()))
+   {
+      goto error;
+   }
+
+   if (EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv) != 1)
+   {
+      goto error;
+   }
+
+   size = strlen(ciphertext) + EVP_CIPHER_block_size(EVP_aes_256_cbc());
+   pt = malloc(size);
+   memset(pt, 0, size);
+
+   if (EVP_DecryptUpdate(ctx,
+                         (unsigned char*)pt, &length,
+                         (unsigned char*)ciphertext, strlen(ciphertext)) != 1)
+   {
+      goto error;
+   }
+
+   plaintext_length = length;
+
+   if (EVP_DecryptFinal_ex(ctx, (unsigned char*)pt + length, &length) != 1)
+   {
+      goto error;
+   }
+
+   plaintext_length += length;
+
+   EVP_CIPHER_CTX_free(ctx);
+
+   pt[plaintext_length] = 0;
+   *plaintext = pt;
+
+   return 0;
+
+error:
+   if (ctx)
+   {
+      EVP_CIPHER_CTX_free(ctx);
+   }
+
+   free(pt);
+
+   return 1;
 }

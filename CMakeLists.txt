@@ -62,6 +62,13 @@ else ()
   message(FATAL_ERROR "libev needed")
 endif()
 
+find_package(OpenSSL)
+if (OPENSSL_FOUND)
+  message(STATUS "OpenSSL found")
+else ()
+  message(FATAL_ERROR "OpenSSL needed")
+endif()
+
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/src/")
 
 add_subdirectory(src)

@@ -49,11 +49,13 @@ mkdir -p %{buildroot}%{_docdir}/%{name}/images
 
 /usr/bin/install -m 755 %{_builddir}/%{name}-%{version}/build/src/pgagroal %{buildroot}%{_bindir}/pgagroal
 /usr/bin/install -m 755 %{_builddir}/%{name}-%{version}/build/src/pgagroal-cli %{buildroot}%{_bindir}/pgagroal-cli
+/usr/bin/install -m 755 %{_builddir}/%{name}-%{version}/build/src/pgagroal-admin %{buildroot}%{_bindir}/pgagroal-admin
 
 /usr/bin/install -m 755 %{_builddir}/%{name}-%{version}/build/src/libpgagroal.so.%{version} %{buildroot}%{_libdir}/libpgagroal.so.%{version}
 
 chrpath -r %{_libdir} %{buildroot}%{_bindir}/pgagroal
 chrpath -r %{_libdir} %{buildroot}%{_bindir}/pgagroal-cli
+chrpath -r %{_libdir} %{buildroot}%{_bindir}/pgagroal-admin
 
 cd %{buildroot}%{_libdir}/
 ln -s -f libpgagroal.so.%{version} libpgagroal.so.0
@@ -75,6 +77,7 @@ ln -s -f libpgagroal.so.0 libpgagroal.so
 %config %{_sysconfdir}/pgagroal_hba.conf
 %{_bindir}/pgagroal
 %{_bindir}/pgagroal-cli
+%{_bindir}/pgagroal-admin
 %{_libdir}/libpgagroal.so
 %{_libdir}/libpgagroal.so.0
 %{_libdir}/libpgagroal.so.%{version}

@@ -30,6 +30,7 @@
 #include <pgagroal.h>
 #include <configuration.h>
 #include <logging.h>
+#include <security.h>
 #include <utils.h>
 
 /* system */
@@ -686,6 +687,139 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
  */
 int
 pgagroal_validate_limit_configuration(void* shmem)
+{
+   return 0;
+}
+
+/**
+ *
+ */
+int
+pgagroal_read_users_configuration(char* filename, void* shmem)
+{
+   FILE* file;
+   char line[LINE_LENGTH];
+   int index;
+   char* master_key = NULL;
+   char* username = NULL;
+   char* password = NULL;
+   char* decoded = NULL;
+   char* ptr = NULL;
+   struct configuration* config;
+
+   file = fopen(filename, "r");
+
+   if (!file)
+   {
+      goto error;
+   }
+
+   if (pgagroal_get_master_key(&master_key))
+   {
+      goto masterkey;
+   }
+
+   index = 0;
+   config = (struct configuration*)shmem;
+
+   while (fgets(line, sizeof(line), file))
+   {
+      if (strcmp(line, ""))
+      {
+         if (line[0] == '#' || line[0] == ';')
+         {
+            /* Comment, so ignore */
+         }
+         else
+         {
+            ptr = strtok(line, ":");
+
+            username = ptr;
+
+            ptr = strtok(NULL, ":");
+
+            if (pgagroal_base64_decode(ptr, &decoded))
+            {
+               goto error;
+            }
+
+            if (pgagroal_decrypt(decoded, master_key, &password))
+            {
+               goto error;
+            }
+
+            memcpy(&config->users[index].username, username, strlen(username));
+            memcpy(&config->users[index].password, password, strlen(password));
+
+            free(password);
+            free(decoded);
+
+            password = NULL;
+            decoded = NULL;
+
+            index++;
+         }
+      }
+   }
+
+   config->number_of_users = index;
+
+   if (config->number_of_users > NUMBER_OF_USERS)
+   {
+      goto above;
+   }
+
+   free(master_key);
+
+   fclose(file);
+
+   return 0;
+
+error:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return 1;
+
+masterkey:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return 2;
+
+above:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return 3;
+}
+
+/**
+ *
+ */
+int
+pgagroal_validate_users_configuration(void* shmem)
 {
    return 0;
 }

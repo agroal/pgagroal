@@ -90,3 +90,10 @@ all        all   all
 | DATABASE | Yes      | Specifies the database for the rule. Either specific name or `all` for all databases |
 | USER | Yes      | Specifies the user for the rule. Either specific name or `all` for all users |
 | MAX_CONNECTIONS | Yes      | Specifies the maximum number of connections for the entry. `all` for all connections |
+
+# pgagroal_users configuration
+
+The `pgagroal_users` configuration defines the users known to the system. This file is created and managed through
+the `pgagroal-admin` tool.
+
+The configuration is loaded from either the path specified by the `-u` flag or `/etc/pgagroal_users.conf`.

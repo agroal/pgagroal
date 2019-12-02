@@ -12,6 +12,7 @@ set(SOURCES ${SOURCE_FILES} ${HEADER_FILES})
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${LIBEV_INCLUDE_DIRS}
+  ${OPENSSL_INCLUDE_DIRS}
 )
 
 #
@@ -19,6 +20,7 @@ include_directories(
 #
 link_libraries(
   ${LIBEV_LIBRARIES}
+  ${OPENSSL_LIBRARIES}
 )
 
 #
@@ -70,6 +72,15 @@ set_target_properties(pgagroal-cli-bin PROPERTIES LINKER_LANGUAGE C OUTPUT_NAME 
 target_link_libraries(pgagroal-cli-bin pgagroal)
 
 install(TARGETS pgagroal-cli-bin DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+#
+# Build pgagroal-admin
+#
+add_executable(pgagroal-admin-bin admin.c ${RESOURCE_OBJECT})
+set_target_properties(pgagroal-admin-bin PROPERTIES LINKER_LANGUAGE C OUTPUT_NAME pgagroal-admin)
+target_link_libraries(pgagroal-admin-bin pgagroal)
+
+install(TARGETS pgagroal-admin-bin DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 #
 # Install configuration and documentation
