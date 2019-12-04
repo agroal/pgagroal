@@ -518,18 +518,6 @@ read_message(int socket, bool block, struct message** msg)
          m->length = numbytes;
          *msg = m;
 
-#ifdef DEBUG
-         if ((m->kind >= 'A' && m->kind <= 'Z') || (m->kind >= 'a' && m->kind <= 'z'))
-         {
-            ZF_LOGD("Read %c from %d (%zd)", m->kind, socket, m->length);
-         }
-         else
-         {
-            ZF_LOGD("Read %d from %d (%zd)", m->kind, socket, m->length);
-         }
-         pgagroal_decode_message(m);
-#endif
-         
          return MESSAGE_STATUS_OK;
       }
       else if (numbytes == 0)
@@ -571,18 +559,6 @@ write_message(int socket, bool nodelay, struct message* msg)
    bool keep_write = false;
    ssize_t numbytes;  
 
-#ifdef DEBUG
-   if ((msg->kind >= 'A' && msg->kind <= 'Z') || (msg->kind >= 'a' && msg->kind <= 'z'))
-   {
-      ZF_LOGD("Write %c to %d (%zd)", msg->kind, socket, msg->length);
-   }
-   else
-   {
-      ZF_LOGD("Write %d to %d (%zd)", msg->kind, socket, msg->length);
-   }
-   pgagroal_decode_message(msg);
-#endif
-         
    do
    {
       numbytes = write(socket, msg->data, msg->length);
@@ -607,7 +583,6 @@ write_message(int socket, bool nodelay, struct message* msg)
             keep_write = true;
          }
       }
-
    } while (keep_write);
 
    return MESSAGE_STATUS_ERROR;

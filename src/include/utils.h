@@ -164,17 +164,6 @@ pgagroal_base64_encode(char* raw, char** encoded);
 int
 pgagroal_base64_decode(char* encoded, char** raw);
 
-#ifdef DEBUG
-
-/**
- * Decode a message
- * @param msg The message
- */
-void
-pgagroal_decode_message(struct message* msg);
-
-#endif
-
 #ifdef __cplusplus
 }
 #endif

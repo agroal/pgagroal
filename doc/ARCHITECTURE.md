@@ -174,3 +174,8 @@ core dump and debug logs with the `pgagroal` community.
 [zf_log](https://github.com/wonder-mice/zf_log) is used for the logging framework.
 
 `zf_log` is licensed under the [MIT](https://opensource.org/licenses/MIT) license.
+
+## Protocol
+
+The protocol interactions can be debugged using [Wireshark](https://www.wireshark.org/) or
+[pgprtdbg](https://github.com/jesperpedersen/pgprtdbg).
