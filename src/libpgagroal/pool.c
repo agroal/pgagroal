@@ -162,7 +162,7 @@ start:
          memcpy(&config->connections[*slot].database, database, max);
 
          config->connections[*slot].limit_rule = best_rule;
-         config->connections[*slot].has_security = -1;
+         config->connections[*slot].has_security = SECURITY_INVALID;
          config->connections[*slot].timestamp = time(NULL);
          config->connections[*slot].pid = getpid();
          config->connections[*slot].fd = fd;
@@ -269,11 +269,11 @@ pgagroal_return_connection(void* shmem, int slot)
    if (r == -1)
    {
       ZF_LOGD("pgagroal_return_connection: Slot %d FD %d - Error", slot, config->connections[slot].fd);
-      config->connections[slot].has_security = -1;
+      config->connections[slot].has_security = SECURITY_INVALID;
    }
 
    /* We can't cache SCRAM-SHA-256 connections atm */
-   if (config->connections[slot].has_security != -1 && config->connections[slot].has_security != 10)
+   if (config->connections[slot].has_security != SECURITY_INVALID && config->connections[slot].has_security != SECURITY_SCRAM256)
    {
       state = atomic_load(&config->states[slot]);
 
@@ -342,7 +342,7 @@ pgagroal_kill_connection(void* shmem, int slot)
    config->connections[slot].new = true;
    config->connections[slot].server = 0;
 
-   config->connections[slot].has_security = -1;
+   config->connections[slot].has_security = SECURITY_INVALID;
    for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
    {
       config->connections[slot].security_lengths[i] = 0;
@@ -519,7 +519,7 @@ pgagroal_pool_init(void* shmem)
    for (int i = 0; i < config->max_connections; i++)
    {
       config->connections[i].new = true;
-      config->connections[i].has_security = -1;
+      config->connections[i].has_security = SECURITY_INVALID;
       config->connections[i].limit_rule = -1;
       config->connections[i].timestamp = -1;
       config->connections[i].fd = -1;

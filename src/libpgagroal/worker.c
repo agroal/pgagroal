@@ -90,7 +90,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
       
       if (config->non_blocking)
       {
-         if (pgagroal_socket_nonblocking(client_fd, shmem))
+         if (pgagroal_socket_nonblocking(client_fd, true))
          {
             ZF_LOGW("pgagroal_worker: O_NONBLOCK failed for %d", client_fd);
          }
@@ -144,7 +144,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
          p.stop(&client_io);
       }
 
-      if (exit_code == WORKER_SUCCESS || exit_code == WORKER_CLIENT_FAILURE)
+      if (exit_code == WORKER_SUCCESS || exit_code == WORKER_CLIENT_FAILURE || config->connections[slot].has_security != SECURITY_INVALID)
       {
          pgagroal_return_connection(shmem, slot);
       }
@@ -171,6 +171,8 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    }
 
    free(address);
+
+   ZF_LOGD("exit: %d %d", getpid(), exit_code);
 
    pgagroal_memory_destroy();
    pgagroal_stop_logging(shmem);

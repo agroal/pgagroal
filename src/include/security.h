@@ -83,7 +83,7 @@ pgagroal_decrypt(char* ciphertext, char* password, char** plaintext);
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_md5(char* str, char** md5);
+pgagroal_md5(char* str, int length, char** md5);
 
 #ifdef __cplusplus
 }

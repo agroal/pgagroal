@@ -42,19 +42,25 @@
 #include <string.h>
 #include <unistd.h>
 
-static int read_message(int socket, bool block, struct message** msg);
+static int read_message(int socket, bool block, int timeout, struct message** msg);
 static int write_message(int socket, bool nodelay, struct message* msg);
 
 int
 pgagroal_read_message(int socket, struct message** msg)
 {
-   return read_message(socket, false, msg);
+   return read_message(socket, false, 0, msg);
 }
 
 int
 pgagroal_read_block_message(int socket, struct message** msg)
 {
-   return read_message(socket, true, msg);
+   return read_message(socket, true, 0, msg);
+}
+
+int
+pgagroal_read_timeout_message(int socket, int timeout, struct message** msg)
+{
+   return read_message(socket, true, timeout, msg);
 }
 
 int
@@ -420,7 +426,7 @@ pgagroal_write_deallocate_all(int socket)
       goto error;
    }
 
-   status = read_message(socket, true, &reply);
+   status = read_message(socket, true, 0, &reply);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -455,6 +461,100 @@ pgagroal_write_terminate(int socket)
    return write_message(socket, true, &msg);
 }
 
+int
+pgagroal_write_auth_password(int socket)
+{
+   char password[9];
+   struct message msg;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&password, 0, sizeof(password));
+
+   password[0] = 'R';
+   pgagroal_write_int32(&(password[1]), 8);
+   pgagroal_write_int32(&(password[5]), 3);
+
+   msg.kind = 'R';
+   msg.length = 9;
+   msg.data = &password;
+
+   return write_message(socket, true, &msg);
+}
+
+int
+pgagroal_create_auth_password_response(char* password, struct message** msg)
+{
+   struct message* m = NULL;
+   size_t size;
+
+   size = 6 + strlen(password);
+
+   m = (struct message*)malloc(sizeof(struct message));
+   m->data = malloc(size);
+
+   memset(m->data, 0, size);
+
+   m->kind = 'p';
+   m->length = size;
+
+   pgagroal_write_byte(m->data, 'p');
+   pgagroal_write_int32(m->data + 1, size - 1);
+   pgagroal_write_string(m->data + 5, password);
+
+   *msg = m;
+
+   return MESSAGE_STATUS_OK;
+}
+
+int
+pgagroal_write_auth_md5(int socket, char salt[4])
+{
+   char md5[13];
+   struct message msg;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&md5, 0, sizeof(md5));
+
+   md5[0] = 'R';
+   pgagroal_write_int32(&(md5[1]), 12);
+   pgagroal_write_int32(&(md5[5]), 5);
+   pgagroal_write_byte(&(md5[9]), salt[0]);
+   pgagroal_write_byte(&(md5[10]), salt[1]);
+   pgagroal_write_byte(&(md5[11]), salt[2]);
+   pgagroal_write_byte(&(md5[12]), salt[3]);
+
+   msg.kind = 'R';
+   msg.length = 13;
+   msg.data = &md5;
+
+   return write_message(socket, true, &msg);
+}
+
+int
+pgagroal_create_auth_md5_response(char* md5, struct message** msg)
+{
+   struct message* m = NULL;
+   size_t size;
+
+   size = 36;
+
+   m = (struct message*)malloc(sizeof(struct message));
+   m->data = malloc(size);
+
+   memset(m->data, 0, size);
+
+   m->kind = 'p';
+   m->length = size;
+
+   pgagroal_write_byte(m->data, 'p');
+   pgagroal_write_int32(m->data + 1, size - 1);
+   pgagroal_write_string(m->data + 5, md5);
+
+   *msg = m;
+
+   return MESSAGE_STATUS_OK;
+}
+
 bool
 pgagroal_connection_isvalid(int socket)
 {
@@ -482,7 +582,7 @@ pgagroal_connection_isvalid(int socket)
       goto error;
    }
 
-   status = read_message(socket, true, &reply);
+   status = read_message(socket, true, 0, &reply);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -499,11 +599,19 @@ error:
 }
 
 static int
-read_message(int socket, bool block, struct message** msg)
+read_message(int socket, bool block, int timeout, struct message** msg)
 {
    bool keep_read = false;
    ssize_t numbytes;  
+   struct timeval tv;
    struct message* m = NULL;
+
+   if (timeout > 0)
+   {
+      tv.tv_sec = timeout;
+      tv.tv_usec = 0;
+      setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+   }
 
    do
    {
@@ -518,6 +626,13 @@ read_message(int socket, bool block, struct message** msg)
          m->length = numbytes;
          *msg = m;
 
+         if (unlikely(timeout > 0))
+         {
+            tv.tv_sec = 0;
+            tv.tv_usec = 0;
+            setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+         }
+
          return MESSAGE_STATUS_OK;
       }
       else if (numbytes == 0)
@@ -531,6 +646,13 @@ read_message(int socket, bool block, struct message** msg)
          }
          else
          {
+            if (unlikely(timeout > 0))
+            {
+               tv.tv_sec = 0;
+               tv.tv_usec = 0;
+               setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+            }
+
             return MESSAGE_STATUS_ZERO;
          }
       }
@@ -549,6 +671,13 @@ read_message(int socket, bool block, struct message** msg)
          }
       }
    } while (keep_read);
+
+   if (unlikely(timeout > 0))
+   {
+      tv.tv_sec = 0;
+      tv.tv_usec = 0;
+      setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+   }
 
    return MESSAGE_STATUS_ERROR;
 }

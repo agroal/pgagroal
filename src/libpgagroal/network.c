@@ -270,7 +270,7 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
    /* Set O_NONBLOCK on the socket */
    if (config->non_blocking)
    {
-      pgagroal_socket_nonblocking(*fd, shmem);
+      pgagroal_socket_nonblocking(*fd, true);
    }
 
    return 0;
@@ -302,6 +302,32 @@ pgagroal_connect_unix_socket(const char* directory, int* fd)
    }
 
    return 0;
+}
+
+bool
+pgagroal_socket_isvalid(int fd)
+{
+   int error = 0;
+   socklen_t length;
+   int r;
+
+   r = fcntl(fd, F_GETFL);
+
+   if (r == -1)
+   {
+      return false;
+   }
+
+   length = sizeof(error);
+   r = getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &length);
+
+   if (r != 0 || error != 0)
+   {
+      errno = 0;
+      return false;
+   }
+
+   return true;
 }
 
 int
@@ -350,12 +376,20 @@ pgagroal_get_address(struct sockaddr *sa, char* address, size_t length)
 }
 
 int
-pgagroal_socket_nonblocking(int fd, void* shmem)
+pgagroal_socket_nonblocking(int fd, bool value)
 {
    int flags;
 
    flags = fcntl(fd, F_GETFL);
-   fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+   if (value)
+   {
+      fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+   }
+   else
+   {
+      fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+   }
 
    return 0;
 }
@@ -467,7 +501,7 @@ bind_host(const char* hostname, int port, void* shmem, int** fds, int* length)
          continue;
       }
 
-      if (pgagroal_socket_nonblocking(sockfd, shmem))
+      if (pgagroal_socket_nonblocking(sockfd, true))
       {
          pgagroal_disconnect(sockfd);
          continue;

@@ -78,6 +78,14 @@ int
 pgagroal_connect_unix_socket(const char* directory, int* fd);
 
 /**
+ * Is the socket valid
+ * @param fd The descriptor
+ * @return True upon success, otherwise false
+ */
+bool
+pgagroal_socket_isvalid(int fd);
+
+/**
  * Shutdown a descriptor
  * @param fd The descriptor
  * @return 0 upon success, otherwise 1
@@ -131,11 +139,11 @@ pgagroal_socket_buffers(int fd, void* shmem);
 /**
  * Apply O_NONBLOCK to a descriptor
  * @param fd The descriptor
- * @param shmem The shared memory segment
+ * @param value The value
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_socket_nonblocking(int fd, void* shmem);
+pgagroal_socket_nonblocking(int fd, bool value);
 
 #ifdef __cplusplus
 }

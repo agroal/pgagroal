@@ -61,6 +61,16 @@ int
 pgagroal_read_block_message(int socket, struct message** msg);
 
 /**
+ * Read a message with a timeout
+ * @param socket The socket descriptor
+ * @param timeout The timeout in seconds
+ * @param msg The resulting message
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
+ */
+int
+pgagroal_read_timeout_message(int socket, int timeout, struct message** msg);
+
+/**
  * Write a message
  * @param socket The socket descriptor
  * @param msg The message
@@ -204,6 +214,41 @@ pgagroal_write_deallocate_all(int socket);
  */
 int
 pgagroal_write_terminate(int socket);
+
+/**
+ * Write an auth password message
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_write_auth_password(int socket);
+
+/**
+ * Create an auth password response message
+ * @param password The password
+ * @param msg The resulting message
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_create_auth_password_response(char* password, struct message** msg);
+
+/**
+ * Write an auth md5 message
+ * @param socket The socket descriptor
+ * @param salt The salt
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_write_auth_md5(int socket, char salt[4]);
+
+/**
+ * Create an auth MD5 response message
+ * @param md5 The md5
+ * @param msg The resulting message
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_create_auth_md5_response(char* md5, struct message** msg);
 
 /**
  * Is the connection valid

@@ -77,6 +77,14 @@ extern "C" {
 #define STATE_VALIDATION  5
 #define STATE_REMOVE      6
 
+#define SECURITY_INVALID  -2
+#define SECURITY_REJECT   -1
+#define SECURITY_TRUST     0
+#define SECURITY_PASSWORD  3
+#define SECURITY_MD5       5
+#define SECURITY_SCRAM256 10
+#define SECURITY_ALL      99
+
 #define AUTH_SUCCESS 0
 #define AUTH_FAILURE 1
 

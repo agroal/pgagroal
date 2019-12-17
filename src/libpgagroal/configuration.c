@@ -600,6 +600,20 @@ pgagroal_validate_hba_configuration(void* shmem)
          printf("pgagroal: Unknown HBA type: %s\n", config->hbas[i].type);
          return 1;
       }
+
+      if (!strcmp("trust", config->hbas[i].method) ||
+          !strcmp("reject", config->hbas[i].method) ||
+          !strcmp("password", config->hbas[i].method) ||
+          !strcmp("md5", config->hbas[i].method) ||
+          !strcmp("all", config->hbas[i].method))
+      {
+         /* Ok */
+      }
+      else
+      {
+         printf("pgagroal: Unknown HBA method: %s\n", config->hbas[i].method);
+         return 1;
+      }
    }
 
    return 0;
