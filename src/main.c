@@ -56,10 +56,6 @@
 #include <sys/types.h>
 
 #define MAX_FDS 64
-#define MAX(a, b)               \
-   ({ __typeof__ (a) _a = (a);  \
-      __typeof__ (b) _b = (b);  \
-      _a > _b ? _a : _b; })
 
 static void accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
@@ -557,7 +553,10 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          break;
       case MANAGEMENT_FLUSH:
          ZF_LOGD("pgagroal: Management flush (%d)", payload);
-         pgagroal_flush(ai->shmem, payload);
+         if (!fork())
+         {
+            pgagroal_flush(ai->shmem, payload);
+         }
          break;
       case MANAGEMENT_GRACEFULLY:
          ZF_LOGD("pgagroal: Management gracefully");

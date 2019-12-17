@@ -474,7 +474,7 @@ pgagroal_validate_configuration(void* shmem)
 
    if (config->backlog <= 0)
    {
-      config->backlog = config->max_connections / 4;
+      config->backlog = MAX(config->max_connections / 4, 16);
    }
 
    if (config->number_of_servers <= 0)

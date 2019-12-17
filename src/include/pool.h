@@ -84,9 +84,8 @@ pgagroal_validation(void* shmem);
  * Flush the pool
  * @param shmem The shared memory segment
  * @param mode The flush mode
- * @return 0 upon success, otherwise 1
  */
-int
+void
 pgagroal_flush(void* shmem, int mode);
 
 /**

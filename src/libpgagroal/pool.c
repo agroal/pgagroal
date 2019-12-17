@@ -462,12 +462,14 @@ pgagroal_validation(void* shmem)
    exit(0);
 }
 
-int
+void
 pgagroal_flush(void* shmem, int mode)
 {
    signed char free;
    signed char in_use;
    struct configuration* config;
+
+   pgagroal_start_logging(shmem);
 
    config = (struct configuration*)shmem;
 
@@ -499,7 +501,9 @@ pgagroal_flush(void* shmem, int mode)
    }
    
    pgagroal_pool_status(shmem);
-   return 0;
+   pgagroal_stop_logging(shmem);
+
+   exit(0);
 }
 
 int
