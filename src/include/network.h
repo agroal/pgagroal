@@ -52,10 +52,11 @@ pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* lengt
  * Bind a Unix Domain Socket
  * @param directory The directory
  * @param shmem The shared memory segment
+ * @param fd The resulting descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_bind_unix_socket(const char* directory, void* shmem);
+pgagroal_bind_unix_socket(const char* directory, void* shmem, int* fd);
 
 /**
  * Connect to a host

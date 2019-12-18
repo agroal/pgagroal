@@ -339,7 +339,11 @@ main(int argc, char **argv)
    pgagroal_pool_init(shmem);
 
    /* Bind Unix Domain Socket for file descriptor transfers */
-   unix_socket = pgagroal_bind_unix_socket(config->unix_socket_dir, shmem);
+   if (pgagroal_bind_unix_socket(config->unix_socket_dir, shmem, &unix_socket))
+   {
+      printf("pgagroal: Could not bind to %s\n", config->unix_socket_dir);
+      exit(1);
+   }
 
    /* Bind main socket */
    if (pgagroal_bind(config->host, config->port, shmem, &fds, &length))
@@ -471,6 +475,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    if (EV_ERROR & revents)
    {
       ZF_LOGD("accept_main_cb: invalid event: %s", strerror(errno));
+      errno = 0;
       return;
    }
 
@@ -480,7 +485,8 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
    if (client_fd == -1)
    {
-      ZF_LOGD("accept_main_cb: accept: %s", strerror(errno));
+      ZF_LOGW("accept: %d %s", watcher->fd, strerror(errno));
+      errno = 0;
       return;
    }
 

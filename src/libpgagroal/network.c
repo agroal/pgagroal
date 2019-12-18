@@ -71,7 +71,8 @@ pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* lengt
    {
       if (getifaddrs(&ifaddr) == -1)
       {
-         ZF_LOGE("getifaddrs: %s", strerror(errno));
+         ZF_LOGW("getifaddrs: %s", strerror(errno));
+         errno = 0;
          return 1;
       }
 
@@ -134,18 +135,18 @@ pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* lengt
  *
  */
 int
-pgagroal_bind_unix_socket(const char* directory, void* shmem)
+pgagroal_bind_unix_socket(const char* directory, void* shmem, int *fd)
 {
    struct sockaddr_un addr;
-   int fd;
    struct configuration* config;
 
    config = (struct configuration*)shmem;
 
-   if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
+   if ((*fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
    {
       ZF_LOGE("pgagroal_bind_unix_socket: socket: %s %s", directory, strerror(errno));
-      exit(-1);
+      errno = 0;
+      goto error;
    }
 
    memset(&addr, 0, sizeof(addr));
@@ -159,19 +160,25 @@ pgagroal_bind_unix_socket(const char* directory, void* shmem)
    strncpy(addr.sun_path, directory, sizeof(addr.sun_path) - 1);
    unlink(directory);
 
-   if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
+   if (bind(*fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
    {
       ZF_LOGE("pgagroal_bind_unix_socket: bind: %s %s", directory, strerror(errno));
-      exit(-1);
+      errno = 0;
+      goto error;
    }
 
-   if (listen(fd, config->backlog) == -1)
+   if (listen(*fd, config->backlog) == -1)
    {
       ZF_LOGE("pgagroal_bind_unix_socket: listen: %s %s", directory, strerror(errno));
-      exit(-1);
+      errno = 0;
+      goto error;
    }
 
-   return fd;
+   return 0;
+
+error:
+
+   return 1;
 }
 
 /**
@@ -211,7 +218,8 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
    {
       if ((*fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
       {
-         ZF_LOGD("pgagroal_connect: socket: %s", strerror(errno));
+         ZF_LOGW("pgagroal_connect: socket: %s", strerror(errno));
+         errno = 0;
          return 1;
       }
 
@@ -219,8 +227,9 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
       {
          if (setsockopt(*fd, SOL_SOCKET, SO_KEEPALIVE, &yes, optlen) == -1)
          {
-            ZF_LOGD("pgagroal_connect: SO_KEEPALIVE: %d %s", *fd, strerror(errno));
+            ZF_LOGW("pgagroal_connect: SO_KEEPALIVE: %d %s", *fd, strerror(errno));
             pgagroal_disconnect(*fd);
+            errno = 0;
             return 1;
          }
       }
@@ -229,30 +238,34 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
       {
          if (setsockopt(*fd, IPPROTO_TCP, TCP_NODELAY, &yes, optlen) == -1)
          {
-            ZF_LOGD("pgagroal_connect: TCP_NODELAY: %d %s", *fd, strerror(errno));
+            ZF_LOGW("pgagroal_connect: TCP_NODELAY: %d %s", *fd, strerror(errno));
             pgagroal_disconnect(*fd);
+            errno = 0;
             return 1;
          }
       }
 
       if (setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &config->buffer_size, optlen) == -1)
       {
-         ZF_LOGD("pgagroal_connect: SO_RCVBUF: %d %s", *fd, strerror(errno));
+         ZF_LOGW("pgagroal_connect: SO_RCVBUF: %d %s", *fd, strerror(errno));
          pgagroal_disconnect(*fd);
+         errno = 0;
          return 1;
       }
 
       if (setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &config->buffer_size, optlen) == -1)
       {
-         ZF_LOGD("pgagroal_connect: SO_SNDBUF: %d %s", *fd, strerror(errno));
+         ZF_LOGW("pgagroal_connect: SO_SNDBUF: %d %s", *fd, strerror(errno));
          pgagroal_disconnect(*fd);
+         errno = 0;
          return 1;
       }
 
       if (connect(*fd, p->ai_addr, p->ai_addrlen) == -1)
       {
-         ZF_LOGD("pgagroal_connect: connect: %d %s", *fd, strerror(errno));
+         ZF_LOGW("pgagroal_connect: connect: %d %s", *fd, strerror(errno));
          pgagroal_disconnect(*fd);
+         errno = 0;
          return 1;
       }
 
@@ -286,7 +299,8 @@ pgagroal_connect_unix_socket(const char* directory, int* fd)
 
    if ((*fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
    {
-      ZF_LOGD("pgagroal_connect_unix_socket: socket: %s %s", directory, strerror(errno));
+      ZF_LOGW("pgagroal_connect_unix_socket: socket: %s %s", directory, strerror(errno));
+      errno = 0;
       return 1;
    }
 
@@ -297,7 +311,8 @@ pgagroal_connect_unix_socket(const char* directory, int* fd)
 
    if (connect(*fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
    {
-      ZF_LOGD("pgagroal_connect_unix_socket: connect: %s %s", directory, strerror(errno));
+      ZF_LOGW("pgagroal_connect_unix_socket: connect: %s %s", directory, strerror(errno));
+      errno = 0;
       return 1;
    }
 
@@ -407,7 +422,8 @@ pgagroal_tcp_nodelay(int fd, void* shmem)
    {
       if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &yes, optlen) == -1)
       {
-         ZF_LOGD("tcp_nodelay: %d %s", fd, strerror(errno));
+         ZF_LOGW("tcp_nodelay: %d %s", fd, strerror(errno));
+         errno = 0;
          return 1;
       }
    }
@@ -425,13 +441,15 @@ pgagroal_socket_buffers(int fd, void* shmem)
 
    if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &config->buffer_size, optlen) == -1)
    {
-      ZF_LOGD("socket_buffers: SO_RCVBUF %d %s", fd, strerror(errno));
+      ZF_LOGW("socket_buffers: SO_RCVBUF %d %s", fd, strerror(errno));
+      errno = 0;
       return 1;
    }
 
    if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &config->buffer_size, optlen) == -1)
    {
-      ZF_LOGD("socket_buffers: SO_SNDBUF %d %s", fd, strerror(errno));
+      ZF_LOGW("socket_buffers: SO_SNDBUF %d %s", fd, strerror(errno));
+      errno = 0;
       return 1;
    }
 
