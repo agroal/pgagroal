@@ -21,6 +21,8 @@ jobs:
       run: sudo apt install -y libev4 libev-dev
     - name: Install gcc-9
       run: sudo apt install -y gcc-9
+    - name: Install rst2man
+      run: sudo apt install -y python-docutils
     - name: Update alternatives
       run: sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60
     - name: mkdir
