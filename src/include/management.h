@@ -46,6 +46,7 @@ extern "C" {
 #define MANAGEMENT_STOP                6
 #define MANAGEMENT_STATUS              7
 #define MANAGEMENT_DETAILS             8
+#define MANAGEMENT_ISALIVE             9
 
 /**
  * Read the management header
@@ -171,6 +172,34 @@ pgagroal_management_read_details(int socket);
  */
 int
 pgagroal_management_write_details(void* shmem, int socket);
+
+/**
+ * Management operation: isalive
+ * @param shmem The shared memory segment
+ * @param socket The resulting socket
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_isalive(void* shmem, int* socket);
+
+/**
+ * Management: Read isalive
+ * @param socket The socket
+ * @param status The resulting status
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_read_isalive(int socket, int* status);
+
+/**
+ * Management: Write isalive
+ * @param shmem The shared memory segment
+ * @param gracefully Is the server shutting down gracefully
+ * @param socket The socket
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_write_isalive(void* shmem, bool gracefully, int socket);
 
 #ifdef __cplusplus
 }

@@ -42,6 +42,9 @@ flush-gracefully
 flush-all
   Flush all connections. USE WITH CAUTION !
 
+isalive
+  Is pgagroal alive
+
 gracefully
   Stop pgagroal gracefully
 

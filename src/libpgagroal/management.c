@@ -82,6 +82,7 @@ int
 pgagroal_management_read_payload(int socket, signed char id, int* payload)
 {
    int newfd, nr, status;
+   ssize_t r;
    char *ptr;
    char buf2[2];
    char buf4[4];
@@ -143,7 +144,11 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload)
          free(cmptr);
          break;
       case MANAGEMENT_FLUSH:
-         read(socket, &buf4, 4 * sizeof(char));
+         r = read(socket, &buf4, 4 * sizeof(char));
+         if (r == -1)
+         {
+            goto error;
+         }
          *payload = pgagroal_read_int32(&buf4);
          break;
       case MANAGEMENT_RETURN_CONNECTION:
@@ -184,7 +189,7 @@ pgagroal_management_transfer_connection(void* shmem, int32_t slot)
    w = write_header(shmem, MANAGEMENT_TRANSFER_CONNECTION, slot, &fd);
    if (w == -1)
    {
-      ZF_LOGW("pgagroal_management_transfer_connection: write: %d %s", fd, strerror(errno));
+      ZF_LOGW("pgagroal_management_transfer_connection: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -234,7 +239,7 @@ pgagroal_management_return_connection(void* shmem, int32_t slot)
    w = write_header(shmem, MANAGEMENT_RETURN_CONNECTION, slot, &fd);
    if (w == -1)
    {
-      ZF_LOGW("pgagroal_management_return_connection: write: %d %s", fd, strerror(errno));
+      ZF_LOGW("pgagroal_management_return_connection: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -258,7 +263,7 @@ pgagroal_management_kill_connection(void* shmem, int32_t slot)
    w = write_header(shmem, MANAGEMENT_KILL_CONNECTION, slot, &fd);
    if (w == -1)
    {
-      ZF_LOGW("pgagroal_management_kill_connection: write: %d %s", fd, strerror(errno));
+      ZF_LOGW("pgagroal_management_kill_connection: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -283,7 +288,7 @@ pgagroal_management_flush(void* shmem, int32_t mode)
    w = write_header(shmem, MANAGEMENT_FLUSH, -1, &fd);
    if (w == -1)
    {
-      ZF_LOGW("pgagroal_management_flush: write: %d %s", fd, strerror(errno));
+      ZF_LOGW("pgagroal_management_flush: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -316,7 +321,7 @@ pgagroal_management_gracefully(void* shmem)
    w = write_header(shmem, MANAGEMENT_GRACEFULLY, -1, &fd);
    if (w == -1)
    {
-      ZF_LOGW("pgagroal_management_gracefully: write: %d %s", fd, strerror(errno));
+      ZF_LOGW("pgagroal_management_gracefully: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -340,7 +345,7 @@ pgagroal_management_stop(void* shmem)
    w = write_header(shmem, MANAGEMENT_STOP, -1, &fd);
    if (w == -1)
    {
-      ZF_LOGW("pgagroal_management_stop: write: %d %s", fd, strerror(errno));
+      ZF_LOGW("pgagroal_management_stop: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -364,7 +369,7 @@ pgagroal_management_status(void* shmem, int* socket)
    w = write_header(shmem, MANAGEMENT_STATUS, -1, &fd);
    if (w == -1)
    {
-      ZF_LOGW("pgagroal_management_status: write: %d %s", fd, strerror(errno));
+      ZF_LOGW("pgagroal_management_status: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -489,7 +494,7 @@ pgagroal_management_details(void* shmem, int* socket)
    w = write_header(shmem, MANAGEMENT_DETAILS, -1, &fd);
    if (w == -1)
    {
-      ZF_LOGW("pgagroal_management_details: write: %d %s", fd, strerror(errno));
+      ZF_LOGW("pgagroal_management_details: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -751,6 +756,86 @@ error:
    return 1;
 }
 
+int
+pgagroal_management_isalive(void* shmem, int* socket)
+{
+   ssize_t w;
+   int fd;
+
+   w = write_header(shmem, MANAGEMENT_ISALIVE, -1, &fd);
+   if (w == -1)
+   {
+      ZF_LOGW("pgagroal_management_isalive: write: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   *socket = fd;
+
+   return 0;
+
+error:
+   pgagroal_disconnect(fd);
+
+   return 1;
+}
+
+int
+pgagroal_management_read_isalive(int socket, int* status)
+{
+   char buf[MAX_BUFFER_SIZE];
+   ssize_t r;
+
+   memset(&buf, 0, sizeof(buf));
+
+   r = read(socket, &buf, sizeof(buf));
+   if (r == -1)
+   {
+      ZF_LOGW("pgagroal_management_read_isalive: read: %d %s", socket, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   *status = pgagroal_read_int32(&buf);
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+int
+pgagroal_management_write_isalive(void* shmem, bool gracefully, int socket)
+{
+   ssize_t w;
+   char buf[4];
+
+   memset(&buf, 0, sizeof(buf));
+
+   if (!gracefully)
+   {
+      pgagroal_write_int32(buf, 1);
+   }
+   else
+   {
+      pgagroal_write_int32(buf, 2);
+   }
+
+   w = write(socket, buf, sizeof(buf));
+   if (w == -1)
+   {
+      ZF_LOGW("pgagroal_management_write_isalive: write: %d %s", socket, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
 
 static int
 write_header(void* shmem, signed char type, int slot, int* fd)

@@ -134,6 +134,7 @@ Commands:
   flush-idle               Flush idle connections
   flush-gracefully         Flush all connections gracefully
   flush-all                Flush all connections. USE WITH CAUTION !
+  isalive                  Is pgagroal alive
   gracefully               Stop pgagroal gracefully
   stop                     Stop pgagroal
   status                   Status of pgagroal

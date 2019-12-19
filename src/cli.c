@@ -51,6 +51,7 @@
 #define ACTION_STOP       3
 #define ACTION_STATUS     4
 #define ACTION_DETAILS    5
+#define ACTION_ISALIVE    6
 
 static void
 version()
@@ -78,6 +79,7 @@ usage()
    printf("  flush-idle               Flush idle connections\n");
    printf("  flush-gracefully         Flush all connections gracefully\n");
    printf("  flush-all                Flush all connections. USE WITH CAUTION !\n");
+   printf("  isalive                  Is pgagroal alive\n");
    printf("  gracefully               Stop pgagroal gracefully\n");
    printf("  stop                     Stop pgagroal\n");
    printf("  status                   Status of pgagroal\n");
@@ -190,6 +192,10 @@ main(int argc, char **argv)
       {
          action = ACTION_DETAILS;
       }
+      else if (!strcmp("isalive", argv[argc - 1]))
+      {
+         action = ACTION_ISALIVE;
+      }
 
       if (action == ACTION_FLUSH)
       {
@@ -234,6 +240,30 @@ main(int argc, char **argv)
          {
             pgagroal_management_read_status(socket);
             pgagroal_management_read_details(socket);
+            pgagroal_disconnect(socket);
+         }
+         else
+         {
+            exit_code = 1;
+         }
+      }
+      else if (action == ACTION_ISALIVE)
+      {
+         int socket;
+         int status = -1;
+
+         if (pgagroal_management_isalive(shmem, &socket) == 0)
+         {
+            if (pgagroal_management_read_isalive(socket, &status))
+            {
+               exit_code = 1;
+            }
+
+            if (status != 1 && status != 2)
+            {
+               exit_code = 1;
+            }
+
             pgagroal_disconnect(socket);
          }
          else
