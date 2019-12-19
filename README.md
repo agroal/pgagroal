@@ -48,9 +48,10 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
 * [make](https://www.gnu.org/software/make/)
 * [libev](http://software.schmorp.de/pkg/libev.html)
 * [OpenSSL](http://www.openssl.org/)
+* [rst2man](https://docutils.sourceforge.io/)
 
 ```sh
-dnf install gcc cmake make libev libev-devel openssl openssl-devel
+dnf install gcc cmake make libev libev-devel openssl openssl-devel python3-docutils
 ```
 
 Alternative [clang 8+](https://clang.llvm.org/) can be used.

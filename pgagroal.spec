@@ -31,6 +31,8 @@ mkdir -p %{buildroot}%{_sysconfdir}
 mkdir -p %{buildroot}%{_bindir}
 mkdir -p %{buildroot}%{_libdir}
 mkdir -p %{buildroot}%{_docdir}/%{name}/images
+mkdir -p %{buildroot}%{_mandir}/man1
+mkdir -p %{buildroot}%{_mandir}/man5
 
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}%{_docdir}/%{name}/LICENSE
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}%{_docdir}/%{name}/README.md
@@ -46,6 +48,13 @@ mkdir -p %{buildroot}%{_docdir}/%{name}/images
 
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/etc/pgagroal.conf %{buildroot}%{_sysconfdir}/pgagroal.conf
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/etc/pgagroal_hba.conf %{buildroot}%{_sysconfdir}/pgagroal_hba.conf
+
+/usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal.1 %{buildroot}%{_mandir}/man1/pgagroal.1
+/usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal-admin.1 %{buildroot}%{_mandir}/man1/pgagroal-admin.1
+/usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal-cli.1 %{buildroot}%{_mandir}/man1/pgagroal-cli.1
+/usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal.conf.5 %{buildroot}%{_mandir}/man5/pgagroal.conf.5
+/usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal_databases.conf.5 %{buildroot}%{_mandir}/man5/pgagroal_databases.conf.5
+/usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal_hba.conf.5 %{buildroot}%{_mandir}/man5/pgagroal_hba.conf.5
 
 /usr/bin/install -m 755 %{_builddir}/%{name}-%{version}/build/src/pgagroal %{buildroot}%{_bindir}/pgagroal
 /usr/bin/install -m 755 %{_builddir}/%{name}-%{version}/build/src/pgagroal-cli %{buildroot}%{_bindir}/pgagroal-cli
@@ -73,6 +82,12 @@ ln -s -f libpgagroal.so.0 libpgagroal.so
 %{_docdir}/%{name}/images/perf-prepared.png
 %{_docdir}/%{name}/images/perf-readonly.png
 %{_docdir}/%{name}/images/perf-simple.png
+%{_mandir}/man1/pgagroal.1
+%{_mandir}/man1/pgagroal-admin.1
+%{_mandir}/man1/pgagroal-cli.1
+%{_mandir}/man5/pgagroal.conf.5
+%{_mandir}/man5/pgagroal_databases.conf.5
+%{_mandir}/man5/pgagroal_hba.conf.5
 %config %{_sysconfdir}/pgagroal.conf
 %config %{_sysconfdir}/pgagroal_hba.conf
 %{_bindir}/pgagroal

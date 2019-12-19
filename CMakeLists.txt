@@ -69,6 +69,14 @@ else ()
   message(FATAL_ERROR "OpenSSL needed")
 endif()
 
+find_package(Rst2man)
+if (RST2MAN_FOUND)
+  message(STATUS "rst2man found")
+else ()
+  message(FATAL_ERROR "rst2man needed")
+endif()
+
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/src/")
 
+add_subdirectory(doc)
 add_subdirectory(src)

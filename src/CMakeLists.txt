@@ -81,11 +81,3 @@ set_target_properties(pgagroal-admin-bin PROPERTIES LINKER_LANGUAGE C OUTPUT_NAM
 target_link_libraries(pgagroal-admin-bin pgagroal)
 
 install(TARGETS pgagroal-admin-bin DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-#
-# Install configuration and documentation
-#
-install(FILES ../doc/etc/pgagroal.conf DESTINATION etc)
-install(FILES ../doc/etc/pgagroal_hba.conf DESTINATION etc)
-
-install(DIRECTORY ../doc/ DESTINATION share/doc/pgagroal FILES_MATCHING PATTERN "*")
