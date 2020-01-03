@@ -34,6 +34,9 @@
 #include <zf_log.h>
 
 /* system */
+#ifdef DEBUG
+#include <assert.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 
@@ -68,6 +71,10 @@ pgagroal_memory_init(void* shmem)
 struct message*
 pgagroal_memory_message(void)
 {
+#ifdef DEBUG
+   assert(message != NULL);
+#endif
+
    return message;
 }
 
@@ -77,6 +84,10 @@ pgagroal_memory_message(void)
 void*
 pgagroal_memory_data(void)
 {
+#ifdef DEBUG
+   assert(data != NULL);
+#endif
+
    return data;
 }
 
