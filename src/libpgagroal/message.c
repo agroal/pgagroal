@@ -640,7 +640,7 @@ read_message(int socket, bool block, int timeout, struct message** msg)
    struct timeval tv;
    struct message* m = NULL;
 
-   if (timeout > 0)
+   if (unlikely(timeout > 0))
    {
       tv.tv_sec = timeout;
       tv.tv_usec = 0;
