@@ -49,6 +49,18 @@ int
 pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot);
 
 /**
+ * Authenticate a prefill connection
+ * @param username The user name
+ * @param password The password
+ * @param database The database
+ * @param shmem The shared memory segment
+ * @param slot The resulting slot
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_prefill_auth(char* username, char* password, char* database, void* shmem, int* slot);
+
+/**
  * Get the master key
  * @param masterkey The master key
  * @return 0 upon success, otherwise 1

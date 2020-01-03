@@ -35,6 +35,7 @@ extern "C" {
 
 #include <pgagroal.h>
 
+#include <stdbool.h>
 #include <stdlib.h>
 
 /**
@@ -42,11 +43,12 @@ extern "C" {
  * @param shmem The shared memory segment
  * @param username The user name
  * @param database The database
+ * @param reuse Should a slot be reused
  * @param slot The resulting slot
  * @return 0 upon success, 1 if pool is full, otherwise 2
  */
 int
-pgagroal_get_connection(void* shmem, char* username, char* database, int* slot);
+pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse, int* slot);
 
 /**
  * Return a connection
@@ -87,6 +89,13 @@ pgagroal_validation(void* shmem);
  */
 void
 pgagroal_flush(void* shmem, int mode);
+
+/**
+ * Prefill the pool
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prefill(void* shmem);
 
 /**
  * Initialize the pool

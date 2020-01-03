@@ -409,10 +409,10 @@ pgagroal_management_read_status(int socket)
    total = pgagroal_read_int32(&(buf[8]));
    max = pgagroal_read_int32(&(buf[12]));
 
-   printf("Status:             %s\n", (status == 1 ? "Running" : "Graceful shutdown"));
-   printf("Active connections: %d\n", active);
-   printf("Total connections:  %d\n", total);
-   printf("Max connections:    %d\n", max);
+   printf("Status:              %s\n", (status == 1 ? "Running" : "Graceful shutdown"));
+   printf("Active connections:  %d\n", active);
+   printf("Total connections:   %d\n", total);
+   printf("Max connections:     %d\n", max);
 
    return 0;
 
@@ -519,6 +519,7 @@ pgagroal_management_read_details(int socket)
    int offset;
    int active;
    int total;
+   int initial;
    int max;
 
    memset(&buf, 0, sizeof(buf));
@@ -553,21 +554,25 @@ pgagroal_management_read_details(int socket)
       max = pgagroal_read_int32(&(buf[offset]));
       offset += 4;
 
+      initial = pgagroal_read_int32(&(buf[offset]));
+      offset += 4;
+
       if (max > 0)
       {
-         printf("--------------------\n");
-         printf("Database:           %s\n", database);
-         printf("Username:           %s\n", username);
-         printf("Active connections: %d\n", active);
-         printf("Total connections:  %d\n", total);
-         printf("Max connections:    %d\n", max);
+         printf("---------------------\n");
+         printf("Database:            %s\n", database);
+         printf("Username:            %s\n", username);
+         printf("Active connections:  %d\n", active);
+         printf("Total connections:   %d\n", total);
+         printf("Initial connections: %d\n", initial);
+         printf("Max connections:     %d\n", max);
       }
    }
 
    size = pgagroal_read_int32(&(buf[offset]));
    offset += 4;
 
-   printf("--------------------\n");
+   printf("---------------------\n");
    for (int i = 0; i < size; i++)
    {
       signed char state;
@@ -591,7 +596,7 @@ pgagroal_management_read_details(int socket)
 
       sprintf(p, "%d", pid);
 
-      printf("Connection %4d:    %-15s %-19s %s\n",
+      printf("Connection %4d:     %-15s %-19s %s\n",
              i,
              pgagroal_get_state_string(state),
              time > 0 ? ts : "",
@@ -623,6 +628,7 @@ pgagroal_management_write_details(void* shmem, int socket)
       int length;
       int active[config->number_of_limits + 1];
       int total[config->number_of_limits + 1];
+      int initial[config->number_of_limits + 1];
       int max = config->max_connections;
 
       buffer_size += sizeof(int);
@@ -634,10 +640,12 @@ pgagroal_management_write_details(void* shmem, int socket)
          buffer_size += sizeof(int);
          buffer_size += sizeof(int);
          buffer_size += sizeof(int);
+         buffer_size += sizeof(int);
       }
 
       buffer_size += strlen("all") + 1;
       buffer_size += strlen("all") + 1;
+      buffer_size += sizeof(int);
       buffer_size += sizeof(int);
       buffer_size += sizeof(int);
       buffer_size += sizeof(int);
@@ -647,6 +655,7 @@ pgagroal_management_write_details(void* shmem, int socket)
       memset(buf, 0, buffer_size);
       memset(&active, 0, sizeof(active));
       memset(&total, 0, sizeof(total));
+      memset(&total, 0, sizeof(initial));
 
       for (int i = 0; i < config->max_connections; i++)
       {
@@ -691,6 +700,9 @@ pgagroal_management_write_details(void* shmem, int socket)
          pgagroal_write_int32(buf + offset, config->limits[i].max_connections);
          offset += 4;
 
+         pgagroal_write_int32(buf + offset, config->limits[i].initial_size);
+         offset += 4;
+
          max -= config->limits[i].max_connections;
       }
 
@@ -709,6 +721,9 @@ pgagroal_management_write_details(void* shmem, int socket)
       offset += 4;
 
       pgagroal_write_int32(buf + offset, max);
+      offset += 4;
+
+      pgagroal_write_int32(buf + offset, 0);
       offset += 4;
    }
    else
@@ -854,9 +869,6 @@ write_header(void* shmem, signed char type, int slot, int* fd)
    {
       goto end;
    }
-
-   ZF_LOGD("Write %d to %d (%d)", type, *fd, MANAGEMENT_HEADER_SIZE);
-   ZF_LOGD("Slot %d FD %d ", slot, slot != -1 ? config->connections[slot].fd : -1);
 
    w = write(*fd, &(header), MANAGEMENT_HEADER_SIZE);
 

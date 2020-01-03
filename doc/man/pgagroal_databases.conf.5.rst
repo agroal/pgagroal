@@ -25,13 +25,16 @@ USER
 MAX_CONNECTIONS
   Specifies the maximum number of connections for the entry. all for all connections
 
+INITIAL_SIZE
+  Specifies the initial pool size for a database and user pair. Requires a pgagroal_users.conf configuration
+
 EXAMPLE
 =======
 
 ::
    
   #
-  # DATABASE USER  MAX_CONNECTIONS
+  # DATABASE USER  MAX_CONNECTIONS INITIAL_SIZE
   #
   all        all   all
 

@@ -162,6 +162,7 @@ struct limit
    char username[IDENTIFIER_LENGTH]; /**< The user name */
    atomic_ushort active_connections; /**< The active number of connections */
    int max_connections;              /**< The maximum number of connections */
+   int initial_size;                 /**< The initial pool size */
 } __attribute__ ((aligned (64)));
 
 /** @struct

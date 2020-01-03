@@ -164,7 +164,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
       }
 
       /* Get connection */
-      ret = pgagroal_get_connection(shmem, username, database, slot);
+      ret = pgagroal_get_connection(shmem, username, database, true, slot);
       if (ret != 0)
       {
          if (ret == 1)
@@ -229,6 +229,104 @@ error:
    return AUTH_FAILURE;
 }
 
+int
+pgagroal_prefill_auth(char* username, char* password, char* database, void* shmem, int* slot)
+{
+   int server_fd = -1;
+   int auth_type = -1;
+   struct configuration* config = NULL;
+   struct message* startup_msg = NULL;
+   struct message* msg = NULL;
+   int ret = -1;
+   int status = -1;
+
+   config = (struct configuration*)shmem;
+
+   /* Get connection */
+   ret = pgagroal_get_connection(shmem, username, database, false, slot);
+   if (ret != 0)
+   {
+      goto error;
+   }
+   server_fd = config->connections[*slot].fd;
+
+   status = pgagroal_create_startup_message(username, database, &startup_msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_write_message(server_fd, startup_msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+   pgagroal_free_copy_message(startup_msg);
+   startup_msg = NULL;
+
+   status = pgagroal_read_block_message(server_fd, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   get_auth_type(msg, &auth_type);
+   ZF_LOGV("prefill_auth: auth type %d", auth_type);
+
+   /* Supported security models: */
+   /*   trust (0) */
+   /*   password (3) */
+   /*   md5 (5) */
+   if (auth_type == -1)
+   {
+      goto error;
+   }
+   else if (auth_type != SECURITY_TRUST && auth_type != SECURITY_PASSWORD && auth_type != SECURITY_MD5)
+   {
+      goto error;
+   }
+
+   if (server_authenticate(msg, auth_type, username, password, server_fd, *slot, shmem))
+   {
+      goto error;
+   }
+
+   if (config->servers[config->connections[*slot].server].primary == SERVER_NOTINIT ||
+       config->servers[config->connections[*slot].server].primary == SERVER_NOTINIT_PRIMARY)
+   {
+      ZF_LOGD("Verify server mode: %d", config->connections[*slot].server);
+      pgagroal_update_server_state(shmem, *slot, server_fd);
+      pgagroal_server_status(shmem);
+   }
+
+   ZF_LOGV("prefill_auth: has_security %d", config->connections[*slot].has_security);
+   ZF_LOGD("prefill_auth: SUCCESS");
+
+   pgagroal_free_message(msg);
+
+   return AUTH_SUCCESS;
+
+error:
+
+   ZF_LOGD("authenticate: FAILURE");
+
+   if (*slot != -1)
+   {
+      if (config->connections[*slot].fd != -1)
+      {
+         pgagroal_write_terminate(config->connections[*slot].fd);
+      }
+
+      pgagroal_kill_connection(shmem, *slot);
+   }
+
+   *slot = -1;
+
+   pgagroal_free_copy_message(startup_msg);
+   pgagroal_free_message(msg);
+
+   return AUTH_FAILURE;
+}
 
 static int
 get_auth_type(struct message* msg, int* auth_type)
@@ -1112,10 +1210,6 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
       {
          goto error;
       }
-
-      ZF_LOGV_MEM(&config->connections[slot].security_messages[0], config->connections[slot].security_lengths[0],
-                  "                      Message %p:", (const void *)&config->connections[slot].security_messages[0]);
-
 
       memset(&md5str, 0, sizeof(md5str));
       snprintf(&md5str[0], 36, "md5%s", md5);

@@ -251,6 +251,16 @@ int
 pgagroal_create_auth_md5_response(char* md5, struct message** msg);
 
 /**
+ * Create a startup message
+ * @param username The user name
+ * @param database The database
+ * @param msg The resulting message
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_create_startup_message(char* username, char* database, struct message** msg);
+
+/**
  * Is the connection valid
  * @param socket The socket descriptor
  * @return true upon success, otherwise false

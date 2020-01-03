@@ -7,6 +7,7 @@
 * High performance
 * Connection pool
 * Limit connections for users and databases
+* Prefill support
 * Remove idle connections
 * Perform connection validation
 * Graceful / fast shutdown

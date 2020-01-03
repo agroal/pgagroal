@@ -31,8 +31,10 @@
 #include <logging.h>
 #include <network.h>
 #include <management.h>
+#include <memory.h>
 #include <message.h>
 #include <pool.h>
+#include <security.h>
 #include <server.h>
 
 #define ZF_LOG_TAG "pool"
@@ -54,7 +56,7 @@ static bool remove_connection(void* shmem, char* username, char* database);
 static void connection_details(void* shmem, int slot);
 
 int
-pgagroal_get_connection(void* shmem, char* username, char* database, int* slot)
+pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse, int* slot)
 {
    bool do_init;
    bool has_lock;
@@ -98,21 +100,24 @@ start:
    }
 
    /* Try and find an existing free connection */
-   for (int i = 0; *slot == -1 && i < config->max_connections; i++)
+   if (reuse)
    {
-      free = STATE_FREE;
-
-      if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_IN_USE))
+      for (int i = 0; *slot == -1 && i < config->max_connections; i++)
       {
-         if (best_rule == config->connections[i].limit_rule &&
-             !strcmp((const char*)(&config->connections[i].username), username) &&
-             !strcmp((const char*)(&config->connections[i].database), database))
+         free = STATE_FREE;
+
+         if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_IN_USE))
          {
-            *slot = i;
-         }
-         else
-         {
-            atomic_store(&config->states[i], STATE_FREE);
+            if (best_rule == config->connections[i].limit_rule &&
+                !strcmp((const char*)(&config->connections[i].username), username) &&
+                !strcmp((const char*)(&config->connections[i].database), database))
+            {
+               *slot = i;
+            }
+            else
+            {
+               atomic_store(&config->states[i], STATE_FREE);
+            }
          }
       }
    }
@@ -367,6 +372,7 @@ pgagroal_idle_timeout(void* shmem)
    struct configuration* config;
 
    pgagroal_start_logging(shmem);
+   pgagroal_memory_init(shmem);
 
    config = (struct configuration*)shmem;
    now = time(NULL);
@@ -393,6 +399,7 @@ pgagroal_idle_timeout(void* shmem)
    }
    
    pgagroal_pool_status(shmem);
+   pgagroal_memory_destroy();
    pgagroal_stop_logging(shmem);
 
    exit(0);
@@ -406,6 +413,7 @@ pgagroal_validation(void* shmem)
    struct configuration* config;
 
    pgagroal_start_logging(shmem);
+   pgagroal_memory_init(shmem);
 
    config = (struct configuration*)shmem;
    now = time(NULL);
@@ -457,6 +465,7 @@ pgagroal_validation(void* shmem)
    }
 
    pgagroal_pool_status(shmem);
+   pgagroal_memory_destroy();
    pgagroal_stop_logging(shmem);
 
    exit(0);
@@ -470,6 +479,7 @@ pgagroal_flush(void* shmem, int mode)
    struct configuration* config;
 
    pgagroal_start_logging(shmem);
+   pgagroal_memory_init(shmem);
 
    config = (struct configuration*)shmem;
 
@@ -501,6 +511,86 @@ pgagroal_flush(void* shmem, int mode)
    }
    
    pgagroal_pool_status(shmem);
+   pgagroal_memory_destroy();
+   pgagroal_stop_logging(shmem);
+
+   exit(0);
+}
+
+void
+pgagroal_prefill(void* shmem)
+{
+   struct configuration* config;
+
+   pgagroal_start_logging(shmem);
+   pgagroal_memory_init(shmem);
+
+   config = (struct configuration*)shmem;
+
+   ZF_LOGD("pgagroal_prefill");
+
+   for (int i = 0; i < config->number_of_limits; i++)
+   {
+      if (config->limits[i].initial_size > 0)
+      {
+         if (strcmp("all", config->limits[i].database) && strcmp("all", config->limits[i].username))
+         {
+            int user = -1;
+
+            for (int j = 0; j < config->number_of_users && user == -1; j++)
+            {
+               if (!strcmp(config->limits[i].username, config->users[j].username))
+               {
+                  user = j;
+               }
+            }
+
+            if (user != -1)
+            {
+               for (int j = 0; j < config->limits[i].initial_size; j++)
+               {
+                  int32_t slot = -1;
+
+                  if (pgagroal_prefill_auth(config->users[user].username, config->users[user].password,
+                                            config->limits[i].database, shmem, &slot) != AUTH_SUCCESS)
+                  {
+                     ZF_LOGW("Invalid data for user (%s) using limit entry (%d)", config->limits[i].username, i);
+                     break;
+                  }
+
+                  if (slot != -1)
+                  {
+                     if (config->connections[slot].has_security != SECURITY_INVALID)
+                     {
+                        pgagroal_return_connection(shmem, slot);
+                     }
+                     else
+                     {
+                        ZF_LOGW("Unsupported security model during prefill for user (%s) using limit entry (%d)", config->limits[i].username, i);
+                        if (config->connections[slot].fd != -1)
+                        {
+                           pgagroal_write_terminate(config->connections[slot].fd);
+                        }
+                        pgagroal_kill_connection(shmem, slot);
+                        break;
+                     }
+                  }
+               }
+            }
+            else
+            {
+               ZF_LOGW("Unknown user (%s) for limit entry (%d)", config->limits[i].username, i);
+            }
+         }
+         else
+         {
+            ZF_LOGW("Limit entry (%d) with invalid definition", i);
+         }
+      }
+   }
+
+   pgagroal_pool_status(shmem);
+   pgagroal_memory_destroy();
    pgagroal_stop_logging(shmem);
 
    exit(0);

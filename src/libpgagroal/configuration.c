@@ -50,7 +50,7 @@ static int as_logging_level(char* str);
 static int as_validation(char* str);
 static int extract_value(char* str, int offset, char** value);
 static void extract_hba(char* str, char** type, char** database, char** user, char** address, char** method);
-static void extract_limit(char* str, int server_max, char** database, char** user, int* max_connections);
+static void extract_limit(char* str, int server_max, char** database, char** user, int* max_connections, int* initial_size);
 
 /**
  *
@@ -631,6 +631,7 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
    char* database = NULL;
    char* username = NULL;
    int max_connections;
+   int initial_size;
    int total_connections;
    struct configuration* config;
 
@@ -653,13 +654,25 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
          }
          else
          {
-            extract_limit(line, config->max_connections, &database, &username, &max_connections);
+            initial_size = 0;
+
+            extract_limit(line, config->max_connections, &database, &username, &max_connections, &initial_size);
 
             if (database && username && max_connections > 0)
             {
+               if (initial_size > max_connections)
+               {
+                  initial_size = max_connections;
+               }
+               else if (initial_size < 0)
+               {
+                  initial_size = 0;
+               }
+
                memcpy(&(config->limits[index].database), database, strlen(database));
                memcpy(&(config->limits[index].username), username, strlen(username));
                config->limits[index].max_connections = max_connections;
+               config->limits[index].initial_size = initial_size;
                atomic_init(&config->limits[index].active_connections, 0);
 
                index++;
@@ -993,7 +1006,7 @@ extract_hba(char* str, char** type, char** database, char** user, char** address
 }
 
 static void
-extract_limit(char* str, int server_max, char** database, char** user, int* max_connections)
+extract_limit(char* str, int server_max, char** database, char** user, int* max_connections, int* initial_size)
 {
    int offset = 0;
    int length = strlen(str);
@@ -1022,6 +1035,16 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    {
       *max_connections = atoi(value);
    }
+
+   free(value);
+   value = NULL;
+
+   offset = extract_value(str, offset, &value);
+
+   if (offset == -1)
+      return;
+
+   *initial_size = atoi(value);
 
    free(value);
 }

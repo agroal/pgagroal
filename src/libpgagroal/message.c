@@ -536,7 +536,7 @@ pgagroal_create_auth_md5_response(char* md5, struct message** msg)
    struct message* m = NULL;
    size_t size;
 
-   size = 36;
+   size = 1 + 4 + strlen(md5) + 1;
 
    m = (struct message*)malloc(sizeof(struct message));
    m->data = malloc(size);
@@ -549,6 +549,40 @@ pgagroal_create_auth_md5_response(char* md5, struct message** msg)
    pgagroal_write_byte(m->data, 'p');
    pgagroal_write_int32(m->data + 1, size - 1);
    pgagroal_write_string(m->data + 5, md5);
+
+   *msg = m;
+
+   return MESSAGE_STATUS_OK;
+}
+
+int
+pgagroal_create_startup_message(char* username, char* database, struct message** msg)
+{
+   struct message* m = NULL;
+   size_t size;
+   size_t us;
+   size_t ds;
+
+   us = strlen(username);
+   ds = strlen(database);
+   size = 4 + 4 + 4 + 1 + us + 1 + 8 + 1 + ds + 1 + 17 + 9 + 1;
+
+   m = (struct message*)malloc(sizeof(struct message));
+   m->data = malloc(size);
+
+   memset(m->data, 0, size);
+
+   m->kind = 0;
+   m->length = size;
+
+   pgagroal_write_int32(m->data, size);
+   pgagroal_write_int32(m->data + 4, 196608);
+   pgagroal_write_string(m->data + 8, "user");
+   pgagroal_write_string(m->data + 13, username);
+   pgagroal_write_string(m->data + 13 + us + 1, "database");
+   pgagroal_write_string(m->data + 13 + us + 1 + 9, database);
+   pgagroal_write_string(m->data + 13 + us + 1 + 9 + ds + 1, "application_name");
+   pgagroal_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17, "pgagroal");
 
    *msg = m;
 
