@@ -33,6 +33,7 @@ mkdir -p %{buildroot}%{_libdir}
 mkdir -p %{buildroot}%{_docdir}/%{name}/images
 mkdir -p %{buildroot}%{_mandir}/man1
 mkdir -p %{buildroot}%{_mandir}/man5
+mkdir -p %{buildroot}%{_sysconfdir}/pgagroal
 
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}%{_docdir}/%{name}/LICENSE
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}%{_docdir}/%{name}/README.md
@@ -46,8 +47,8 @@ mkdir -p %{buildroot}%{_mandir}/man5
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/images/perf-readonly.png %{buildroot}%{_docdir}/%{name}/images/perf-readonly.png
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/images/perf-simple.png %{buildroot}%{_docdir}/%{name}/images/perf-simple.png
 
-/usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/etc/pgagroal.conf %{buildroot}%{_sysconfdir}/pgagroal.conf
-/usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/etc/pgagroal_hba.conf %{buildroot}%{_sysconfdir}/pgagroal_hba.conf
+/usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/etc/pgagroal.conf %{buildroot}%{_sysconfdir}/pgagroal/pgagroal.conf
+/usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/doc/etc/pgagroal_hba.conf %{buildroot}%{_sysconfdir}/pgagroal/pgagroal_hba.conf
 
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal.1 %{buildroot}%{_mandir}/man1/pgagroal.1
 /usr/bin/install -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal-admin.1 %{buildroot}%{_mandir}/man1/pgagroal-admin.1

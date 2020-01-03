@@ -1,6 +1,6 @@
 # pgagroal configuration
 
-The configuration is loaded from either the path specified by the `-c` flag or `/etc/pgagroal.conf`.
+The configuration is loaded from either the path specified by the `-c` flag or `/etc/pgagroal/pgagroal.conf`.
 
 The configuration of `pgagroal` is split into sections using the `[` and `]` characters.
 
@@ -16,7 +16,7 @@ All properties are in the format `key = value`.
 The characters `#` and `;` can be used for comments; must be the first character on the line.
 The `Bool` data type supports the following values: `on`, `1`, `true`, `off`, `0` and `false`.
 
-See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `localhost`.
+See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal` on `localhost`.
 
 ## [pgagroal]
 
@@ -53,7 +53,7 @@ See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `loc
 
 The `pgagroal_hba` configuration controls access to `pgagroal` through host-based authentication.
 
-The configuration is loaded from either the path specified by the `-a` flag or `/etc/pgagroal_hba.conf`.
+The configuration is loaded from either the path specified by the `-a` flag or `/etc/pgagroal/pgagroal_hba.conf`.
 
 The format follows [PostgreSQL](https://www.postgresql.org), and as such looks like
 
@@ -79,7 +79,7 @@ The `pgagroal_databases` configuration defines limits for a database or a user o
 It also defines the initial pool size for a database and user pair. Note, that this feature requires
 a user definition file, see below.
 
-The configuration is loaded from either the path specified by the `-l` flag or `/etc/pgagroal_databases.conf`.
+The configuration is loaded from either the path specified by the `-l` flag or `/etc/pgagroal/pgagroal_databases.conf`.
 
 ```
 #
@@ -100,4 +100,4 @@ all        all   all
 The `pgagroal_users` configuration defines the users known to the system. This file is created and managed through
 the `pgagroal-admin` tool.
 
-The configuration is loaded from either the path specified by the `-u` flag or `/etc/pgagroal_users.conf`.
+The configuration is loaded from either the path specified by the `-u` flag or `/etc/pgagroal/pgagroal_users.conf`.

@@ -148,10 +148,10 @@ main(int argc, char **argv)
    }
    else
    {
-      ret = pgagroal_read_configuration("/etc/pgagroal.conf", shmem);
+      ret = pgagroal_read_configuration("/etc/pgagroal/pgagroal.conf", shmem);
       if (ret)
       {
-         printf("pgagroal-cli: Configuration not found: /etc/pgagroal.conf\n");
+         printf("pgagroal-cli: Configuration not found: /etc/pgagroal/pgagroal.conf\n");
          exit(1);
       }
    }

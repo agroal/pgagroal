@@ -219,9 +219,9 @@ main(int argc, char **argv)
    }
    else
    {
-      if (pgagroal_read_configuration("/etc/pgagroal.conf", shmem))
+      if (pgagroal_read_configuration("/etc/pgagroal/pgagroal.conf", shmem))
       {
-         printf("pgagroal: Configuration not found: /etc/pgagroal.conf\n");
+         printf("pgagroal: Configuration not found: /etc/pgagroal/pgagroal.conf\n");
          exit(1);
       }
    }
@@ -236,9 +236,9 @@ main(int argc, char **argv)
    }
    else
    {
-      if (pgagroal_read_hba_configuration("/etc/pgagroal_hba.conf", shmem))
+      if (pgagroal_read_hba_configuration("/etc/pgagroal/pgagroal_hba.conf", shmem))
       {
-         printf("pgagroal: HBA configuration not found: /etc/pgagroal_hba.conf\n");
+         printf("pgagroal: HBA configuration not found: /etc/pgagroal/pgagroal_hba.conf\n");
          exit(1);
       }
    }
@@ -253,7 +253,7 @@ main(int argc, char **argv)
    }
    else
    {
-      pgagroal_read_limit_configuration("/etc/pgagroal_databases.conf", shmem);
+      pgagroal_read_limit_configuration("/etc/pgagroal/pgagroal_databases.conf", shmem);
    }
 
    if (users_path != NULL)
@@ -277,7 +277,7 @@ main(int argc, char **argv)
    }
    else
    {
-      pgagroal_read_users_configuration("/etc/pgagroal_users.conf", shmem);
+      pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_users.conf", shmem);
    }
 
    if (pgagroal_validate_configuration(shmem))

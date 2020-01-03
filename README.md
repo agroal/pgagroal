@@ -70,7 +70,7 @@ cd build
 cmake -DCMAKE_INSTALL_PREFIX=/usr/local ..
 make
 sudo make install
-/usr/local/bin/pgagroal -c /usr/local/etc/pgagroal.conf -a /usr/local/etc/pgagroal_hba.conf
+/usr/local/bin/pgagroal -c /usr/local/etc/pgagroal/pgagroal.conf -a /usr/local/etc/pgagroal/pgagroal_hba.conf
 ```
 
 See [RPM](./doc/RPM.md) for how to build a RPM of `pgagroal`.
