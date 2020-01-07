@@ -312,11 +312,6 @@ error:
 
    if (*slot != -1)
    {
-      if (config->connections[*slot].fd != -1)
-      {
-         pgagroal_write_terminate(config->connections[*slot].fd);
-      }
-
       pgagroal_kill_connection(shmem, *slot);
    }
 
