@@ -10,3 +10,6 @@
 - name: pgagroal 0.3.0
   date: 2019-10-08
   announce: release/announcement/2019/10/08/pgagroal-0.3.0.html
+- name: pgagroal 0.4.0
+  date: 2020-01-07
+  announce: release/announcement/2020/01/07/pgagroal-0.4.0.html

@@ -150,7 +150,7 @@ layout: default
           <td>max_connections / 4</td>
           <td>Int</td>
           <td>No</td>
-          <td>The backlog for listen()</td>
+          <td>The backlog for listen(). Minimum 16</td>
         </tr>
       </tbody>
     </table>
@@ -192,6 +192,9 @@ layout: default
         </tr>
       </tbody>
     </table>
+
+    <p/>
+    The configuration is loaded from either the path specified by the -c flag or /etc/pgagroal/pgagroal.conf.
 
     <h3>Example</h3>
 
@@ -249,10 +252,13 @@ port = 5432
         <tr>
           <td>METHOD</td>
           <td>Yes</td>
-          <td>Specifies the authentication mode for the user. all for all methods. Currently ignored</td>
+          <td>Specifies the authentication mode for the user. all for all methods, otherwise trust, reject, password or md5</td>
         </tr>
       </tbody>
     </table>
+
+    <p/>
+    The configuration is loaded from either the path specified by the -a flag or /etc/pgagroal/pgagroal_hba.conf.
 
     <h3>Example</h3>
     
@@ -290,16 +296,31 @@ host    all      all   all      all
           <td>Yes</td>
           <td>Specifies the maximum number of connections for the entry. all for all connections</td>
         </tr>
+        <tr>
+          <td>INITIAL_SIZE</td>
+          <td>No</td>
+          <td>Specifies the initial pool size for a database and user pair, e.g. all isn't supported</td>
+        </tr>
       </tbody>
     </table>
+
+    <p/>
+    The configuration is loaded from either the path specified by the -l flag or /etc/pgagroal/pgagroal_databases.conf.
 
     <h3>Example</h3>
     
     <pre>
 #
-# DATABASE USER MAX_CONNECTIONS
+# DATABASE USER MAX_CONNECTIONS INITIAL_SIZE
 #
 all        all  all
     </pre>
+    
+    <h2>pgagroal_users.conf</h2>
+
+    The pgagroal_users configuration defines the users known to the system. This file is created and managed through
+    the pgagroal-admin tool.
+    <p/>
+    The configuration is loaded from either the path specified by the -u flag or /etc/pgagroal/pgagroal_users.conf.
 
 </div>

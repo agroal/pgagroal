@@ -16,7 +16,7 @@ layout: default
     using "pgagroal -?". You should see
 
     <pre>
-pgagroal 0.3.0
+pgagroal 0.4.0
   High-performance connection pool for PostgreSQL
 
 Usage:
@@ -26,6 +26,7 @@ Options:
   -c, --config CONFIG_FILE      Set the path to the pgagroal.conf file
   -a, --hba HBA_CONFIG_FILE     Set the path to the pgagroal_hba.conf file
   -l, --limit LIMIT_CONFIG_FILE Set the path to the pgagroal_databases.conf file
+  -u, --users USERS_FILE        Set the path to the pgagroal_users.conf file
   -d, --daemon                  Run as a daemon
   -V, --version                 Display version information
   -?, --help                    Display help
@@ -125,14 +126,14 @@ psql -h localhost -p 2345 -U test test
     pgagroal is stopped by pressing Ctrl-C (^C) in the console where you started it, or by sending
     the SIGTERM signal to the process using "kill pid".
 
-    <h3>Administration</h3>
+    <h3>Run-time administration</h3>
 
-    pgagroal has an administration tool called pgagroal-cli.
+    pgagroal has a run-time administration tool called pgagroal-cli.
     <p/>
     You can see the commands it supports by using "pgagroal-cli -?" which will give
 
     <pre>
-pgagroal-cli 0.3.0
+pgagroal-cli 0.4.0
   Command line utility for pgagroal
 
 Usage:
@@ -147,6 +148,7 @@ Commands:
   flush-idle               Flush idle connections
   flush-gracefully         Flush all connections gracefully
   flush-all                Flush all connections. USE WITH CAUTION !
+  isalive                  Is pgagroal alive
   gracefully               Stop pgagroal gracefully
   stop                     Stop pgagroal
   status                   Status of pgagroal
@@ -167,6 +169,58 @@ pgagroal-cli -c pgagroal.conf flush-idle
 pgagroal-cli -c pgagroal.conf stop
     </pre>
 
+    <h3>Administration</h3>
+
+    pgagroal has an administration tool called pgagroal-admin, which is used to control user
+    registration with pgagroal.
+    <p/>
+    You can see the commands it supports by using "pgagroal-admin -?" which will give
+
+    <pre>
+pgagroal-admin 0.4.0
+  Administration utility for pgagroal
+
+Usage:
+  pgagroal-admin [ -u USERS_FILE ] [ COMMAND ]
+
+Options:
+  -u, --users USERS_FILE Set the path to the pgagroal_users.conf file
+  -V, --version          Display version information
+  -?, --help             Display help
+
+Commands:
+  master-key             Create or update the master key
+  add-user               Add a user
+  update-user            Update a user
+  remove-user            Remove a user
+  list-users             List all users
+    </pre>
+
+    In order to set the master key for all users use
+
+    <pre>
+pgagroal-admin master-key
+    </pre>
+
+    The master key must have the following properties
+
+    <ul>
+      <li>At least 8 characters long</li>
+      <li>Use at least 1 upper case letter (A, B, C, ...)</li>
+      <li>Use at least 1 lower case letter (a, b, c, ...)</li>
+      <li>Use at least 1 number  (1, 2, 3, ...)</li>
+      <li>Use at least 1 special character (!, @, #, ...)</li>
+    </ul>
+
+    in order to be considered valid.
+    <p/>
+
+    Then use the other commands to add, update, remove or list the current user names, f.ex.
+
+    <pre>
+pgagroal-admin -u pgagroal_users.conf add-user
+    </pre>
+    
     <h3>Closing</h3>
 
     The <a href="https://github.com/agroal/pgagroal">pgagroal</a> community hopes that you find
