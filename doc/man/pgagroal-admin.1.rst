@@ -21,8 +21,8 @@ pgagroal-admin is an administration utility for pgagroal.
 OPTIONS
 =======
 
--c, --config CONFIG_FILE
-  Set the path to the pgagroal.conf file
+-u, --users USERS_FILE
+  Set the path to the pgagroal_users.conf file
 
 -V, --version
   Display version information

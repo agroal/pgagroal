@@ -170,16 +170,16 @@ Usage:
   pgagroal-admin [ -u USERS_FILE ] [ COMMAND ]
 
 Options:
-  -c, --config CONFIG_FILE Set the path to the pgagroal.conf file
-  -V, --version            Display version information
-  -?, --help               Display help
+  -u, --users USERS_FILE Set the path to the pgagroal_users.conf file
+  -V, --version          Display version information
+  -?, --help             Display help
 
 Commands:
-  master-key               Create or update the master key
-  add-user                 Add a user
-  update-user              Update a user
-  remove-user              Remove a user
-  list-users               List all users
+  master-key             Create or update the master key
+  add-user               Add a user
+  update-user            Update a user
+  remove-user            Remove a user
+  list-users             List all users
 ```
 
 In order to set the master key for all users use
