@@ -38,9 +38,10 @@ extern "C" {
 
 #define WORKER_SUCCESS        0
 #define WORKER_FAILURE        1
-#define WORKER_CLIENT_FAILURE 2
-#define WORKER_SERVER_FAILURE 3
-#define WORKER_SERVER_FATAL   4
+#define WORKER_SHUTDOWN       2
+#define WORKER_CLIENT_FAILURE 3
+#define WORKER_SERVER_FAILURE 4
+#define WORKER_SERVER_FATAL   5
 
 /** @struct
  * The worker structure for each IO event

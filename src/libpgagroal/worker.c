@@ -144,7 +144,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
          p.stop(&client_io);
       }
 
-      if (exit_code == WORKER_SUCCESS || exit_code == WORKER_CLIENT_FAILURE || config->connections[slot].has_security != SECURITY_INVALID)
+      if (exit_code == WORKER_SUCCESS || exit_code == WORKER_CLIENT_FAILURE)
       {
          pgagroal_return_connection(shmem, slot);
       }
@@ -189,7 +189,7 @@ signal_cb(struct ev_loop *loop, ev_signal *w, int revents)
 
    ZF_LOGD("pgagroal: signal for slot %d", si->slot);
 
-   exit_code = WORKER_FAILURE;
+   exit_code = WORKER_SHUTDOWN;
    running = 0;
    ev_break(loop, EVBREAK_ALL);
 }

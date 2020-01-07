@@ -122,17 +122,17 @@ performance_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
 client_error:
    ZF_LOGD("client_fd %d - %s (%d)", wi->client_fd, strerror(errno), status);
 
-   ev_break (loop, EVBREAK_ONE);
    exit_code = WORKER_CLIENT_FAILURE;
    running = 0;
+   ev_break(loop, EVBREAK_ALL);
    return;
 
 server_error:
    ZF_LOGD("server_fd %d - %s (%d)", wi->server_fd, strerror(errno), status);
 
-   ev_break (loop, EVBREAK_ONE);
    exit_code = WORKER_SERVER_FAILURE;
    running = 0;
+   ev_break(loop, EVBREAK_ALL);
    return;
 }
 
@@ -177,22 +177,22 @@ performance_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    /* We don't need to "free" the memory for the message */
    /* pgagroal_free_message(msg); */
 
-   ev_break (loop, EVBREAK_ONE);
+   ev_break(loop, EVBREAK_ONE);
    return;
 
 client_error:
    ZF_LOGD("client_fd %d - %s (%d)", wi->client_fd, strerror(errno), status);
 
-   ev_break (loop, EVBREAK_ONE);
    exit_code = WORKER_CLIENT_FAILURE;
    running = 0;
+   ev_break(loop, EVBREAK_ALL);
    return;
 
 server_error:
    ZF_LOGD("server_fd %d - %s (%d)", wi->server_fd, strerror(errno), status);
 
-   ev_break (loop, EVBREAK_ONE);
    exit_code = WORKER_SERVER_FAILURE;
    running = 0;
+   ev_break(loop, EVBREAK_ALL);
    return;
 }
