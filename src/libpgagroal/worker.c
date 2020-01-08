@@ -144,7 +144,8 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
          p.stop(&client_io);
       }
 
-      if (exit_code == WORKER_SUCCESS || exit_code == WORKER_CLIENT_FAILURE)
+      if (exit_code == WORKER_SUCCESS || exit_code == WORKER_CLIENT_FAILURE ||
+          (exit_code == WORKER_FAILURE && config->connections[slot].has_security != SECURITY_INVALID))
       {
          pgagroal_return_connection(shmem, slot);
       }
@@ -157,8 +158,8 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    ZF_LOGD("client disconnect: %d", client_fd);
    pgagroal_disconnect(client_fd);
 
-   ZF_LOGD("After client: Slot %d (%d)", slot, exit_code);
    pgagroal_pool_status(shmem);
+   ZF_LOGD("After client: PID %d Slot %d (%d)", getpid(), slot, exit_code);
 
    if (loop)
    {
@@ -171,8 +172,6 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    }
 
    free(address);
-
-   ZF_LOGD("exit: %d %d", getpid(), exit_code);
 
    pgagroal_memory_destroy();
    pgagroal_stop_logging(shmem);
