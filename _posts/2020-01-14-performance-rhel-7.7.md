@@ -5,5 +5,5 @@ date:   2020-01-14
 categories: news
 ---
 
-The [performance](https://agroal.github.io/pgagroal/performance.html) has been updated
-for the latest connection pools, as of January 14, 2020.
+The [performance](https://agroal.github.io/pgagroal/performance.html) numbers has been updated
+for the latest connection pools as of January 14, 2020.
