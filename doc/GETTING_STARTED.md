@@ -68,7 +68,7 @@ host    all      all   all      all
 ```
 
 This tells `pgagroal` that it can accept connections from all network addresses
-for all database and all user names.
+for all databases and all user names.
 
 We are now ready to run `pgagroal`.
 
@@ -219,3 +219,6 @@ Feel free to
 * [Write a code submission](https://github.com/agroal/pgagroal/pulls)
 
 All contributions are most welcome !
+
+Consider giving the project a [star](https://github.com/agroal/pgagroal/stargazers) on
+[GitHub](https://github.com/agroal/pgagroal/) if you find it useful.

@@ -2,6 +2,8 @@
 
 `pgagroal` is a high-performance protocol-native connection pool for [PostgreSQL](https://www.postgresql.org).
 
+Pronounced: p-g-a-gro-al, named after [A](https://www.visitportugal.com/en/content/praia-fluvial-do-agroal)[gro](https://www.google.com/maps/place/Agroal,+Portugal/@39.6775431,-8.4486056,14z/)[al](https://www.infatima.pt/en/nearby/sun-sea/fluvial-beaches/agroal/) in Portugal.
+
 ## Features
 
 * High performance
@@ -97,11 +99,15 @@ Remember to set the `log_level` configuration option to `debug5`.
 
 Contributions to `pgagroal` are managed on [GitHub.com](https://github.com/agroal/pgagroal/)
 
-* [Issue](https://github.com/agroal/pgagroal/issues)
+* [Ask a question](https://github.com/agroal/pgagroal/issues)
+* [Raise an issue](https://github.com/agroal/pgagroal/issues)
 * [Feature request](https://github.com/agroal/pgagroal/issues)
 * [Code submission](https://github.com/agroal/pgagroal/pulls)
 
 Contributions are most welcome !
+
+Consider giving the project a [star](https://github.com/agroal/pgagroal/stargazers) on
+[GitHub](https://github.com/agroal/pgagroal/) if you find it useful.
 
 ## License
 
