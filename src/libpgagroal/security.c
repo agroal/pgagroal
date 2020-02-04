@@ -472,6 +472,9 @@ use_pooled_connection(int client_fd, int slot, char* username, int hba_type, voi
 
          if (compare_auth_response(auth_msg, msg, config->connections[slot].has_security))
          {
+            pgagroal_write_bad_password(client_fd, username);
+            pgagroal_write_empty(client_fd);
+
             goto error;
          }
 
