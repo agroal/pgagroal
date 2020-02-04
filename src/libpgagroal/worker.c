@@ -61,6 +61,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    struct worker_io client_io;
    struct worker_io server_io;
    bool started = false;
+   bool auth_ok = false;
    struct configuration* config;
    struct pipeline p;
    int32_t slot = -1;
@@ -76,7 +77,14 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    /* Authentication */
    if (pgagroal_authenticate(client_fd, address, shmem, &slot) == AUTH_SUCCESS)
    {
+      auth_ok = true;
       ZF_LOGD("pgagroal_worker: Slot %d (%d -> %d)", slot, client_fd, config->connections[slot].fd);
+
+      if (config->log_connections)
+      {
+         ZF_LOGI("connect: user=%s database=%s address=%s ", config->connections[slot].username,
+                 config->connections[slot].database, address);
+      }
 
       pgagroal_pool_status(shmem);
 
@@ -133,6 +141,26 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
       while (running)
       {
          ev_loop(loop, 0);
+      }
+   }
+   else
+   {
+      if (config->log_connections)
+      {
+         ZF_LOGI("connect: address=%s ", address);
+      }
+   }
+
+   if (config->log_disconnections)
+   {
+      if (auth_ok)
+      {
+         ZF_LOGI("disconnect: user=%s database=%s address=%s ", config->connections[slot].username,
+                 config->connections[slot].database, address);
+      }
+      else
+      {
+         ZF_LOGI("disconnect: address=%s", address);
       }
    }
 

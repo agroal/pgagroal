@@ -84,6 +84,8 @@ pgagroal_init_configuration(void* shmem, size_t size)
 
    config->log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;
+   config->log_connections = false;
+   config->log_disconnections = false;
 
    config->max_connections = MAX_NUMBER_OF_CONNECTIONS;
 
@@ -307,6 +309,28 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      if (max > MISC_LENGTH - 1)
                         max = MISC_LENGTH - 1;
                      memcpy(config->log_path, value, max);
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "log_connections"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->log_connections = as_bool(value);
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "log_disconnections"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->log_disconnections = as_bool(value);
                   }
                   else
                   {

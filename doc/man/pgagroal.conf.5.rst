@@ -45,6 +45,12 @@ log_level
 log_path
   The log file location. Default is pgagroal.log
 
+log_connections
+  Log connects. Default is off
+
+log_disconnections
+  Log disconnects. Default is off
+
 blocking_timeout
   The number of seconds the process will be blocking for a connection (disable = 0). Default is 30
 

@@ -185,6 +185,8 @@ struct configuration
    int log_type;               /**< The logging type */
    int log_level;              /**< The logging level */
    char log_path[MISC_LENGTH]; /**< The logging path */
+   bool log_connections;       /**< Log successful logins */
+   bool log_disconnections;    /**< Log disconnects */
 
    atomic_ushort active_connections; /**< The active number of connections */
    int max_connections;              /**< The maximum number of connections */
