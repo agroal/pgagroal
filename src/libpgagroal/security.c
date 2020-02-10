@@ -614,6 +614,11 @@ use_unpooled_connection(struct message* msg, int client_fd, int server_fd, int s
          goto error;
       }
 
+      if (hba_type == SECURITY_ALL)
+      {
+         hba_type = auth_type;
+      }
+
       if (hba_type == SECURITY_TRUST)
       {
          /* R/0 */
