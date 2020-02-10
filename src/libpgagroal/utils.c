@@ -365,7 +365,7 @@ pgagroal_get_home_directory()
 }
 
 int
-pgagroal_base64_encode(char* raw, char** encoded)
+pgagroal_base64_encode(char* raw, int raw_length, char** encoded)
 {
    BIO* b64_bio;
    BIO* mem_bio;
@@ -376,7 +376,7 @@ pgagroal_base64_encode(char* raw, char** encoded)
 
    BIO_push(b64_bio, mem_bio);
    BIO_set_flags(b64_bio, BIO_FLAGS_BASE64_NO_NL);
-   BIO_write(b64_bio, raw, strlen(raw));
+   BIO_write(b64_bio, raw, raw_length);
    BIO_flush(b64_bio);
 
    BIO_get_mem_ptr(mem_bio, &mem_bio_mem_ptr);
@@ -393,7 +393,7 @@ pgagroal_base64_encode(char* raw, char** encoded)
 }
 
 int
-pgagroal_base64_decode(char* encoded, char** raw)
+pgagroal_base64_decode(char* encoded, char** raw, int* raw_length)
 {
    BIO* b64_bio;
    BIO* mem_bio;
@@ -423,6 +423,7 @@ pgagroal_base64_decode(char* encoded, char** raw)
    BIO_free_all(b64_bio);
 
    *raw = decoded;
+   *raw_length = index;
 
    return 0;
 }

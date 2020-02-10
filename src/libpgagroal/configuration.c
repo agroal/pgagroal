@@ -731,6 +731,7 @@ pgagroal_read_users_configuration(char* filename, void* shmem)
    char* username = NULL;
    char* password = NULL;
    char* decoded = NULL;
+   int decoded_length = 0;
    char* ptr = NULL;
    struct configuration* config;
 
@@ -765,12 +766,12 @@ pgagroal_read_users_configuration(char* filename, void* shmem)
 
             ptr = strtok(NULL, ":");
 
-            if (pgagroal_base64_decode(ptr, &decoded))
+            if (pgagroal_base64_decode(ptr, &decoded, &decoded_length))
             {
                goto error;
             }
 
-            if (pgagroal_decrypt(decoded, master_key, &password))
+            if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
             {
                goto error;
             }

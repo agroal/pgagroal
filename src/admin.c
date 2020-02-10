@@ -293,7 +293,7 @@ master_key()
       key[strlen(key) - 1] = 0;
    }
 
-   pgagroal_base64_encode(&key[0], &encoded);
+   pgagroal_base64_encode(&key[0], strlen(&key[0]), &encoded);
    fputs(encoded, file);
    free(encoded);
 
@@ -386,6 +386,7 @@ add_user(char* users_path)
    char* master_key = NULL;
    char* ptr = NULL;
    char* encrypted = NULL;
+   int encrypted_length = 0;
    char* encoded = NULL;
    char username[IDENTIFIER_LENGTH];
    char password[IDENTIFIER_LENGTH];
@@ -432,8 +433,8 @@ add_user(char* users_path)
    fgets(&password[0], sizeof(password), stdin);
    password[strlen(password) - 1] = 0;
 
-   pgagroal_encrypt(&password[0], master_key, &encrypted);
-   pgagroal_base64_encode(encrypted, &encoded);
+   pgagroal_encrypt(&password[0], master_key, &encrypted, &encrypted_length);
+   pgagroal_base64_encode(encrypted, encrypted_length, &encoded);
 
    snprintf(line, sizeof(line), "%s:%s\n", username, encoded);
 
@@ -472,6 +473,7 @@ update_user(char* users_path)
    char* master_key = NULL;
    char* ptr = NULL;
    char* encrypted = NULL;
+   int encrypted_length = 0;
    char* encoded = NULL;
    char username[IDENTIFIER_LENGTH];
    char password[IDENTIFIER_LENGTH];
@@ -518,8 +520,8 @@ update_user(char* users_path)
          fgets(&password[0], sizeof(password), stdin);
          password[strlen(password) - 1] = 0;
 
-         pgagroal_encrypt(&password[0], master_key, &encrypted);
-         pgagroal_base64_encode(encrypted, &encoded);
+         pgagroal_encrypt(&password[0], master_key, &encrypted, &encrypted_length);
+         pgagroal_base64_encode(encrypted, encrypted_length, &encoded);
 
          memset(&line, 0, sizeof(line));
          snprintf(line, sizeof(line), "%s:%s\n", username, encoded);

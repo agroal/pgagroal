@@ -73,20 +73,22 @@ pgagroal_get_master_key(char** masterkey);
  * @param plaintext The string
  * @param password The master password
  * @param ciphertext The ciphertext output
+ * @param ciphertext_length The length of the ciphertext
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_encrypt(char* plaintext, char* password, char** ciphertext);
+pgagroal_encrypt(char* plaintext, char* password, char** ciphertext, int* ciphertext_length);
 
 /**
  * Decrypt a string
  * @param ciphertext The string
+ * @param ciphertext_length The length of the ciphertext
  * @param password The master password
  * @param plaintext The plaintext output
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_decrypt(char* ciphertext, char* password, char** plaintext);
+pgagroal_decrypt(char* ciphertext, int ciphertext_length, char* password, char** plaintext);
 
 /**
  * MD5 a string
