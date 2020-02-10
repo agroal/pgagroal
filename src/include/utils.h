@@ -149,20 +149,22 @@ pgagroal_get_home_directory();
 /**
  * BASE64 encode a string
  * @param raw The string
+ * @param raw_length The length of the raw string
  * @param encoded The encoded string
  * @return 0 if success, otherwise 1
  */
 int
-pgagroal_base64_encode(char* raw, char** encoded);
+pgagroal_base64_encode(char* raw, int raw_length, char** encoded);
 
 /**
  * BASE64 decode a string
  * @param encoded The encoded string
  * @param raw The raw string
+ * @param raw_length The length of the raw string
  * @return 0 if success, otherwise 1
  */
 int
-pgagroal_base64_decode(char* encoded, char** raw);
+pgagroal_base64_decode(char* encoded, char** raw, int* raw_length);
 
 #ifdef __cplusplus
 }

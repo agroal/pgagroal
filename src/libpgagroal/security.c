@@ -71,8 +71,8 @@ static char* get_password(char* username, void* shmem);
 static int   get_salt(void* data, char** salt);
 
 static int derive_key_iv(char* password, unsigned char* key, unsigned char* iv);
-static int encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphertext);
-static int decrypt(char* ciphertext, unsigned char* key, unsigned char* iv, char** plaintext);
+static int encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphertext, int* ciphertext_length);
+static int decrypt(char* ciphertext, int ciphertext_length, unsigned char* key, unsigned char* iv, char** plaintext);
 
 int
 pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
@@ -1539,6 +1539,7 @@ pgagroal_get_master_key(char** masterkey)
    char buf[MISC_LENGTH];
    char line[MISC_LENGTH];
    char* mk = NULL;
+   int mk_length = 0;
    struct stat st = {0};
 
    memset(&buf, 0, sizeof(buf));
@@ -1587,7 +1588,7 @@ pgagroal_get_master_key(char** masterkey)
       goto error;
    }
 
-   pgagroal_base64_decode(&line[0], &mk);
+   pgagroal_base64_decode(&line[0], &mk, &mk_length);
 
    *masterkey = mk;
 
@@ -1608,7 +1609,7 @@ error:
 }
 
 int
-pgagroal_encrypt(char* plaintext, char* password, char** ciphertext)
+pgagroal_encrypt(char* plaintext, char* password, char** ciphertext, int* ciphertext_length)
 {
    unsigned char key[EVP_MAX_KEY_LENGTH];
    unsigned char iv[EVP_MAX_IV_LENGTH];
@@ -1621,11 +1622,11 @@ pgagroal_encrypt(char* plaintext, char* password, char** ciphertext)
       return 1;
    }
 
-   return encrypt(plaintext, key, iv, ciphertext);
+   return encrypt(plaintext, key, iv, ciphertext, ciphertext_length);
 }
 
 int
-pgagroal_decrypt(char* ciphertext, char* password, char** plaintext)
+pgagroal_decrypt(char* ciphertext, int ciphertext_length, char* password, char** plaintext)
 {
    unsigned char key[EVP_MAX_KEY_LENGTH];
    unsigned char iv[EVP_MAX_IV_LENGTH];
@@ -1638,7 +1639,7 @@ pgagroal_decrypt(char* ciphertext, char* password, char** plaintext)
       return 1;
    }
 
-   return decrypt(ciphertext, key, iv, plaintext);
+   return decrypt(ciphertext, ciphertext_length, key, iv, plaintext);
 }
 
 int
@@ -1686,12 +1687,13 @@ derive_key_iv(char *password, unsigned char *key, unsigned char *iv)
 }
 
 static int
-encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphertext)
+encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphertext, int* ciphertext_length)
 {
    EVP_CIPHER_CTX *ctx = NULL;
    int length;
    size_t size;
-   char* ct = NULL;
+   unsigned char* ct = NULL;
+   int ct_length;
 
    if (!(ctx = EVP_CIPHER_CTX_new()))
    {
@@ -1708,20 +1710,25 @@ encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphertex
    memset(ct, 0, size);
 
    if (EVP_EncryptUpdate(ctx,
-                         (unsigned char*)ct, &length,
-                         (unsigned char*)plaintext, strlen(plaintext)) != 1)
+                         ct, &length,
+                         (unsigned char*)plaintext, strlen((char*)plaintext)) != 1)
    {
       goto error;
    }
 
-   if (EVP_EncryptFinal_ex(ctx, (unsigned char*)ct + length, &length) != 1)
+   ct_length = length;
+
+   if (EVP_EncryptFinal_ex(ctx, ct + length, &length) != 1)
    {
       goto error;
    }
+
+   ct_length += length;
 
    EVP_CIPHER_CTX_free(ctx);
 
-   *ciphertext = ct;
+   *ciphertext = (char*)ct;
+   *ciphertext_length = ct_length;
 
    return 0;
 
@@ -1737,7 +1744,7 @@ error:
 }
 
 static int
-decrypt(char* ciphertext, unsigned char* key, unsigned char* iv, char** plaintext)
+decrypt(char* ciphertext, int ciphertext_length, unsigned char* key, unsigned char* iv, char** plaintext)
 {
    EVP_CIPHER_CTX *ctx = NULL;
    int plaintext_length;
@@ -1755,13 +1762,13 @@ decrypt(char* ciphertext, unsigned char* key, unsigned char* iv, char** plaintex
       goto error;
    }
 
-   size = strlen(ciphertext) + EVP_CIPHER_block_size(EVP_aes_256_cbc());
+   size = ciphertext_length + EVP_CIPHER_block_size(EVP_aes_256_cbc());
    pt = malloc(size);
    memset(pt, 0, size);
 
    if (EVP_DecryptUpdate(ctx,
                          (unsigned char*)pt, &length,
-                         (unsigned char*)ciphertext, strlen(ciphertext)) != 1)
+                         (unsigned char*)ciphertext, ciphertext_length) != 1)
    {
       goto error;
    }
