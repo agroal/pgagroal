@@ -10,7 +10,7 @@ is handle in [worker.h](../src/include/worker.h) ([worker.c](../src/libpgagroal/
 
 ## Shared memory
 
-A memory segment ([shmem.h](../src/include/shmem.h)) is shared between all processes which contains the `pgagroal`
+A memory segment ([shmem.h](../src/include/shmem.h)) is shared among all processes which contains the `pgagroal`
 state containing the configuration of the pool, the list of servers and the state of each connection.
 
 The configuration of `pgagroal` (`struct configuration`), the configuration of the servers (`struct server`) and
@@ -43,7 +43,7 @@ These state are defined in [pgagroal.h](../src/include/pgagroal.h).
 The `pgagroal` pool API is defined in [pool.h](../src/include/pool.h) ([pool.c](../src/libpgagroal/pool.c)).
 
 This API defines the functionality of the pool such as getting a connection from the pool, and returning it.
-There is no ordering between processes, so a newly created process can obtain a connection before an older process.
+There is no ordering among processes, so a newly created process can obtain a connection before an older process.
 
 The pool operates on the `struct connection` data type defined in [pgagroal.h](../src/include/pgagroal.h).
 
