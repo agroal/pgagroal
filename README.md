@@ -107,7 +107,8 @@ Contributions to `pgagroal` are managed on [GitHub.com](https://github.com/agroa
 Contributions are most welcome !
 
 Consider giving the project a [star](https://github.com/agroal/pgagroal/stargazers) on
-[GitHub](https://github.com/agroal/pgagroal/) if you find it useful.
+[GitHub](https://github.com/agroal/pgagroal/) if you find it useful. And, feel free to follow
+the project on [Twitter](https://twitter.com/pgagroal/) as well.
 
 ## License
 
