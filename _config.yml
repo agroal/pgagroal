@@ -36,3 +36,6 @@ github:
     - text: issues
       url: https://github.com/agroal/pgagroal/issues
       icon: https://agroal.github.io/pgagroal/images/icomoon/154-bug.png
+    - text: @pgagroal
+      url: https://twitter.com/pgagroal
+      icon: https://agroal.github.io/pgagroal/images/icomoon/407-twitter.png
