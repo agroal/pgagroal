@@ -194,6 +194,23 @@ pgagroal_write_string(void* data, char* s)
    memcpy(data, s, strlen(s));
 }
 
+bool
+pgagroal_bigendian()
+{
+   short int word = 0x0001;
+   char *b = (char *)&word;
+   return (b[0] ? false : true);
+}
+
+unsigned int
+pgagroal_swap(unsigned int i)
+{
+   return ((i << 24) & 0xff000000) |
+          ((i << 8)  & 0x00ff0000) |
+          ((i >> 8)  & 0x0000ff00) |
+          ((i >> 24) & 0x000000ff);
+}
+
 void
 pgagroal_libev_engines()
 {
@@ -370,6 +387,7 @@ pgagroal_base64_encode(char* raw, int raw_length, char** encoded)
    BIO* b64_bio;
    BIO* mem_bio;
    BUF_MEM* mem_bio_mem_ptr;
+   char* r = NULL;
 
    b64_bio = BIO_new(BIO_f_base64());
    mem_bio = BIO_new(BIO_s_mem());
@@ -387,7 +405,13 @@ pgagroal_base64_encode(char* raw, int raw_length, char** encoded)
    BUF_MEM_grow(mem_bio_mem_ptr, (*mem_bio_mem_ptr).length + 1);
    (*mem_bio_mem_ptr).data[(*mem_bio_mem_ptr).length] = '\0';
 
-   *encoded = (*mem_bio_mem_ptr).data;
+   r = malloc(strlen((*mem_bio_mem_ptr).data) + 1);
+   memset(r, 0, strlen((*mem_bio_mem_ptr).data) + 1);
+   memcpy(r, (*mem_bio_mem_ptr).data, strlen((*mem_bio_mem_ptr).data));
+
+   BUF_MEM_free(mem_bio_mem_ptr);
+
+   *encoded = r;
 
    return 0;
 }
