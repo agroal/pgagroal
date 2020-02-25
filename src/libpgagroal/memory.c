@@ -99,6 +99,11 @@ pgagroal_memory_free(void)
 {
    size_t length = message->max_length;
 
+#ifdef DEBUG
+   assert(message != NULL);
+   assert(data != NULL);
+#endif
+
    memset(message, 0, sizeof(struct message));
    memset(data, 0, length);
 
@@ -113,4 +118,7 @@ pgagroal_memory_destroy(void)
 {
    free(data);
    free(message);
+
+   data = NULL;
+   message = NULL;
 }
