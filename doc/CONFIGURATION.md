@@ -72,7 +72,7 @@ host    all      all   all      all
 | DATABASE | Yes      | Specifies the database for the rule. Either specific name or `all` for all databases |
 | USER | Yes      | Specifies the user for the rule. Either specific name or `all` for all users |
 | ADDRESS | Yes      | Specifies the network for the rule. `all` for all networks, or IPv4 address with a mask (`0.0.0.0/0`) or IPv6 address with a mask (`::0/0`) |
-| METHOD | Yes      | Specifies the authentication mode for the user. `all` for all methods, otherwise `trust`, `reject`, `password` or `md5` |
+| METHOD | Yes      | Specifies the authentication mode for the user. `all` for all methods, otherwise `trust`, `reject`, `password`, `md5` or `scram-sha-256` |
 
 # pgagroal_databases configuration
 

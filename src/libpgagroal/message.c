@@ -556,6 +556,159 @@ pgagroal_create_auth_md5_response(char* md5, struct message** msg)
 }
 
 int
+pgagroal_write_auth_scram256(int socket)
+{
+   char scram[24];
+   struct message msg;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&scram, 0, sizeof(scram));
+
+   scram[0] = 'R';
+   pgagroal_write_int32(&(scram[1]), 23);
+   pgagroal_write_int32(&(scram[5]), 10);
+   pgagroal_write_string(&(scram[9]), "SCRAM-SHA-256");
+
+   msg.kind = 'R';
+   msg.length = 24;
+   msg.data = &scram;
+
+   return write_message(socket, true, &msg);
+}
+
+int
+pgagroal_create_auth_scram256_response(char* nounce, struct message** msg)
+{
+   struct message* m = NULL;
+   size_t size;
+
+   size = 1 + 4 + 13 + 4 + 9 + strlen(nounce);
+
+   m = (struct message*)malloc(sizeof(struct message));
+   m->data = malloc(size);
+
+   memset(m->data, 0, size);
+
+   m->kind = 'p';
+   m->length = size;
+
+   pgagroal_write_byte(m->data, 'p');
+   pgagroal_write_int32(m->data + 1, size - 1);
+   pgagroal_write_string(m->data + 5, "SCRAM-SHA-256");
+   pgagroal_write_string(m->data + 22, " n,,n=,r=");
+   pgagroal_write_string(m->data + 31, nounce);
+
+   *msg = m;
+
+   return MESSAGE_STATUS_OK;
+}
+
+int
+pgagroal_create_auth_scram256_continue(char* cn, char* sn, char* salt, struct message** msg)
+{
+   struct message* m = NULL;
+   size_t size;
+
+   size = 1 + 4 + 4 + 2 + strlen(cn) + strlen(sn) + 3 + strlen(salt) + 7;
+
+   m = (struct message*)malloc(sizeof(struct message));
+   m->data = malloc(size);
+
+   memset(m->data, 0, size);
+
+   m->kind = 'R';
+   m->length = size;
+
+   pgagroal_write_byte(m->data, 'R');
+   pgagroal_write_int32(m->data + 1, size - 1);
+   pgagroal_write_int32(m->data + 5, 11);
+   pgagroal_write_string(m->data + 9, "r=");
+   pgagroal_write_string(m->data + 11, cn);
+   pgagroal_write_string(m->data + 11 + strlen(cn), sn);
+   pgagroal_write_string(m->data + 11 + strlen(cn) + strlen(sn), ",s=");
+   pgagroal_write_string(m->data + 11 + strlen(cn) + strlen(sn) + 3, salt);
+   pgagroal_write_string(m->data + 11 + strlen(cn) + strlen(sn) + 3 + strlen(salt), ",i=4096");
+
+   *msg = m;
+
+   return MESSAGE_STATUS_OK;
+}
+
+int
+pgagroal_create_auth_scram256_continue_response(char* wp, char* p, struct message** msg)
+{
+   struct message* m = NULL;
+   size_t size;
+
+   size = 1 + 4 + strlen(wp) + 3 + strlen(p);
+
+   m = (struct message*)malloc(sizeof(struct message));
+   m->data = malloc(size);
+
+   memset(m->data, 0, size);
+
+   m->kind = 'p';
+   m->length = size;
+
+   pgagroal_write_byte(m->data, 'p');
+   pgagroal_write_int32(m->data + 1, size - 1);
+   pgagroal_write_string(m->data + 5, wp);
+   pgagroal_write_string(m->data + 5 + strlen(wp), ",p=");
+   pgagroal_write_string(m->data + 5 + strlen(wp) + 3, p);
+
+   *msg = m;
+
+   return MESSAGE_STATUS_OK;
+}
+
+int
+pgagroal_create_auth_scram256_final(char* ss, struct message** msg)
+{
+   struct message* m = NULL;
+   size_t size;
+
+   size = 1 + 4 + 4 + 2 + strlen(ss);
+
+   m = (struct message*)malloc(sizeof(struct message));
+   m->data = malloc(size);
+
+   memset(m->data, 0, size);
+
+   m->kind = 'R';
+   m->length = size;
+
+   pgagroal_write_byte(m->data, 'R');
+   pgagroal_write_int32(m->data + 1, size - 1);
+   pgagroal_write_int32(m->data + 5, 12);
+   pgagroal_write_string(m->data + 9, "v=");
+   pgagroal_write_string(m->data + 11, ss);
+
+   *msg = m;
+
+   return MESSAGE_STATUS_OK;
+}
+
+int
+pgagroal_write_auth_success(int socket)
+{
+   char success[9];
+   struct message msg;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&success, 0, sizeof(success));
+
+   success[0] = 'R';
+   pgagroal_write_int32(&(success[1]), 8);
+   pgagroal_write_int32(&(success[5]), 0);
+
+   msg.kind = 'R';
+   msg.length = 9;
+   msg.data = &success;
+
+   return write_message(socket, true, &msg);
+}
+
+int
 pgagroal_create_startup_message(char* username, char* database, struct message** msg)
 {
    struct message* m = NULL;
@@ -645,6 +798,8 @@ read_message(int socket, bool block, int timeout, struct message** msg)
       tv.tv_sec = timeout;
       tv.tv_usec = 0;
       setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+
+      pgagroal_memory_free();
    }
 
    do
@@ -711,6 +866,8 @@ read_message(int socket, bool block, int timeout, struct message** msg)
       tv.tv_sec = 0;
       tv.tv_usec = 0;
       setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+
+      pgagroal_memory_free();
    }
 
    return MESSAGE_STATUS_ERROR;

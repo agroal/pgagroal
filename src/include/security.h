@@ -99,6 +99,15 @@ pgagroal_decrypt(char* ciphertext, int ciphertext_length, char* password, char**
 int
 pgagroal_md5(char* str, int length, char** md5);
 
+/**
+ * Is the user known to the system
+ * @param user The user name
+ * @param shmem The shared memory segment
+ * @return True if known, otherwise false
+ */
+bool
+pgagroal_user_known(char* user, void* shmem);
+
 #ifdef __cplusplus
 }
 #endif

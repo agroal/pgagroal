@@ -251,6 +251,61 @@ int
 pgagroal_create_auth_md5_response(char* md5, struct message** msg);
 
 /**
+ * Write an auth SCRAM-SHA-256 message
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_write_auth_scram256(int socket);
+
+/**
+ * Create an auth SCRAM-SHA-256 response message
+ * @param nounce The nounce
+ * @param msg The resulting message
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_create_auth_scram256_response(char* nounce, struct message** msg);
+
+/**
+ * Create an auth SCRAM-SHA-256/Continue message
+ * @param cn The client nounce
+ * @param sn The server nounce
+ * @param salt The salt
+ * @param msg The resulting message
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_create_auth_scram256_continue(char* cn, char* sn, char* salt, struct message** msg);
+
+/**
+ * Create an auth SCRAM-SHA-256/Continue response message
+ * @param wp The without proff
+ * @param p The proff
+ * @param msg The resulting message
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_create_auth_scram256_continue_response(char* wp, char* p, struct message** msg);
+
+/**
+ * Create an auth SCRAM-SHA-256/Final message
+ * @param ss The server signature (BASE64)
+ * @param msg The resulting message
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_create_auth_scram256_final(char* ss, struct message** msg);
+
+/**
+ * Write an auth success message
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_write_auth_success(int socket);
+
+/**
  * Create a startup message
  * @param username The user name
  * @param database The database

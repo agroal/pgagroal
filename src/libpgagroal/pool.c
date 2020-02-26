@@ -277,8 +277,11 @@ pgagroal_return_connection(void* shmem, int slot)
       config->connections[slot].has_security = SECURITY_INVALID;
    }
 
-   /* We can't cache SCRAM-SHA-256 connections atm */
-   if (config->connections[slot].has_security != SECURITY_INVALID && config->connections[slot].has_security != SECURITY_SCRAM256)
+   /* Can we cache this connection ? */
+   if (config->connections[slot].has_security != SECURITY_INVALID &&
+       (config->connections[slot].has_security != SECURITY_SCRAM256 ||
+        (config->connections[slot].has_security == SECURITY_SCRAM256 &&
+         pgagroal_user_known(config->connections[slot].username, shmem))))
    {
       state = atomic_load(&config->states[slot]);
 

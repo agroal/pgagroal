@@ -370,6 +370,12 @@ is_valid_key(char* key)
 
    while ((c = *(key + index)) != 0)
    {
+      /* Only support ASCII for now */
+      if ((unsigned char)c & 0x80)
+      {
+         return false;
+      }
+
       if (isalpha(c))
       {
          if (islower(c))
@@ -464,12 +470,21 @@ add_user(char* users_path, char* username, char* password)
    /* Password */
    if (password == NULL)
    {
+password:
       printf("Password : ");
 
       memset(&pwd, 0, sizeof(pwd));
       fgets(&pwd[0], sizeof(pwd), stdin);
       pwd[strlen(pwd) - 1] = 0;
       password = &pwd[0];
+   }
+
+   for (int i = 0; i < strlen(password); i++)
+   {
+      if ((unsigned char)(*(password + i)) & 0x80)
+      {
+         goto password;
+      }
    }
 
    pgagroal_encrypt(password, master_key, &encrypted, &encrypted_length);
@@ -559,12 +574,21 @@ update_user(char* users_path, char* username, char* password)
          /* Password */
          if (password == NULL)
          {
+password:
             printf("Password : ");
 
             memset(&pwd, 0, sizeof(pwd));
             fgets(&pwd[0], sizeof(pwd), stdin);
             pwd[strlen(pwd) - 1] = 0;
             password = &pwd[0];
+         }
+
+         for (int i = 0; i < strlen(password); i++)
+         {
+            if ((unsigned char)(*(password + i)) & 0x80)
+            {
+               goto password;
+            }
          }
 
          pgagroal_encrypt(password, master_key, &encrypted, &encrypted_length);
