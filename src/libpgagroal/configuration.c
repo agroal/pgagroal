@@ -88,6 +88,7 @@ pgagroal_init_configuration(void* shmem, size_t size)
    config->log_disconnections = false;
 
    config->max_connections = MAX_NUMBER_OF_CONNECTIONS;
+   config->allow_unknown_users = true;
 
    return 0;
 }
@@ -273,6 +274,17 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   if (!strcmp(section, "pgagroal"))
                   {
                      config->max_retries = as_int(value);
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "allow_unknown_users"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->allow_unknown_users = as_bool(value);
                   }
                   else
                   {

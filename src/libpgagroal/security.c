@@ -632,10 +632,20 @@ use_unpooled_connection(struct message* msg, int client_fd, int server_fd, int s
 
    password = get_password(username, shmem);
 
-   if (password == NULL || auth_type == hba_type)
+   if (password == NULL)
    {
-      if (server_passthrough(msg, auth_type, client_fd, server_fd, slot, shmem))
+      if (config->allow_unknown_users)
       {
+         if (server_passthrough(msg, auth_type, client_fd, server_fd, slot, shmem))
+         {
+            goto error;
+         }
+      }
+      else
+      {
+         ZF_LOGD("reject: %s", username);
+         pgagroal_write_connection_refused(client_fd);
+         pgagroal_write_empty(client_fd);
          goto error;
       }
    }

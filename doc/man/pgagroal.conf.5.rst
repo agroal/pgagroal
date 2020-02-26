@@ -69,6 +69,9 @@ max_retries
 max_connections
   The maximum number of connections (max 1000). Default is 1000
 
+allow_unknown_users
+  Allow unknown users to connect. Default is true
+
 libev
   The libev backend to use. Valid options: auto, select, poll, epoll, linuxaio, iouring, devpoll and port. Default is auto
 

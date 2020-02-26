@@ -190,6 +190,7 @@ struct configuration
 
    atomic_ushort active_connections; /**< The active number of connections */
    int max_connections;              /**< The maximum number of connections */
+   bool allow_unknown_users;         /**< Allow unknown users */
 
    int blocking_timeout;    /**< The blocking timeout in seconds */
    int idle_timeout;        /**< The idle timeout in seconds */

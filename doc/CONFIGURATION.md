@@ -36,6 +36,7 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | background_interval | 300 | Int | No | The interval between background validation scans in seconds |
 | max_retries | 5 | Int | No | The maximum number of iterations to obtain a connection |
 | max_connections | 1000 | Int | No | The maximum number of connections (max 1000) |
+| allow_unknown_users | `true` | Bool | No | Allow unknown users to connect |
 | libev | `auto` | String | No | Select the [libev](http://software.schmorp.de/pkg/libev.html) backend to use. Valid options: `auto`, `select`, `poll`, `epoll`, `linuxaio`, `iouring`, `devpoll` and `port` |
 | buffer_size | 65535 | Int | No | The network buffer size (`SO_RCVBUF` and `SO_SNDBUF`) |
 | keep_alive | on | Bool | No | Have `SO_KEEPALIVE` on sockets |
