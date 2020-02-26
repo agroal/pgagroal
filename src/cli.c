@@ -79,7 +79,7 @@ usage()
    printf("  flush-idle               Flush idle connections\n");
    printf("  flush-gracefully         Flush all connections gracefully\n");
    printf("  flush-all                Flush all connections. USE WITH CAUTION !\n");
-   printf("  isalive                  Is pgagroal alive\n");
+   printf("  is-alive                 Is pgagroal alive\n");
    printf("  gracefully               Stop pgagroal gracefully\n");
    printf("  stop                     Stop pgagroal\n");
    printf("  status                   Status of pgagroal\n");
@@ -192,7 +192,7 @@ main(int argc, char **argv)
       {
          action = ACTION_DETAILS;
       }
-      else if (!strcmp("isalive", argv[argc - 1]))
+      else if (!strcmp("is-alive", argv[argc - 1]))
       {
          action = ACTION_ISALIVE;
       }

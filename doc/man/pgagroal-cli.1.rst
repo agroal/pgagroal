@@ -42,7 +42,7 @@ flush-gracefully
 flush-all
   Flush all connections. USE WITH CAUTION !
 
-isalive
+is-alive
   Is pgagroal alive
 
 gracefully
