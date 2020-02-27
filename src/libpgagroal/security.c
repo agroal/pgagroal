@@ -459,10 +459,16 @@ use_pooled_connection(int client_fd, int slot, char* username, int hba_type, voi
 
    config = (struct configuration*)shmem;
 
-   if (config->connections[slot].has_security == hba_type || hba_type == SECURITY_ALL)
-   {
-      /* pgagroal and PostgreSQL has the same access method */
+   password = get_password(username, shmem);
 
+   if (hba_type == SECURITY_ALL)
+   {
+      hba_type = config->connections[slot].has_security;
+   }
+
+   if (password == NULL)
+   {
+      /* We can only deal with SECURITY_TRUST, SECURITY_PASSWORD and SECURITY_MD5 */
       pgagroal_create_message(&config->connections[slot].security_messages[0],
                               config->connections[slot].security_lengths[0],
                               &auth_msg);
@@ -514,7 +520,7 @@ use_pooled_connection(int client_fd, int slot, char* username, int hba_type, voi
    }
    else
    {
-      /* pgagroal and PostgreSQL has different access methods, so switch */
+      /* We have a password */
 
       if (hba_type == SECURITY_TRUST)
       {
@@ -653,8 +659,11 @@ use_unpooled_connection(struct message* msg, int client_fd, int server_fd, int s
    {
       if (server_authenticate(msg, auth_type, username, password, server_fd, slot, shmem))
       {
-         pgagroal_write_connection_refused(client_fd);
-         pgagroal_write_empty(client_fd);
+         if (pgagroal_socket_isvalid(client_fd))
+         {
+            pgagroal_write_connection_refused(client_fd);
+            pgagroal_write_empty(client_fd);
+         }
 
          goto error;
       }
@@ -691,9 +700,14 @@ use_unpooled_connection(struct message* msg, int client_fd, int server_fd, int s
       else if (hba_type == SECURITY_SCRAM256)
       {
          /* R/10 */
-         if (client_scram256(client_fd, username, password, slot, shmem))
+         status = client_scram256(client_fd, username, password, slot, shmem);
+         if (status == 1)
          {
             goto bad_password;
+         }
+         else if (status == 2)
+         {
+            goto error;
          }
       }
       else
@@ -719,8 +733,14 @@ use_unpooled_connection(struct message* msg, int client_fd, int server_fd, int s
 
 bad_password:
 
-   pgagroal_write_bad_password(client_fd, username);
-   pgagroal_write_empty(client_fd);
+   if (pgagroal_socket_isvalid(client_fd))
+   {
+      pgagroal_write_bad_password(client_fd, username);
+      if (hba_type == SECURITY_SCRAM256)
+      {
+         pgagroal_write_empty(client_fd);
+      }
+   }
 
 error:
 
@@ -772,25 +792,28 @@ client_password(int client_fd, char* username, char* password, int slot, void* s
    }
    else
    {
-      timeout = 10;
+      timeout = 5;
    }
 
    pgagroal_socket_nonblocking(client_fd, true);
 
    /* psql may just close the connection without word, so loop */
 retry:
-   status = pgagroal_read_timeout_message(client_fd, 10, &msg);
+   status = pgagroal_read_timeout_message(client_fd, 1, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       if (difftime(time(NULL), start_time) < timeout)
       {
-         /* Sleep for 100ms */
-         struct timespec ts;
-         ts.tv_sec = 0;
-         ts.tv_nsec = 100000000L;
-         nanosleep(&ts, NULL);
+         if (pgagroal_socket_isvalid(client_fd))
+         {
+            /* Sleep for 100ms */
+            struct timespec ts;
+            ts.tv_sec = 0;
+            ts.tv_nsec = 100000000L;
+            nanosleep(&ts, NULL);
 
-         goto retry;
+            goto retry;
+         }
       }
    }
 
@@ -804,7 +827,6 @@ retry:
    if (strcmp(pgagroal_read_string(msg->data + 5), password))
    {
       pgagroal_write_bad_password(client_fd, username);
-      pgagroal_write_empty(client_fd);
 
       goto error;
    }
@@ -862,25 +884,28 @@ client_md5(int client_fd, char* username, char* password, int slot, void* shmem)
    }
    else
    {
-      timeout = 10;
+      timeout = 5;
    }
 
    pgagroal_socket_nonblocking(client_fd, true);
 
    /* psql may just close the connection without word, so loop */
 retry:
-   status = pgagroal_read_timeout_message(client_fd, 10, &msg);
+   status = pgagroal_read_timeout_message(client_fd, 1, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       if (difftime(time(NULL), start_time) < timeout)
       {
-         /* Sleep for 100ms */
-         struct timespec ts;
-         ts.tv_sec = 0;
-         ts.tv_nsec = 100000000L;
-         nanosleep(&ts, NULL);
+         if (pgagroal_socket_isvalid(client_fd))
+         {
+            /* Sleep for 100ms */
+            struct timespec ts;
+            ts.tv_sec = 0;
+            ts.tv_nsec = 100000000L;
+            nanosleep(&ts, NULL);
 
-         goto retry;
+            goto retry;
+         }
       }
    }
 
@@ -915,7 +940,6 @@ retry:
    if (strcmp(pgagroal_read_string(msg->data + 8), md5))
    {
       pgagroal_write_bad_password(client_fd, username);
-      pgagroal_write_empty(client_fd);
 
       goto error;
    }
@@ -993,25 +1017,28 @@ client_scram256(int client_fd, char* username, char* password, int slot, void* s
    }
    else
    {
-      timeout = 10;
+      timeout = 5;
    }
 
    pgagroal_socket_nonblocking(client_fd, true);
 
    /* psql may just close the connection without word, so loop */
 retry:
-   status = pgagroal_read_timeout_message(client_fd, 10, &msg);
+   status = pgagroal_read_timeout_message(client_fd, 1, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       if (difftime(time(NULL), start_time) < timeout)
       {
-         /* Sleep for 100ms */
-         struct timespec ts;
-         ts.tv_sec = 0;
-         ts.tv_nsec = 100000000L;
-         nanosleep(&ts, NULL);
+         if (pgagroal_socket_isvalid(client_fd))
+         {
+            /* Sleep for 100ms */
+            struct timespec ts;
+            ts.tv_sec = 0;
+            ts.tv_nsec = 100000000L;
+            nanosleep(&ts, NULL);
 
-         goto retry;
+            goto retry;
+         }
       }
    }
 
@@ -1072,7 +1099,7 @@ retry:
    if (client_proof_received_length != client_proof_calc_length ||
        memcmp(client_proof_received, client_proof_calc, client_proof_calc_length) != 0)
    {
-      goto error;
+      goto bad_password;
    }
 
    if (server_signature(password_prep, salt, salt_length, 4096,
@@ -1139,6 +1166,27 @@ retry:
 
    return 0;
 
+bad_password:
+   free(password_prep);
+   free(client_first_message_bare);
+   free(server_first_message);
+   free(client_final_message_without_proof);
+   free(client_nounce);
+   free(server_nounce);
+   free(salt);
+   free(base64_salt);
+   free(base64_client_proof);
+   free(client_proof_received);
+   free(client_proof_calc);
+   free(server_signature_calc);
+   free(base64_server_signature_calc);
+   free(s_data);
+
+   pgagroal_free_copy_message(sasl_continue);
+   pgagroal_free_copy_message(sasl_final);
+
+   return 1;
+
 error:
 
    free(password_prep);
@@ -1159,7 +1207,7 @@ error:
    pgagroal_free_copy_message(sasl_continue);
    pgagroal_free_copy_message(sasl_final);
 
-   return 1;
+   return 2;
 }
 
 static int
