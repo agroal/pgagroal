@@ -45,13 +45,14 @@
 #include <string.h>
 #include <sys/mman.h>
 
-#define ACTION_UNKNOWN    0
-#define ACTION_FLUSH      1
-#define ACTION_GRACEFULLY 2
-#define ACTION_STOP       3
-#define ACTION_STATUS     4
-#define ACTION_DETAILS    5
-#define ACTION_ISALIVE    6
+#define ACTION_UNKNOWN        0
+#define ACTION_FLUSH          1
+#define ACTION_GRACEFULLY     2
+#define ACTION_STOP           3
+#define ACTION_STATUS         4
+#define ACTION_DETAILS        5
+#define ACTION_ISALIVE        6
+#define ACTION_CANCELSHUTDOWN 7
 
 static void
 version()
@@ -82,6 +83,7 @@ usage()
    printf("  is-alive                 Is pgagroal alive\n");
    printf("  gracefully               Stop pgagroal gracefully\n");
    printf("  stop                     Stop pgagroal\n");
+   printf("  cancel-shutdown          Cancel the graceful shutdown\n");
    printf("  status                   Status of pgagroal\n");
    printf("  details                  Detailed status of pgagroal\n");
    printf("\n");
@@ -196,6 +198,10 @@ main(int argc, char **argv)
       {
          action = ACTION_ISALIVE;
       }
+      else if (!strcmp("cancel-shutdown", argv[argc - 1]))
+      {
+         action = ACTION_CANCELSHUTDOWN;
+      }
 
       if (action == ACTION_FLUSH)
       {
@@ -214,6 +220,13 @@ main(int argc, char **argv)
       else if (action == ACTION_STOP)
       {
          if (pgagroal_management_stop(shmem))
+         {
+            exit_code = 1;
+         }
+      }
+      else if (action == ACTION_CANCELSHUTDOWN)
+      {
+         if (pgagroal_management_cancel_shutdown(shmem))
          {
             exit_code = 1;
          }

@@ -155,6 +155,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload)
       case MANAGEMENT_KILL_CONNECTION:
       case MANAGEMENT_GRACEFULLY:
       case MANAGEMENT_STOP:
+      case MANAGEMENT_CANCEL_SHUTDOWN:
       case MANAGEMENT_STATUS:
       case MANAGEMENT_DETAILS:
          *payload = -1;
@@ -346,6 +347,30 @@ pgagroal_management_stop(void* shmem)
    if (w == -1)
    {
       ZF_LOGW("pgagroal_management_stop: write: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   pgagroal_disconnect(fd);
+
+   return 0;
+
+error:
+   pgagroal_disconnect(fd);
+
+   return 1;
+}
+
+int
+pgagroal_management_cancel_shutdown(void* shmem)
+{
+   ssize_t w;
+   int fd;
+
+   w = write_header(shmem, MANAGEMENT_CANCEL_SHUTDOWN, -1, &fd);
+   if (w == -1)
+   {
+      ZF_LOGW("pgagroal_management_cancel_shutdown: write: %d", fd);
       errno = 0;
       goto error;
    }

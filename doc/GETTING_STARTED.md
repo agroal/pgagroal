@@ -137,6 +137,7 @@ Commands:
   is-alive                 Is pgagroal alive
   gracefully               Stop pgagroal gracefully
   stop                     Stop pgagroal
+  cancel-shutdown          Cancel the graceful shutdown
   status                   Status of pgagroal
   details                  Detailed status of pgagroal
 ```

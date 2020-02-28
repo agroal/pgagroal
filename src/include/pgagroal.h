@@ -181,6 +181,7 @@ struct configuration
 {
    char host[MISC_LENGTH]; /**< The host */
    int port;               /**< The port */
+   bool gracefully;        /**< Is pgagroal in gracefully mode */
 
    int log_type;               /**< The logging type */
    int log_level;              /**< The logging level */

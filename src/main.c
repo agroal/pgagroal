@@ -80,7 +80,6 @@ struct periodic_info
 };
 
 static volatile int keep_running = 1;
-static bool gracefully = false;
 static struct accept_io io_main[MAX_FDS];
 static int length;
 
@@ -441,11 +440,7 @@ main(int argc, char **argv)
    ZF_LOGI("pgagroal: shutdown");
    pgagroal_pool_shutdown(shmem);
    ev_io_stop(loop, (struct ev_io*)&io_mgt);
-
-   if (!gracefully)
-   {
-      shutdown_io(loop);
-   }
+   shutdown_io(loop);
 
    for (int i = 0; i < 6; i++)
    {
@@ -572,8 +567,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       case MANAGEMENT_GRACEFULLY:
          ZF_LOGD("pgagroal: Management gracefully");
          pgagroal_pool_status(ai->shmem);
-         gracefully = true;
-         shutdown_io(loop);
+         config->gracefully = true;
          break;
       case MANAGEMENT_STOP:
          ZF_LOGD("pgagroal: Management stop");
@@ -581,27 +575,32 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          ev_break(loop, EVBREAK_ALL);
          keep_running = 0;
          break;
+      case MANAGEMENT_CANCEL_SHUTDOWN:
+         ZF_LOGD("pgagroal: Management cancel shutdown");
+         pgagroal_pool_status(ai->shmem);
+         config->gracefully = false;
+         break;
       case MANAGEMENT_STATUS:
          ZF_LOGD("pgagroal: Management status");
          pgagroal_pool_status(ai->shmem);
-         pgagroal_management_write_status(gracefully, ai->shmem, client_fd);
+         pgagroal_management_write_status(config->gracefully, ai->shmem, client_fd);
          break;
       case MANAGEMENT_DETAILS:
          ZF_LOGD("pgagroal: Management details");
          pgagroal_pool_status(ai->shmem);
-         pgagroal_management_write_status(gracefully, ai->shmem, client_fd);
+         pgagroal_management_write_status(config->gracefully, ai->shmem, client_fd);
          pgagroal_management_write_details(ai->shmem, client_fd);
          break;
       case MANAGEMENT_ISALIVE:
          ZF_LOGD("pgagroal: Management isalive");
-         pgagroal_management_write_isalive(ai->shmem, gracefully, client_fd);
+         pgagroal_management_write_isalive(ai->shmem, config->gracefully, client_fd);
          break;
       default:
          ZF_LOGD("pgagroal: Unknown management id: %d", id);
          break;
    }
 
-   if (keep_running && gracefully)
+   if (keep_running && config->gracefully)
    {
       if (atomic_load(&config->active_connections) == 0)
       {
@@ -640,8 +639,7 @@ graceful_cb(struct ev_loop *loop, ev_signal *w, int revents)
    ZF_LOGD("pgagroal: gracefully requested");
 
    pgagroal_pool_status(si->shmem);
-   gracefully = true;
-   shutdown_io(loop);
+   config->gracefully = true;
 
    if (atomic_load(&config->active_connections) == 0)
    {

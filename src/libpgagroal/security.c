@@ -182,6 +182,15 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
          goto error;
       }
 
+      /* Gracefully scenario */
+      if (config->gracefully)
+      {
+         ZF_LOGD("authenticate: gracefully: %s / %s / %s", username, database, address);
+         pgagroal_write_connection_refused(client_fd);
+         pgagroal_write_empty(client_fd);
+         goto error;
+      }
+
       /* Get connection */
       ret = pgagroal_get_connection(shmem, username, database, true, slot);
       if (ret != 0)

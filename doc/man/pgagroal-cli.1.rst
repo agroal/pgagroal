@@ -51,6 +51,9 @@ gracefully
 stop
   Stop pgagroal
 
+cancel-shutdown
+  Cancel the graceful shutdown
+
 status
   Status of pgagroal
 

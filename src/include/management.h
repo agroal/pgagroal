@@ -47,6 +47,7 @@ extern "C" {
 #define MANAGEMENT_STATUS              7
 #define MANAGEMENT_DETAILS             8
 #define MANAGEMENT_ISALIVE             9
+#define MANAGEMENT_CANCEL_SHUTDOWN    10
 
 /**
  * Read the management header
@@ -119,6 +120,14 @@ pgagroal_management_gracefully(void* shmem);
  */
 int
 pgagroal_management_stop(void* shmem);
+
+/**
+ * Management operation: Cancel shutdown
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_cancel_shutdown(void* shmem);
 
 /**
  * Management operation: Status

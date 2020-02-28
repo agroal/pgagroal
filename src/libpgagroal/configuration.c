@@ -70,6 +70,8 @@ pgagroal_init_configuration(void* shmem, size_t size)
       config->servers[i].primary = SERVER_NOTINIT;
    }
 
+   config->gracefully = false;
+
    config->blocking_timeout = 30;
    config->idle_timeout = 0;
    config->validation = VALIDATION_OFF;
