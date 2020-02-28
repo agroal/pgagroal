@@ -79,11 +79,12 @@ error:
 }
 
 int
-pgagroal_management_read_payload(int socket, signed char id, int* payload)
+pgagroal_management_read_payload(int socket, signed char id, int* payload_i, char** payload_s)
 {
    int newfd, nr, status;
    ssize_t r;
    char *ptr;
+   char* s = NULL;
    char buf2[2];
    char buf4[4];
    struct cmsghdr *cmptr = NULL;
@@ -139,7 +140,8 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload)
             }
          }
 
-         *payload = newfd;
+         *payload_i = newfd;
+         *payload_s = NULL;
 
          free(cmptr);
          break;
@@ -149,7 +151,26 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload)
          {
             goto error;
          }
-         *payload = pgagroal_read_int32(&buf4);
+         *payload_i = pgagroal_read_int32(&buf4);
+         *payload_s = NULL;
+         break;
+      case MANAGEMENT_ENABLEDB:
+      case MANAGEMENT_DISABLEDB:
+         r = read(socket, &buf4, 4 * sizeof(char));
+         if (r == -1)
+         {
+            goto error;
+         }
+         *payload_i = pgagroal_read_int32(&buf4);
+
+         s = malloc(*payload_i + 1);
+         memset(s, 0, *payload_i + 1);
+         r = read(socket, s, *payload_i);
+         if (r == -1)
+         {
+            goto error;
+         }
+         *payload_s = s;
          break;
       case MANAGEMENT_RETURN_CONNECTION:
       case MANAGEMENT_KILL_CONNECTION:
@@ -158,7 +179,8 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload)
       case MANAGEMENT_CANCEL_SHUTDOWN:
       case MANAGEMENT_STATUS:
       case MANAGEMENT_DETAILS:
-         *payload = -1;
+         *payload_i = -1;
+         *payload_s = NULL;
          break;
       default:
          break;
@@ -303,6 +325,90 @@ pgagroal_management_flush(void* shmem, int32_t mode)
       goto error;
    }
    
+   pgagroal_disconnect(fd);
+
+   return 0;
+
+error:
+   pgagroal_disconnect(fd);
+
+   return 1;
+}
+
+int
+pgagroal_management_enabledb(void* shmem, char* database)
+{
+   ssize_t w;
+   int fd;
+   char buf[4];
+
+   w = write_header(shmem, MANAGEMENT_ENABLEDB, -1, &fd);
+   if (w == -1)
+   {
+      ZF_LOGW("pgagroal_management_enabledb: write: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   pgagroal_write_int32(&buf, strlen(database));
+   w = write(fd, &buf, 4 * sizeof(char));
+   if (w == -1)
+   {
+      ZF_LOGW("pgagroal_management_enabledb: write: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   w = write(fd, database, strlen(database));
+   if (w == -1)
+   {
+      ZF_LOGW("pgagroal_management_enabledb: write: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   pgagroal_disconnect(fd);
+
+   return 0;
+
+error:
+   pgagroal_disconnect(fd);
+
+   return 1;
+}
+
+int
+pgagroal_management_disabledb(void* shmem, char* database)
+{
+   ssize_t w;
+   int fd;
+   char buf[4];
+
+   w = write_header(shmem, MANAGEMENT_DISABLEDB, -1, &fd);
+   if (w == -1)
+   {
+      ZF_LOGW("pgagroal_management_disabledb: write: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   pgagroal_write_int32(&buf, strlen(database));
+   w = write(fd, &buf, 4 * sizeof(char));
+   if (w == -1)
+   {
+      ZF_LOGW("pgagroal_management_disabledb: write: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   w = write(fd, database, strlen(database));
+   if (w == -1)
+   {
+      ZF_LOGW("pgagroal_management_disabledb: write: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
    pgagroal_disconnect(fd);
 
    return 0;

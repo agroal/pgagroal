@@ -53,6 +53,8 @@
 #define ACTION_DETAILS        5
 #define ACTION_ISALIVE        6
 #define ACTION_CANCELSHUTDOWN 7
+#define ACTION_ENABLEDB       8
+#define ACTION_DISABLEDB      9
 
 static void
 version()
@@ -81,6 +83,8 @@ usage()
    printf("  flush-gracefully         Flush all connections gracefully\n");
    printf("  flush-all                Flush all connections. USE WITH CAUTION !\n");
    printf("  is-alive                 Is pgagroal alive\n");
+   printf("  enable                   Enable a database\n");
+   printf("  disable                  Disable a database\n");
    printf("  gracefully               Stop pgagroal gracefully\n");
    printf("  stop                     Stop pgagroal\n");
    printf("  cancel-shutdown          Cancel the graceful shutdown\n");
@@ -101,6 +105,7 @@ main(int argc, char **argv)
    size_t size;
    int32_t action = ACTION_UNKNOWN;
    int32_t mode = FLUSH_IDLE;
+   char* database = NULL;
    struct configuration* config;
 
    while (1)
@@ -178,6 +183,30 @@ main(int argc, char **argv)
          mode = FLUSH_ALL;
          action = ACTION_FLUSH;
       }
+      else if (!strcmp("enable", argv[argc - 1]) || !strcmp("enable", argv[argc - 2]))
+      {
+         action = ACTION_ENABLEDB;
+         if (!strcmp("enable", argv[argc - 1]))
+         {
+            database = "*";
+         }
+         else
+         {
+            database = argv[argc - 1];
+         }
+      }
+      else if (!strcmp("disable", argv[argc - 1]) || !strcmp("disable", argv[argc - 2]))
+      {
+         action = ACTION_DISABLEDB;
+         if (!strcmp("disable", argv[argc - 1]))
+         {
+            database = "*";
+         }
+         else
+         {
+            database = argv[argc - 1];
+         }
+      }
       else if (!strcmp("gracefully", argv[argc - 1]))
       {
          action = ACTION_GRACEFULLY;
@@ -206,6 +235,20 @@ main(int argc, char **argv)
       if (action == ACTION_FLUSH)
       {
          if (pgagroal_management_flush(shmem, mode))
+         {
+            exit_code = 1;
+         }
+      }
+      else if (action == ACTION_ENABLEDB)
+      {
+         if (pgagroal_management_enabledb(shmem, database))
+         {
+            exit_code = 1;
+         }
+      }
+      else if (action == ACTION_DISABLEDB)
+      {
+         if (pgagroal_management_disabledb(shmem, database))
          {
             exit_code = 1;
          }

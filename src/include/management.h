@@ -48,6 +48,8 @@ extern "C" {
 #define MANAGEMENT_DETAILS             8
 #define MANAGEMENT_ISALIVE             9
 #define MANAGEMENT_CANCEL_SHUTDOWN    10
+#define MANAGEMENT_ENABLEDB           11
+#define MANAGEMENT_DISABLEDB          12
 
 /**
  * Read the management header
@@ -63,11 +65,12 @@ pgagroal_management_read_header(int socket, signed char* id, int32_t* slot);
  * Read the management payload
  * @param socket The socket descriptor
  * @param id The management identifier
- * @param payload The resulting payload
+ * @param payload_i The resulting integer payload
+ * @param payload_s The resulting string payload
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_read_payload(int socket, signed char id, int* payload);
+pgagroal_management_read_payload(int socket, signed char id, int* payload_i, char** payload_s);
 
 /**
  * Management operation: Transfer a connection
@@ -104,6 +107,24 @@ pgagroal_management_kill_connection(void* shmem, int32_t slot);
  */
 int
 pgagroal_management_flush(void* shmem, int32_t mode);
+
+/**
+ * Management operation: Enable database
+ * @param shmem The shared memory segment
+ * @param database The database name
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_enabledb(void* shmem, char* database);
+
+/**
+ * Management operation: Disable database
+ * @param shmem The shared memory segment
+ * @param database The database name
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_disabledb(void* shmem, char* database);
 
 /**
  * Management operation: Gracefully

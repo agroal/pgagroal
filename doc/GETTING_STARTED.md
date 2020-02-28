@@ -135,6 +135,8 @@ Commands:
   flush-gracefully         Flush all connections gracefully
   flush-all                Flush all connections. USE WITH CAUTION !
   is-alive                 Is pgagroal alive
+  enable                   Enable a database
+  disable                  Disable a database
   gracefully               Stop pgagroal gracefully
   stop                     Stop pgagroal
   cancel-shutdown          Cancel the graceful shutdown

@@ -68,6 +68,7 @@ static bool is_allowed(char* username, char* database, char* address, void* shme
 static bool is_allowed_username(char* username, char* entry);
 static bool is_allowed_database(char* database, char* entry);
 static bool is_allowed_address(char* address, char* entry);
+static bool is_disabled(char* database, void* shmem);
 
 static int   get_hba_type(int index, void* shmem);
 static char* get_password(char* username, void* shmem);
@@ -186,6 +187,15 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
       if (config->gracefully)
       {
          ZF_LOGD("authenticate: gracefully: %s / %s / %s", username, database, address);
+         pgagroal_write_connection_refused(client_fd);
+         pgagroal_write_empty(client_fd);
+         goto error;
+      }
+
+      /* Disabled scenario */
+      if (is_disabled(database, shmem))
+      {
+         ZF_LOGD("authenticate: disabled: %s / %s / %s", username, database, address);
          pgagroal_write_connection_refused(client_fd);
          pgagroal_write_empty(client_fd);
          goto error;
@@ -1963,6 +1973,25 @@ is_allowed_address(char* address, char* entry)
       }
 
       return result;
+   }
+
+   return false;
+}
+
+static bool
+is_disabled(char* database, void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < NUMBER_OF_DISABLED; i++)
+   {
+      if (!strcmp(config->disabled[i], "*") ||
+          !strcmp(config->disabled[i], database))
+      {
+         return true;
+      }
    }
 
    return false;

@@ -45,6 +45,14 @@ flush-all
 is-alive
   Is pgagroal alive
 
+enable
+  Enable a database. Optional parameter with the
+  database name, if not specified all will be enabled
+
+disable
+  Disable a database. Optional parameter with the
+  database name, if not specified all will be disabled
+
 gracefully
   Stop pgagroal gracefully
 

@@ -61,9 +61,10 @@ extern "C" {
 #else
 #define MAX_NUMBER_OF_CONNECTIONS 1000
 #endif
-#define NUMBER_OF_HBAS   64
-#define NUMBER_OF_LIMITS 64
-#define NUMBER_OF_USERS  64
+#define NUMBER_OF_HBAS     64
+#define NUMBER_OF_LIMITS   64
+#define NUMBER_OF_USERS    64
+#define NUMBER_OF_DISABLED 64
 
 #define NUMBER_OF_SECURITY_MESSAGES 5
 
@@ -182,6 +183,8 @@ struct configuration
    char host[MISC_LENGTH]; /**< The host */
    int port;               /**< The port */
    bool gracefully;        /**< Is pgagroal in gracefully mode */
+
+   char disabled[NUMBER_OF_DISABLED][IDENTIFIER_LENGTH]; /**< Which databases are disabled */
 
    int log_type;               /**< The logging type */
    int log_level;              /**< The logging level */

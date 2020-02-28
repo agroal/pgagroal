@@ -517,7 +517,8 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    int client_fd;
    signed char id;
    int32_t slot;
-   int payload;
+   int payload_i;
+   char* payload_s = NULL;
    struct accept_io* ai;
    struct configuration* config;
 
@@ -542,13 +543,13 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
    /* Process internal management request -- f.ex. returning a file descriptor to the pool */
    pgagroal_management_read_header(client_fd, &id, &slot);
-   pgagroal_management_read_payload(client_fd, id, &payload);
+   pgagroal_management_read_payload(client_fd, id, &payload_i, &payload_s);
 
    switch (id)
    {
       case MANAGEMENT_TRANSFER_CONNECTION:
-         ZF_LOGD("pgagroal: Management transfer connection: Slot %d FD %d", slot, payload);
-         config->connections[slot].fd = payload;
+         ZF_LOGD("pgagroal: Management transfer connection: Slot %d FD %d", slot, payload_i);
+         config->connections[slot].fd = payload_i;
          break;
       case MANAGEMENT_RETURN_CONNECTION:
          ZF_LOGD("pgagroal: Management return connection: Slot %d", slot);
@@ -558,11 +559,56 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          pgagroal_disconnect(config->connections[slot].fd);
          break;
       case MANAGEMENT_FLUSH:
-         ZF_LOGD("pgagroal: Management flush (%d)", payload);
+         ZF_LOGD("pgagroal: Management flush (%d)", payload_i);
          if (!fork())
          {
-            pgagroal_flush(ai->shmem, payload);
+            pgagroal_flush(ai->shmem, payload_i);
          }
+         break;
+      case MANAGEMENT_ENABLEDB:
+         ZF_LOGD("pgagroal: Management enabledb: %s", payload_s);
+         pgagroal_pool_status(ai->shmem);
+
+         for (int i = 0; i < NUMBER_OF_DISABLED; i++)
+         {
+            if (!strcmp("*", payload_s))
+            {
+               memset(&config->disabled[i], 0, IDENTIFIER_LENGTH);
+            }
+            else if (!strcmp(config->disabled[i], payload_s))
+            {
+               memset(&config->disabled[i], 0, IDENTIFIER_LENGTH);
+            }
+         }
+
+         free(payload_s);
+         break;
+      case MANAGEMENT_DISABLEDB:
+         ZF_LOGD("pgagroal: Management disabledb: %s", payload_s);
+         pgagroal_pool_status(ai->shmem);
+
+         if (!strcmp("*", payload_s))
+         {
+            for (int i = 0; i < NUMBER_OF_DISABLED; i++)
+            {
+               memset(&config->disabled[i], 0, IDENTIFIER_LENGTH);
+            }
+
+            memcpy(&config->disabled[0], payload_s, 1);
+         }
+         else
+         {
+            for (int i = 0; i < NUMBER_OF_DISABLED; i++)
+            {
+               if (!strcmp(config->disabled[i], ""))
+               {
+                  memcpy(&config->disabled[i], payload_s, strlen(payload_s));
+                  break;
+               }
+            }
+         }
+
+         free(payload_s);
          break;
       case MANAGEMENT_GRACEFULLY:
          ZF_LOGD("pgagroal: Management gracefully");
