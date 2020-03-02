@@ -1552,6 +1552,10 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
 
          config->connections[slot].has_security = auth_type;
       }
+      else
+      {
+         goto bad_password;
+      }
    }
    else if (auth_type == SECURITY_MD5)
    {
@@ -1623,6 +1627,10 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
          memcpy(&config->connections[slot].security_messages[auth_index], auth_msg->data, auth_msg->length);
 
          config->connections[slot].has_security = auth_type;
+      }
+      else
+      {
+         goto bad_password;
       }
    }
    else if (auth_type == SECURITY_SCRAM256)
@@ -1737,7 +1745,7 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
       if (server_signature_calc_length != server_signature_received_length ||
           memcmp(server_signature_received, server_signature_calc, server_signature_calc_length) != 0)
       {
-         goto error;
+         goto bad_password;
       }
 
       auth_response = 0;
@@ -1772,7 +1780,9 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
 
    return 0;
 
-error:
+bad_password:
+
+   ZF_LOGW("Wrong password for user: %s", username);
 
    free(pwdusr);
    free(shadow);
@@ -1796,6 +1806,31 @@ error:
    pgagroal_free_copy_message(sasl_continue_response);
 
    return 1;
+
+error:
+
+   free(pwdusr);
+   free(shadow);
+   free(md5_req);
+   free(md5);
+   free(salt);
+   free(password_prep);
+   free(client_nounce);
+   free(combined_nounce);
+   free(base64_salt);
+   free(iteration_string);
+   free(proof);
+   free(proof_base);
+   free(server_signature_received);
+   free(server_signature_calc);
+
+   pgagroal_free_copy_message(password_msg);
+   pgagroal_free_copy_message(md5_msg);
+   pgagroal_free_message(auth_msg);
+   pgagroal_free_copy_message(sasl_response);
+   pgagroal_free_copy_message(sasl_continue_response);
+
+   return 2;
 }
 
 static bool
