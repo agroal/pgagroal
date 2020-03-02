@@ -12,6 +12,7 @@ Pronounced: p-g-a-gro-al, named after [A](https://www.visitportugal.com/en/conte
 * Prefill support
 * Remove idle connections
 * Perform connection validation
+* Enable / disable database access
 * Graceful / fast shutdown
 * Daemon mode
 * User vault
