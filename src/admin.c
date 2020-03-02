@@ -90,6 +90,8 @@ usage()
    printf("  remove-user             Remove a user\n");
    printf("  list-users              List all users\n");
    printf("\n");
+   printf("pgagroal: %s\n", PGAGROAL_HOMEPAGE);
+   printf("Report bugs: %s\n", PGAGROAL_ISSUES);
 }
 
 int

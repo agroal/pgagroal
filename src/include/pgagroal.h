@@ -42,6 +42,9 @@ extern "C" {
 
 #define VERSION "0.5.0"
 
+#define PGAGROAL_HOMEPAGE "https://agroal.github.io/pgagroal/"
+#define PGAGROAL_ISSUES "https://github.com/agroal/pgagroal/issues"
+
 /* Setup zf_log to include DEBUG support even for release builds */
 #ifdef DEBUG
 #define ZF_LOG_LEVEL ZF_LOG_VERBOSE

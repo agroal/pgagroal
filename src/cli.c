@@ -91,6 +91,8 @@ usage()
    printf("  status                   Status of pgagroal\n");
    printf("  details                  Detailed status of pgagroal\n");
    printf("\n");
+   printf("pgagroal: %s\n", PGAGROAL_HOMEPAGE);
+   printf("Report bugs: %s\n", PGAGROAL_ISSUES);
 }
 
 int

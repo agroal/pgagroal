@@ -109,7 +109,7 @@ usage()
    printf("\n");
 
    printf("Usage:\n");
-   printf("  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] [ -l LIMIT_CONFIG_FILE ] [ -d ]\n");
+   printf("  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] [ -d ]\n");
    printf("\n");
    printf("Options:\n");
    printf("  -c, --config CONFIG_FILE      Set the path to the pgagroal.conf file\n");
@@ -120,8 +120,8 @@ usage()
    printf("  -V, --version                 Display version information\n");
    printf("  -?, --help                    Display help\n");
    printf("\n");
-
-   exit(1);
+   printf("pgagroal: %s\n", PGAGROAL_HOMEPAGE);
+   printf("Report bugs: %s\n", PGAGROAL_ISSUES);
 }
 
 int
@@ -192,6 +192,7 @@ main(int argc, char **argv)
             break;
          case '?':
             usage();
+            exit(1);
             break;
          default:
             break;
