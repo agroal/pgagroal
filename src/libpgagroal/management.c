@@ -519,6 +519,7 @@ int
 pgagroal_management_read_status(int socket)
 {
    char buf[16];
+   char disabled[NUMBER_OF_DISABLED][IDENTIFIER_LENGTH];
    ssize_t r;
    int status;
    int active;
@@ -535,6 +536,14 @@ pgagroal_management_read_status(int socket)
       goto error;
    }
 
+   r = read(socket, &disabled, sizeof(disabled));
+   if (r == -1)
+   {
+      ZF_LOGW("pgagroal_management_read_status: read: %d %s", socket, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
    status = pgagroal_read_int32(&buf);
    active = pgagroal_read_int32(&(buf[4]));
    total = pgagroal_read_int32(&(buf[8]));
@@ -544,6 +553,21 @@ pgagroal_management_read_status(int socket)
    printf("Active connections:  %d\n", active);
    printf("Total connections:   %d\n", total);
    printf("Max connections:     %d\n", max);
+
+   for (int i = 0; i < NUMBER_OF_DISABLED; i++)
+   {
+      if (strcmp(disabled[i], ""))
+      {
+         if (!strcmp(disabled[i], "*"))
+         {
+            printf("Disabled database:   ALL\n");
+         }
+         else
+         {
+            printf("Disabled database:   %s\n", disabled[i]);
+         }
+      }
+   }
 
    return 0;
 
@@ -602,6 +626,14 @@ pgagroal_management_write_status(bool graceful, void* shmem, int socket)
    pgagroal_write_int32(&(buf[12]), config->max_connections);
 
    w = write(socket, &buf, sizeof(buf));
+   if (w == -1)
+   {
+      ZF_LOGW("pgagroal_management_write_status: write: %d %s", socket, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   w = write(socket, &config->disabled, sizeof(config->disabled));
    if (w == -1)
    {
       ZF_LOGW("pgagroal_management_write_status: write: %d %s", socket, strerror(errno));
