@@ -428,9 +428,17 @@ main(int argc, char **argv)
    ZF_LOGD("Max connections: %d", config->max_connections);
    ZF_LOGD("Known users: %d", config->number_of_users);
 
-   if (!fork())
+   if (!config->allow_unknown_users && config->number_of_users == 0)
    {
-      pgagroal_prefill(shmem);
+      ZF_LOGW("No users allowed");
+   }
+
+   if (config->number_of_users > 0)
+   {
+      if (!fork())
+      {
+         pgagroal_prefill(shmem);
+      }
    }
 
    while (keep_running)
