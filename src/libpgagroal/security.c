@@ -252,6 +252,13 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
       ZF_LOGD("authenticate: SUCCESS");
       return AUTH_SUCCESS;
    }
+   else
+   {
+      ZF_LOGD("authenticate: old version: %d (%s)", request, address);
+      pgagroal_write_connection_refused_old(client_fd);
+      pgagroal_write_empty(client_fd);
+      goto error;
+   }
 
 error:
    pgagroal_free_message(msg);
