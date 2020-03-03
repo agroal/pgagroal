@@ -443,6 +443,49 @@ error:
 }
 
 int
+pgagroal_write_reset_all(int socket)
+{
+   int status;
+   int size = 16;
+
+   char reset[size];
+   struct message msg;
+   struct message* reply = NULL;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&reset, 0, sizeof(reset));
+
+   pgagroal_write_byte(&reset, 'Q');
+   pgagroal_write_int32(&(reset[1]), size - 1);
+   pgagroal_write_string(&(reset[5]), "RESET ALL;");
+
+   msg.kind = 'Q';
+   msg.length = size;
+   msg.data = &reset;
+
+   status = write_message(socket, true, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = read_message(socket, true, 0, &reply);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+   pgagroal_free_message(reply);
+
+   return 0;
+
+error:
+   if (reply)
+      pgagroal_free_message(reply);
+
+   return 1;
+}
+
+int
 pgagroal_write_terminate(int socket)
 {
    char terminate[5];

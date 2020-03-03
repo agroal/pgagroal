@@ -292,6 +292,7 @@ pgagroal_return_connection(void* shmem, int slot)
          ZF_LOGD("pgagroal_return_connection: Slot %d FD %d", slot, config->connections[slot].fd);
 
          pgagroal_write_deallocate_all(config->connections[slot].fd);
+         pgagroal_write_reset_all(config->connections[slot].fd);
 
          config->connections[slot].timestamp = time(NULL);
 

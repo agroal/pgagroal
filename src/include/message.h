@@ -208,6 +208,14 @@ int
 pgagroal_write_deallocate_all(int socket);
 
 /**
+ * Write a reset all message
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_write_reset_all(int socket);
+
+/**
  * Write a terminate message
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
