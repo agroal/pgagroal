@@ -565,7 +565,10 @@ pgagroal_prefill(void* shmem)
                      {
                         if (config->connections[slot].fd != -1)
                         {
-                           pgagroal_write_terminate(config->connections[slot].fd);
+                           if (pgagroal_socket_isvalid(config->connections[slot].fd))
+                           {
+                              pgagroal_write_terminate(config->connections[slot].fd);
+                           }
                         }
                         pgagroal_kill_connection(shmem, slot);
                      }
@@ -584,7 +587,10 @@ pgagroal_prefill(void* shmem)
                         ZF_LOGW("Unsupported security model during prefill for user (%s) using limit entry (%d)", config->limits[i].username, i);
                         if (config->connections[slot].fd != -1)
                         {
-                           pgagroal_write_terminate(config->connections[slot].fd);
+                           if (pgagroal_socket_isvalid(config->connections[slot].fd))
+                           {
+                              pgagroal_write_terminate(config->connections[slot].fd);
+                           }
                         }
                         pgagroal_kill_connection(shmem, slot);
                         break;
@@ -651,6 +657,13 @@ pgagroal_pool_shutdown(void* shmem)
 
       if (state != STATE_NOTINIT)
       {
+         if (state == STATE_FREE)
+         {
+            if (pgagroal_socket_isvalid(config->connections[i].fd))
+            {
+               pgagroal_write_terminate(config->connections[i].fd);
+            }
+         }
          pgagroal_disconnect(config->connections[i].fd);
 
          if (config->connections[i].pid != -1)
