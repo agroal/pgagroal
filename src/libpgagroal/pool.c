@@ -54,6 +54,7 @@
 static int find_best_rule(void* shmem, char* username, char* database);
 static bool remove_connection(void* shmem, char* username, char* database);
 static void connection_details(void* shmem, int slot);
+static bool do_prefill(void* shmem, char* username, char* database, int size);
 
 int
 pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse, int* slot)
@@ -550,7 +551,7 @@ pgagroal_prefill(void* shmem)
 
             if (user != -1)
             {
-               for (int j = 0; j < config->limits[i].initial_size; j++)
+               while (do_prefill(shmem, config->users[user].username, config->limits[i].database, config->limits[i].initial_size))
                {
                   int32_t slot = -1;
 
@@ -558,6 +559,16 @@ pgagroal_prefill(void* shmem)
                                             config->limits[i].database, shmem, &slot) != AUTH_SUCCESS)
                   {
                      ZF_LOGW("Invalid data for user (%s) using limit entry (%d)", config->limits[i].username, i);
+
+                     if (slot != -1)
+                     {
+                        if (config->connections[slot].fd != -1)
+                        {
+                           pgagroal_write_terminate(config->connections[slot].fd);
+                        }
+                        pgagroal_kill_connection(shmem, slot);
+                     }
+
                      break;
                   }
 
@@ -909,4 +920,35 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("pgagroal_pool_status: State %d Slot %d FD %d", state, slot, connection.fd);
          break;
    }
+}
+
+static bool
+do_prefill(void* shmem, char* username, char* database, int size)
+{
+   signed char state;
+   int free = 0;
+   int connections = 0;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < config->max_connections; i++)
+   {
+      if (!strcmp((const char*)(&config->connections[i].username), username) &&
+          !strcmp((const char*)(&config->connections[i].database), database))
+      {
+         connections++;
+      }
+      else
+      {
+         state = atomic_load(&config->states[i]);
+
+         if (state == STATE_NOTINIT)
+         {
+            free++;
+         }
+      }
+   }
+
+   return connections < size && free > 0;
 }

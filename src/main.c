@@ -338,11 +338,6 @@ main(int argc, char **argv)
    pgagroal_start_logging(shmem);
    pgagroal_pool_init(shmem);
 
-   if (!fork())
-   {
-      pgagroal_prefill(shmem);
-   }
-
    /* Bind Unix Domain Socket for file descriptor transfers */
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, shmem, &unix_socket))
    {
@@ -432,6 +427,11 @@ main(int argc, char **argv)
    ZF_LOGD("Configuration size: %lu", size);
    ZF_LOGD("Max connections: %d", config->max_connections);
    ZF_LOGD("Known users: %d", config->number_of_users);
+
+   if (!fork())
+   {
+      pgagroal_prefill(shmem);
+   }
 
    while (keep_running)
    {
