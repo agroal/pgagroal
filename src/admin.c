@@ -442,12 +442,18 @@ add_user(char* users_path, char* username, char* password)
    /* User */
    if (username == NULL)
    {
+username:
       printf("User name: ");
    
       memset(&un, 0, sizeof(un));
       fgets(&un[0], sizeof(un), stdin);
       un[strlen(un) - 1] = 0;
       username = &un[0];
+   }
+
+   if (username == NULL || strlen(username) == 0)
+   {
+      goto username;
    }
 
    /* Verify */
@@ -556,12 +562,18 @@ update_user(char* users_path, char* username, char* password)
    /* User */
    if (username == NULL)
    {
+username:
       printf("User name: ");
    
       memset(&un, 0, sizeof(un));
       fgets(&un[0], sizeof(un), stdin);
       un[strlen(un) - 1] = 0;
       username = &un[0];
+   }
+
+   if (username == NULL || strlen(username) == 0)
+   {
+      goto username;
    }
 
    /* Update */
@@ -676,12 +688,18 @@ remove_user(char* users_path, char* username)
    /* User */
    if (username == NULL)
    {
+username:
       printf("User name: ");
    
       memset(&un, 0, sizeof(un));
       fgets(&un[0], sizeof(un), stdin);
       un[strlen(un) - 1] = 0;
       username = &un[0];
+   }
+
+   if (username == NULL || strlen(username) == 0)
+   {
+      goto username;
    }
 
    /* Remove */
