@@ -675,19 +675,14 @@ error:
 int
 pgagroal_management_read_details(int socket)
 {
-   char buf[MAX_BUFFER_SIZE];
+   char header[8 + MAX_NUMBER_OF_CONNECTIONS];
    ssize_t r;
-   int size;
-   int length;
-   int offset;
-   int active;
-   int total;
-   int initial;
-   int max;
+   int max_connections = 0;
+   int limits = 0;
 
-   memset(&buf, 0, sizeof(buf));
+   memset(&header, 0, sizeof(header));
 
-   r = read(socket, &buf, sizeof(buf));
+   r = read(socket, &header, sizeof(header));
    if (r == -1)
    {
       ZF_LOGW("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
@@ -695,49 +690,36 @@ pgagroal_management_read_details(int socket)
       goto error;
    }
 
-   size = pgagroal_read_int32(&buf);
-   offset = 4;
+   max_connections = pgagroal_read_int32(&header);
+   limits = pgagroal_read_int32(&(header[4]));
 
-   for (int i = 0; i < size; i++)
+   for (int i = 0; i < limits; i++)
    {
-      char* database = pgagroal_read_string(&(buf[offset]));
-      length = strlen(database) + 1;
-      offset += length;
+      char limit[12 + 2 * IDENTIFIER_LENGTH];
 
-      char* username = pgagroal_read_string(&(buf[offset]));
-      length = strlen(username) + 1;
-      offset += length;
+      memset(&limit, 0, sizeof(limit));
 
-      active = pgagroal_read_int32(&(buf[offset]));
-      offset += 4;
-
-      total = pgagroal_read_int32(&(buf[offset]));
-      offset += 4;
-
-      max = pgagroal_read_int32(&(buf[offset]));
-      offset += 4;
-
-      initial = pgagroal_read_int32(&(buf[offset]));
-      offset += 4;
-
-      if (max > 0)
+      r = read(socket, &limit, sizeof(limit));
+      if (r == -1)
       {
-         printf("---------------------\n");
-         printf("Database:            %s\n", database);
-         printf("Username:            %s\n", username);
-         printf("Active connections:  %d\n", active);
-         printf("Total connections:   %d\n", total);
-         printf("Initial connections: %d\n", initial);
-         printf("Max connections:     %d\n", max);
+         ZF_LOGW("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
+         errno = 0;
+         goto error;
       }
+
+      printf("---------------------\n");
+      printf("Database:            %s\n", pgagroal_read_string(&(limit[12])));
+      printf("Username:            %s\n", pgagroal_read_string(&(limit[12 + IDENTIFIER_LENGTH])));
+      printf("Active connections:  %d\n", pgagroal_read_int32(&(limit)));
+      printf("Initial connections: %d\n", pgagroal_read_int32(&(limit[8])));
+      printf("Max connections:     %d\n", pgagroal_read_int32(&(limit[4])));
    }
 
-   size = pgagroal_read_int32(&(buf[offset]));
-   offset += 4;
-
    printf("---------------------\n");
-   for (int i = 0; i < size; i++)
+
+   for (int i = 0; i < max_connections; i++)
    {
+      char details[12 + 2 * IDENTIFIER_LENGTH];
       signed char state;
       long time;
       time_t t;
@@ -745,25 +727,32 @@ pgagroal_management_read_details(int socket)
       int pid;
       char p[10] = {0};
 
-      state = pgagroal_read_byte(&(buf[offset]));
-      offset += 1;
+      memset(&details, 0, sizeof(details));
 
-      time = pgagroal_read_long(&(buf[offset]));
-      offset += 8;
+      r = read(socket, &details, sizeof(details));
+      if (r == -1)
+      {
+         ZF_LOGW("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
+         errno = 0;
+         goto error;
+      }
 
-      pid = pgagroal_read_int32(&(buf[offset]));
-      offset += 4;
+      state = (signed char)header[8 + i];
+      time = pgagroal_read_long(&(details[0]));
+      pid = pgagroal_read_int32(&(details[8]));
 
       t = time;
       strftime(ts, 20, "%Y-%m-%d %H:%M:%S", localtime(&t));
 
       sprintf(p, "%d", pid);
 
-      printf("Connection %4d:     %-15s %-19s %s\n",
+      printf("Connection %4d:     %-15s %-19s %-6s %s %s\n",
              i,
              pgagroal_get_state_string(state),
              time > 0 ? ts : "",
-             pid > 0 ? p : "");
+             pid > 0 ? p : "",
+             pgagroal_read_string(&(details[12])),
+             pgagroal_read_string(&(details[12 + IDENTIFIER_LENGTH])));
    }
 
    return 0;
@@ -776,146 +765,24 @@ error:
 int
 pgagroal_management_write_details(void* shmem, int socket)
 {
+   char header[8 + MAX_NUMBER_OF_CONNECTIONS];
    ssize_t w;
    struct configuration* config;
-   int offset;
-   int buffer_size;
-   char* buf = NULL;
 
    config = (struct configuration*)shmem;
 
-   buffer_size = sizeof(int) + (config->max_connections * (sizeof(signed char) + sizeof(long) + sizeof(int)));
+   memset(&header, 0, sizeof(header));
 
-   if (config->number_of_limits > 0)
-   {
-      int length;
-      int active[config->number_of_limits + 1];
-      int total[config->number_of_limits + 1];
-      int initial[config->number_of_limits + 1];
-      int max = config->max_connections;
-
-      buffer_size += sizeof(int);
-
-      for (int i = 0; i < config->number_of_limits; i++)
-      {
-         buffer_size += strlen(config->limits[i].database) + 1;
-         buffer_size += strlen(config->limits[i].username) + 1;
-         buffer_size += sizeof(int);
-         buffer_size += sizeof(int);
-         buffer_size += sizeof(int);
-         buffer_size += sizeof(int);
-      }
-
-      buffer_size += strlen("all") + 1;
-      buffer_size += strlen("all") + 1;
-      buffer_size += sizeof(int);
-      buffer_size += sizeof(int);
-      buffer_size += sizeof(int);
-      buffer_size += sizeof(int);
-
-      buf = malloc(buffer_size);
-
-      memset(buf, 0, buffer_size);
-      memset(&active, 0, sizeof(active));
-      memset(&total, 0, sizeof(total));
-      memset(&total, 0, sizeof(initial));
-
-      for (int i = 0; i < config->max_connections; i++)
-      {
-         int state = atomic_load(&config->states[i]);
-         switch (state)
-         {
-            case STATE_IN_USE:
-               active[config->connections[i].limit_rule + 1]++;
-            case STATE_INIT:
-            case STATE_FREE:
-            case STATE_GRACEFULLY:
-            case STATE_FLUSH:
-            case STATE_IDLE_CHECK:
-            case STATE_VALIDATION:
-            case STATE_REMOVE:
-               total[config->connections[i].limit_rule + 1]++;
-               break;
-            default:
-               break;
-         }
-      }
-
-      pgagroal_write_int32(buf, config->number_of_limits + 1);
-      offset = 4;
-
-      for (int i = 0; i < config->number_of_limits; i++)
-      {
-         length = strlen(config->limits[i].database);
-         pgagroal_write_string(buf + offset, config->limits[i].database);
-         offset += length + 1;
-
-         length = strlen(config->limits[i].username);
-         pgagroal_write_string(buf + offset, config->limits[i].username);
-         offset += length + 1;
-
-         pgagroal_write_int32(buf + offset, active[i + 1]);
-         offset += 4;
-
-         pgagroal_write_int32(buf + offset, total[i + 1]);
-         offset += 4;
-
-         pgagroal_write_int32(buf + offset, config->limits[i].max_connections);
-         offset += 4;
-
-         pgagroal_write_int32(buf + offset, config->limits[i].initial_size);
-         offset += 4;
-
-         max -= config->limits[i].max_connections;
-      }
-
-      length = strlen("all");
-      pgagroal_write_string(buf + offset, "all");
-      offset += length + 1;
-
-      length = strlen("all");
-      pgagroal_write_string(buf + offset, "all");
-      offset += length + 1;
-
-      pgagroal_write_int32(buf + offset, active[0]);
-      offset += 4;
-
-      pgagroal_write_int32(buf + offset, total[0]);
-      offset += 4;
-
-      pgagroal_write_int32(buf + offset, max);
-      offset += 4;
-
-      pgagroal_write_int32(buf + offset, 0);
-      offset += 4;
-   }
-   else
-   {
-      buffer_size += sizeof(int);
-      buf = malloc(buffer_size);
-
-      memset(buf, 0, buffer_size);
-
-      pgagroal_write_int32(buf, 0);
-      offset = 4;
-   }
-
-   pgagroal_write_int32(buf + offset, config->max_connections);
-   offset += 4;
+   pgagroal_write_int32(header, config->max_connections);
+   pgagroal_write_int32(header + 4, config->number_of_limits);
 
    for (int i = 0; i < config->max_connections; i++)
    {
-      pgagroal_write_byte(buf + offset, atomic_load(&config->states[i]));
-      offset += 1;
-
-      pgagroal_write_long(buf + offset, (long)config->connections[i].timestamp);
-      offset += 8;
-
-      pgagroal_write_int32(buf + offset, (int)config->connections[i].pid);
-      offset += 4;
+      signed char state = atomic_load(&config->states[i]);
+      header[8 + i] = (char)state;
    }
 
-   w = write(socket, buf, buffer_size);
+   w = write(socket, header, sizeof(header));
    if (w == -1)
    {
       ZF_LOGW("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
@@ -923,13 +790,51 @@ pgagroal_management_write_details(void* shmem, int socket)
       goto error;
    }
 
-   free(buf);
+   for (int i = 0; i < config->number_of_limits; i++)
+   {
+      char limit[12 + 2 * IDENTIFIER_LENGTH];
+
+      memset(&limit, 0, sizeof(limit));
+
+      pgagroal_write_int32(limit, atomic_load(&config->limits[i].active_connections));
+      pgagroal_write_int32(limit + 4, config->limits[i].max_connections);
+      pgagroal_write_int32(limit + 8, config->limits[i].initial_size);
+      pgagroal_write_string(limit + 12, config->limits[i].database);
+      pgagroal_write_string(limit + 12 + IDENTIFIER_LENGTH, config->limits[i].username);
+
+      w = write(socket, limit, sizeof(limit));
+      if (w == -1)
+      {
+         ZF_LOGW("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
+         errno = 0;
+         goto error;
+      }
+   }
+
+   for (int i = 0; i < config->max_connections; i++)
+   {
+      char details[12 + 2 * IDENTIFIER_LENGTH];
+
+      memset(&details, 0, sizeof(details));
+
+      pgagroal_write_long(details, (long)config->connections[i].timestamp);
+      pgagroal_write_int32(details + 8, (int)config->connections[i].pid);
+
+      pgagroal_write_string(details + 12, config->connections[i].database);
+      pgagroal_write_string(details + 12 + IDENTIFIER_LENGTH, config->connections[i].username);
+
+      w = write(socket, details, sizeof(details));
+      if (w == -1)
+      {
+         ZF_LOGW("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
+         errno = 0;
+         goto error;
+      }
+   }
 
    return 0;
 
 error:
-
-   free(buf);
 
    return 1;
 }
