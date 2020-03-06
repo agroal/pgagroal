@@ -39,9 +39,11 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
 ## Tested platforms
 
 * [Fedora](https://getfedora.org/) 28+
-* [RHEL](https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux) 7.x/8.x with
+* [RHEL](https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux) 7.x with
   [EPEL](https://access.redhat.com/solutions/3358) and
   [DevTools](https://developers.redhat.com/products/developertoolset/overview) 8+
+* [RHEL](https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux) 8.x with
+  [AppStream](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/installing_managing_and_removing_user-space_components/using-appstream_using-appstream)
 
 ## Compiling the source
 
