@@ -99,6 +99,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
 {
    int status = MESSAGE_STATUS_ERROR;
    int ret;
+   int server = 0;
    int server_fd = -1;
    int hba_type;
    struct configuration* config;
@@ -155,6 +156,36 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
          goto error;
       }
       request = pgagroal_get_request(msg);
+   }
+
+   /* Cancel request: 80877102 */
+   if (request == 80877102)
+   {
+      ZF_LOGD("Cancel request from client: %d", client_fd);
+
+      /* We need to find the server for the connection */
+      pgagroal_get_primary(shmem, &server);
+
+      if (pgagroal_connect(shmem, config->servers[server].host, config->servers[server].port, &server_fd))
+      {
+         ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
+         goto error;
+      }
+
+      status = pgagroal_write_message(server_fd, msg);
+      if (status != MESSAGE_STATUS_OK)
+      {
+         pgagroal_shutdown(server_fd);
+         pgagroal_disconnect(server_fd);
+
+         goto error;
+      }
+      pgagroal_free_message(msg);
+
+      pgagroal_shutdown(server_fd);
+      pgagroal_disconnect(server_fd);
+
+      return AUTH_FAILURE;
    }
 
    /* 196608 -> Ok */
