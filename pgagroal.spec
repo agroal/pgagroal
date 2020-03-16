@@ -9,7 +9,11 @@ BuildRequires: cmake
 BuildRequires: make
 BuildRequires: libev
 BuildRequires: libev-devel
+BuildRequires: openssl
+BuildRequires: openssl-devel
+BuildRequires: python3-docutils
 Requires:      libev
+Requires:      openssl
 Source:        https://github.com/agroal/pgagroal/releases/%{name}-%{version}.tar.gz
 
 %description
