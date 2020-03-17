@@ -16,7 +16,7 @@ layout: default
     using "pgagroal -?". You should see
 
     <pre>
-pgagroal 0.4.0
+pgagroal 0.5.0
   High-performance connection pool for PostgreSQL
 
 Usage:
@@ -133,7 +133,7 @@ psql -h localhost -p 2345 -U test test
     You can see the commands it supports by using "pgagroal-cli -?" which will give
 
     <pre>
-pgagroal-cli 0.4.0
+pgagroal-cli 0.5.0
   Command line utility for pgagroal
 
 Usage:
@@ -148,9 +148,12 @@ Commands:
   flush-idle               Flush idle connections
   flush-gracefully         Flush all connections gracefully
   flush-all                Flush all connections. USE WITH CAUTION !
-  isalive                  Is pgagroal alive
+  is-alive                 Is pgagroal alive
+  enable                   Enable a database
+  disable                  Disable a database
   gracefully               Stop pgagroal gracefully
   stop                     Stop pgagroal
+  cancel-shutdown          Cancel the graceful shutdown
   status                   Status of pgagroal
   details                  Detailed status of pgagroal
     </pre>
@@ -177,23 +180,25 @@ pgagroal-cli -c pgagroal.conf stop
     You can see the commands it supports by using "pgagroal-admin -?" which will give
 
     <pre>
-pgagroal-admin 0.4.0
+pgagroal-admin 0.5.0
   Administration utility for pgagroal
 
 Usage:
   pgagroal-admin [ -u USERS_FILE ] [ COMMAND ]
 
 Options:
-  -u, --users USERS_FILE Set the path to the pgagroal_users.conf file
-  -V, --version          Display version information
-  -?, --help             Display help
+  -U, --user user         Set the user name
+  -P, --password password Set the password for the user
+  -u, --users USERS_FILE  Set the path to the pgagroal_users.conf file
+  -V, --version           Display version information
+  -?, --help              Display help
 
 Commands:
-  master-key             Create or update the master key
-  add-user               Add a user
-  update-user            Update a user
-  remove-user            Remove a user
-  list-users             List all users
+  master-key              Create or update the master key
+  add-user                Add a user
+  update-user             Update a user
+  remove-user             Remove a user
+  list-users              List all users
     </pre>
 
     In order to set the master key for all users use
@@ -236,4 +241,8 @@ pgagroal-admin -u pgagroal_users.conf add-user
     </ul>
     <p/>
     All contributions are most welcome !
+    <p/>
+    Consider giving the project a <a href="https://github.com/agroal/pgagroal/stargazers">star</a> on
+    <a href="https://github.com/agroal/pgagroal/">GitHub</a> if you find it useful. And, feel free to follow
+    the project on <a href="https://twitter.com/pgagroal/">Twitter</a> as well.
 </div>

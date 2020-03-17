@@ -111,6 +111,13 @@ layout: default
           <td>The maximum number of connections (max 1000)</td>
         </tr>
         <tr>
+          <td>allow_unknown_users</td>
+          <td>true</td>
+          <td>Bool</td>
+          <td>No</td>
+          <td>Allow unknown users to connect</td>
+        </tr>
+        <tr>
           <td>libev</td>
           <td>auto</td>
           <td>String</td>
@@ -252,7 +259,7 @@ port = 5432
         <tr>
           <td>METHOD</td>
           <td>Yes</td>
-          <td>Specifies the authentication mode for the user. all for all methods, otherwise trust, reject, password or md5</td>
+          <td>Specifies the authentication mode for the user. all for all methods, otherwise trust, reject, password, md5 or scram-sha-256</td>
         </tr>
       </tbody>
     </table>
