@@ -13,6 +13,8 @@ root: https://agroal.github.io/pgagroal
 headers:
     - name: Configuration
       url: https://agroal.github.io/pgagroal/configuration.html
+    - name: News
+      url: https://agroal.github.io/pgagroal/news.html
     - name: About
       url: https://agroal.github.io/pgagroal/about.html
 urls:

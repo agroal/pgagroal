@@ -1,0 +1,18 @@
+---
+layout: default
+---
+
+<div id="news">
+    <h1>
+        {% for header in site.headers %}
+        <a class="header" href="{{ header.url }}">{{ header.name }}</a>
+        {% endfor %}
+    </h1>
+    <p/>
+    <h3>News</h3>
+    <ul class="posts">
+        {% for post in site.posts %}
+        <li class="posts"><span class="date">{{ post.date | date: "%Y %m %d" }}</span><a href="{{ site.root }}/{{ post.url }}">{{ post.title }}</a></li>
+        {% endfor %}
+    </ul>
+</div>

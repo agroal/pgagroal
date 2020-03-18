@@ -10,9 +10,19 @@ layout: default
     </h1>
     pgagroal is a <a href="performance.html">high-performance</a> protocol-native connection pool for <a href="https://www.postgresql.org">PostgreSQL</a>.
     <p/>
+    <h3>Features</h3>
+    <ul>
+      <li><a href="performance.html">High performance</a></li>
+      <li>Connection pool</li>
+      <li>Limit connections for users and databases</li>
+      <li>Prefill support</li>
+      <li>Remove idle connections</li>
+    </ul>
+    and more. See <a href="about.html">here</a> for a complete overview.
+    <p/>
     <h3>News</h3>
-    <ul class="posts">
-        {% for post in site.posts limit:10 %}
+    <ul>
+        {% for post in site.posts limit:5 %}
         <li class="posts"><span class="date">{{ post.date | date: "%Y %m %d" }}</span><a href="{{ site.root }}/{{ post.url }}">{{ post.title }}</a></li>
         {% endfor %}
     </ul>

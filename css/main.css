@@ -39,7 +39,7 @@ body {
 span.date {
   color: #000000;
   font-size: 11px;
-  padding: 11px;
+  padding: 5px;
   float: right;
   font-family: 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
@@ -122,11 +122,12 @@ a.icon {
   padding-left: 8px;
   padding-right: 8px;
 }
+
 div.right li.posts {
-  margin-top: 10px;
+  margin-top: 5px;
   margin-left: 0;
   padding: 0;
-  font-size: 22px;
+  font-size: 16px;
 }
 
 /* Left column aka nav bar formatting */
