@@ -185,6 +185,17 @@ error:
  *
  */
 int
+pgagroal_remove_unix_socket(const char* directory)
+{
+   unlink(directory);
+
+   return 0;
+}
+
+/**
+ *
+ */
+int
 pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
 {
    struct addrinfo hints, *servinfo, *p;

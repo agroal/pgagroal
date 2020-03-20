@@ -59,6 +59,14 @@ int
 pgagroal_bind_unix_socket(const char* directory, void* shmem, int* fd);
 
 /**
+ * Remove Unix Domain Socket directory
+ * @param directory The directory
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_remove_unix_socket(const char* directory);
+
+/**
  * Connect to a host
  * @param shmem The shared memory segment
  * @param hostname The host name
