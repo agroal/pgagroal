@@ -8,19 +8,44 @@ layout: default
         <a class="header" href="{{ header.url }}">{{ header.name }}</a>
         {% endfor %}
     </h1>
-    pgagroal is a <a href="performance.html">high-performance</a> protocol-native connection pool for <a href="https://www.postgresql.org">PostgreSQL</a>.
     <p/>
-    <h3>Features</h3>
-    <ul>
-      <li><a href="performance.html">High performance</a></li>
-      <li>Connection pool</li>
-      <li>Limit connections for users and databases</li>
-      <li>Prefill support</li>
-      <li>Remove idle connections</li>
-    </ul>
-    and more. See <a href="about.html">here</a> for a complete overview. Read our <a href="gettingstarted.html">getting started</a> guide to get started.
+    <table border="0" width="100%">
+      <tr>
+        <td valign="top" width="50%">
+          <h2>pgagroal</h2>
+          pgagroal is a <a href="performance.html">high-performance</a> protocol-native
+          connection pool for <a href="https://www.postgresql.org">PostgreSQL</a>.
+          <p/>
+          pgagroal is licensed under the <a href="https://opensource.org/licenses/BSD-3-Clause">3-Clause BSD license</a>.
+        </td>
+        <td valign="top" width="50%">
+          <h2>Why</h2>
+          The goal of the project is to provide the Open Source community with an advanced
+          connection pool implementation for <a href="https://www.postgresql.org">PostgreSQL</a>.
+        </td>
+      </tr>
+      <tr>
+        <td valign="top" width="50%">
+          <h2>Features</h2>
+          <ul>
+            <li><a href="performance.html">High performance</a></li>
+            <li>Connection pool</li>
+            <li>Limit connections for users and databases</li>
+            <li>Prefill support</li>
+            <li>Remove idle connections</li>
+          </ul>
+          and more. See <a href="about.html">here</a> for a complete overview.
+        </td>
+        <td valign="top" width="50%">
+          <h2>Getting started</h2>
+          <a href="images/demo.gif"><img src="images/demo.gif" alt="Demo" width="60%"/></a>
+          <p/>
+          Read our <a href="gettingstarted.html">getting started</a> guide to get started.
+        </td>
+      </tr>
+    </table>
     <p/>
-    <h3>News</h3>
+    <h2>News</h2>
     <ul>
         {% for post in site.posts limit:5 %}
         <li class="posts"><span class="date">{{ post.date | date: "%Y %m %d" }}</span><a href="{{ site.root }}/{{ post.url }}">{{ post.title }}</a></li>

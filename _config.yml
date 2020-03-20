@@ -32,12 +32,12 @@ github:
     - text: github
       url: https://github.com/agroal/pgagroal
       icon: https://agroal.github.io/pgagroal/images/icomoon/433-github.png
-    - text: license
-      url: https://opensource.org/licenses/BSD-3-Clause
-      icon: https://agroal.github.io/pgagroal/images/icomoon/034-library.png
     - text: issues
       url: https://github.com/agroal/pgagroal/issues
       icon: https://agroal.github.io/pgagroal/images/icomoon/154-bug.png
+    - text: license
+      url: https://opensource.org/licenses/BSD-3-Clause
+      icon: https://agroal.github.io/pgagroal/images/icomoon/034-library.png
     - text: pgagroal
       url: https://twitter.com/pgagroal
       icon: https://agroal.github.io/pgagroal/images/icomoon/407-twitter.png

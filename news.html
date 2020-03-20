@@ -9,7 +9,7 @@ layout: default
         {% endfor %}
     </h1>
     <p/>
-    <h3>News</h3>
+    <h2>News</h2>
     <ul class="posts">
         {% for post in site.posts %}
         <li class="posts"><span class="date">{{ post.date | date: "%Y %m %d" }}</span><a href="{{ site.root }}/{{ post.url }}">{{ post.title }}</a></li>
