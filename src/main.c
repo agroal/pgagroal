@@ -459,6 +459,7 @@ main(int argc, char **argv)
    ev_loop_destroy(loop);
 
    pgagroal_disconnect(unix_socket);
+   pgagroal_remove_unix_socket(config->unix_socket_dir);
    
    free(fds);
 
