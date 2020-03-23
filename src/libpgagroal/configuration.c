@@ -454,6 +454,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      unknown = true;
                   }
                }
+               else
+               {
+                  unknown = true;
+               }
 
                if (unknown)
                {
