@@ -782,7 +782,7 @@ static void
 connection_details(void* shmem, int slot)
 {
    int state;
-   char* time = NULL;
+   char time_buf[32];
    struct configuration* config;
    struct connection connection;
 
@@ -790,7 +790,10 @@ connection_details(void* shmem, int slot)
 
    connection = config->connections[slot];
    state = atomic_load(&config->states[slot]);
-   time = ctime(&(connection.timestamp));
+
+   memset(&time_buf, 0, sizeof(time_buf));
+   ctime_r(&(connection.timestamp), &time_buf[0]);
+   time_buf[strlen(time_buf) - 1] = 0;
 
    switch (state)
    {
@@ -811,7 +814,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", time);
+         ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
@@ -829,7 +832,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", time);
+         ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
@@ -847,7 +850,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", time);
+         ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
@@ -865,7 +868,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", time);
+         ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
@@ -883,7 +886,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", time);
+         ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
@@ -901,7 +904,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", time);
+         ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
@@ -919,7 +922,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", time);
+         ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
