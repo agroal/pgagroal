@@ -89,7 +89,7 @@ pgagroal_init_configuration(void* shmem, size_t size)
    config->log_connections = false;
    config->log_disconnections = false;
 
-   config->max_connections = MAX_NUMBER_OF_CONNECTIONS;
+   config->max_connections = 100;
    config->allow_unknown_users = true;
 
    return 0;

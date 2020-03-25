@@ -62,7 +62,7 @@ extern "C" {
 #ifdef DEBUG
 #define MAX_NUMBER_OF_CONNECTIONS 8
 #else
-#define MAX_NUMBER_OF_CONNECTIONS 1000
+#define MAX_NUMBER_OF_CONNECTIONS 10000
 #endif
 #define NUMBER_OF_HBAS     64
 #define NUMBER_OF_LIMITS   64
