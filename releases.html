@@ -2,13 +2,28 @@
 layout: default
 ---
 
-    <h1>
-        {% for header in site.headers %}
-        <a class="header" href="{{ header.url }}">{{ header.name }}</a>
-        {% endfor %}
-    </h1>
-    <ul class="posts">
-        {% for release in site.data.releases reversed %}
-        <li class="posts"><span class="date">{{ release.date | date: "%Y %m %d" }}</span></a><a href="{{ site.root }}/{{ release.announce }}">{{ release.name }}</a>
-        {% endfor %}
-    </ul>
+<div id="home">
+  <h1>
+    {% for header in site.headers %}
+    <a class="header" href="{{ header.url }}">{{ header.name }}</a>
+    {% endfor %}
+  </h1>
+  <h2>Releases</h2>
+  <ul class="posts">
+    {% for release in site.data.releases reversed %}
+    <li class="posts"><span class="date">{{ release.date | date: "%Y %m %d" }}</span></a><a href="{{ site.root }}/{{ release.announce }}">{{ release.name }}</a></li>
+    {% endfor %}
+  </ul>
+  <h2>yum.postgresql.org</h2>
+
+  pgagroal is available from <a href="https://yum.postgresql.org">yum.postgresql.org</a> for the following operating systems
+
+  <ul>
+    <li>Fedora 30</li>
+    <li>Fedora 31</li>
+    <li>Red Hat Enterprise Linux 8</li>
+    <li>CentOS 8</li>
+    <li>Oracle Enterprise Linux 8</li>
+    <li>SuSE Enterprise Linux 12</li>
+  </ul>
+</div>
