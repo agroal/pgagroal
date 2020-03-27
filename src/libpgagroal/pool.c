@@ -315,6 +315,10 @@ pgagroal_return_connection(void* shmem, int slot)
 
          return 0;
       }
+      else if (state == STATE_GRACEFULLY)
+      {
+         pgagroal_write_terminate(config->connections[slot].fd);
+      }
    }
 
    return pgagroal_kill_connection(shmem, slot);
@@ -496,6 +500,7 @@ pgagroal_flush(void* shmem, int mode)
 
       if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_FLUSH))
       {
+         pgagroal_write_terminate(config->connections[i].fd);
          pgagroal_kill_connection(shmem, i);
       }
       else if (mode == FLUSH_ALL || mode == FLUSH_GRACEFULLY)
