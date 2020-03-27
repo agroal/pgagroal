@@ -8,6 +8,8 @@ This was done such a potential crash on one connection won't take the entire poo
 The main process is defined in [main.c](../src/main.c). When a client connects it is processed in its own process, which
 is handle in [worker.h](../src/include/worker.h) ([worker.c](../src/libpgagroal/worker.c)).
 
+Once the client disconnects the connection is put back in the pool, and the child process is terminated.
+
 ## Shared memory
 
 A memory segment ([shmem.h](../src/include/shmem.h)) is shared among all processes which contains the `pgagroal`
