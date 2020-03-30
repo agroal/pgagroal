@@ -38,6 +38,7 @@
 #define ZF_LOG_TAG "message"
 #include <zf_log.h>
 
+#include <assert.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
@@ -837,6 +838,12 @@ pgagroal_connection_isvalid(int socket)
    {
       goto error;
    }
+
+   if (reply->kind == 'E')
+   {
+      goto error;
+   }
+
    pgagroal_free_message(reply);
 
    return true;
@@ -941,6 +948,10 @@ write_message(int socket, bool nodelay, struct message* msg)
 {
    bool keep_write = false;
    ssize_t numbytes;  
+
+#ifdef DEBUG
+   assert(msg != NULL);
+#endif
 
    do
    {

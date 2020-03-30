@@ -61,7 +61,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    struct worker_io client_io;
    struct worker_io server_io;
    bool started = false;
-   bool auth_ok = false;
+   int auth_status;
    struct configuration* config;
    struct pipeline p;
    int32_t slot = -1;
@@ -75,14 +75,14 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    memset(&server_io, 0, sizeof(struct worker_io));
 
    /* Authentication */
-   if (pgagroal_authenticate(client_fd, address, shmem, &slot) == AUTH_SUCCESS)
+   auth_status = pgagroal_authenticate(client_fd, address, shmem, &slot);
+   if (auth_status == AUTH_SUCCESS)
    {
-      auth_ok = true;
       ZF_LOGD("pgagroal_worker: Slot %d (%d -> %d)", slot, client_fd, config->connections[slot].fd);
 
       if (config->log_connections)
       {
-         ZF_LOGI("connect: user=%s database=%s address=%s ", config->connections[slot].username,
+         ZF_LOGI("connect: user=%s database=%s address=%s", config->connections[slot].username,
                  config->connections[slot].database, address);
       }
 
@@ -147,15 +147,15 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    {
       if (config->log_connections)
       {
-         ZF_LOGI("connect: address=%s ", address);
+         ZF_LOGI("connect: address=%s", address);
       }
    }
 
    if (config->log_disconnections)
    {
-      if (auth_ok)
+      if (auth_status == AUTH_SUCCESS)
       {
-         ZF_LOGI("disconnect: user=%s database=%s address=%s ", config->connections[slot].username,
+         ZF_LOGI("disconnect: user=%s database=%s address=%s", config->connections[slot].username,
                  config->connections[slot].database, address);
       }
       else
@@ -172,14 +172,24 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
          p.stop(&client_io);
       }
 
-      if (exit_code == WORKER_SUCCESS || exit_code == WORKER_CLIENT_FAILURE ||
-          (exit_code == WORKER_FAILURE && config->connections[slot].has_security != SECURITY_INVALID))
+      if ((auth_status == AUTH_SUCCESS || auth_status == AUTH_BAD_PASSWORD) &&
+          (exit_code == WORKER_SUCCESS || exit_code == WORKER_CLIENT_FAILURE ||
+           (exit_code == WORKER_FAILURE && config->connections[slot].has_security != SECURITY_INVALID)))
       {
          pgagroal_return_connection(shmem, slot);
       }
       else
       {
-         pgagroal_kill_connection(shmem, slot);
+         if (pgagroal_socket_isvalid(config->connections[slot].fd) &&
+             pgagroal_connection_isvalid(config->connections[slot].fd) &&
+             config->connections[slot].has_security != SECURITY_INVALID)
+         {
+            pgagroal_return_connection(shmem, slot);
+         }
+         else
+         {
+            pgagroal_kill_connection(shmem, slot);
+         }
       }
    }
 

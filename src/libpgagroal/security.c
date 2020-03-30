@@ -104,14 +104,14 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
    int hba_type;
    struct configuration* config;
    struct message* msg = NULL;
-   struct message* auth_msg = NULL;
+   struct message* request_msg = NULL;
    int32_t request;
    char* username = NULL;
    char* database = NULL;
 
    config = (struct configuration*)shmem;
 
-   /* Receive client calls - at any point if client exits return AUTH_FAILURE */
+   /* Receive client calls - at any point if client exits return AUTH_ERROR */
    status = pgagroal_read_block_message(client_fd, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
@@ -185,15 +185,17 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
       pgagroal_shutdown(server_fd);
       pgagroal_disconnect(server_fd);
 
-      return AUTH_FAILURE;
+      return AUTH_BAD_PASSWORD;
    }
 
    /* 196608 -> Ok */
    if (request == 196608)
    {
+      request_msg = pgagroal_copy_message(msg);
+
       /* Extract parameters: username / database */
       ZF_LOGV("authenticate: username/database (%d)", client_fd);
-      pgagroal_extract_username_database(msg, &username, &database);
+      pgagroal_extract_username_database(request_msg, &username, &database);
 
       /* Verify client against pgagroal_hba.conf */
       if (!is_allowed(username, database, address, shmem, &hba_type))
@@ -202,7 +204,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
          ZF_LOGD("authenticate: not allowed: %s / %s / %s", username, database, address);
          pgagroal_write_no_hba_entry(client_fd, username, database, address);
          pgagroal_write_empty(client_fd);
-         goto error;
+         goto bad_password;
       }
 
       /* Reject scenario */
@@ -211,7 +213,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
          ZF_LOGD("authenticate: reject: %s / %s / %s", username, database, address);
          pgagroal_write_connection_refused(client_fd);
          pgagroal_write_empty(client_fd);
-         goto error;
+         goto bad_password;
       }
 
       /* Gracefully scenario */
@@ -220,7 +222,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
          ZF_LOGD("authenticate: gracefully: %s / %s / %s", username, database, address);
          pgagroal_write_connection_refused(client_fd);
          pgagroal_write_empty(client_fd);
-         goto error;
+         goto bad_password;
       }
 
       /* Disabled scenario */
@@ -229,7 +231,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
          ZF_LOGD("authenticate: disabled: %s / %s / %s", username, database, address);
          pgagroal_write_connection_refused(client_fd);
          pgagroal_write_empty(client_fd);
-         goto error;
+         goto bad_password;
       }
 
       /* Get connection */
@@ -249,7 +251,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
             pgagroal_write_connection_refused(client_fd);
          }
          pgagroal_write_empty(client_fd);
-         goto error;
+         goto bad_password;
       }
       server_fd = config->connections[*slot].fd;
 
@@ -258,7 +260,12 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
          ZF_LOGD("authenticate: getting pooled connection");
          pgagroal_free_message(msg);
 
-         if (use_pooled_connection(client_fd, *slot, username, hba_type, shmem))
+         ret = use_pooled_connection(client_fd, *slot, username, hba_type, shmem);
+         if (ret == AUTH_BAD_PASSWORD)
+         {
+            goto bad_password;
+         }
+         else if (ret == AUTH_ERROR)
          {
             goto error;
          }
@@ -269,7 +276,12 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
       {
          ZF_LOGD("authenticate: creating pooled connection");
 
-         if (use_unpooled_connection(msg, client_fd, server_fd, *slot, username, hba_type, shmem))
+         ret = use_unpooled_connection(request_msg, client_fd, server_fd, *slot, username, hba_type, shmem);
+         if (ret == AUTH_BAD_PASSWORD)
+         {
+            goto bad_password;
+         }
+         else if (ret == AUTH_ERROR)
          {
             goto error;
          }
@@ -277,6 +289,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
          ZF_LOGD("authenticate: created pooled connection (%d)", *slot);
       }
 
+      pgagroal_free_copy_message(request_msg);
       free(username);
       free(database);
       
@@ -288,21 +301,27 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
       ZF_LOGD("authenticate: old version: %d (%s)", request, address);
       pgagroal_write_connection_refused_old(client_fd);
       pgagroal_write_empty(client_fd);
-      goto error;
    }
 
-error:
+bad_password:
    pgagroal_free_message(msg);
-   if (auth_msg)
-   {
-      pgagroal_free_copy_message(auth_msg);
-   }
+   pgagroal_free_copy_message(request_msg);
 
    free(username);
    free(database);
 
-   ZF_LOGD("authenticate: FAILURE");
-   return AUTH_FAILURE;
+   ZF_LOGD("authenticate: BAD_PASSWORD");
+   return AUTH_BAD_PASSWORD;
+
+error:
+   pgagroal_free_message(msg);
+   pgagroal_free_copy_message(request_msg);
+
+   free(username);
+   free(database);
+
+   ZF_LOGD("authenticate: ERROR");
+   return AUTH_ERROR;
 }
 
 int
@@ -385,7 +404,7 @@ pgagroal_prefill_auth(char* username, char* password, char* database, void* shme
 
 error:
 
-   ZF_LOGD("authenticate: FAILURE");
+   ZF_LOGD("authenticate: ERROR");
 
    if (*slot != -1)
    {
@@ -397,7 +416,7 @@ error:
    pgagroal_free_copy_message(startup_msg);
    pgagroal_free_message(msg);
 
-   return AUTH_FAILURE;
+   return AUTH_ERROR;
 }
 
 static int
@@ -582,15 +601,17 @@ use_pooled_connection(int client_fd, int slot, char* username, int hba_type, voi
       if (hba_type == SECURITY_TRUST)
       {
          /* R/0 */
-         if (client_trust(client_fd, username, password, slot, shmem))
-         {
-            goto error;
-         }
+         client_trust(client_fd, username, password, slot, shmem);
       }
       else if (hba_type == SECURITY_PASSWORD)
       {
          /* R/3 */
-         if (client_password(client_fd, username, password, slot, shmem))
+         status = client_password(client_fd, username, password, slot, shmem);
+         if (status == AUTH_BAD_PASSWORD)
+         {
+            goto bad_password;
+         }
+         else if (status == AUTH_ERROR)
          {
             goto error;
          }
@@ -598,7 +619,12 @@ use_pooled_connection(int client_fd, int slot, char* username, int hba_type, voi
       else if (hba_type == SECURITY_MD5)
       {
          /* R/5 */
-         if (client_md5(client_fd, username, password, slot, shmem))
+         status = client_md5(client_fd, username, password, slot, shmem);
+         if (status == AUTH_BAD_PASSWORD)
+         {
+            goto bad_password;
+         }
+         else if (status == AUTH_ERROR)
          {
             goto error;
          }
@@ -606,7 +632,12 @@ use_pooled_connection(int client_fd, int slot, char* username, int hba_type, voi
       else if (hba_type == SECURITY_SCRAM256)
       {
          /* R/10 */
-         if (client_scram256(client_fd, username, password, slot, shmem))
+         status = client_scram256(client_fd, username, password, slot, shmem);
+         if (status == AUTH_BAD_PASSWORD)
+         {
+            goto bad_password;
+         }
+         else if (status == AUTH_ERROR)
          {
             goto error;
          }
@@ -622,13 +653,19 @@ use_pooled_connection(int client_fd, int slot, char* username, int hba_type, voi
       }
    }
 
-   return 0;
+   return AUTH_SUCCESS;
+
+bad_password:
+
+   ZF_LOGV("use_pooled_connection: bad password for slot %d", slot);
+
+   return AUTH_BAD_PASSWORD;
 
 error:
 
    ZF_LOGV("use_pooled_connection: failed for slot %d", slot);
 
-   return 1;
+   return AUTH_ERROR;
 }
 
 static int
@@ -711,36 +748,43 @@ use_unpooled_connection(struct message* msg, int client_fd, int server_fd, int s
       if (hba_type == SECURITY_TRUST)
       {
          /* R/0 */
-         if (client_trust(client_fd, username, password, slot, shmem))
-         {
-            goto bad_password;
-         }
+         client_trust(client_fd, username, password, slot, shmem);
       }
       else if (hba_type == SECURITY_PASSWORD)
       {
          /* R/3 */
-         if (client_password(client_fd, username, password, slot, shmem))
+         status = client_password(client_fd, username, password, slot, shmem);
+         if (status == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
+         }
+         else if (status == AUTH_ERROR)
+         {
+            goto error;
          }
       }
       else if (hba_type == SECURITY_MD5)
       {
          /* R/5 */
-         if (client_md5(client_fd, username, password, slot, shmem))
+         status = client_md5(client_fd, username, password, slot, shmem);
+         if (status == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
+         }
+         else if (status == AUTH_ERROR)
+         {
+            goto error;
          }
       }
       else if (hba_type == SECURITY_SCRAM256)
       {
          /* R/10 */
          status = client_scram256(client_fd, username, password, slot, shmem);
-         if (status == 1)
+         if (status == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
          }
-         else if (status == 2)
+         else if (status == AUTH_ERROR)
          {
             goto error;
          }
@@ -780,9 +824,11 @@ use_unpooled_connection(struct message* msg, int client_fd, int server_fd, int s
 
    ZF_LOGV("authenticate: has_security %d", config->connections[slot].has_security);
 
-   return 0;
+   return AUTH_SUCCESS;
 
 bad_password:
+
+   pgagroal_free_copy_message(copy_msg);
 
    if (pgagroal_socket_isvalid(client_fd))
    {
@@ -793,13 +839,15 @@ bad_password:
       }
    }
 
+   return AUTH_BAD_PASSWORD;
+
 error:
 
    pgagroal_free_copy_message(copy_msg);
 
    ZF_LOGV("use_unpooled_connection: failed for slot %d", slot);
 
-   return 1;
+   return AUTH_ERROR;
 }
 
 static int
@@ -807,7 +855,7 @@ client_trust(int client_fd, char* username, char* password, int slot, void* shme
 {
    ZF_LOGD("client_trust %d %d", client_fd, slot);
 
-   return 0;
+   return AUTH_SUCCESS;
 }
 
 static int
@@ -872,18 +920,24 @@ retry:
    {
       pgagroal_write_bad_password(client_fd, username);
 
-      goto error;
+      goto bad_password;
    }
 
    pgagroal_free_message(msg);
 
-   return 0;
+   return AUTH_SUCCESS;
+
+bad_password:
+
+   pgagroal_free_message(msg);
+
+   return AUTH_BAD_PASSWORD;
 
 error:
 
    pgagroal_free_message(msg);
 
-   return 1;
+   return AUTH_ERROR;
 }
 
 static int
@@ -980,7 +1034,7 @@ retry:
    {
       pgagroal_write_bad_password(client_fd, username);
 
-      goto error;
+      goto bad_password;
    }
 
    pgagroal_free_message(msg);
@@ -990,7 +1044,18 @@ retry:
    free(md5_req);
    free(md5);
 
-   return 0;
+   return AUTH_SUCCESS;
+
+bad_password:
+
+   pgagroal_free_message(msg);
+
+   free(pwdusr);
+   free(shadow);
+   free(md5_req);
+   free(md5);
+
+   return AUTH_BAD_PASSWORD;
 
 error:
 
@@ -1001,7 +1066,7 @@ error:
    free(md5_req);
    free(md5);
 
-   return 1;
+   return AUTH_ERROR;
 }
 
 static int
@@ -1174,7 +1239,7 @@ retry:
    pgagroal_free_copy_message(sasl_continue);
    pgagroal_free_copy_message(sasl_final);
 
-   return 0;
+   return AUTH_SUCCESS;
 
 bad_password:
    free(password_prep);
@@ -1194,7 +1259,7 @@ bad_password:
    pgagroal_free_copy_message(sasl_continue);
    pgagroal_free_copy_message(sasl_final);
 
-   return 1;
+   return AUTH_BAD_PASSWORD;
 
 error:
 
@@ -1215,7 +1280,7 @@ error:
    pgagroal_free_copy_message(sasl_continue);
    pgagroal_free_copy_message(sasl_final);
 
-   return 2;
+   return AUTH_ERROR;
 }
 
 static int

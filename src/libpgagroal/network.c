@@ -341,6 +341,7 @@ pgagroal_socket_isvalid(int fd)
 
    if (r == -1)
    {
+      errno = 0;
       return false;
    }
 

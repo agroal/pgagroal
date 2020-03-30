@@ -41,7 +41,6 @@
 #include <zf_log.h>
 
 /* system */
-#include <fcntl.h>
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -73,14 +72,14 @@ pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse,
    struct configuration* config;
 
    config = (struct configuration*)shmem;
-   *slot = -1;
+
    best_rule = find_best_rule(shmem, username, database);
    retries = 0;
-
    start_time = time(NULL);
 
 start:
 
+   *slot = -1;
    do_init = false;
    has_lock = false;
 
@@ -184,23 +183,30 @@ start:
          config->connections[*slot].timestamp = time(NULL);
 
          /* Verify the socket for the slot */
-         int r = fcntl(config->connections[*slot].fd, F_GETFL);
-         if (r == -1)
+         if (!pgagroal_socket_isvalid(config->connections[*slot].fd))
          {
             kill = true;
          }
 
-         if (config->validation == VALIDATION_FOREGROUND)
+         if (!kill && config->validation == VALIDATION_FOREGROUND)
          {
             kill = !pgagroal_connection_isvalid(config->connections[*slot].fd);
          }
 
          if (kill)
          {
-            ZF_LOGD("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
-            pgagroal_kill_connection(shmem, *slot);
+            int status;
 
-            goto retry2;
+            ZF_LOGD("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
+            status = pgagroal_kill_connection(shmem, *slot);
+            if (status == 0)
+            {
+               goto retry2;
+            }
+            else
+            {
+               goto timeout;
+            }
          }
       }
 
@@ -264,15 +270,13 @@ error:
 int
 pgagroal_return_connection(void* shmem, int slot)
 {
-   int r;
    int state;
    struct configuration* config;
 
    config = (struct configuration*)shmem;
 
    /* Verify the socket for the slot */
-   r = fcntl(config->connections[slot].fd, F_GETFL);
-   if (r == -1)
+   if (!pgagroal_socket_isvalid(config->connections[slot].fd))
    {
       ZF_LOGD("pgagroal_return_connection: Slot %d FD %d - Error", slot, config->connections[slot].fd);
       config->connections[slot].has_security = SECURITY_INVALID;
@@ -327,6 +331,7 @@ pgagroal_return_connection(void* shmem, int slot)
 int
 pgagroal_kill_connection(void* shmem, int slot)
 {
+   int result = 0;
    int fd;
    struct configuration* config;
 
@@ -337,8 +342,15 @@ pgagroal_kill_connection(void* shmem, int slot)
            config->connections[slot].pid);
 
    fd = config->connections[slot].fd;
-   pgagroal_management_kill_connection(shmem, slot);
-   pgagroal_disconnect(fd);
+   if (fd != -1)
+   {
+      pgagroal_management_kill_connection(shmem, slot);
+      pgagroal_disconnect(fd);
+   }
+   else
+   {
+      result = 1;
+   }
 
    if (config->connections[slot].pid != -1)
    {
@@ -370,7 +382,7 @@ pgagroal_kill_connection(void* shmem, int slot)
 
    atomic_store(&config->states[slot], STATE_NOTINIT);
 
-   return 0;
+   return result;
 }
 
 void
@@ -440,8 +452,7 @@ pgagroal_validation(void* shmem)
          double diff;
 
          /* Verify the socket for the slot */
-         int r = fcntl(config->connections[i].fd, F_GETFL);
-         if (r == -1)
+         if (!pgagroal_socket_isvalid(config->connections[i].fd))
          {
             kill = true;
          }
