@@ -89,8 +89,9 @@ extern "C" {
 #define SECURITY_SCRAM256 10
 #define SECURITY_ALL      99
 
-#define AUTH_SUCCESS 0
-#define AUTH_FAILURE 1
+#define AUTH_SUCCESS      0
+#define AUTH_BAD_PASSWORD 1
+#define AUTH_ERROR        2
 
 #define SERVER_NOTINIT         -2
 #define SERVER_NOTINIT_PRIMARY -1
