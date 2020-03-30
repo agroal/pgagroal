@@ -875,7 +875,6 @@ read_message(int socket, bool block, int timeout, struct message** msg)
    do
    {
       m = pgagroal_memory_message();
-      m->data = pgagroal_memory_data();
 
       numbytes = read(socket, m->data, m->max_length);
 

@@ -52,13 +52,6 @@ struct message*
 pgagroal_memory_message(void);
 
 /**
- * Get the pointer to the message data section
- * @return The pointer
- */
-void*
-pgagroal_memory_data(void);
-
-/**
  * Free the memory segment
  */
 void

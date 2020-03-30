@@ -62,7 +62,10 @@ pgagroal_memory_init(void* shmem)
    memset(message, 0, sizeof(struct message));
    memset(data, 0, (size_t)config->buffer_size);
 
+   message->kind = 0;
+   message->length = 0;
    message->max_length = (size_t)config->buffer_size;
+   message->data = data;
 }
 
 /**
@@ -81,19 +84,6 @@ pgagroal_memory_message(void)
 /**
  *
  */
-void*
-pgagroal_memory_data(void)
-{
-#ifdef DEBUG
-   assert(data != NULL);
-#endif
-
-   return data;
-}
-
-/**
- *
- */
 void
 pgagroal_memory_free(void)
 {
@@ -107,7 +97,10 @@ pgagroal_memory_free(void)
    memset(message, 0, sizeof(struct message));
    memset(data, 0, length);
 
+   message->kind = 0;
+   message->length = 0;
    message->max_length = length;
+   message->data = data;
 }
 
 /**
