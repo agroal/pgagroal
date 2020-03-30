@@ -35,15 +35,16 @@ add_compile_options(-D_GNU_SOURCE)
 
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fno-omit-frame-pointer -DDEBUG")
 
-if (CMAKE_BUILD_TYPE MATCHES Release)
+if (CMAKE_BUILD_TYPE MATCHES Performance)
   add_compile_options(-O2)
+  add_compile_options(-DNDEBUG)
 
   if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-march=native)
     add_compile_options(-mtune=native)
     add_compile_options(-flto)
   endif()
-endif (CMAKE_BUILD_TYPE MATCHES Release)
+endif (CMAKE_BUILD_TYPE MATCHES Performance)
 
 #
 # Build libpgagroal

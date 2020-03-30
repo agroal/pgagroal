@@ -38,7 +38,7 @@ include(FindPackageHandleStandardArgs)
 include(GNUInstallDirs)
 
 if (NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: Debug Release" FORCE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: Debug Release Performance" FORCE)
 endif ()
 
 message(STATUS "Build type is ${CMAKE_BUILD_TYPE}")
