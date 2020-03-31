@@ -62,7 +62,11 @@ static int client_md5(int client_fd, char* username, char* password, int slot, v
 static int client_scram256(int client_fd, char* username, char* password, int slot, void* shmem);
 static int client_ok(int client_fd, int auth_type, int slot, void* shmem);
 static int server_passthrough(struct message* msg, int auth_type, int client_fd, int server_fd, int slot, void* shmem);
-static int server_authenticate(struct message* msg, int auth_type, char* username, char* password, int server_fd, int slot, void* shmem);
+static int server_authenticate(struct message* msg, int auth_type, char* username, char* password, int slot, void* shmem);
+static int server_trust(int slot, void* shmem);
+static int server_password(char* username, char* password, int slot, void* shmem);
+static int server_md5(char* username, char* password, int slot, void* shmem);
+static int server_scram256(char* username, char* password, int slot, void* shmem);
 
 static bool is_allowed(char* username, char* database, char* address, void* shmem, int* hba_type);
 static bool is_allowed_username(char* username, char* entry);
@@ -382,7 +386,7 @@ pgagroal_prefill_auth(char* username, char* password, char* database, void* shme
       goto error;
    }
 
-   if (server_authenticate(msg, auth_type, username, password, server_fd, *slot, shmem))
+   if (server_authenticate(msg, auth_type, username, password, *slot, shmem))
    {
       goto error;
    }
@@ -797,7 +801,7 @@ use_unpooled_connection(struct message* msg, int client_fd, int server_fd, int s
          goto error;
       }
 
-      if (server_authenticate(copy_msg, auth_type, username, password, server_fd, slot, shmem))
+      if (server_authenticate(copy_msg, auth_type, username, password, slot, shmem))
       {
          if (pgagroal_socket_isvalid(client_fd))
          {
@@ -1501,17 +1505,289 @@ error:
 }
 
 static int
-server_authenticate(struct message* msg, int auth_type, char* username, char* password, int server_fd, int slot, void* shmem)
+server_authenticate(struct message* msg, int auth_type, char* username, char* password, int slot, void* shmem)
+{
+   struct configuration* config = NULL;
+
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
+   {
+      memset(&config->connections[slot].security_messages[i], 0, SECURITY_BUFFER_SIZE);
+   }
+
+   if (msg->length > SECURITY_BUFFER_SIZE)
+   {
+      ZF_LOGE("Security message too large: %ld", msg->length);
+      goto error;
+   }
+
+   config->connections[slot].security_lengths[0] = msg->length;
+   memcpy(&config->connections[slot].security_messages[0], msg->data, msg->length);
+
+   if (auth_type == SECURITY_TRUST)
+   {
+      return server_trust(slot, shmem);
+   }
+   else if (auth_type == SECURITY_PASSWORD)
+   {
+      return server_password(username, password, slot, shmem);
+   }
+   else if (auth_type == SECURITY_MD5)
+   {
+      return server_md5(username, password, slot, shmem);
+   }
+   else if (auth_type == SECURITY_SCRAM256)
+   {
+      return server_scram256(username, password, slot, shmem);
+   }
+
+error:
+
+   ZF_LOGE("server_authenticate: %d", auth_type);
+
+   return AUTH_ERROR;
+}
+
+static int
+server_trust(int slot, void* shmem)
+{
+   struct configuration* config = NULL;
+
+   config = (struct configuration*)shmem;
+
+   ZF_LOGV("server_trust");
+
+   config->connections[slot].has_security = SECURITY_TRUST;
+
+   return AUTH_SUCCESS;
+}
+
+static int
+server_password(char* username, char* password, int slot, void* shmem)
 {
    int status = MESSAGE_STATUS_ERROR;
-   int auth_index = 0;
+   int auth_index = 1;
    int auth_response = -1;
+   int server_fd;
+   struct message* auth_msg = NULL;
+   struct message* password_msg = NULL;
+   struct configuration* config = NULL;
+
+   config = (struct configuration*)shmem;
+   server_fd = config->connections[slot].fd;
+
+   ZF_LOGV("server_password");
+
+   status = pgagroal_create_auth_password_response(password, &password_msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_write_message(server_fd, password_msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   config->connections[slot].security_lengths[auth_index] = password_msg->length;
+   memcpy(&config->connections[slot].security_messages[auth_index], password_msg->data, password_msg->length);
+   auth_index++;
+
+   status = pgagroal_read_block_message(server_fd, &auth_msg);
+   if (auth_msg->length > SECURITY_BUFFER_SIZE)
+   {
+      ZF_LOGE("Security message too large: %ld", auth_msg->length);
+      goto error;
+   }
+
+   get_auth_type(auth_msg, &auth_response);
+   ZF_LOGV("authenticate: auth response %d", auth_response);
+
+   if (auth_response == 0)
+   {
+      if (auth_msg->length > SECURITY_BUFFER_SIZE)
+      {
+         ZF_LOGE("Security message too large: %ld", auth_msg->length);
+         goto error;
+      }
+
+      config->connections[slot].security_lengths[auth_index] = auth_msg->length;
+      memcpy(&config->connections[slot].security_messages[auth_index], auth_msg->data, auth_msg->length);
+
+      config->connections[slot].has_security = SECURITY_PASSWORD;
+   }
+   else
+   {
+      goto bad_password;
+   }
+
+   pgagroal_free_copy_message(password_msg);
+   pgagroal_free_message(auth_msg);
+
+   return AUTH_SUCCESS;
+
+bad_password:
+
+   ZF_LOGW("Wrong password for user: %s", username);
+
+   pgagroal_free_copy_message(password_msg);
+   pgagroal_free_message(auth_msg);
+
+   return AUTH_BAD_PASSWORD;
+
+error:
+
+   pgagroal_free_copy_message(password_msg);
+   pgagroal_free_message(auth_msg);
+
+   return AUTH_ERROR;
+}
+
+static int
+server_md5(char* username, char* password, int slot, void* shmem)
+{
+   int status = MESSAGE_STATUS_ERROR;
+   int auth_index = 1;
+   int auth_response = -1;
+   int server_fd;
    size_t size;
    char* pwdusr = NULL;
    char* shadow = NULL;
    char* md5_req = NULL;
    char* md5 = NULL;
    char md5str[36];
+   char* salt = NULL;
+   struct message* auth_msg = NULL;
+   struct message* md5_msg = NULL;
+   struct configuration* config = NULL;
+
+   config = (struct configuration*)shmem;
+   server_fd = config->connections[slot].fd;
+
+   ZF_LOGV("server_md5");
+
+   if (get_salt(config->connections[slot].security_messages[0], &salt))
+   {
+      goto error;
+   }
+
+   size = strlen(username) + strlen(password) + 1;
+   pwdusr = malloc(size);
+   memset(pwdusr, 0, size);
+
+   snprintf(pwdusr, size, "%s%s", password, username);
+
+   if (pgagroal_md5(pwdusr, strlen(pwdusr), &shadow))
+   {
+      goto error;
+   }
+
+   md5_req = malloc(36);
+   memset(md5_req, 0, 36);
+   memcpy(md5_req, shadow, 32);
+   memcpy(md5_req + 32, salt, 4);
+
+   if (pgagroal_md5(md5_req, 36, &md5))
+   {
+      goto error;
+   }
+
+   memset(&md5str, 0, sizeof(md5str));
+   snprintf(&md5str[0], 36, "md5%s", md5);
+
+   status = pgagroal_create_auth_md5_response(md5str, &md5_msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_write_message(server_fd, md5_msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   config->connections[slot].security_lengths[auth_index] = md5_msg->length;
+   memcpy(&config->connections[slot].security_messages[auth_index], md5_msg->data, md5_msg->length);
+   auth_index++;
+
+   status = pgagroal_read_block_message(server_fd, &auth_msg);
+
+   if (auth_msg->length > SECURITY_BUFFER_SIZE)
+   {
+      ZF_LOGE("Security message too large: %ld", auth_msg->length);
+      goto error;
+   }
+
+   get_auth_type(auth_msg, &auth_response);
+   ZF_LOGV("authenticate: auth response %d", auth_response);
+
+   if (auth_response == 0)
+   {
+      if (auth_msg->length > SECURITY_BUFFER_SIZE)
+      {
+         ZF_LOGE("Security message too large: %ld", auth_msg->length);
+         goto error;
+      }
+
+      config->connections[slot].security_lengths[auth_index] = auth_msg->length;
+      memcpy(&config->connections[slot].security_messages[auth_index], auth_msg->data, auth_msg->length);
+
+      config->connections[slot].has_security = SECURITY_MD5;
+   }
+   else
+   {
+      goto bad_password;
+   }
+
+   free(pwdusr);
+   free(shadow);
+   free(md5_req);
+   free(md5);
+   free(salt);
+
+   pgagroal_free_copy_message(md5_msg);
+   pgagroal_free_message(auth_msg);
+
+   return AUTH_SUCCESS;
+
+bad_password:
+
+   ZF_LOGW("Wrong password for user: %s", username);
+
+   free(pwdusr);
+   free(shadow);
+   free(md5_req);
+   free(md5);
+   free(salt);
+
+   pgagroal_free_copy_message(md5_msg);
+   pgagroal_free_message(auth_msg);
+
+   return AUTH_BAD_PASSWORD;
+
+error:
+
+   free(pwdusr);
+   free(shadow);
+   free(md5_req);
+   free(md5);
+   free(salt);
+
+   pgagroal_free_copy_message(md5_msg);
+   pgagroal_free_message(auth_msg);
+
+   return AUTH_ERROR;
+}
+
+static int
+server_scram256(char* username, char* password, int slot, void* shmem)
+{
+   int status = MESSAGE_STATUS_ERROR;
+   int auth_index = 1;
+   int server_fd;
    char* salt = NULL;
    int salt_length = 0;
    char* password_prep = NULL;
@@ -1532,9 +1808,6 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
    int server_signature_received_length;
    unsigned char* server_signature_calc = NULL;
    int server_signature_calc_length;
-   struct message* auth_msg = NULL;
-   struct message* password_msg = NULL;
-   struct message* md5_msg = NULL;
    struct message* sasl_response = NULL;
    struct message* sasl_continue = NULL;
    struct message* sasl_continue_response = NULL;
@@ -1542,283 +1815,126 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
    struct configuration* config = NULL;
 
    config = (struct configuration*)shmem;
+   server_fd = config->connections[slot].fd;
 
-   ZF_LOGV("server_authenticate %d", auth_type);
+   ZF_LOGV("server_scram256");
 
-   for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
+   status = sasl_prep(password, &password_prep);
+   if (status)
    {
-      memset(&config->connections[slot].security_messages[i], 0, SECURITY_BUFFER_SIZE);
-   }
-
-   if (msg->length > SECURITY_BUFFER_SIZE)
-   {
-      ZF_LOGE("Security message too large: %ld", msg->length);
       goto error;
    }
 
-   config->connections[slot].security_lengths[auth_index] = msg->length;
-   memcpy(&config->connections[slot].security_messages[auth_index], msg->data, msg->length);
+   generate_nounce(&client_nounce);
+
+   status = pgagroal_create_auth_scram256_response(client_nounce, &sasl_response);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   config->connections[slot].security_lengths[auth_index] = sasl_response->length;
+   memcpy(&config->connections[slot].security_messages[auth_index], sasl_response->data, sasl_response->length);
    auth_index++;
 
-   /* Non-trust */
-   if (auth_type == SECURITY_TRUST)
-   {
-      /* Trust */
-      config->connections[slot].has_security = SECURITY_TRUST;
-      auth_response = 0;
-   }
-   else if (auth_type == SECURITY_PASSWORD)
-   {
-      status = pgagroal_create_auth_password_response(password, &password_msg);
-      if (status != MESSAGE_STATUS_OK)
-      {
-         goto error;
-      }
-
-      status = pgagroal_write_message(server_fd, password_msg);
-      if (status != MESSAGE_STATUS_OK)
-      {
-         goto error;
-      }
-
-      config->connections[slot].security_lengths[auth_index] = password_msg->length;
-      memcpy(&config->connections[slot].security_messages[auth_index], password_msg->data, password_msg->length);
-      auth_index++;
-
-      status = pgagroal_read_block_message(server_fd, &auth_msg);
-
-      if (auth_msg->length > SECURITY_BUFFER_SIZE)
-      {
-         ZF_LOGE("Security message too large: %ld", auth_msg->length);
-         goto error;
-      }
-
-      get_auth_type(auth_msg, &auth_response);
-      ZF_LOGV("authenticate: auth response %d", auth_response);
-
-      if (auth_response == 0)
-      {
-         if (auth_msg->length > SECURITY_BUFFER_SIZE)
-         {
-            ZF_LOGE("Security message too large: %ld", auth_msg->length);
-            goto error;
-         }
-
-         config->connections[slot].security_lengths[auth_index] = auth_msg->length;
-         memcpy(&config->connections[slot].security_messages[auth_index], auth_msg->data, auth_msg->length);
-
-         config->connections[slot].has_security = auth_type;
-      }
-      else
-      {
-         goto bad_password;
-      }
-   }
-   else if (auth_type == SECURITY_MD5)
-   {
-      if (get_salt(config->connections[slot].security_messages[0], &salt))
-      {
-         goto error;
-      }
-
-      size = strlen(username) + strlen(password) + 1;
-      pwdusr = malloc(size);
-      memset(pwdusr, 0, size);
-
-      snprintf(pwdusr, size, "%s%s", password, username);
-
-      if (pgagroal_md5(pwdusr, strlen(pwdusr), &shadow))
-      {
-         goto error;
-      }
-
-      md5_req = malloc(36);
-      memset(md5_req, 0, 36);
-      memcpy(md5_req, shadow, 32);
-      memcpy(md5_req + 32, salt, 4);
-
-      if (pgagroal_md5(md5_req, 36, &md5))
-      {
-         goto error;
-      }
-
-      memset(&md5str, 0, sizeof(md5str));
-      snprintf(&md5str[0], 36, "md5%s", md5);
-
-      status = pgagroal_create_auth_md5_response(md5str, &md5_msg);
-      if (status != MESSAGE_STATUS_OK)
-      {
-         goto error;
-      }
-
-      status = pgagroal_write_message(server_fd, md5_msg);
-      if (status != MESSAGE_STATUS_OK)
-      {
-         goto error;
-      }
-
-      config->connections[slot].security_lengths[auth_index] = md5_msg->length;
-      memcpy(&config->connections[slot].security_messages[auth_index], md5_msg->data, md5_msg->length);
-      auth_index++;
-
-      status = pgagroal_read_block_message(server_fd, &auth_msg);
-
-      if (auth_msg->length > SECURITY_BUFFER_SIZE)
-      {
-         ZF_LOGE("Security message too large: %ld", auth_msg->length);
-         goto error;
-      }
-
-      get_auth_type(auth_msg, &auth_response);
-      ZF_LOGV("authenticate: auth response %d", auth_response);
-
-      if (auth_response == 0)
-      {
-         if (auth_msg->length > SECURITY_BUFFER_SIZE)
-         {
-            ZF_LOGE("Security message too large: %ld", auth_msg->length);
-            goto error;
-         }
-
-         config->connections[slot].security_lengths[auth_index] = auth_msg->length;
-         memcpy(&config->connections[slot].security_messages[auth_index], auth_msg->data, auth_msg->length);
-
-         config->connections[slot].has_security = auth_type;
-      }
-      else
-      {
-         goto bad_password;
-      }
-   }
-   else if (auth_type == SECURITY_SCRAM256)
-   {
-      status = sasl_prep(password, &password_prep);
-      if (status)
-      {
-         goto error;
-      }
-
-      generate_nounce(&client_nounce);
-
-      status = pgagroal_create_auth_scram256_response(client_nounce, &sasl_response);
-      if (status != MESSAGE_STATUS_OK)
-      {
-         goto error;
-      }
-
-      config->connections[slot].security_lengths[auth_index] = sasl_response->length;
-      memcpy(&config->connections[slot].security_messages[auth_index], sasl_response->data, sasl_response->length);
-      auth_index++;
-
-      status = pgagroal_write_message(server_fd, sasl_response);
-      if (status != MESSAGE_STATUS_OK)
-      {
-         goto error;
-      }
-
-      status = pgagroal_read_block_message(server_fd, &sasl_continue);
-      if (sasl_continue->length > SECURITY_BUFFER_SIZE)
-      {
-         ZF_LOGE("Security message too large: %ld", sasl_continue->length);
-         goto error;
-      }
-
-      config->connections[slot].security_lengths[auth_index] = sasl_continue->length;
-      memcpy(&config->connections[slot].security_messages[auth_index], sasl_continue->data, sasl_continue->length);
-      auth_index++;
-
-      get_scram_attribute('r', (char*)(sasl_continue->data + 9), &combined_nounce);
-      get_scram_attribute('s', (char*)(sasl_continue->data + 9), &base64_salt);
-      get_scram_attribute('i', (char*)(sasl_continue->data + 9), &iteration_string);
-      get_scram_attribute('e', (char*)(sasl_continue->data + 9), &err);
-
-      if (err != NULL)
-      {
-         ZF_LOGE("SCRAM-SHA-256: %s", err);
-         free(err);
-         goto error;
-      }
-
-      pgagroal_base64_decode(base64_salt, &salt, &salt_length);
-
-      iteration = atoi(iteration_string);
-
-      memset(&wo_proof[0], 0, sizeof(wo_proof));
-      snprintf(&wo_proof[0], sizeof(wo_proof), "c=biws,r=%s", combined_nounce);
-
-      /* n=,r=... */
-      client_first_message_bare = config->connections[slot].security_messages[1] + 26;
-
-      /* r=...,s=...,i=4096 */
-      server_first_message = config->connections[slot].security_messages[2] + 9;
-
-      if (client_proof(password_prep, salt, salt_length, iteration,
-                       client_first_message_bare, server_first_message, &wo_proof[0],
-                       &proof, &proof_length))
-      {
-         goto error;
-      }
-
-      pgagroal_base64_encode((char*)proof, proof_length, &proof_base);
-
-      status = pgagroal_create_auth_scram256_continue_response(&wo_proof[0], (char*)proof_base, &sasl_continue_response);
-      if (status != MESSAGE_STATUS_OK)
-      {
-         goto error;
-      }
-
-      config->connections[slot].security_lengths[auth_index] = sasl_continue_response->length;
-      memcpy(&config->connections[slot].security_messages[auth_index], sasl_continue_response->data, sasl_continue_response->length);
-      auth_index++;
-
-      status = pgagroal_write_message(server_fd, sasl_continue_response);
-      if (status != MESSAGE_STATUS_OK)
-      {
-         goto error;
-      }
-
-      status = pgagroal_read_block_message(server_fd, &sasl_final);
-      if (sasl_final->length > SECURITY_BUFFER_SIZE)
-      {
-         ZF_LOGE("Security message too large: %ld", sasl_final->length);
-         goto error;
-      }
-
-      config->connections[slot].security_lengths[auth_index] = sasl_final->length;
-      memcpy(&config->connections[slot].security_messages[auth_index], sasl_final->data, sasl_final->length);
-      auth_index++;
-
-      /* Get 'v' attribute */
-      base64_server_signature = config->connections[slot].security_messages[4] + 11;
-      pgagroal_base64_decode(base64_server_signature, &server_signature_received, &server_signature_received_length);
-
-      if (server_signature(password_prep, salt, salt_length, iteration,
-                           client_first_message_bare, server_first_message, &wo_proof[0],
-                           &server_signature_calc, &server_signature_calc_length))
-      {
-         goto error;
-      }
-      
-      if (server_signature_calc_length != server_signature_received_length ||
-          memcmp(server_signature_received, server_signature_calc, server_signature_calc_length) != 0)
-      {
-         goto bad_password;
-      }
-
-      auth_response = 0;
-      config->connections[slot].has_security = auth_type;
-   }
-
-   if (auth_response != 0)
+   status = pgagroal_write_message(server_fd, sasl_response);
+   if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   free(pwdusr);
-   free(shadow);
-   free(md5_req);
-   free(md5);
+   status = pgagroal_read_block_message(server_fd, &sasl_continue);
+   if (sasl_continue->length > SECURITY_BUFFER_SIZE)
+   {
+      ZF_LOGE("Security message too large: %ld", sasl_continue->length);
+      goto error;
+   }
+
+   config->connections[slot].security_lengths[auth_index] = sasl_continue->length;
+   memcpy(&config->connections[slot].security_messages[auth_index], sasl_continue->data, sasl_continue->length);
+   auth_index++;
+
+   get_scram_attribute('r', (char*)(sasl_continue->data + 9), &combined_nounce);
+   get_scram_attribute('s', (char*)(sasl_continue->data + 9), &base64_salt);
+   get_scram_attribute('i', (char*)(sasl_continue->data + 9), &iteration_string);
+   get_scram_attribute('e', (char*)(sasl_continue->data + 9), &err);
+
+   if (err != NULL)
+   {
+      ZF_LOGE("SCRAM-SHA-256: %s", err);
+      goto error;
+   }
+
+   pgagroal_base64_decode(base64_salt, &salt, &salt_length);
+
+   iteration = atoi(iteration_string);
+
+   memset(&wo_proof[0], 0, sizeof(wo_proof));
+   snprintf(&wo_proof[0], sizeof(wo_proof), "c=biws,r=%s", combined_nounce);
+
+   /* n=,r=... */
+   client_first_message_bare = config->connections[slot].security_messages[1] + 26;
+
+   /* r=...,s=...,i=4096 */
+   server_first_message = config->connections[slot].security_messages[2] + 9;
+
+   if (client_proof(password_prep, salt, salt_length, iteration,
+                    client_first_message_bare, server_first_message, &wo_proof[0],
+                    &proof, &proof_length))
+   {
+      goto error;
+   }
+
+   pgagroal_base64_encode((char*)proof, proof_length, &proof_base);
+
+   status = pgagroal_create_auth_scram256_continue_response(&wo_proof[0], (char*)proof_base, &sasl_continue_response);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   config->connections[slot].security_lengths[auth_index] = sasl_continue_response->length;
+   memcpy(&config->connections[slot].security_messages[auth_index], sasl_continue_response->data, sasl_continue_response->length);
+   auth_index++;
+
+   status = pgagroal_write_message(server_fd, sasl_continue_response);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_read_block_message(server_fd, &sasl_final);
+   if (sasl_final->length > SECURITY_BUFFER_SIZE)
+   {
+      ZF_LOGE("Security message too large: %ld", sasl_final->length);
+      goto error;
+   }
+
+   config->connections[slot].security_lengths[auth_index] = sasl_final->length;
+   memcpy(&config->connections[slot].security_messages[auth_index], sasl_final->data, sasl_final->length);
+   auth_index++;
+
+   /* Get 'v' attribute */
+   base64_server_signature = config->connections[slot].security_messages[4] + 11;
+   pgagroal_base64_decode(base64_server_signature, &server_signature_received, &server_signature_received_length);
+
+   if (server_signature(password_prep, salt, salt_length, iteration,
+                        client_first_message_bare, server_first_message, &wo_proof[0],
+                        &server_signature_calc, &server_signature_calc_length))
+   {
+      goto error;
+   }
+
+   if (server_signature_calc_length != server_signature_received_length ||
+       memcmp(server_signature_received, server_signature_calc, server_signature_calc_length) != 0)
+   {
+      goto bad_password;
+   }
+
+   config->connections[slot].has_security = SECURITY_SCRAM256;
+
    free(salt);
+   free(err);
    free(password_prep);
    free(client_nounce);
    free(combined_nounce);
@@ -1829,23 +1945,17 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
    free(server_signature_received);
    free(server_signature_calc);
 
-   pgagroal_free_copy_message(password_msg);
-   pgagroal_free_copy_message(md5_msg);
-   pgagroal_free_message(auth_msg);
    pgagroal_free_copy_message(sasl_response);
    pgagroal_free_copy_message(sasl_continue_response);
 
-   return 0;
+   return AUTH_SUCCESS;
 
 bad_password:
 
    ZF_LOGW("Wrong password for user: %s", username);
 
-   free(pwdusr);
-   free(shadow);
-   free(md5_req);
-   free(md5);
    free(salt);
+   free(err);
    free(password_prep);
    free(client_nounce);
    free(combined_nounce);
@@ -1856,21 +1966,15 @@ bad_password:
    free(server_signature_received);
    free(server_signature_calc);
 
-   pgagroal_free_copy_message(password_msg);
-   pgagroal_free_copy_message(md5_msg);
-   pgagroal_free_message(auth_msg);
    pgagroal_free_copy_message(sasl_response);
    pgagroal_free_copy_message(sasl_continue_response);
 
-   return 1;
+   return AUTH_BAD_PASSWORD;
 
 error:
 
-   free(pwdusr);
-   free(shadow);
-   free(md5_req);
-   free(md5);
    free(salt);
+   free(err);
    free(password_prep);
    free(client_nounce);
    free(combined_nounce);
@@ -1881,13 +1985,10 @@ error:
    free(server_signature_received);
    free(server_signature_calc);
 
-   pgagroal_free_copy_message(password_msg);
-   pgagroal_free_copy_message(md5_msg);
-   pgagroal_free_message(auth_msg);
    pgagroal_free_copy_message(sasl_response);
    pgagroal_free_copy_message(sasl_continue_response);
 
-   return 2;
+   return AUTH_ERROR;
 }
 
 static bool
