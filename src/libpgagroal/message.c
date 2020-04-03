@@ -133,6 +133,11 @@ pgagroal_free_copy_message(struct message* msg)
 int32_t
 pgagroal_get_request(struct message* msg)
 {
+   if (msg == NULL || msg->data == NULL || msg->length < 8)
+   {
+      return -1;
+   }
+
    return pgagroal_read_int32(msg->data + 4);
 }
 

@@ -300,6 +300,10 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
       ZF_LOGD("authenticate: SUCCESS");
       return AUTH_SUCCESS;
    }
+   else if (request == -1)
+   {
+      goto error;
+   }
    else
    {
       ZF_LOGD("authenticate: old version: %d (%s)", request, address);
