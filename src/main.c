@@ -64,6 +64,7 @@ static void graceful_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void coredump_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents);
 static void validation_cb(struct ev_loop *loop, ev_periodic *w, int revents);
+static bool accept_fatal(int error);
 
 struct accept_io
 {
@@ -80,17 +81,66 @@ struct periodic_info
 };
 
 static volatile int keep_running = 1;
+static struct ev_loop* main_loop = NULL;
 static struct accept_io io_main[MAX_FDS];
-static int length;
+static struct accept_io io_mgt;
+static int* fds = NULL;
+static int fds_length = -1;
+static int unix_socket = -1;
+static void* shmem = NULL;
+static void* pipeline_shmem = NULL;
 
 static void
-shutdown_io(struct ev_loop *loop)
+start_mgt()
 {
-   for (int i = 0; i < length; i++)
+   memset(&io_mgt, 0, sizeof(struct accept_io));
+   ev_io_init((struct ev_io*)&io_mgt, accept_mgt_cb, unix_socket, EV_READ);
+   io_mgt.socket = unix_socket;
+   io_mgt.shmem = shmem;
+   io_mgt.pipeline_shmem = pipeline_shmem;
+   ev_io_start(main_loop, (struct ev_io*)&io_mgt);
+}
+
+static void
+shutdown_mgt()
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   ev_io_stop(main_loop, (struct ev_io*)&io_mgt);
+   pgagroal_disconnect(unix_socket);
+   errno = 0;
+   pgagroal_remove_unix_socket(config->unix_socket_dir);
+   errno = 0;
+}
+
+static void
+start_io()
+{
+   for (int i = 0; i < fds_length; i++)
    {
-      ev_io_stop(loop, (struct ev_io*)&io_main[i]);
+      int sockfd = *(fds + i);
+
+      memset(&io_main[i], 0, sizeof(struct accept_io));
+      ev_io_init((struct ev_io*)&io_main[i], accept_main_cb, sockfd, EV_READ);
+      io_main[i].socket = sockfd;
+      io_main[i].shmem = shmem;
+      io_main[i].pipeline_shmem = pipeline_shmem;
+      ev_io_start(main_loop, (struct ev_io*)&io_main[i]);
+   }
+}
+
+static void
+shutdown_io()
+{
+   for (int i = 0; i < fds_length; i++)
+   {
+      ev_io_stop(main_loop, (struct ev_io*)&io_main[i]);
       pgagroal_shutdown(io_main[i].socket);
+      errno = 0;
       pgagroal_disconnect(io_main[i].socket);
+      errno = 0;
    }
 }
 
@@ -133,22 +183,16 @@ main(int argc, char **argv)
    char* users_path = NULL;
    bool daemon = false;
    pid_t pid, sid;
-   void* shmem = NULL;
    void* tmp_shmem = NULL;
-   struct ev_loop *loop;
-   struct accept_io io_mgt;
    struct signal_info signal_watcher[6];
    struct periodic_info idle_timeout;
    struct periodic_info validation;
-   int* fds = NULL;
-   int unix_socket;
    size_t size;
    size_t tmp_size;
    struct configuration* config = NULL;
    int ret;
    int c;
    struct pipeline p;
-   void* pipeline_shmem = NULL;
 
    while (1)
    {
@@ -341,29 +385,29 @@ main(int argc, char **argv)
    /* Bind Unix Domain Socket for file descriptor transfers */
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, shmem, &unix_socket))
    {
-      printf("pgagroal: Could not bind to %s\n", config->unix_socket_dir);
+      ZF_LOGF("pgagroal: Could not bind to %s\n", config->unix_socket_dir);
       exit(1);
    }
 
    /* Bind main socket */
-   if (pgagroal_bind(config->host, config->port, shmem, &fds, &length))
+   if (pgagroal_bind(config->host, config->port, shmem, &fds, &fds_length))
    {
-      printf("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
+      ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
       exit(1);
    }
-   
-   if (length > MAX_FDS)
+
+   if (fds_length > MAX_FDS)
    {
-      printf("pgagroal: Too many descriptors %d\n", length);
+      ZF_LOGF("pgagroal: Too many descriptors %d\n", fds_length);
       exit(1);
    }
 
    /* libev */
-   loop = ev_default_loop(pgagroal_libev(config->libev));
-   if (!loop)
+   main_loop = ev_default_loop(pgagroal_libev(config->libev));
+   if (!main_loop)
    {
-      printf("pgagroal: No loop implementation (%x) (%x)\n",
-             pgagroal_libev(config->libev), ev_supported_backends());
+      ZF_LOGF("pgagroal: No loop implementation (%x) (%x)\n",
+              pgagroal_libev(config->libev), ev_supported_backends());
       exit(1);
    }
 
@@ -378,34 +422,21 @@ main(int argc, char **argv)
    {
       signal_watcher[i].shmem = shmem;
       signal_watcher[i].slot = -1;
-      ev_signal_start(loop, (struct ev_signal*)&signal_watcher[i]);
+      ev_signal_start(main_loop, (struct ev_signal*)&signal_watcher[i]);
    }
 
    p = performance_pipeline();
    pipeline_shmem = p.initialize(shmem);
 
-   ev_io_init((struct ev_io*)&io_mgt, accept_mgt_cb, unix_socket, EV_READ);
-   io_mgt.socket = unix_socket;
-   io_mgt.shmem = shmem;
-   io_mgt.pipeline_shmem = pipeline_shmem;
-   ev_io_start(loop, (struct ev_io*)&io_mgt);
-
-   for (int i = 0; i < length; i++)
-   {
-      int sockfd = *(fds + i);
-      ev_io_init((struct ev_io*)&io_main[i], accept_main_cb, sockfd, EV_READ);
-      io_main[i].socket = sockfd;
-      io_main[i].shmem = shmem;
-      io_main[i].pipeline_shmem = pipeline_shmem;
-      ev_io_start(loop, (struct ev_io*)&io_main[i]);
-   }
+   start_mgt();
+   start_io();
 
    if (config->idle_timeout > 0)
    {
       ev_periodic_init ((struct ev_periodic*)&idle_timeout, idle_timeout_cb, 0.,
                         MAX(1. * config->idle_timeout / 2., 5.), 0);
       idle_timeout.shmem = shmem;
-      ev_periodic_start (loop, (struct ev_periodic*)&idle_timeout);
+      ev_periodic_start (main_loop, (struct ev_periodic*)&idle_timeout);
    }
 
    if (config->validation == VALIDATION_BACKGROUND)
@@ -413,17 +444,17 @@ main(int argc, char **argv)
       ev_periodic_init ((struct ev_periodic*)&validation, validation_cb, 0.,
                         MAX(1. * config->background_interval, 5.), 0);
       validation.shmem = shmem;
-      ev_periodic_start (loop, (struct ev_periodic*)&validation);
+      ev_periodic_start (main_loop, (struct ev_periodic*)&validation);
    }
 
    ZF_LOGI("pgagroal: started on %s:%d", config->host, config->port);
-   for (int i = 0; i < length; i++)
+   for (int i = 0; i < fds_length; i++)
    {
-      ZF_LOGD("Socket %d", *(fds + i));
+      ZF_LOGD("Socket: %d", *(fds + i));
    }
-   ZF_LOGD("Management %d", unix_socket);
+   ZF_LOGD("Management: %d", unix_socket);
    pgagroal_libev_engines();
-   ZF_LOGD("libev engine: %s", pgagroal_libev_engine(ev_backend(loop)));
+   ZF_LOGD("libev engine: %s", pgagroal_libev_engine(ev_backend(main_loop)));
    ZF_LOGD("Configuration size: %lu", size);
    ZF_LOGD("Max connections: %d", config->max_connections);
    ZF_LOGD("Known users: %d", config->number_of_users);
@@ -443,24 +474,22 @@ main(int argc, char **argv)
 
    while (keep_running)
    {
-      ev_loop(loop, 0);
+      ev_loop(main_loop, 0);
    }
 
    ZF_LOGI("pgagroal: shutdown");
    pgagroal_pool_shutdown(shmem);
-   ev_io_stop(loop, (struct ev_io*)&io_mgt);
-   shutdown_io(loop);
+
+   shutdown_mgt();
+   shutdown_io();
 
    for (int i = 0; i < 6; i++)
    {
-      ev_signal_stop(loop, (struct ev_signal*)&signal_watcher[i]);
+      ev_signal_stop(main_loop, (struct ev_signal*)&signal_watcher[i]);
    }
 
-   ev_loop_destroy(loop);
+   ev_loop_destroy(main_loop);
 
-   pgagroal_disconnect(unix_socket);
-   pgagroal_remove_unix_socket(config->unix_socket_dir);
-   
    free(fds);
 
    p.destroy(pipeline_shmem);
@@ -479,6 +508,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    int client_fd;
    char address[INET6_ADDRSTRLEN];
    struct accept_io* ai;
+   struct configuration* config;
 
    ZF_LOGV("accept_main_cb: sockfd ready (%d)", revents);
 
@@ -489,18 +519,51 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       return;
    }
 
+   ai = (struct accept_io*)watcher;
+   config = (struct configuration*)ai->shmem;
+
    memset(&address, 0, sizeof(address));
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
    if (client_fd == -1)
    {
-      ZF_LOGW("accept: %d %s", watcher->fd, strerror(errno));
+      if (accept_fatal(errno) && keep_running)
+      {
+         ZF_LOGW("Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
+
+         shutdown_io();
+
+         free(fds);
+         fds = NULL;
+         fds_length = 0;
+
+         if (pgagroal_bind(config->host, config->port, ai->shmem, &fds, &fds_length))
+         {
+            ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
+            exit(1);
+         }
+
+         if (fds_length > MAX_FDS)
+         {
+            ZF_LOGF("pgagroal: Too many descriptors %d\n", fds_length);
+            exit(1);
+         }
+
+         start_io();
+
+         for (int i = 0; i < fds_length; i++)
+         {
+            ZF_LOGD("Socket: %d", *(fds + i));
+         }
+      }
+      else
+      {
+         ZF_LOGD("accept: %s (%d)", strerror(errno), watcher->fd);
+      }
       errno = 0;
       return;
    }
-
-   ai = (struct accept_io*)watcher;
 
    pgagroal_get_address((struct sockaddr *)&client_addr, (char*)&address, sizeof(address));
 
@@ -547,7 +610,27 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
    if (client_fd == -1)
    {
-      ZF_LOGV("accept_mgt_cb: accept: %s", strerror(errno));
+      if (accept_fatal(errno) && keep_running)
+      {
+         ZF_LOGW("Restarting management due to: %s (%d)", strerror(errno), watcher->fd);
+
+         shutdown_mgt();
+
+         if (pgagroal_bind_unix_socket(config->unix_socket_dir, shmem, &unix_socket))
+         {
+            ZF_LOGF("pgagroal: Could not bind to %s\n", config->unix_socket_dir);
+            exit(1);
+         }
+
+         start_mgt();
+
+         ZF_LOGD("Management: %d", unix_socket);
+      }
+      else
+      {
+         ZF_LOGD("accept: %s (%d)", strerror(errno), watcher->fd);
+      }
+      errno = 0;
       return;
    }
 
@@ -760,4 +843,25 @@ validation_cb(struct ev_loop *loop, ev_periodic *w, int revents)
    {
       pgagroal_validation(pi->shmem);
    }
+}
+
+static bool
+accept_fatal(int error)
+{
+   switch (error)
+   {
+      case EAGAIN:
+      case ENETDOWN:
+      case EPROTO:
+      case ENOPROTOOPT:
+      case EHOSTDOWN:
+      case ENONET:
+      case EHOSTUNREACH:
+      case EOPNOTSUPP:
+      case ENETUNREACH:
+         return false;
+         break;
+   }
+
+   return true;
 }
