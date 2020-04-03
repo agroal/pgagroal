@@ -550,6 +550,11 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
             exit(1);
          }
 
+         if (!fork())
+         {
+            pgagroal_flush(ai->shmem, FLUSH_GRACEFULLY);
+         }
+
          start_io();
 
          for (int i = 0; i < fds_length; i++)
