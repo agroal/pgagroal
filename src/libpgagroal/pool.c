@@ -149,6 +149,12 @@ start:
          if (pgagroal_connect(shmem, config->servers[server].host, config->servers[server].port, &fd))
          {
             ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
+
+            if (!fork())
+            {
+               pgagroal_flush(shmem, FLUSH_GRACEFULLY);
+            }
+
             goto error;
          }
 
@@ -344,7 +350,7 @@ pgagroal_kill_connection(void* shmem, int slot)
    fd = config->connections[slot].fd;
    if (fd != -1)
    {
-      pgagroal_management_kill_connection(shmem, slot);
+      pgagroal_management_kill_connection(shmem, slot, fd);
       pgagroal_disconnect(fd);
    }
    else
@@ -511,7 +517,10 @@ pgagroal_flush(void* shmem, int mode)
 
       if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_FLUSH))
       {
-         pgagroal_write_terminate(config->connections[i].fd);
+         if (pgagroal_socket_isvalid(config->connections[i].fd))
+         {
+            pgagroal_write_terminate(config->connections[i].fd);
+         }
          pgagroal_kill_connection(shmem, i);
       }
       else if (mode == FLUSH_ALL || mode == FLUSH_GRACEFULLY)

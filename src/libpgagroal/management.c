@@ -146,6 +146,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          free(cmptr);
          break;
       case MANAGEMENT_FLUSH:
+      case MANAGEMENT_KILL_CONNECTION:
          r = read(socket, &buf4, 4 * sizeof(char));
          if (r == -1)
          {
@@ -173,7 +174,6 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          *payload_s = s;
          break;
       case MANAGEMENT_RETURN_CONNECTION:
-      case MANAGEMENT_KILL_CONNECTION:
       case MANAGEMENT_GRACEFULLY:
       case MANAGEMENT_STOP:
       case MANAGEMENT_CANCEL_SHUTDOWN:
@@ -278,15 +278,25 @@ error:
 }
 
 int
-pgagroal_management_kill_connection(void* shmem, int32_t slot)
+pgagroal_management_kill_connection(void* shmem, int32_t slot, int socket)
 {
    ssize_t w;
    int fd;
+   char buf[4];
 
    w = write_header(shmem, MANAGEMENT_KILL_CONNECTION, slot, &fd);
    if (w == -1)
    {
       ZF_LOGW("pgagroal_management_kill_connection: write: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   pgagroal_write_int32(&buf, socket);
+   w = write(fd, &buf, sizeof(buf));
+   if (w == -1)
+   {
+      ZF_LOGW("pgagroal_management_flush: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }

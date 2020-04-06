@@ -94,10 +94,11 @@ pgagroal_management_return_connection(void* shmem, int32_t slot);
  * Management operation: Kill a connection
  * @param shmem The shared memory segment
  * @param slot The slot
+ * @param socket The socket
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_kill_connection(void* shmem, int32_t slot);
+pgagroal_management_kill_connection(void* shmem, int32_t slot, int socket);
 
 /**
  * Management operation: Flush the pool

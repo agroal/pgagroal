@@ -137,8 +137,6 @@ shutdown_io()
    for (int i = 0; i < fds_length; i++)
    {
       ev_io_stop(main_loop, (struct ev_io*)&io_main[i]);
-      pgagroal_shutdown(io_main[i].socket);
-      errno = 0;
       pgagroal_disconnect(io_main[i].socket);
       errno = 0;
    }
@@ -654,7 +652,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          break;
       case MANAGEMENT_KILL_CONNECTION:
          ZF_LOGD("pgagroal: Management kill connection: Slot %d", slot);
-         pgagroal_disconnect(config->connections[slot].fd);
+         pgagroal_disconnect(payload_i);
          break;
       case MANAGEMENT_FLUSH:
          ZF_LOGD("pgagroal: Management flush (%d)", payload_i);
