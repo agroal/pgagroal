@@ -202,91 +202,95 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
    int yes = 1;
    socklen_t optlen = sizeof(int);
    int rv;
-   char* sport;
+   char sport[5];
+   int error;
    struct configuration* config;
 
    config = (struct configuration*)shmem;
 
-   sport = malloc(5);
-   memset(sport, 0, 5);
-   sprintf(sport, "%d", port);
+   memset(&sport, 0, sizeof(sport));
+   sprintf(&sport[0], "%d", port);
 
    /* Connect to server */
    memset(&hints, 0, sizeof hints);
    hints.ai_family = AF_UNSPEC;
    hints.ai_socktype = SOCK_STREAM;
 
-   if ((rv = getaddrinfo(hostname, sport, &hints, &servinfo)) != 0) {
-      free(sport);
-      fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+   if ((rv = getaddrinfo(hostname, &sport[0], &hints, &servinfo)) != 0)
+   {
+      ZF_LOGD("getaddrinfo: %s\n", gai_strerror(rv));
       return 1;
    }
 
-   free(sport);
+   *fd = -1;
 
    /* Loop through all the results and connect to the first we can */
-   for (p = servinfo; p != NULL; p = p->ai_next)
+   for (p = servinfo; *fd == -1 && p != NULL; p = p->ai_next)
    {
       if ((*fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
       {
-         ZF_LOGW("pgagroal_connect: socket: %s", strerror(errno));
+         error = errno;
          errno = 0;
-         return 1;
       }
 
-      if (config->keep_alive)
+      if (*fd != -1)
       {
-         if (setsockopt(*fd, SOL_SOCKET, SO_KEEPALIVE, &yes, optlen) == -1)
+         if (config->keep_alive)
          {
-            ZF_LOGW("pgagroal_connect: SO_KEEPALIVE: %d %s", *fd, strerror(errno));
+            if (setsockopt(*fd, SOL_SOCKET, SO_KEEPALIVE, &yes, optlen) == -1)
+            {
+               error = errno;
+               pgagroal_disconnect(*fd);
+               errno = 0;
+               *fd = -1;
+               continue;
+            }
+         }
+
+         if (config->nodelay)
+         {
+            if (setsockopt(*fd, IPPROTO_TCP, TCP_NODELAY, &yes, optlen) == -1)
+            {
+               error = errno;
+               pgagroal_disconnect(*fd);
+               errno = 0;
+               *fd = -1;
+               continue;
+            }
+         }
+
+         if (setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &config->buffer_size, optlen) == -1)
+         {
+            error = errno;
             pgagroal_disconnect(*fd);
             errno = 0;
-            return 1;
+            *fd = -1;
+            continue;
          }
-      }
 
-      if (config->nodelay)
-      {
-         if (setsockopt(*fd, IPPROTO_TCP, TCP_NODELAY, &yes, optlen) == -1)
+         if (setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &config->buffer_size, optlen) == -1)
          {
-            ZF_LOGW("pgagroal_connect: TCP_NODELAY: %d %s", *fd, strerror(errno));
+            error = errno;
             pgagroal_disconnect(*fd);
             errno = 0;
-            return 1;
+            *fd = -1;
+            continue;
+         }
+
+         if (connect(*fd, p->ai_addr, p->ai_addrlen) == -1)
+         {
+            error = errno;
+            pgagroal_disconnect(*fd);
+            errno = 0;
+            *fd = -1;
+            continue;
          }
       }
-
-      if (setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &config->buffer_size, optlen) == -1)
-      {
-         ZF_LOGW("pgagroal_connect: SO_RCVBUF: %d %s", *fd, strerror(errno));
-         pgagroal_disconnect(*fd);
-         errno = 0;
-         return 1;
-      }
-
-      if (setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &config->buffer_size, optlen) == -1)
-      {
-         ZF_LOGW("pgagroal_connect: SO_SNDBUF: %d %s", *fd, strerror(errno));
-         pgagroal_disconnect(*fd);
-         errno = 0;
-         return 1;
-      }
-
-      if (connect(*fd, p->ai_addr, p->ai_addrlen) == -1)
-      {
-         ZF_LOGW("pgagroal_connect: connect: %d %s", *fd, strerror(errno));
-         pgagroal_disconnect(*fd);
-         errno = 0;
-         return 1;
-      }
-
-      break;
    }
 
-   if (p == NULL)
+   if (*fd == -1)
    {
-      ZF_LOGD("pgagroal_connect: failed to connect");
-      return 1;
+      goto error;
    }
 
    freeaddrinfo(servinfo);
@@ -298,6 +302,11 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
    }
 
    return 0;
+
+error:
+
+   ZF_LOGD("pgagroal_connect: %s", strerror(error));
+   return 1;
 }
 
 /**
@@ -355,15 +364,6 @@ pgagroal_socket_isvalid(int fd)
    }
 
    return true;
-}
-
-int
-pgagroal_shutdown(int fd)
-{
-   if (fd == -1)
-      return 1;
-
-   return shutdown(fd, SHUT_RDWR);
 }
 
 /**

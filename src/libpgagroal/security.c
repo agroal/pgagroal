@@ -175,14 +175,11 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot)
       status = pgagroal_write_message(server_fd, msg);
       if (status != MESSAGE_STATUS_OK)
       {
-         pgagroal_shutdown(server_fd);
          pgagroal_disconnect(server_fd);
-
          goto error;
       }
       pgagroal_free_message(msg);
 
-      pgagroal_shutdown(server_fd);
       pgagroal_disconnect(server_fd);
 
       return AUTH_BAD_PASSWORD;

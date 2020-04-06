@@ -95,14 +95,6 @@ bool
 pgagroal_socket_isvalid(int fd);
 
 /**
- * Shutdown a descriptor
- * @param fd The descriptor
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_shutdown(int fd);
-
-/**
  * Disconnect from a descriptor
  * @param fd The descriptor
  * @return 0 upon success, otherwise 1
