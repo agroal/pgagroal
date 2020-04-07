@@ -675,7 +675,6 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
    char* username = NULL;
    int max_connections;
    int initial_size;
-   int total_connections;
    struct configuration* config;
 
    file = fopen(filename, "r");
@@ -684,7 +683,6 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
       return 1;
 
    index = 0;
-   total_connections = 0;
    config = (struct configuration*)shmem;
 
    while (fgets(line, sizeof(line), file))
@@ -719,7 +717,6 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
                atomic_init(&config->limits[index].active_connections, 0);
 
                index++;
-               total_connections += max_connections;
 
                if (index >= NUMBER_OF_LIMITS)
                {
@@ -743,12 +740,6 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
 
    fclose(file);
 
-   if (total_connections > config->max_connections)
-   {
-      printf("pgagroal: LIMIT: Too many connections defined %d (max %d)\n", total_connections, config->max_connections);
-      return 2;
-   }
-
    return 0;
 }
 
@@ -758,6 +749,23 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
 int
 pgagroal_validate_limit_configuration(void* shmem)
 {
+   int total_connections;
+   struct configuration* config;
+
+   total_connections = 0;
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < config->number_of_limits; i++)
+   {
+      total_connections += config->limits[i].max_connections;
+   }
+
+   if (total_connections > config->max_connections)
+   {
+      printf("pgagroal: LIMIT: Too many connections defined %d (max %d)\n", total_connections, config->max_connections);
+      return 1;
+   }
+
    return 0;
 }
 
