@@ -51,8 +51,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 
 #define MAX_FDS 64
@@ -185,6 +187,7 @@ main(int argc, char **argv)
    struct signal_info signal_watcher[6];
    struct periodic_info idle_timeout;
    struct periodic_info validation;
+   struct rlimit flimit;
    size_t size;
    size_t tmp_size;
    struct configuration* config = NULL;
@@ -345,6 +348,19 @@ main(int argc, char **argv)
    shmem = tmp_shmem;
 
    config = (struct configuration*)shmem;
+
+   if (getrlimit(RLIMIT_NOFILE, &flimit) == -1)
+   {
+      printf("pgagroal: Unable to find limit due to %s\n", strerror(errno));
+      exit(1);
+   }
+
+   /* We are "reserving" 30 file descriptors for pgagroal main */
+   if (config->max_connections > (flimit.rlim_cur - 30))
+   {
+      printf("pgagroal: max_connections is larger than the number of available file descriptors for connections (%ld)\n", flimit.rlim_cur - 30);
+      exit(1);
+   }
 
    if (daemon)
    {
