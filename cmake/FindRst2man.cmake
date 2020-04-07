@@ -22,7 +22,7 @@ endif()
 # handle the QUIETLY and REQUIRED arguments and set RST2MAN_FOUND to TRUE
 # if all listed variables are set
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(Rst2Man
+find_package_handle_standard_args(Rst2man
   REQUIRED_VARS RST2MAN_EXECUTABLE
   VERSION_VAR RST2MAN_VERSION
 )
