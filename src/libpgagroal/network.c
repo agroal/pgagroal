@@ -203,7 +203,7 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
    socklen_t optlen = sizeof(int);
    int rv;
    char sport[5];
-   int error;
+   int error = 0;
    struct configuration* config;
 
    config = (struct configuration*)shmem;
