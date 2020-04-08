@@ -93,9 +93,10 @@ pgagroal_flush(void* shmem, int mode);
 /**
  * Prefill the pool
  * @param shmem The shared memory segment
+ * @param initial Use initial size
  */
 void
-pgagroal_prefill(void* shmem);
+pgagroal_prefill(void* shmem, bool initial);
 
 /**
  * Initialize the pool

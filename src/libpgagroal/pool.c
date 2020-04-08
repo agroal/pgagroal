@@ -58,6 +58,7 @@ static bool do_prefill(void* shmem, char* username, char* database, int size);
 int
 pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse, int* slot)
 {
+   bool prefill;
    bool do_init;
    bool has_lock;
    int connections;
@@ -72,6 +73,8 @@ pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse,
    struct configuration* config;
 
    config = (struct configuration*)shmem;
+
+   prefill = false;
 
    best_rule = find_best_rule(shmem, username, database);
    retries = 0;
@@ -205,6 +208,7 @@ start:
 
             ZF_LOGD("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
             status = pgagroal_kill_connection(shmem, *slot);
+            prefill = true;
             if (status == 0)
             {
                goto retry2;
@@ -213,6 +217,14 @@ start:
             {
                goto timeout;
             }
+         }
+      }
+
+      if (prefill)
+      {
+         if (!fork())
+         {
+            pgagroal_prefill(shmem, false);
          }
       }
 
@@ -394,6 +406,7 @@ pgagroal_kill_connection(void* shmem, int slot)
 void
 pgagroal_idle_timeout(void* shmem)
 {
+   bool prefill;
    time_t now;
    signed char free;
    struct configuration* config;
@@ -403,6 +416,7 @@ pgagroal_idle_timeout(void* shmem)
 
    config = (struct configuration*)shmem;
    now = time(NULL);
+   prefill = false;
 
    ZF_LOGD("pgagroal_idle_timeout");
 
@@ -417,6 +431,7 @@ pgagroal_idle_timeout(void* shmem)
          if (diff >= (double)config->idle_timeout)
          {
             pgagroal_kill_connection(shmem, i);
+            prefill = true;
          }
          else
          {
@@ -425,6 +440,14 @@ pgagroal_idle_timeout(void* shmem)
       }
    }
    
+   if (prefill)
+   {
+      if (!fork())
+      {
+         pgagroal_prefill(shmem, false);
+      }
+   }
+
    pgagroal_pool_status(shmem);
    pgagroal_memory_destroy();
    pgagroal_stop_logging(shmem);
@@ -435,6 +458,7 @@ pgagroal_idle_timeout(void* shmem)
 void
 pgagroal_validation(void* shmem)
 {
+   bool prefill = true;
    time_t now;
    signed char free;
    struct configuration* config;
@@ -482,11 +506,20 @@ pgagroal_validation(void* shmem)
          if (kill)
          {
             pgagroal_kill_connection(shmem, i);
+            prefill = true;
          }
          else
          {
             atomic_store(&config->states[i], STATE_FREE);
          }
+      }
+   }
+
+   if (prefill)
+   {
+      if (!fork())
+      {
+         pgagroal_prefill(shmem, false);
       }
    }
 
@@ -500,6 +533,7 @@ pgagroal_validation(void* shmem)
 void
 pgagroal_flush(void* shmem, int mode)
 {
+   bool prefill;
    signed char free;
    signed char in_use;
    struct configuration* config;
@@ -508,6 +542,8 @@ pgagroal_flush(void* shmem, int mode)
    pgagroal_memory_init(shmem);
 
    config = (struct configuration*)shmem;
+
+   prefill = false;
 
    ZF_LOGD("pgagroal_flush");
    for (int i = config->max_connections - 1; i >= 0; i--)
@@ -522,6 +558,7 @@ pgagroal_flush(void* shmem, int mode)
             pgagroal_write_terminate(config->connections[i].fd);
          }
          pgagroal_kill_connection(shmem, i);
+         prefill = true;
       }
       else if (mode == FLUSH_ALL || mode == FLUSH_GRACEFULLY)
       {
@@ -531,6 +568,7 @@ pgagroal_flush(void* shmem, int mode)
             {
                kill(config->connections[i].pid, SIGQUIT);
                pgagroal_kill_connection(shmem, i);
+               prefill = true;
             }
             else if (mode == FLUSH_GRACEFULLY)
             {
@@ -540,6 +578,14 @@ pgagroal_flush(void* shmem, int mode)
       }
    }
    
+   if (prefill)
+   {
+      if (!fork())
+      {
+         pgagroal_prefill(shmem, false);
+      }
+   }
+
    pgagroal_pool_status(shmem);
    pgagroal_memory_destroy();
    pgagroal_stop_logging(shmem);
@@ -548,7 +594,7 @@ pgagroal_flush(void* shmem, int mode)
 }
 
 void
-pgagroal_prefill(void* shmem)
+pgagroal_prefill(void* shmem, bool initial)
 {
    struct configuration* config;
 
@@ -561,7 +607,18 @@ pgagroal_prefill(void* shmem)
 
    for (int i = 0; i < config->number_of_limits; i++)
    {
-      if (config->limits[i].initial_size > 0)
+      int size;
+
+      if (initial)
+      {
+         size = config->limits[i].initial_size;
+      }
+      else
+      {
+         size = config->limits[i].min_size;
+      }
+
+      if (size > 0)
       {
          if (strcmp("all", config->limits[i].database) && strcmp("all", config->limits[i].username))
          {
@@ -577,7 +634,7 @@ pgagroal_prefill(void* shmem)
 
             if (user != -1)
             {
-               while (do_prefill(shmem, config->users[user].username, config->limits[i].database, config->limits[i].initial_size))
+               while (do_prefill(shmem, config->users[user].username, config->limits[i].database, size))
                {
                   int32_t slot = -1;
 

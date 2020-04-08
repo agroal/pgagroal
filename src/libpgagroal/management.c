@@ -705,7 +705,7 @@ pgagroal_management_read_details(int socket)
 
    for (int i = 0; i < limits; i++)
    {
-      char limit[12 + 2 * IDENTIFIER_LENGTH];
+      char limit[16 + 2 * IDENTIFIER_LENGTH];
 
       memset(&limit, 0, sizeof(limit));
 
@@ -718,11 +718,12 @@ pgagroal_management_read_details(int socket)
       }
 
       printf("---------------------\n");
-      printf("Database:            %s\n", pgagroal_read_string(&(limit[12])));
-      printf("Username:            %s\n", pgagroal_read_string(&(limit[12 + IDENTIFIER_LENGTH])));
+      printf("Database:            %s\n", pgagroal_read_string(&(limit[16])));
+      printf("Username:            %s\n", pgagroal_read_string(&(limit[16 + IDENTIFIER_LENGTH])));
       printf("Active connections:  %d\n", pgagroal_read_int32(&(limit)));
-      printf("Initial connections: %d\n", pgagroal_read_int32(&(limit[8])));
       printf("Max connections:     %d\n", pgagroal_read_int32(&(limit[4])));
+      printf("Initial connections: %d\n", pgagroal_read_int32(&(limit[8])));
+      printf("Min connections:     %d\n", pgagroal_read_int32(&(limit[12])));
    }
 
    printf("---------------------\n");
@@ -802,15 +803,16 @@ pgagroal_management_write_details(void* shmem, int socket)
 
    for (int i = 0; i < config->number_of_limits; i++)
    {
-      char limit[12 + 2 * IDENTIFIER_LENGTH];
+      char limit[16 + 2 * IDENTIFIER_LENGTH];
 
       memset(&limit, 0, sizeof(limit));
 
       pgagroal_write_int32(limit, atomic_load(&config->limits[i].active_connections));
       pgagroal_write_int32(limit + 4, config->limits[i].max_connections);
       pgagroal_write_int32(limit + 8, config->limits[i].initial_size);
-      pgagroal_write_string(limit + 12, config->limits[i].database);
-      pgagroal_write_string(limit + 12 + IDENTIFIER_LENGTH, config->limits[i].username);
+      pgagroal_write_int32(limit + 12, config->limits[i].min_size);
+      pgagroal_write_string(limit + 16, config->limits[i].database);
+      pgagroal_write_string(limit + 16 + IDENTIFIER_LENGTH, config->limits[i].username);
 
       w = write(socket, limit, sizeof(limit));
       if (w == -1)

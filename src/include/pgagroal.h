@@ -168,6 +168,7 @@ struct limit
    atomic_ushort active_connections; /**< The active number of connections */
    int max_connections;              /**< The maximum number of connections */
    int initial_size;                 /**< The initial pool size */
+   int min_size;                     /**< The minimum pool size */
 } __attribute__ ((aligned (64)));
 
 /** @struct

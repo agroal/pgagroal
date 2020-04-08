@@ -482,7 +482,7 @@ main(int argc, char **argv)
    {
       if (!fork())
       {
-         pgagroal_prefill(shmem);
+         pgagroal_prefill(shmem, true);
       }
    }
 

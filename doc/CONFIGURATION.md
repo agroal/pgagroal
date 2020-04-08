@@ -79,14 +79,14 @@ host    all      all   all      all
 
 The `pgagroal_databases` configuration defines limits for a database or a user or both.
 
-It also defines the initial pool size for a database and user pair. Note, that this feature requires
+It also defines the initial and minimum pool size for a database and user pair. Note, that this feature requires
 a user definition file, see below.
 
 The configuration is loaded from either the path specified by the `-l` flag or `/etc/pgagroal/pgagroal_databases.conf`.
 
 ```
 #
-# DATABASE USER  MAX_CONNECTIONS INITIAL_SIZE
+# DATABASE USER  MAX_CONNECTIONS INITIAL_SIZE MIN_SIZE
 #
 all        all   all
 ```
@@ -97,6 +97,7 @@ all        all   all
 | USER | Yes | Specifies the user for the rule. Either specific name or `all` for all users |
 | MAX_CONNECTIONS | Yes | Specifies the maximum number of connections for the entry. `all` for all connections |
 | INITIAL_SIZE | No | Specifies the initial pool size for a database and user pair, e.g. `all` isn't supported |
+| MIN_SIZE | No | Specifies the minimum pool size for a database and user pair, e.g. `all` isn't supported |
 
 # pgagroal_users configuration
 
