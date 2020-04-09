@@ -166,7 +166,7 @@ struct limit
    char database[IDENTIFIER_LENGTH]; /**< The database */
    char username[IDENTIFIER_LENGTH]; /**< The user name */
    atomic_ushort active_connections; /**< The active number of connections */
-   int max_connections;              /**< The maximum number of connections */
+   int max_size;                     /**< The maximum pool size */
    int initial_size;                 /**< The initial pool size */
    int min_size;                     /**< The minimum pool size */
 } __attribute__ ((aligned (64)));

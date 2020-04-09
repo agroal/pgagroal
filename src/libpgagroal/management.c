@@ -808,7 +808,7 @@ pgagroal_management_write_details(void* shmem, int socket)
       memset(&limit, 0, sizeof(limit));
 
       pgagroal_write_int32(limit, atomic_load(&config->limits[i].active_connections));
-      pgagroal_write_int32(limit + 4, config->limits[i].max_connections);
+      pgagroal_write_int32(limit + 4, config->limits[i].max_size);
       pgagroal_write_int32(limit + 8, config->limits[i].initial_size);
       pgagroal_write_int32(limit + 12, config->limits[i].min_size);
       pgagroal_write_string(limit + 16, config->limits[i].database);

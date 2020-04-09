@@ -86,7 +86,7 @@ The configuration is loaded from either the path specified by the `-l` flag or `
 
 ```
 #
-# DATABASE USER  MAX_CONNECTIONS INITIAL_SIZE MIN_SIZE
+# DATABASE USER  MAX_SIZE INITIAL_SIZE MIN_SIZE
 #
 all        all   all
 ```
@@ -95,9 +95,9 @@ all        all   all
 |--------|----------|-------------|
 | DATABASE | Yes | Specifies the database for the rule. Either specific name or `all` for all databases |
 | USER | Yes | Specifies the user for the rule. Either specific name or `all` for all users |
-| MAX_CONNECTIONS | Yes | Specifies the maximum number of connections for the entry. `all` for all connections |
-| INITIAL_SIZE | No | Specifies the initial pool size for a database and user pair, e.g. `all` isn't supported |
-| MIN_SIZE | No | Specifies the minimum pool size for a database and user pair, e.g. `all` isn't supported |
+| MAX_SIZE | Yes | Specifies the maximum pool size for the entry. `all` for all connections |
+| INITIAL_SIZE | No | Specifies the initial pool size for the entry, e.g. `all` isn't supported |
+| MIN_SIZE | No | Specifies the minimum pool size for the entry, e.g. `all` isn't supported |
 
 # pgagroal_users configuration
 

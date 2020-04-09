@@ -22,11 +22,14 @@ DATABASE
 USER
   Specifies the user for the rule. Either specific name or all for all users
 
-MAX_CONNECTIONS
-  Specifies the maximum number of connections for the entry. all for all connections
+MAX_SIZE
+  Specifies the maximum pool size for the entry. all for all connections
 
 INITIAL_SIZE
-  Specifies the initial pool size for a database and user pair. Requires a pgagroal_users.conf configuration
+  Specifies the initial pool size for the entry. Requires a pgagroal_users.conf configuration
+
+MIN_SIZE
+  Specifies the minimum pool size for the entry. Requires a pgagroal_users.conf configuration
 
 EXAMPLE
 =======
@@ -34,7 +37,7 @@ EXAMPLE
 ::
    
   #
-  # DATABASE USER  MAX_CONNECTIONS INITIAL_SIZE
+  # DATABASE USER  MAX_SIZE INITIAL_SIZE MIN_SIZE
   #
   all        all   all
 

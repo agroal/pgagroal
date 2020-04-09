@@ -50,7 +50,7 @@ static int as_logging_level(char* str);
 static int as_validation(char* str);
 static int extract_value(char* str, int offset, char** value);
 static void extract_hba(char* str, char** type, char** database, char** user, char** address, char** method);
-static void extract_limit(char* str, int server_max, char** database, char** user, int* max_connections, int* initial_size, int* min_size);
+static void extract_limit(char* str, int server_max, char** database, char** user, int* max_size, int* initial_size, int* min_size);
 
 /**
  *
@@ -673,7 +673,7 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
    int index;
    char* database = NULL;
    char* username = NULL;
-   int max_connections;
+   int max_size;
    int initial_size;
    int min_size;
    struct configuration* config;
@@ -699,22 +699,22 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
             initial_size = 0;
             min_size = 0;
 
-            extract_limit(line, config->max_connections, &database, &username, &max_connections, &initial_size, &min_size);
+            extract_limit(line, config->max_connections, &database, &username, &max_size, &initial_size, &min_size);
 
-            if (database && username && max_connections > 0)
+            if (database && username && max_size > 0)
             {
-               if (initial_size > max_connections)
+               if (initial_size > max_size)
                {
-                  initial_size = max_connections;
+                  initial_size = max_size;
                }
                else if (initial_size < 0)
                {
                   initial_size = 0;
                }
 
-               if (min_size > max_connections)
+               if (min_size > max_size)
                {
-                  min_size = max_connections;
+                  min_size = max_size;
                }
                else if (min_size < 0)
                {
@@ -723,7 +723,7 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
 
                memcpy(&(config->limits[index].database), database, strlen(database));
                memcpy(&(config->limits[index].username), username, strlen(username));
-               config->limits[index].max_connections = max_connections;
+               config->limits[index].max_size = max_size;
                config->limits[index].initial_size = initial_size;
                config->limits[index].min_size = min_size;
                atomic_init(&config->limits[index].active_connections, 0);
@@ -743,7 +743,7 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
 
             database = NULL;
             username = NULL;
-            max_connections = 0;
+            max_size = 0;
          }
       }
    }
@@ -769,7 +769,7 @@ pgagroal_validate_limit_configuration(void* shmem)
 
    for (int i = 0; i < config->number_of_limits; i++)
    {
-      total_connections += config->limits[i].max_connections;
+      total_connections += config->limits[i].max_size;
    }
 
    if (total_connections > config->max_connections)

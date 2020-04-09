@@ -89,7 +89,7 @@ start:
    if (best_rule >= 0)
    {
       connections = atomic_fetch_add(&config->limits[best_rule].active_connections, 1);
-      if (connections >= config->limits[best_rule].max_connections)
+      if (connections >= config->limits[best_rule].max_size)
       {
          goto retry;
       }
