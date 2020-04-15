@@ -77,6 +77,7 @@ pgagroal_init_configuration(void* shmem, size_t size)
    config->validation = VALIDATION_OFF;
    config->background_interval = 300;
    config->max_retries = 5;
+   config->authentication_timeout = 5;
 
    config->buffer_size = DEFAULT_BUFFER_SIZE;
    config->keep_alive = true;
@@ -276,6 +277,17 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   if (!strcmp(section, "pgagroal"))
                   {
                      config->max_retries = as_int(value);
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "authentication_timeout"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->authentication_timeout = as_int(value);
                   }
                   else
                   {
@@ -517,6 +529,11 @@ pgagroal_validate_configuration(void* shmem)
    if (config->backlog <= 0)
    {
       config->backlog = MAX(config->max_connections / 4, 16);
+   }
+
+   if (config->authentication_timeout <= 0)
+   {
+      config->authentication_timeout = 5;
    }
 
    if (config->number_of_servers <= 0)

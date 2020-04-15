@@ -72,6 +72,9 @@ max_connections
 allow_unknown_users
   Allow unknown users to connect. Default is true
 
+authentication_timeout
+  The number of seconds the process will wait for valid credentials. Default is 5
+
 libev
   The libev backend to use. Valid options: auto, select, poll, epoll, linuxaio, iouring, devpoll and port. Default is auto
 

@@ -868,7 +868,6 @@ client_password(int client_fd, char* username, char* password, int slot, void* s
 {
    int status;
    time_t start_time;
-   int timeout;
    struct configuration* config;
    struct message* msg = NULL;
 
@@ -883,14 +882,6 @@ client_password(int client_fd, char* username, char* password, int slot, void* s
    }
 
    start_time = time(NULL);
-   if (config->blocking_timeout > 0)
-   {
-      timeout = config->blocking_timeout;
-   }
-   else
-   {
-      timeout = 5;
-   }
 
    pgagroal_socket_nonblocking(client_fd, true);
 
@@ -899,7 +890,7 @@ retry:
    status = pgagroal_read_timeout_message(client_fd, 1, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
-      if (difftime(time(NULL), start_time) < timeout)
+      if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
          {
@@ -951,7 +942,6 @@ client_md5(int client_fd, char* username, char* password, int slot, void* shmem)
    int status;
    char salt[4];
    time_t start_time;
-   int timeout;
    size_t size;
    char* pwdusr = NULL;
    char* shadow = NULL;
@@ -976,14 +966,6 @@ client_md5(int client_fd, char* username, char* password, int slot, void* shmem)
    }
 
    start_time = time(NULL);
-   if (config->blocking_timeout > 0)
-   {
-      timeout = config->blocking_timeout;
-   }
-   else
-   {
-      timeout = 5;
-   }
 
    pgagroal_socket_nonblocking(client_fd, true);
 
@@ -992,7 +974,7 @@ retry:
    status = pgagroal_read_timeout_message(client_fd, 1, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
-      if (difftime(time(NULL), start_time) < timeout)
+      if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
          {
@@ -1079,7 +1061,6 @@ client_scram256(int client_fd, char* username, char* password, int slot, void* s
 {
    int status;
    time_t start_time;
-   int timeout;
    char* password_prep = NULL;
    char* client_first_message_bare = NULL;
    char* server_first_message = NULL;
@@ -1113,14 +1094,6 @@ client_scram256(int client_fd, char* username, char* password, int slot, void* s
    }
 
    start_time = time(NULL);
-   if (config->blocking_timeout > 0)
-   {
-      timeout = config->blocking_timeout;
-   }
-   else
-   {
-      timeout = 5;
-   }
 
    pgagroal_socket_nonblocking(client_fd, true);
 
@@ -1129,7 +1102,7 @@ retry:
    status = pgagroal_read_timeout_message(client_fd, 1, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
-      if (difftime(time(NULL), start_time) < timeout)
+      if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
          {

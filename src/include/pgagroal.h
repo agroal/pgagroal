@@ -201,11 +201,12 @@ struct configuration
    int max_connections;              /**< The maximum number of connections */
    bool allow_unknown_users;         /**< Allow unknown users */
 
-   int blocking_timeout;    /**< The blocking timeout in seconds */
-   int idle_timeout;        /**< The idle timeout in seconds */
-   int validation;          /**< Validation mode */
-   int background_interval; /**< Background validation timer in seconds */
-   int max_retries;         /**< The maximum number of retries */
+   int blocking_timeout;       /**< The blocking timeout in seconds */
+   int idle_timeout;           /**< The idle timeout in seconds */
+   int validation;             /**< Validation mode */
+   int background_interval;    /**< Background validation timer in seconds */
+   int max_retries;            /**< The maximum number of retries */
+   int authentication_timeout; /**< The authentication timeout in seconds */
 
    char libev[MISC_LENGTH]; /**< Name of libev mode */
    int buffer_size;         /**< Socket buffer size */
