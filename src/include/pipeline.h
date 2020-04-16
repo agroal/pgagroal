@@ -38,7 +38,8 @@ extern "C" {
 #include <ev.h>
 #include <stdlib.h>
 
-#define PIPELINE_PERFORMANCE 0
+#define PIPELINE_AUTO        -1
+#define PIPELINE_PERFORMANCE  0
 
 typedef void* (*initialize)(void*);
 typedef void (*start)(struct worker_io*);

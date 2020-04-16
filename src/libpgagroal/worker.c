@@ -109,7 +109,15 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
          ZF_LOGW("pgagroal_worker: SO_RCVBUF/SO_SNDBUF failed for %d", client_fd);
       }
       
-      p = performance_pipeline();
+      if (config->pipeline == PIPELINE_PERFORMANCE)
+      {
+         p = performance_pipeline();
+      }
+      else
+      {
+         ZF_LOGE("pgagroal_worker: Unknown pipeline %d", config->pipeline);
+         p = performance_pipeline();
+      }
 
       ev_io_init((struct ev_io*)&client_io, p.client, client_fd, EV_READ);
       client_io.client_fd = client_fd;

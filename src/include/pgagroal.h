@@ -191,6 +191,8 @@ struct configuration
 
    char disabled[NUMBER_OF_DISABLED][IDENTIFIER_LENGTH]; /**< Which databases are disabled */
 
+   int pipeline; /**< The pipeline type */
+
    int log_type;               /**< The logging type */
    int log_level;              /**< The logging level */
    char log_path[MISC_LENGTH]; /**< The logging path */

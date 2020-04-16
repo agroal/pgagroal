@@ -30,6 +30,7 @@
 #include <pgagroal.h>
 #include <configuration.h>
 #include <logging.h>
+#include <pipeline.h>
 #include <security.h>
 #include <utils.h>
 
@@ -48,6 +49,7 @@ static bool as_bool(char* str);
 static int as_logging_type(char* str);
 static int as_logging_level(char* str);
 static int as_validation(char* str);
+static int as_pipeline(char* str);
 static int extract_value(char* str, int offset, char** value);
 static void extract_hba(char* str, char** type, char** database, char** user, char** address, char** method);
 static void extract_limit(char* str, int server_max, char** database, char** user, int* max_size, int* initial_size, int* min_size);
@@ -71,6 +73,8 @@ pgagroal_init_configuration(void* shmem, size_t size)
    }
 
    config->gracefully = false;
+
+   config->pipeline = PIPELINE_AUTO;
 
    config->blocking_timeout = 30;
    config->idle_timeout = 0;
@@ -222,6 +226,17 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      {
                         srv.primary = SERVER_NOTINIT;
                      }
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "pipeline"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->pipeline = as_pipeline(value);
                   }
                   else
                   {
@@ -555,6 +570,11 @@ pgagroal_validate_configuration(void* shmem)
          printf("pgagroal: No port defined for %s\n", config->servers[i].name);
          return 1;
       }
+   }
+
+   if (config->pipeline == PIPELINE_AUTO)
+   {
+      config->pipeline = PIPELINE_PERFORMANCE;
    }
 
    return 0;
@@ -1055,6 +1075,18 @@ static int as_validation(char* str)
       return VALIDATION_BACKGROUND;
 
    return VALIDATION_OFF;
+}
+
+static int
+as_pipeline(char* str)
+{
+   if (!strcasecmp(str, "auto"))
+      return PIPELINE_AUTO;
+
+   if (!strcasecmp(str, "performance"))
+      return PIPELINE_PERFORMANCE;
+
+   return PIPELINE_AUTO;
 }
 
 static void

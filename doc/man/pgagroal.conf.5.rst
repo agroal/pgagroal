@@ -75,6 +75,9 @@ allow_unknown_users
 authentication_timeout
   The number of seconds the process will wait for valid credentials. Default is 5
 
+pipeline
+  The pipeline type. Valid options are auto and performance. Default is auto
+
 libev
   The libev backend to use. Valid options: auto, select, poll, epoll, linuxaio, iouring, devpoll and port. Default is auto
 

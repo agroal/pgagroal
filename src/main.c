@@ -439,7 +439,16 @@ main(int argc, char **argv)
       ev_signal_start(main_loop, (struct ev_signal*)&signal_watcher[i]);
    }
 
-   p = performance_pipeline();
+   if (config->pipeline == PIPELINE_PERFORMANCE)
+   {
+      p = performance_pipeline();
+   }
+   else
+   {
+      ZF_LOGF("pgagroal: Unknown pipeline identifier %d\n", config->pipeline);
+      exit(1);
+   }
+
    pipeline_shmem = p.initialize(shmem);
 
    start_mgt();
@@ -469,6 +478,7 @@ main(int argc, char **argv)
    ZF_LOGD("Management: %d", unix_socket);
    pgagroal_libev_engines();
    ZF_LOGD("libev engine: %s", pgagroal_libev_engine(ev_backend(main_loop)));
+   ZF_LOGD("Pipeline: %d", config->pipeline);
    ZF_LOGD("Configuration size: %lu", size);
    ZF_LOGD("Max connections: %d", config->max_connections);
    ZF_LOGD("Known users: %d", config->number_of_users);
