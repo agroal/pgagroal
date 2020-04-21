@@ -32,7 +32,7 @@
 #include <pipeline.h>
 #include <worker.h>
 
-#define ZF_LOG_TAG "pipeline_perf"
+#define ZF_LOG_TAG "pipeline_session"
 #include <zf_log.h>
 
 /* system */
@@ -40,50 +40,50 @@
 #include <ev.h>
 #include <stdlib.h>
 
-static void* performance_initialize(void*);
-static void performance_start(struct worker_io*);
-static void performance_client(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void performance_server(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void performance_stop(struct worker_io*);
-static void performance_destroy(void*);
+static void* session_initialize(void*);
+static void session_start(struct worker_io*);
+static void session_client(struct ev_loop *loop, struct ev_io *watcher, int revents);
+static void session_server(struct ev_loop *loop, struct ev_io *watcher, int revents);
+static void session_stop(struct worker_io*);
+static void session_destroy(void*);
 
-struct pipeline performance_pipeline()
+struct pipeline session_pipeline()
 {
    struct pipeline pipeline;
 
-   pipeline.initialize = &performance_initialize;
-   pipeline.start = &performance_start;
-   pipeline.client = &performance_client;
-   pipeline.server = &performance_server;
-   pipeline.stop = &performance_stop;
-   pipeline.destroy = &performance_destroy;
+   pipeline.initialize = &session_initialize;
+   pipeline.start = &session_start;
+   pipeline.client = &session_client;
+   pipeline.server = &session_server;
+   pipeline.stop = &session_stop;
+   pipeline.destroy = &session_destroy;
 
    return pipeline;
 }
 
 static void*
-performance_initialize(void* shmem)
+session_initialize(void* shmem)
 {
    return NULL;
 }
 
 static void
-performance_start(struct worker_io* w)
+session_start(struct worker_io* w)
 {
 }
 
 static void
-performance_stop(struct worker_io* w)
+session_stop(struct worker_io* w)
 {
 }
 
 static void
-performance_destroy(void* pointer)
+session_destroy(void* pointer)
 {
 }
 
 static void
-performance_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
+session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
@@ -91,7 +91,14 @@ performance_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
    wi = (struct worker_io*)watcher;
 
-   status = pgagroal_read_socket_message(wi->client_fd, &msg);
+   if (wi->client_ssl == NULL)
+   {
+      status = pgagroal_read_socket_message(wi->client_fd, &msg);
+   }
+   else
+   {
+      status = pgagroal_read_ssl_message(wi->client_ssl, &msg);
+   }
    if (likely(status == MESSAGE_STATUS_OK))
    {
       if (likely(msg->kind != 'X'))
@@ -134,7 +141,7 @@ server_error:
 }
 
 static void
-performance_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
+session_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    bool fatal = false;
@@ -146,7 +153,14 @@ performance_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    status = pgagroal_read_socket_message(wi->server_fd, &msg);
    if (likely(status == MESSAGE_STATUS_OK))
    {
-      status = pgagroal_write_socket_message(wi->client_fd, msg);
+      if (wi->client_ssl == NULL)
+      {
+         status = pgagroal_write_socket_message(wi->client_fd, msg);
+      }
+      else
+      {
+         status = pgagroal_write_ssl_message(wi->client_ssl, msg);
+      }
       if (unlikely(status != MESSAGE_STATUS_OK))
       {
          goto client_error;

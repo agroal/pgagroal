@@ -38,55 +38,62 @@ extern "C" {
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include <openssl/ssl.h>
+
 #define MESSAGE_STATUS_ZERO  0
 #define MESSAGE_STATUS_OK    1
 #define MESSAGE_STATUS_ERROR 2
 
 /**
  * Read a message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @param msg The resulting message
  * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
  */
 int
-pgagroal_read_message(int socket, struct message** msg);
+pgagroal_read_message(SSL* ssl, int socket, struct message** msg);
 
 /**
  * Read a message in blocking mode
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @param msg The resulting message
  * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
  */
 int
-pgagroal_read_block_message(int socket, struct message** msg);
+pgagroal_read_block_message(SSL* ssl, int socket, struct message** msg);
 
 /**
  * Read a message with a timeout
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @param timeout The timeout in seconds
  * @param msg The resulting message
  * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
  */
 int
-pgagroal_read_timeout_message(int socket, int timeout, struct message** msg);
+pgagroal_read_timeout_message(SSL* ssl, int socket, int timeout, struct message** msg);
 
 /**
- * Write a message
+ * Write a message using a socket
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @param msg The message
  * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
  */
 int
-pgagroal_write_message(int socket, struct message* msg);
+pgagroal_write_message(SSL* ssl, int socket, struct message* msg);
 
 /**
  * Write a message with NODELAY
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @param msg The message
  * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
  */
 int
-pgagroal_write_nodelay_message(int socket, struct message* msg);
+pgagroal_write_nodelay_message(SSL* ssl, int socket, struct message* msg);
 
 /**
  * Create a message
@@ -99,19 +106,19 @@ int
 pgagroal_create_message(void* data, ssize_t length, struct message** msg);
    
 /**
+ * Free a message
+ * @param msg The resulting message
+ */
+void
+pgagroal_free_message(struct message* msg);
+
+/**
  * Copy a message
  * @param msg The resulting message
  * @return The copy
  */
 struct message*
 pgagroal_copy_message(struct message* msg);
-
-/**
- * Free a message
- * @param msg The resulting message
- */
-void
-pgagroal_free_message(struct message* msg);
 
 /**
  * Free a copy message
@@ -121,83 +128,73 @@ void
 pgagroal_free_copy_message(struct message* msg);
 
 /**
- * Get the request identifier
- * @param msg The message
- * @return The identifier
- */
-int32_t
-pgagroal_get_request(struct message* msg);
-
-/**
- * Extract the user name and database from a message
- * @param msg The message
- * @param username The resulting user name
- * @param database The resulting database
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_extract_username_database(struct message* msg, char** username, char** database);
-
-/**
  * Write an empty message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_empty(int socket);
+pgagroal_write_empty(SSL* ssl, int socket);
 
 /**
  * Write a notice message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_notice(int socket);
+pgagroal_write_notice(SSL* ssl, int socket);
 
 /**
  * Write a pool is full message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_pool_full(int socket);
+pgagroal_write_pool_full(SSL* ssl, int socket);
 
 /**
  * Write a connection refused message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_connection_refused(int socket);
+pgagroal_write_connection_refused(SSL* ssl, int socket);
 
 /**
  * Write a connection refused message (protocol 1 or 2)
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_connection_refused_old(int socket);
+pgagroal_write_connection_refused_old(SSL* ssl, int socket);
 
 /**
  * Write a bad password message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @param username The user name
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_bad_password(int socket, char* username);
+pgagroal_write_bad_password(SSL* ssl, int socket, char* username);
 
 /**
  * Write an unsupported security model message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @param username The user name
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_unsupported_security_model(int socket, char* username);
+pgagroal_write_unsupported_security_model(SSL* ssl, int socket, char* username);
 
 /**
  * Write a no HBA entry message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @param username The user name
  * @param database The database
@@ -205,39 +202,52 @@ pgagroal_write_unsupported_security_model(int socket, char* username);
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_no_hba_entry(int socket, char* username, char* database, char* address);
+pgagroal_write_no_hba_entry(SSL* ssl, int socket, char* username, char* database, char* address);
 
 /**
  * Write a deallocate all message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_deallocate_all(int socket);
+pgagroal_write_deallocate_all(SSL* ssl, int socket);
 
 /**
  * Write a reset all message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_reset_all(int socket);
+pgagroal_write_reset_all(SSL* ssl, int socket);
+
+/**
+ * Write TLS response
+ * @param ssl The SSL struct
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_write_tls(SSL* ssl, int socket);
 
 /**
  * Write a terminate message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_terminate(int socket);
+pgagroal_write_terminate(SSL* ssl, int socket);
 
 /**
  * Write an auth password message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_auth_password(int socket);
+pgagroal_write_auth_password(SSL* ssl, int socket);
 
 /**
  * Create an auth password response message
@@ -250,12 +260,13 @@ pgagroal_create_auth_password_response(char* password, struct message** msg);
 
 /**
  * Write an auth md5 message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @param salt The salt
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_auth_md5(int socket, char salt[4]);
+pgagroal_write_auth_md5(SSL* ssl, int socket, char salt[4]);
 
 /**
  * Create an auth MD5 response message
@@ -268,11 +279,12 @@ pgagroal_create_auth_md5_response(char* md5, struct message** msg);
 
 /**
  * Write an auth SCRAM-SHA-256 message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_auth_scram256(int socket);
+pgagroal_write_auth_scram256(SSL* ssl, int socket);
 
 /**
  * Create an auth SCRAM-SHA-256 response message
@@ -315,11 +327,12 @@ pgagroal_create_auth_scram256_final(char* ss, struct message** msg);
 
 /**
  * Write an auth success message
+ * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_auth_success(int socket);
+pgagroal_write_auth_success(SSL* ssl, int socket);
 
 /**
  * Create a startup message
@@ -338,6 +351,49 @@ pgagroal_create_startup_message(char* username, char* database, struct message**
  */
 bool
 pgagroal_connection_isvalid(int socket);
+
+/**
+ * Log a message
+ * @param msg The message
+ */
+void
+pgagroal_log_message(struct message* msg);
+
+/**
+ * Read a message using a socket
+ * @param socket The socket descriptor
+ * @param msg The resulting message
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
+ */
+int
+pgagroal_read_socket_message(int socket, struct message** msg);
+
+/**
+ * Write a message using a socket
+ * @param socket The socket descriptor
+ * @param msg The message
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
+ */
+int
+pgagroal_write_socket_message(int socket, struct message* msg);
+
+/**
+ * Read a message using SSL
+ * @param ssl The SSL descriptor
+ * @param msg The resulting message
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
+ */
+int
+pgagroal_read_ssl_message(SSL* ssl, struct message** msg);
+
+/**
+ * Write a message using SSL
+ * @param ssl The SSL descriptor
+ * @param msg The message
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
+ */
+int
+pgagroal_write_ssl_message(SSL* ssl, struct message* msg);
 
 #ifdef __cplusplus
 }

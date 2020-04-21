@@ -38,6 +38,24 @@ extern "C" {
 #include <stdlib.h>
 
 /**
+ * Get the request identifier
+ * @param msg The message
+ * @return The identifier
+ */
+int32_t
+pgagroal_get_request(struct message* msg);
+
+/**
+ * Extract the user name and database from a message
+ * @param msg The message
+ * @param username The resulting user name
+ * @param database The resulting database
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_extract_username_database(struct message* msg, char** username, char** database);
+
+/**
  * Get a string for the state
  * @param state
  * @return The string

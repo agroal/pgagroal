@@ -34,6 +34,9 @@
 #include <security.h>
 #include <utils.h>
 
+#define ZF_LOG_TAG "configuration"
+#include <zf_log.h>
+
 /* system */
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -71,6 +74,8 @@ pgagroal_init_configuration(void* shmem, size_t size)
    {
       config->servers[i].primary = SERVER_NOTINIT;
    }
+
+   config->tls = false;
 
    config->gracefully = false;
 
@@ -237,6 +242,60 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   if (!strcmp(section, "pgagroal"))
                   {
                      config->pipeline = as_pipeline(value);
+
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "tls"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->tls = as_bool(value);
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "tls_ca_file"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     max = strlen(value);
+                     if (max > MISC_LENGTH - 1)
+                        max = MISC_LENGTH - 1;
+                     memcpy(config->tls_ca_file, value, max);
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "tls_cert_file"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     max = strlen(value);
+                     if (max > MISC_LENGTH - 1)
+                        max = MISC_LENGTH - 1;
+                     memcpy(config->tls_cert_file, value, max);
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "tls_key_file"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     max = strlen(value);
+                     if (max > MISC_LENGTH - 1)
+                        max = MISC_LENGTH - 1;
+                     memcpy(config->tls_key_file, value, max);
                   }
                   else
                   {
@@ -519,25 +578,28 @@ pgagroal_read_configuration(char* filename, void* shmem)
 int
 pgagroal_validate_configuration(void* shmem)
 {
+   bool tls;
    struct configuration* config;
+
+   tls = false;
 
    config = (struct configuration*)shmem;
 
    if (strlen(config->host) == 0)
    {
-      printf("pgagroal: No host defined\n");
+      ZF_LOGF("pgagroal: No host defined");
       return 1;
    }
 
-   if (config->port == 0)
+   if (config->port <= 0)
    {
-      printf("pgagroal: No port defined\n");
+      ZF_LOGF("pgagroal: No port defined");
       return 1;
    }
 
    if (strlen(config->unix_socket_dir) == 0)
    {
-      printf("pgagroal: No unix_socket_dir defined\n");
+      ZF_LOGF("pgagroal: No unix_socket_dir defined");
       return 1;
    }
 
@@ -553,7 +615,7 @@ pgagroal_validate_configuration(void* shmem)
 
    if (config->number_of_servers <= 0)
    {
-      printf("pgagroal: No servers defined\n");
+      ZF_LOGF("pgagroal: No servers defined");
       return 1;
    }
 
@@ -561,20 +623,45 @@ pgagroal_validate_configuration(void* shmem)
    {
       if (strlen(config->servers[i].host) == 0)
       {
-         printf("pgagroal: No host defined for %s\n", config->servers[i].name);
+         ZF_LOGF("pgagroal: No host defined for %s", config->servers[i].name);
          return 1;
       }
 
       if (config->servers[i].port == 0)
       {
-         printf("pgagroal: No port defined for %s\n", config->servers[i].name);
+         ZF_LOGF("pgagroal: No port defined for %s", config->servers[i].name);
          return 1;
       }
    }
 
    if (config->pipeline == PIPELINE_AUTO)
    {
-      config->pipeline = PIPELINE_PERFORMANCE;
+      if (config->tls && (strlen(config->tls_cert_file) > 0 || strlen(config->tls_key_file) > 0))
+      {
+         tls = true;
+      }
+
+      if (tls)
+      {
+         config->pipeline = PIPELINE_SESSION;
+      }
+      else
+      {
+         config->pipeline = PIPELINE_PERFORMANCE;
+      }
+   }
+   else if (config->pipeline == PIPELINE_PERFORMANCE)
+   {
+      if (config->tls && (strlen(config->tls_cert_file) > 0 || strlen(config->tls_key_file) > 0))
+      {
+         tls = true;
+      }
+
+      if (tls)
+      {
+         ZF_LOGF("pgagroal: Performance pipeline does not support TLS");
+         return 1;
+      }
    }
 
    return 0;
@@ -668,15 +755,20 @@ pgagroal_validate_hba_configuration(void* shmem)
 
    if (config->number_of_hbas == 0)
    {
-      printf("pgagroal: No HBA entry defined\n");
+      ZF_LOGF("pgagroal: No HBA entry defined");
       return 1;
    }
 
    for (int i = 0; i < config->number_of_hbas; i++)
    {
-      if (strcmp("host", config->hbas[i].type))
+      if (!strcasecmp("host", config->hbas[i].type) ||
+          !strcasecmp("hostssl", config->hbas[i].type))
       {
-         printf("pgagroal: Unknown HBA type: %s\n", config->hbas[i].type);
+         /* Ok */
+      }
+      else
+      {
+         ZF_LOGF("pgagroal: Unknown HBA type: %s", config->hbas[i].type);
          return 1;
       }
 
@@ -691,7 +783,7 @@ pgagroal_validate_hba_configuration(void* shmem)
       }
       else
       {
-         printf("pgagroal: Unknown HBA method: %s\n", config->hbas[i].method);
+         ZF_LOGF("pgagroal: Unknown HBA method: %s", config->hbas[i].method);
          return 1;
       }
    }
@@ -811,7 +903,7 @@ pgagroal_validate_limit_configuration(void* shmem)
 
    if (total_connections > config->max_connections)
    {
-      printf("pgagroal: LIMIT: Too many connections defined %d (max %d)\n", total_connections, config->max_connections);
+      ZF_LOGF("pgagroal: LIMIT: Too many connections defined %d (max %d)", total_connections, config->max_connections);
       return 1;
    }
 
@@ -1085,6 +1177,9 @@ as_pipeline(char* str)
 
    if (!strcasecmp(str, "performance"))
       return PIPELINE_PERFORMANCE;
+
+   if (!strcasecmp(str, "session"))
+      return PIPELINE_SESSION;
 
    return PIPELINE_AUTO;
 }

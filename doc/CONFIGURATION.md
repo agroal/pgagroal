@@ -38,7 +38,11 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | max_connections | 100 | Int | No | The maximum number of connections (max 10000) |
 | allow_unknown_users | `true` | Bool | No | Allow unknown users to connect |
 | authentication_timeout | 5 | Int | No | The number of seconds the process will wait for valid credentials |
-| pipeline | `auto` | String | No | The pipeline type (`auto`, `performance`) |
+| pipeline | `auto` | String | No | The pipeline type (`auto`, `performance`, `session`) |
+| tls | `off` | Bool | No | Enable Transport Layer Security (TLS) |
+| tls_cert_file | | String | No | Certificate file for TLS |
+| tls_key_file | | String | No | Private key file for TLS |
+| tls_ca_file | | String | No | Certificate Authority (CA) file for TLS |
 | libev | `auto` | String | No | Select the [libev](http://software.schmorp.de/pkg/libev.html) backend to use. Valid options: `auto`, `select`, `poll`, `epoll`, `linuxaio`, `iouring`, `devpoll` and `port` |
 | buffer_size | 65535 | Int | No | The network buffer size (`SO_RCVBUF` and `SO_SNDBUF`) |
 | keep_alive | on | Bool | No | Have `SO_KEEPALIVE` on sockets |
@@ -71,7 +75,7 @@ host    all      all   all      all
 
 | Column | Required | Description |
 |--------|----------|-------------|
-| TYPE   | Yes      | Specifies the access method for clients. Only `host` supported |
+| TYPE   | Yes      | Specifies the access method for clients. `host` and `hostssl` are supported |
 | DATABASE | Yes      | Specifies the database for the rule. Either specific name or `all` for all databases |
 | USER | Yes      | Specifies the user for the rule. Either specific name or `all` for all users |
 | ADDRESS | Yes      | Specifies the network for the rule. `all` for all networks, or IPv4 address with a mask (`0.0.0.0/0`) or IPv6 address with a mask (`::0/0`) |

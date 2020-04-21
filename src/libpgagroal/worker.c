@@ -47,6 +47,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <openssl/ssl.h>
 
 volatile int running = 1;
 volatile int exit_code = WORKER_FAILURE;
@@ -65,6 +66,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    struct configuration* config;
    struct pipeline p;
    int32_t slot = -1;
+   SSL* client_ssl = NULL;
 
    pgagroal_start_logging(shmem);
    pgagroal_memory_init(shmem);
@@ -75,7 +77,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    memset(&server_io, 0, sizeof(struct worker_io));
 
    /* Authentication */
-   auth_status = pgagroal_authenticate(client_fd, address, shmem, &slot);
+   auth_status = pgagroal_authenticate(client_fd, address, shmem, &slot, &client_ssl);
    if (auth_status == AUTH_SUCCESS)
    {
       ZF_LOGD("pgagroal_worker: Slot %d (%d -> %d)", slot, client_fd, config->connections[slot].fd);
@@ -113,16 +115,21 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
       {
          p = performance_pipeline();
       }
+      else if (config->pipeline == PIPELINE_SESSION)
+      {
+         p = session_pipeline();
+      }
       else
       {
          ZF_LOGE("pgagroal_worker: Unknown pipeline %d", config->pipeline);
-         p = performance_pipeline();
+         p = session_pipeline();
       }
 
       ev_io_init((struct ev_io*)&client_io, p.client, client_fd, EV_READ);
       client_io.client_fd = client_fd;
       client_io.server_fd = config->connections[slot].fd;
       client_io.slot = slot;
+      client_io.client_ssl = client_ssl;
       client_io.shmem = shmem;
       client_io.pipeline_shmem = pipeline_shmem;
       
@@ -130,6 +137,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
       server_io.client_fd = client_fd;
       server_io.server_fd = config->connections[slot].fd;
       server_io.slot = slot;
+      server_io.client_ssl = client_ssl;
       server_io.shmem = shmem;
       server_io.pipeline_shmem = pipeline_shmem;
       
@@ -199,6 +207,19 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
             pgagroal_kill_connection(shmem, slot);
          }
       }
+   }
+
+   if (client_ssl != NULL)
+   {
+      int res;
+      SSL_CTX* ctx = SSL_get_SSL_CTX(client_ssl);
+      res = SSL_shutdown(client_ssl);
+      if (res == 0)
+      {
+         SSL_shutdown(client_ssl);
+      }
+      SSL_free(client_ssl);
+      SSL_CTX_free(ctx);
    }
 
    ZF_LOGD("client disconnect: %d", client_fd);

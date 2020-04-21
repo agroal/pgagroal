@@ -39,6 +39,7 @@ extern "C" {
 #include <stdlib.h>
 #include <time.h>
 #include <sys/types.h>
+#include <openssl/ssl.h>
 
 #define VERSION "0.6.0"
 
@@ -198,6 +199,11 @@ struct configuration
    char log_path[MISC_LENGTH]; /**< The logging path */
    bool log_connections;       /**< Log successful logins */
    bool log_disconnections;    /**< Log disconnects */
+
+   bool tls;                        /**< Is TLS enabled */
+   char tls_cert_file[MISC_LENGTH]; /**< TLS certificate path */
+   char tls_key_file[MISC_LENGTH];  /**< TLS key path */
+   char tls_ca_file[MISC_LENGTH];   /**< TLS CA certificate path */
 
    atomic_ushort active_connections; /**< The active number of connections */
    int max_connections;              /**< The maximum number of connections */

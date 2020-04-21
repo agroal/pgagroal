@@ -42,38 +42,92 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
 
 static int read_message(int socket, bool block, int timeout, struct message** msg);
 static int write_message(int socket, bool nodelay, struct message* msg);
 
+static int ssl_read_message(SSL* ssl, bool block, int timeout, struct message** msg);
+static int ssl_write_message(SSL* ssl, bool nodelay, struct message* msg);
+
 int
-pgagroal_read_message(int socket, struct message** msg)
+pgagroal_read_message(SSL* ssl, int socket, struct message** msg)
+{
+   if (ssl == NULL)
+   {
+      return read_message(socket, false, 0, msg);
+   }
+
+   return ssl_read_message(ssl, false, 0, msg);
+}
+
+int
+pgagroal_read_block_message(SSL* ssl, int socket, struct message** msg)
+{
+   if (ssl == NULL)
+   {
+      return read_message(socket, true, 0, msg);
+   }
+
+   return ssl_read_message(ssl, true, 0, msg);
+}
+
+int
+pgagroal_read_timeout_message(SSL* ssl, int socket, int timeout, struct message** msg)
+{
+   if (ssl == NULL)
+   {
+      return read_message(socket, true, timeout, msg);
+   }
+
+   return ssl_read_message(ssl, true, timeout, msg);
+}
+
+int
+pgagroal_write_message(SSL* ssl, int socket, struct message* msg)
+{
+   if (ssl == NULL)
+   {
+      return write_message(socket, false, msg);
+   }
+
+   return ssl_write_message(ssl, false, msg);
+}
+
+int
+pgagroal_write_nodelay_message(SSL* ssl, int socket, struct message* msg)
+{
+   if (ssl == NULL)
+   {
+      return write_message(socket, true, msg);
+   }
+
+   return ssl_write_message(ssl, true, msg);
+}
+
+int
+pgagroal_read_socket_message(int socket, struct message** msg)
 {
    return read_message(socket, false, 0, msg);
 }
 
 int
-pgagroal_read_block_message(int socket, struct message** msg)
-{
-   return read_message(socket, true, 0, msg);
-}
-
-int
-pgagroal_read_timeout_message(int socket, int timeout, struct message** msg)
-{
-   return read_message(socket, true, timeout, msg);
-}
-
-int
-pgagroal_write_message(int socket, struct message* msg)
+pgagroal_write_socket_message(int socket, struct message* msg)
 {
    return write_message(socket, false, msg);
 }
 
 int
-pgagroal_write_nodelay_message(int socket, struct message* msg)
+pgagroal_read_ssl_message(SSL* ssl, struct message** msg)
 {
-   return write_message(socket, true, msg);
+   return ssl_read_message(ssl, false, 0, msg);
+}
+
+int
+pgagroal_write_ssl_message(SSL* ssl, struct message* msg)
+{
+   return ssl_write_message(ssl, false, msg);
 }
 
 int
@@ -93,6 +147,12 @@ pgagroal_create_message(void* data, ssize_t length, struct message** msg)
    return MESSAGE_STATUS_OK;
 }
 
+void
+pgagroal_free_message(struct message* msg)
+{
+   pgagroal_memory_free();
+}
+
 struct message*
 pgagroal_copy_message(struct message* msg)
 {
@@ -106,12 +166,6 @@ pgagroal_copy_message(struct message* msg)
    memcpy(copy->data, msg->data, msg->length);
      
    return copy;
-}
-
-void
-pgagroal_free_message(struct message* msg)
-{
-   pgagroal_memory_free();
 }
 
 void
@@ -130,95 +184,8 @@ pgagroal_free_copy_message(struct message* msg)
    }
 }
 
-int32_t
-pgagroal_get_request(struct message* msg)
-{
-   if (msg == NULL || msg->data == NULL || msg->length < 8)
-   {
-      return -1;
-   }
-
-   return pgagroal_read_int32(msg->data + 4);
-}
-
 int
-pgagroal_extract_username_database(struct message* msg, char** username, char** database)
-{
-   int start, end;
-   int counter = 0;
-   signed char c;
-   char** array = NULL;
-   size_t size;
-   char* un = NULL;
-   char* db = NULL;
-
-   /* We know where the parameters start, and we know that the message is zero terminated */
-   for (int i = 8; i < msg->length - 1; i++)
-   {
-      c = pgagroal_read_byte(msg->data + i);
-      if (c == 0)
-         counter++;
-   }
-
-   array = (char**)malloc(sizeof(char*) * counter);
-
-   counter = 0;
-   start = 8;
-   end = 8;
-
-   for (int i = 8; i < msg->length - 1; i++)
-   {
-      c = pgagroal_read_byte(msg->data + i);
-      end++;
-      if (c == 0)
-      {
-         array[counter] = (char*)malloc(end - start);
-         memset(array[counter], 0, end - start);
-         memcpy(array[counter], msg->data + start, end - start);
-               
-         start = end;
-         counter++;
-      }
-   }
-         
-   for (int i = 0; i < counter; i++)
-   {
-      /* ZF_LOGV("Frontend: 0/Req Data: %s", array[i]); */
-      if (!strcmp(array[i], "user"))
-      {
-         size = strlen(array[i + 1]) + 1;
-         un = malloc(size);
-         memset(un, 0, size);
-         memcpy(un, array[i + 1], size);
-
-         *username = un;
-      }
-      else if (!strcmp(array[i], "database"))
-      {
-         size = strlen(array[i + 1]) + 1;
-         db = malloc(size);
-         memset(db, 0, size);
-         memcpy(db, array[i + 1], size);
-
-         *database = db;
-      }
-   }
-
-   if (*database == NULL)
-      *database = *username;
-
-   ZF_LOGV("Username: %s", *username);
-   ZF_LOGV("Database: %s", *database);
-
-   for (int i = 0; i < counter; i++)
-      free(array[i]);
-   free(array);
-
-   return 0;
-}
-
-int
-pgagroal_write_empty(int socket)
+pgagroal_write_empty(SSL* ssl, int socket)
 {
    char zero[1];
    struct message msg;
@@ -230,11 +197,16 @@ pgagroal_write_empty(int socket)
    msg.length = 1;
    msg.data = &zero;
 
-   return pgagroal_write_message(socket, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, false, &msg);
+   }
+
+   return ssl_write_message(ssl, false, &msg);
 }
 
 int
-pgagroal_write_notice(int socket)
+pgagroal_write_notice(SSL* ssl, int socket)
 {
    char notice[1];
    struct message msg;
@@ -248,11 +220,39 @@ pgagroal_write_notice(int socket)
    msg.length = 1;
    msg.data = &notice;
 
-   return pgagroal_write_message(socket, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, false, &msg);
+   }
+
+   return ssl_write_message(ssl, false, &msg);
 }
 
 int
-pgagroal_write_pool_full(int socket)
+pgagroal_write_tls(SSL* ssl, int socket)
+{
+   char tls[1];
+   struct message msg;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&tls, 0, sizeof(tls));
+
+   tls[0] = 'S';
+
+   msg.kind = 'S';
+   msg.length = 1;
+   msg.data = &tls;
+
+   if (ssl == NULL)
+   {
+      return write_message(socket, false, &msg);
+   }
+
+   return ssl_write_message(ssl, false, &msg);
+}
+
+int
+pgagroal_write_pool_full(SSL* ssl, int socket)
 {
    int size = 51;
    char pool_full[size];
@@ -272,11 +272,16 @@ pgagroal_write_pool_full(int socket)
    msg.length = size;
    msg.data = &pool_full;
 
-   return write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, true, &msg);
+   }
+
+   return ssl_write_message(ssl, true, &msg);
 }
 
 int
-pgagroal_write_connection_refused(int socket)
+pgagroal_write_connection_refused(SSL* ssl, int socket)
 {
    int size = 46;
    char connection_refused[size];
@@ -296,11 +301,16 @@ pgagroal_write_connection_refused(int socket)
    msg.length = size;
    msg.data = &connection_refused;
 
-   return write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, true, &msg);
+   }
+
+   return ssl_write_message(ssl, true, &msg);
 }
 
 int
-pgagroal_write_connection_refused_old(int socket)
+pgagroal_write_connection_refused_old(SSL* ssl, int socket)
 {
    int size = 20;
    char connection_refused[size];
@@ -316,11 +326,16 @@ pgagroal_write_connection_refused_old(int socket)
    msg.length = size;
    msg.data = &connection_refused;
 
-   return write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, true, &msg);
+   }
+
+   return ssl_write_message(ssl, true, &msg);
 }
 
 int
-pgagroal_write_bad_password(int socket, char* username)
+pgagroal_write_bad_password(SSL* ssl, int socket, char* username)
 {
    int size = strlen(username);
    size += 70;
@@ -344,11 +359,16 @@ pgagroal_write_bad_password(int socket, char* username)
    msg.length = size;
    msg.data = &badpassword;
 
-   return write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, true, &msg);
+   }
+
+   return ssl_write_message(ssl, true, &msg);
 }
 
 int
-pgagroal_write_unsupported_security_model(int socket, char* username)
+pgagroal_write_unsupported_security_model(SSL* ssl, int socket, char* username)
 {
    int size = strlen(username);
    size += 66;
@@ -372,11 +392,16 @@ pgagroal_write_unsupported_security_model(int socket, char* username)
    msg.length = size;
    msg.data = &unsupported;
 
-   return write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, true, &msg);
+   }
+
+   return ssl_write_message(ssl, true, &msg);
 }
 
 int
-pgagroal_write_no_hba_entry(int socket, char* username, char* database, char* address)
+pgagroal_write_no_hba_entry(SSL* ssl, int socket, char* username, char* database, char* address)
 {
    int size = strlen(username);
    size += strlen(database);
@@ -422,11 +447,16 @@ pgagroal_write_no_hba_entry(int socket, char* username, char* database, char* ad
    msg.length = size;
    msg.data = &no_hba;
 
-   return write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, true, &msg);
+   }
+
+   return ssl_write_message(ssl, true, &msg);
 }
 
 int
-pgagroal_write_deallocate_all(int socket)
+pgagroal_write_deallocate_all(SSL* ssl, int socket)
 {
    int status;
    int size = 21;
@@ -446,13 +476,27 @@ pgagroal_write_deallocate_all(int socket)
    msg.length = size;
    msg.data = &deallocate;
 
-   status = write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      status = write_message(socket, true, &msg);
+   }
+   else
+   {
+      status = ssl_write_message(ssl, true, &msg);
+   }
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   status = read_message(socket, true, 0, &reply);
+   if (ssl == NULL)
+   {
+      status = read_message(socket, true, 0, &reply);
+   }
+   else
+   {
+      status = ssl_read_message(ssl, true, 0, &reply);
+   }
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -469,7 +513,7 @@ error:
 }
 
 int
-pgagroal_write_reset_all(int socket)
+pgagroal_write_reset_all(SSL* ssl, int socket)
 {
    int status;
    int size = 16;
@@ -489,13 +533,27 @@ pgagroal_write_reset_all(int socket)
    msg.length = size;
    msg.data = &reset;
 
-   status = write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      status = write_message(socket, true, &msg);
+   }
+   else
+   {
+      status = ssl_write_message(ssl, true, &msg);
+   }
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   status = read_message(socket, true, 0, &reply);
+   if (ssl == NULL)
+   {
+      status = read_message(socket, true, 0, &reply);
+   }
+   else
+   {
+      status = ssl_read_message(ssl, true, 0, &reply);
+   }
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -512,7 +570,7 @@ error:
 }
 
 int
-pgagroal_write_terminate(int socket)
+pgagroal_write_terminate(SSL* ssl, int socket)
 {
    char terminate[5];
    struct message msg;
@@ -527,11 +585,16 @@ pgagroal_write_terminate(int socket)
    msg.length = 5;
    msg.data = &terminate;
 
-   return write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, true, &msg);
+   }
+
+   return ssl_write_message(ssl, true, &msg);
 }
 
 int
-pgagroal_write_auth_password(int socket)
+pgagroal_write_auth_password(SSL* ssl, int socket)
 {
    char password[9];
    struct message msg;
@@ -547,7 +610,12 @@ pgagroal_write_auth_password(int socket)
    msg.length = 9;
    msg.data = &password;
 
-   return write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, true, &msg);
+   }
+
+   return ssl_write_message(ssl, true, &msg);
 }
 
 int
@@ -576,7 +644,7 @@ pgagroal_create_auth_password_response(char* password, struct message** msg)
 }
 
 int
-pgagroal_write_auth_md5(int socket, char salt[4])
+pgagroal_write_auth_md5(SSL* ssl, int socket, char salt[4])
 {
    char md5[13];
    struct message msg;
@@ -596,7 +664,12 @@ pgagroal_write_auth_md5(int socket, char salt[4])
    msg.length = 13;
    msg.data = &md5;
 
-   return write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, true, &msg);
+   }
+
+   return ssl_write_message(ssl, true, &msg);
 }
 
 int
@@ -625,7 +698,7 @@ pgagroal_create_auth_md5_response(char* md5, struct message** msg)
 }
 
 int
-pgagroal_write_auth_scram256(int socket)
+pgagroal_write_auth_scram256(SSL* ssl, int socket)
 {
    char scram[24];
    struct message msg;
@@ -642,7 +715,12 @@ pgagroal_write_auth_scram256(int socket)
    msg.length = 24;
    msg.data = &scram;
 
-   return write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, true, &msg);
+   }
+
+   return ssl_write_message(ssl, true, &msg);
 }
 
 int
@@ -758,7 +836,7 @@ pgagroal_create_auth_scram256_final(char* ss, struct message** msg)
 }
 
 int
-pgagroal_write_auth_success(int socket)
+pgagroal_write_auth_success(SSL* ssl, int socket)
 {
    char success[9];
    struct message msg;
@@ -774,7 +852,12 @@ pgagroal_write_auth_success(int socket)
    msg.length = 9;
    msg.data = &success;
 
-   return write_message(socket, true, &msg);
+   if (ssl == NULL)
+   {
+      return write_message(socket, true, &msg);
+   }
+
+   return ssl_write_message(ssl, true, &msg);
 }
 
 int
@@ -858,6 +941,25 @@ error:
       pgagroal_free_message(reply);
 
    return false;
+}
+
+void
+pgagroal_log_message(struct message* msg)
+{
+   if (msg == NULL)
+   {
+      ZF_LOGV("Message is NULL");
+   }
+   else if (msg->data == NULL)
+   {
+      ZF_LOGV("Message DATA is NULL");
+   }
+   else
+   {
+      ZF_LOGV("Size: %zd", msg->length);
+      ZF_LOGV_MEM(msg->data, msg->length,
+                  "Message %p:", (const void *)msg->data);
+   }
 }
 
 static int
@@ -979,6 +1081,145 @@ write_message(int socket, bool nodelay, struct message* msg)
          else
          {
             keep_write = true;
+         }
+      }
+   } while (keep_write);
+
+   return MESSAGE_STATUS_ERROR;
+}
+
+static int
+ssl_read_message(SSL* ssl, bool block, int timeout, struct message** msg)
+{
+   bool keep_read = false;
+   ssize_t numbytes;
+   time_t start_time;
+   struct message* m = NULL;
+
+   if (unlikely(timeout > 0))
+   {
+      start_time = time(NULL);
+   }
+
+   do
+   {
+      m = pgagroal_memory_message();
+
+      numbytes = SSL_read(ssl, m->data, m->max_length);
+
+      if (likely(numbytes > 0))
+      {
+         m->kind = (signed char)(*((char*)m->data));
+         m->length = numbytes;
+         *msg = m;
+
+         return MESSAGE_STATUS_OK;
+      }
+      else
+      {
+         int err;
+
+         pgagroal_memory_free();
+
+         err = SSL_get_error(ssl, numbytes);
+         switch (err)
+         {
+            case SSL_ERROR_ZERO_RETURN:
+               if (timeout > 0)
+               {
+                  struct timespec ts;
+
+                  if (difftime(time(NULL), start_time) >= timeout)
+                  {
+                     return MESSAGE_STATUS_ZERO;
+                  }
+
+                  /* Sleep for 100ms */
+                  ts.tv_sec = 0;
+                  ts.tv_nsec = 100000000L;
+                  nanosleep(&ts, NULL);
+               }
+            case SSL_ERROR_WANT_READ:
+            case SSL_ERROR_WANT_WRITE:
+            case SSL_ERROR_WANT_CONNECT:
+            case SSL_ERROR_WANT_ACCEPT:
+            case SSL_ERROR_WANT_X509_LOOKUP:
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+            case SSL_ERROR_WANT_ASYNC:
+            case SSL_ERROR_WANT_ASYNC_JOB:
+            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+#endif
+               keep_read = true;
+               break;
+            case SSL_ERROR_SYSCALL:
+               ZF_LOGE("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               errno = 0;
+               keep_read = false;
+               break;
+            case SSL_ERROR_SSL:
+               ZF_LOGE("SSL_ERROR_SSL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               keep_read = false;
+               break;
+         }
+         ERR_clear_error();
+      }
+   } while (keep_read);
+
+   return MESSAGE_STATUS_ERROR;
+}
+
+static int
+ssl_write_message(SSL* ssl, bool nodelay, struct message* msg)
+{
+   bool keep_write = false;
+   ssize_t numbytes;
+
+   do
+   {
+      numbytes = SSL_write(ssl, msg->data, msg->length);
+
+      if (likely(numbytes == msg->length))
+      {
+         return MESSAGE_STATUS_OK;
+      }
+      else
+      {
+         int err;
+
+         pgagroal_memory_free();
+
+         err = SSL_get_error(ssl, numbytes);
+         switch (err)
+         {
+            case SSL_ERROR_ZERO_RETURN:
+            case SSL_ERROR_WANT_READ:
+            case SSL_ERROR_WANT_WRITE:
+            case SSL_ERROR_WANT_CONNECT:
+            case SSL_ERROR_WANT_ACCEPT:
+            case SSL_ERROR_WANT_X509_LOOKUP:
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+            case SSL_ERROR_WANT_ASYNC:
+            case SSL_ERROR_WANT_ASYNC_JOB:
+            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+#endif
+               keep_write = true;
+               break;
+            case SSL_ERROR_SYSCALL:
+               ZF_LOGE("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               errno = 0;
+               keep_write = false;
+               break;
+            case SSL_ERROR_SSL:
+               ZF_LOGE("SSL_ERROR_SSL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               errno = 0;
+               keep_write = false;
+               break;
+         }
+         ERR_clear_error();
+
+         if (!nodelay || !keep_write)
+         {
+            return MESSAGE_STATUS_ERROR;
          }
       }
    } while (keep_write);

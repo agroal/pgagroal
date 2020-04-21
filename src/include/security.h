@@ -37,16 +37,19 @@ extern "C" {
 
 #include <stdlib.h>
 
+#include <openssl/ssl.h>
+
 /**
  * Authenticate a user
  * @param client_fd The descriptor
  * @param address The client address
  * @param shmem The shared memory segment
  * @param slot The resulting slot
+ * @param client_ssl The client SSL context
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot);
+pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL** client_ssl);
 
 /**
  * Authenticate a prefill connection
@@ -107,6 +110,14 @@ pgagroal_md5(char* str, int length, char** md5);
  */
 bool
 pgagroal_user_known(char* user, void* shmem);
+
+/**
+ * Is the TLS configuration valid
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_tls_valid(void* shmem);
 
 #ifdef __cplusplus
 }

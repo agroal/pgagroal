@@ -96,13 +96,13 @@ pgagroal_update_server_state(void* shmem, int slot, int socket)
    qmsg.length = size;
    qmsg.data = &is_recovery;
 
-   status = pgagroal_write_message(socket, &qmsg);
+   status = pgagroal_write_message(NULL, socket, &qmsg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   status = pgagroal_read_block_message(socket, &tmsg);
+   status = pgagroal_read_block_message(NULL, socket, &tmsg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -122,13 +122,14 @@ pgagroal_update_server_state(void* shmem, int slot, int socket)
       config->servers[server].primary = SERVER_REPLICA;
    }
    
+   pgagroal_free_message(tmsg);
+
    return 0;
 
 error:
    ZF_LOGV("pgagroal_update_server_state: slot (%d) status (%d)", slot, status);
 
-   if (tmsg)
-      pgagroal_free_message(tmsg);
+   pgagroal_free_message(tmsg);
 
    return 1;
 }

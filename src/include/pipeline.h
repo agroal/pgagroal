@@ -40,6 +40,7 @@ extern "C" {
 
 #define PIPELINE_AUTO        -1
 #define PIPELINE_PERFORMANCE  0
+#define PIPELINE_SESSION      1
 
 typedef void* (*initialize)(void*);
 typedef void (*start)(struct worker_io*);
@@ -65,6 +66,12 @@ struct pipeline
  * @return The structure
  */
 struct pipeline performance_pipeline();
+
+/**
+ * Get the session pipeline
+ * @return The structure
+ */
+struct pipeline session_pipeline();
 
 #ifdef __cplusplus
 }

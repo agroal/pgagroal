@@ -34,6 +34,7 @@
 #include <network.h>
 #include <pipeline.h>
 #include <pool.h>
+#include <security.h>
 #include <shmem.h>
 #include <utils.h>
 #include <worker.h>
@@ -56,6 +57,8 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+
+#include <openssl/crypto.h>
 
 #define MAX_FDS 64
 
@@ -443,9 +446,19 @@ main(int argc, char **argv)
    {
       p = performance_pipeline();
    }
+   else if (config->pipeline == PIPELINE_SESSION)
+   {
+      if (pgagroal_tls_valid(shmem))
+      {
+         ZF_LOGF("pgagroal: Invalid TLS configuration");
+         exit(1);
+      }
+
+      p = session_pipeline();
+   }
    else
    {
-      ZF_LOGF("pgagroal: Unknown pipeline identifier %d\n", config->pipeline);
+      ZF_LOGF("pgagroal: Unknown pipeline identifier (%d)", config->pipeline);
       exit(1);
    }
 
@@ -479,6 +492,11 @@ main(int argc, char **argv)
    pgagroal_libev_engines();
    ZF_LOGD("libev engine: %s", pgagroal_libev_engine(ev_backend(main_loop)));
    ZF_LOGD("Pipeline: %d", config->pipeline);
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
+   ZF_LOGD("%s", SSLeay_version(SSLEAY_VERSION));
+#else
+   ZF_LOGD("%s", OpenSSL_version(OPENSSL_VERSION));
+#endif
    ZF_LOGD("Configuration size: %lu", size);
    ZF_LOGD("Max connections: %d", config->max_connections);
    ZF_LOGD("Known users: %d", config->number_of_users);

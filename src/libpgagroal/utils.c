@@ -53,6 +53,93 @@
 #define EVBACKEND_IOURING  0x00000080U
 #endif
 
+int32_t
+pgagroal_get_request(struct message* msg)
+{
+   if (msg == NULL || msg->data == NULL || msg->length < 8)
+   {
+      return -1;
+   }
+
+   return pgagroal_read_int32(msg->data + 4);
+}
+
+int
+pgagroal_extract_username_database(struct message* msg, char** username, char** database)
+{
+   int start, end;
+   int counter = 0;
+   signed char c;
+   char** array = NULL;
+   size_t size;
+   char* un = NULL;
+   char* db = NULL;
+
+   /* We know where the parameters start, and we know that the message is zero terminated */
+   for (int i = 8; i < msg->length - 1; i++)
+   {
+      c = pgagroal_read_byte(msg->data + i);
+      if (c == 0)
+         counter++;
+   }
+
+   array = (char**)malloc(sizeof(char*) * counter);
+
+   counter = 0;
+   start = 8;
+   end = 8;
+
+   for (int i = 8; i < msg->length - 1; i++)
+   {
+      c = pgagroal_read_byte(msg->data + i);
+      end++;
+      if (c == 0)
+      {
+         array[counter] = (char*)malloc(end - start);
+         memset(array[counter], 0, end - start);
+         memcpy(array[counter], msg->data + start, end - start);
+               
+         start = end;
+         counter++;
+      }
+   }
+         
+   for (int i = 0; i < counter; i++)
+   {
+      /* ZF_LOGV("Frontend: 0/Req Data: %s", array[i]); */
+      if (!strcmp(array[i], "user"))
+      {
+         size = strlen(array[i + 1]) + 1;
+         un = malloc(size);
+         memset(un, 0, size);
+         memcpy(un, array[i + 1], size);
+
+         *username = un;
+      }
+      else if (!strcmp(array[i], "database"))
+      {
+         size = strlen(array[i + 1]) + 1;
+         db = malloc(size);
+         memset(db, 0, size);
+         memcpy(db, array[i + 1], size);
+
+         *database = db;
+      }
+   }
+
+   if (*database == NULL)
+      *database = *username;
+
+   ZF_LOGV("Username: %s", *username);
+   ZF_LOGV("Database: %s", *database);
+
+   for (int i = 0; i < counter; i++)
+      free(array[i]);
+   free(array);
+
+   return 0;
+}
+
 char*
 pgagroal_get_state_string(signed char state)
 {

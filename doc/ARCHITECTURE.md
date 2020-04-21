@@ -136,6 +136,7 @@ struct worker_io
    int client_fd;        /* The client descriptor */
    int server_fd;        /* The server descriptor */
    int slot;             /* The slot */
+   SSL* client_ssl;      /* The client SSL context */
    void* shmem;          /* The shared memory segment */
    void* pipeline_shmem; /* The shared memory segment for the pipeline */
 };
@@ -159,6 +160,22 @@ The pipeline is defined in [pipeline_perf.c](../src/libpgagroal/pipeline_perf.c)
 | `performance_server` | [PostgreSQL](https://www.postgresql.org) to `pgagroal` communication |
 | `performance_stop` | Nothing |
 | `performance_destroy` | Nothing |
+
+### Session pipeline
+
+The session pipeline works like the performance pipeline with the exception that it checks if
+a Transport Layer Security (TLS) transport should be used.
+
+The pipeline is defined in [pipeline_session.c](../src/libpgagroal/pipeline_session.c) in the functions
+
+| Function | Description |
+|----------|-------------|
+| `session_initialize` | Nothing |
+| `session_start` | Nothing |
+| `session_client` | Client to `pgagroal` communication |
+| `session_server` | [PostgreSQL](https://www.postgresql.org) to `pgagroal` communication |
+| `session_stop` | Nothing |
+| `session_destroy` | Nothing |
 
 ## Signals
 

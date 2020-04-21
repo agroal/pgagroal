@@ -36,6 +36,8 @@ extern "C" {
 #include <ev.h>
 #include <stdlib.h>
 
+#include <openssl/ssl.h>
+
 #define WORKER_SUCCESS        0
 #define WORKER_FAILURE        1
 #define WORKER_SHUTDOWN       2
@@ -52,6 +54,7 @@ struct worker_io
    int client_fd;        /**< The client descriptor */
    int server_fd;        /**< The server descriptor */
    int slot;             /**< The slot */
+   SSL* client_ssl;      /**< The client SSL context */
    void* shmem;          /**< The shared memory segment */
    void* pipeline_shmem; /**< The shared memory segment for the pipeline */
 };

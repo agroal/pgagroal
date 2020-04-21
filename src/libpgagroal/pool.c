@@ -313,8 +313,8 @@ pgagroal_return_connection(void* shmem, int slot)
       {
          ZF_LOGD("pgagroal_return_connection: Slot %d FD %d", slot, config->connections[slot].fd);
 
-         pgagroal_write_deallocate_all(config->connections[slot].fd);
-         pgagroal_write_reset_all(config->connections[slot].fd);
+         pgagroal_write_deallocate_all(NULL, config->connections[slot].fd);
+         pgagroal_write_reset_all(NULL, config->connections[slot].fd);
 
          config->connections[slot].timestamp = time(NULL);
 
@@ -339,7 +339,7 @@ pgagroal_return_connection(void* shmem, int slot)
       }
       else if (state == STATE_GRACEFULLY)
       {
-         pgagroal_write_terminate(config->connections[slot].fd);
+         pgagroal_write_terminate(NULL, config->connections[slot].fd);
       }
    }
 
@@ -555,7 +555,7 @@ pgagroal_flush(void* shmem, int mode)
       {
          if (pgagroal_socket_isvalid(config->connections[i].fd))
          {
-            pgagroal_write_terminate(config->connections[i].fd);
+            pgagroal_write_terminate(NULL, config->connections[i].fd);
          }
          pgagroal_kill_connection(shmem, i);
          prefill = true;
@@ -649,7 +649,7 @@ pgagroal_prefill(void* shmem, bool initial)
                         {
                            if (pgagroal_socket_isvalid(config->connections[slot].fd))
                            {
-                              pgagroal_write_terminate(config->connections[slot].fd);
+                              pgagroal_write_terminate(NULL, config->connections[slot].fd);
                            }
                         }
                         pgagroal_kill_connection(shmem, slot);
@@ -671,7 +671,7 @@ pgagroal_prefill(void* shmem, bool initial)
                         {
                            if (pgagroal_socket_isvalid(config->connections[slot].fd))
                            {
-                              pgagroal_write_terminate(config->connections[slot].fd);
+                              pgagroal_write_terminate(NULL, config->connections[slot].fd);
                            }
                         }
                         pgagroal_kill_connection(shmem, slot);
@@ -743,7 +743,7 @@ pgagroal_pool_shutdown(void* shmem)
          {
             if (pgagroal_socket_isvalid(config->connections[i].fd))
             {
-               pgagroal_write_terminate(config->connections[i].fd);
+               pgagroal_write_terminate(NULL, config->connections[i].fd);
             }
          }
          pgagroal_disconnect(config->connections[i].fd);

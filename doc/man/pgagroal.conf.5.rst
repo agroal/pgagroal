@@ -76,7 +76,19 @@ authentication_timeout
   The number of seconds the process will wait for valid credentials. Default is 5
 
 pipeline
-  The pipeline type. Valid options are auto and performance. Default is auto
+  The pipeline type. Valid options are auto, performance and session. Default is auto
+
+tls
+  Enable Transport Layer Security (TLS). Default is false
+
+tls_cert_file
+  Certificate file for TLS
+
+tls_key_file
+  Private key file for TLS
+
+tls_ca_file
+  Certificate Authority (CA) file for TLS
 
 libev
   The libev backend to use. Valid options: auto, select, poll, epoll, linuxaio, iouring, devpoll and port. Default is auto
@@ -106,7 +118,6 @@ port
   
 primary
   Identify the instance as the primary instance (hint)
-
 
 REPORTING BUGS
 ==============

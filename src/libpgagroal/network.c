@@ -531,10 +531,13 @@ bind_host(const char* hostname, int port, void* shmem, int** fds, int* length)
          continue;
       }
 
-      if (pgagroal_socket_nonblocking(sockfd, true))
+      if (config->non_blocking)
       {
-         pgagroal_disconnect(sockfd);
-         continue;
+         if (pgagroal_socket_nonblocking(sockfd, true))
+         {
+            pgagroal_disconnect(sockfd);
+            continue;
+         }
       }
 
       if (pgagroal_socket_buffers(sockfd, shmem))
