@@ -33,6 +33,9 @@
 #include <security.h>
 #include <utils.h>
 
+#define ZF_LOG_TAG "configuration"
+#include <zf_log.h>
+
 /* system */
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -498,19 +501,19 @@ pgagroal_validate_configuration(void* shmem)
 
    if (strlen(config->host) == 0)
    {
-      printf("pgagroal: No host defined\n");
+      ZF_LOGF("pgagroal: No host defined");
       return 1;
    }
 
    if (config->port == 0)
    {
-      printf("pgagroal: No port defined\n");
+      ZF_LOGF("pgagroal: No port defined");
       return 1;
    }
 
    if (strlen(config->unix_socket_dir) == 0)
    {
-      printf("pgagroal: No unix_socket_dir defined\n");
+      ZF_LOGF("pgagroal: No unix_socket_dir defined");
       return 1;
    }
 
@@ -521,7 +524,7 @@ pgagroal_validate_configuration(void* shmem)
 
    if (config->number_of_servers <= 0)
    {
-      printf("pgagroal: No servers defined\n");
+      ZF_LOGF("pgagroal: No servers defined");
       return 1;
    }
 
@@ -529,13 +532,13 @@ pgagroal_validate_configuration(void* shmem)
    {
       if (strlen(config->servers[i].host) == 0)
       {
-         printf("pgagroal: No host defined for %s\n", config->servers[i].name);
+         ZF_LOGF("pgagroal: No host defined for %s", config->servers[i].name);
          return 1;
       }
 
       if (config->servers[i].port == 0)
       {
-         printf("pgagroal: No port defined for %s\n", config->servers[i].name);
+         ZF_LOGF("pgagroal: No port defined for %s", config->servers[i].name);
          return 1;
       }
    }
@@ -631,7 +634,7 @@ pgagroal_validate_hba_configuration(void* shmem)
 
    if (config->number_of_hbas == 0)
    {
-      printf("pgagroal: No HBA entry defined\n");
+      ZF_LOGF("pgagroal: No HBA entry defined");
       return 1;
    }
 
@@ -639,7 +642,7 @@ pgagroal_validate_hba_configuration(void* shmem)
    {
       if (strcmp("host", config->hbas[i].type))
       {
-         printf("pgagroal: Unknown HBA type: %s\n", config->hbas[i].type);
+         ZF_LOGF("pgagroal: Unknown HBA type: %s", config->hbas[i].type);
          return 1;
       }
 
@@ -654,7 +657,7 @@ pgagroal_validate_hba_configuration(void* shmem)
       }
       else
       {
-         printf("pgagroal: Unknown HBA method: %s\n", config->hbas[i].method);
+         ZF_LOGF("pgagroal: Unknown HBA method: %s", config->hbas[i].method);
          return 1;
       }
    }
@@ -675,7 +678,6 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
    char* username = NULL;
    int max_connections;
    int initial_size;
-   int total_connections;
    struct configuration* config;
 
    file = fopen(filename, "r");
@@ -684,7 +686,6 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
       return 1;
 
    index = 0;
-   total_connections = 0;
    config = (struct configuration*)shmem;
 
    while (fgets(line, sizeof(line), file))
@@ -719,7 +720,6 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
                atomic_init(&config->limits[index].active_connections, 0);
 
                index++;
-               total_connections += max_connections;
 
                if (index >= NUMBER_OF_LIMITS)
                {
@@ -743,12 +743,6 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
 
    fclose(file);
 
-   if (total_connections > config->max_connections)
-   {
-      printf("pgagroal: LIMIT: Too many connections defined %d (max %d)\n", total_connections, config->max_connections);
-      return 2;
-   }
-
    return 0;
 }
 
@@ -758,6 +752,41 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
 int
 pgagroal_validate_limit_configuration(void* shmem)
 {
+   int total_connections;
+   struct configuration* config;
+
+   total_connections = 0;
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < config->number_of_limits; i++)
+   {
+      total_connections += config->limits[i].max_connections;
+
+      if (config->limits[i].initial_size > 0)
+      {
+         bool user_found = false;
+
+         for (int j = 0; j < config->number_of_users; j++)
+         {
+            if (!strcmp(config->limits[i].username, config->users[j].username))
+            {
+               user_found = true;
+            }
+         }
+
+         if (!user_found)
+         {
+            ZF_LOGW("Unknown user (%s) for limit entry (%d)", config->limits[i].username, i);
+         }
+      }
+   }
+
+   if (total_connections > config->max_connections)
+   {
+      ZF_LOGF("pgagroal: LIMIT: Too many connections defined %d (max %d)", total_connections, config->max_connections);
+      return 1;
+   }
+
    return 0;
 }
 
