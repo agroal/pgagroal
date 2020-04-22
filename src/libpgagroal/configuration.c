@@ -899,6 +899,30 @@ pgagroal_validate_limit_configuration(void* shmem)
    for (int i = 0; i < config->number_of_limits; i++)
    {
       total_connections += config->limits[i].max_size;
+
+      if (config->limits[i].initial_size > 0 || config->limits[i].min_size > 0)
+      {
+         bool user_found = false;
+
+         for (int j = 0; j < config->number_of_users; j++)
+         {
+            if (!strcmp(config->limits[i].username, config->users[j].username))
+            {
+               user_found = true;
+            }
+         }
+
+         if (!user_found)
+         {
+            ZF_LOGW("Unknown user (%s) for limit entry (%d)", config->limits[i].username, i);
+         }
+
+         if (config->limits[i].initial_size < config->limits[i].min_size)
+         {
+            ZF_LOGW("initial_size smaller than min_size for limit entry (%d)", i);
+            config->limits[i].initial_size = config->limits[i].min_size;
+         }
+      }
    }
 
    if (total_connections > config->max_connections)
