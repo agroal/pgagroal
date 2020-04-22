@@ -14,6 +14,7 @@ Pronounced: p-g-a-gro-al, named after [A](https://www.visitportugal.com/en/conte
 * Perform connection validation
 * Enable / disable database access
 * Graceful / fast shutdown
+* Transport Layer Security (TLS) v1.2+ support
 * Daemon mode
 * User vault
 
