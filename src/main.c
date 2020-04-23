@@ -94,6 +94,7 @@ static int fds_length = -1;
 static int unix_socket = -1;
 static void* shmem = NULL;
 static void* pipeline_shmem = NULL;
+static int known_fds[MAX_NUMBER_OF_CONNECTIONS];
 
 static void
 start_mgt()
@@ -256,6 +257,8 @@ main(int argc, char **argv)
    size = sizeof(struct configuration);
    shmem = pgagroal_create_shared_memory(size);
    pgagroal_init_configuration(shmem, size);
+
+   memset(&known_fds, 0, sizeof(known_fds));
 
    if (configuration_path != NULL)
    {
@@ -622,7 +625,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       memcpy(addr, address, sizeof(address));
 
       ev_loop_fork(loop);
-      pgagroal_disconnect(ai->socket);
+      /* We are leaving the socket descriptor valid such that the client won't reuse it */
       pgagroal_worker(client_fd, addr, ai->shmem, ai->pipeline_shmem);
    }
 
@@ -690,13 +693,18 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       case MANAGEMENT_TRANSFER_CONNECTION:
          ZF_LOGD("pgagroal: Management transfer connection: Slot %d FD %d", slot, payload_i);
          config->connections[slot].fd = payload_i;
+         known_fds[slot] = config->connections[slot].fd;
          break;
       case MANAGEMENT_RETURN_CONNECTION:
          ZF_LOGD("pgagroal: Management return connection: Slot %d", slot);
          break;
       case MANAGEMENT_KILL_CONNECTION:
          ZF_LOGD("pgagroal: Management kill connection: Slot %d", slot);
-         pgagroal_disconnect(payload_i);
+         if (known_fds[slot] == payload_i)
+         {
+            pgagroal_disconnect(payload_i);
+            known_fds[slot] = 0;
+         }
          break;
       case MANAGEMENT_FLUSH:
          ZF_LOGD("pgagroal: Management flush (%d)", payload_i);
