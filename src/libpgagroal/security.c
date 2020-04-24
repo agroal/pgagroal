@@ -1227,7 +1227,7 @@ retry:
       goto error;
    }
 
-   status = pgagroal_read_message(c_ssl, client_fd, &msg);
+   status = pgagroal_read_block_message(c_ssl, client_fd, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;

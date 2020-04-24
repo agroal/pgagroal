@@ -45,16 +45,6 @@ extern "C" {
 #define MESSAGE_STATUS_ERROR 2
 
 /**
- * Read a message
- * @param ssl The SSL struct
- * @param socket The socket descriptor
- * @param msg The resulting message
- * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
- */
-int
-pgagroal_read_message(SSL* ssl, int socket, struct message** msg);
-
-/**
  * Read a message in blocking mode
  * @param ssl The SSL struct
  * @param socket The socket descriptor

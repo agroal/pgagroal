@@ -52,17 +52,6 @@ static int ssl_read_message(SSL* ssl, bool block, int timeout, struct message** 
 static int ssl_write_message(SSL* ssl, bool nodelay, struct message* msg);
 
 int
-pgagroal_read_message(SSL* ssl, int socket, struct message** msg)
-{
-   if (ssl == NULL)
-   {
-      return read_message(socket, false, 0, msg);
-   }
-
-   return ssl_read_message(ssl, false, 0, msg);
-}
-
-int
 pgagroal_read_block_message(SSL* ssl, int socket, struct message** msg)
 {
    if (ssl == NULL)
