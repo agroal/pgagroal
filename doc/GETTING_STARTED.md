@@ -209,6 +209,18 @@ Then use the other commands to add, update, remove or list the current user name
 pgagroal-admin -u pgagroal_users.conf add-user
 ```
 
+## Next Steps
+
+Next steps in improving pgagroal's configuration could be
+
+* Update `pgagroal.conf` with the required settings for your system
+* Set the access rights in `pgagroal_hba.conf` for each user and database
+* Add a `pgagroal_users.conf` file using `pgagroal-admin` with a list of known users
+* Disable access for unknown users by setting `allow_unknown_users` to `false`
+* Define a `pgagroal_databases.conf` file with the limits and prefill settings for each database
+
+See [Configuration](./CONFIGURATION.md) for more information on these subjects.
+
 ## Closing
 
 The [pgagroal](https://github.com/agroal/pgagroal) community hopes that you find
