@@ -965,8 +965,6 @@ read_message(int socket, bool block, int timeout, struct message** msg)
       tv.tv_sec = timeout;
       tv.tv_usec = 0;
       setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
-
-      pgagroal_memory_free();
    }
 
    do
