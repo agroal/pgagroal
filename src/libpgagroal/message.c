@@ -338,8 +338,8 @@ int
 pgagroal_write_bad_password(SSL* ssl, int socket, char* username)
 {
    int size = strlen(username);
-   size += 70;
-   
+   size += 84;
+
    char badpassword[size];
    struct message msg;
 
@@ -353,7 +353,8 @@ pgagroal_write_bad_password(SSL* ssl, int socket, char* username)
    pgagroal_write_string(&(badpassword[19]), "C28P01");
    pgagroal_write_string(&(badpassword[26]), "Mpassword authentication failed for user \"");
    pgagroal_write_string(&(badpassword[68]), username);
-   pgagroal_write_string(&(badpassword[size - 2]), "\"");
+   pgagroal_write_string(&(badpassword[68 + strlen(username)]), "\"");
+   pgagroal_write_string(&(badpassword[68 + strlen(username) + 2]), "Rauth_failed");
 
    msg.kind = 'E';
    msg.length = size;
@@ -948,16 +949,16 @@ pgagroal_log_message(struct message* msg)
 {
    if (msg == NULL)
    {
-      ZF_LOGV("Message is NULL");
+      ZF_LOGI("Message is NULL");
    }
    else if (msg->data == NULL)
    {
-      ZF_LOGV("Message DATA is NULL");
+      ZF_LOGI("Message DATA is NULL");
    }
    else
    {
-      ZF_LOGV("Size: %zd", msg->length);
-      ZF_LOGV_MEM(msg->data, msg->length,
+      ZF_LOGI("Size: %zd", msg->length);
+      ZF_LOGI_MEM(msg->data, msg->length,
                   "Message %p:", (const void *)msg->data);
    }
 }
