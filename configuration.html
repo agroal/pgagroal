@@ -105,10 +105,10 @@ layout: default
         </tr>
         <tr>
           <td>max_connections</td>
-          <td>1000</td>
+          <td>100</td>
           <td>Int</td>
           <td>No</td>
-          <td>The maximum number of connections (max 1000)</td>
+          <td>The maximum number of connections (max 10000)</td>
         </tr>
         <tr>
           <td>allow_unknown_users</td>
@@ -116,6 +116,48 @@ layout: default
           <td>Bool</td>
           <td>No</td>
           <td>Allow unknown users to connect</td>
+        </tr>
+        <tr>
+          <td>authentication_timeout</td>
+          <td>5</td>
+          <td>Int</td>
+          <td>No</td>
+          <td>The number of seconds the process will wait for valid credentials</td>
+        </tr>
+        <tr>
+          <td>pipeline</td>
+          <td>auto</td>
+          <td>String</td>
+          <td>No</td>
+          <td>The pipeline type (auto, performance, session)</td>
+        </tr>
+        <tr>
+          <td>tls</td>
+          <td>off</td>
+          <td>Bool</td>
+          <td>No</td>
+          <td>Enable Transport Layer Security (TLS)</td>
+        </tr>
+        <tr>
+          <td>tls_cert_file</td>
+          <td></td>
+          <td>String</td>
+          <td>No</td>
+          <td>Certificate file for TLS</td>
+        </tr>
+        <tr>
+          <td>tls_key_file</td>
+          <td></td>
+          <td>String</td>
+          <td>No</td>
+          <td>Private key file for TLS</td>
+        </tr>
+        <tr>
+          <td>tls_ca_file</td>
+          <td></td>
+          <td>String</td>
+          <td>No</td>
+          <td>Certificate Authority (CA) file for TLS</td>
         </tr>
         <tr>
           <td>libev</td>
@@ -239,7 +281,7 @@ port = 5432
         <tr>
           <td>TYPE</td>
           <td>Yes</td>
-          <td>Specifies the access method for clients. Only host supported</td>
+          <td>Specifies the access method for clients. host and hostssl are supported</td>
         </tr>
         <tr>
           <td>DATABASE</td>
@@ -299,7 +341,7 @@ host    all      all   all      all
           <td>Specifies the user for the rule. Either specific name or all for all users</td>
         </tr>
         <tr>
-          <td>MAX_CONNECTIONS</td>
+          <td>MAX_SIZE</td>
           <td>Yes</td>
           <td>Specifies the maximum number of connections for the entry. all for all connections</td>
         </tr>
@@ -307,6 +349,11 @@ host    all      all   all      all
           <td>INITIAL_SIZE</td>
           <td>No</td>
           <td>Specifies the initial pool size for a database and user pair, e.g. all isn't supported</td>
+        </tr>
+        <tr>
+          <td>MIN_SIZE</td>
+          <td>No</td>
+          <td>Specifies the minimum pool size for a database and user pair, e.g. all isn't supported</td>
         </tr>
       </tbody>
     </table>
@@ -318,7 +365,7 @@ host    all      all   all      all
     
     <pre>
 #
-# DATABASE USER MAX_CONNECTIONS INITIAL_SIZE
+# DATABASE USER MAX_SIZE INITIAL_SIZE MIN_SIZE
 #
 all        all  all
     </pre>

@@ -16,7 +16,7 @@ layout: default
     using "pgagroal -?". You should see
 
     <pre>
-pgagroal 0.5.1
+pgagroal 0.6.0
   High-performance connection pool for PostgreSQL
 
 Usage:
@@ -133,7 +133,7 @@ psql -h localhost -p 2345 -U test test
     You can see the commands it supports by using "pgagroal-cli -?" which will give
 
     <pre>
-pgagroal-cli 0.5.1
+pgagroal-cli 0.6.0
   Command line utility for pgagroal
 
 Usage:
@@ -180,7 +180,7 @@ pgagroal-cli -c pgagroal.conf stop
     You can see the commands it supports by using "pgagroal-admin -?" which will give
 
     <pre>
-pgagroal-admin 0.5.1
+pgagroal-admin 0.6.0
   Administration utility for pgagroal
 
 Usage:
@@ -226,6 +226,19 @@ pgagroal-admin master-key
 pgagroal-admin -u pgagroal_users.conf add-user
     </pre>
     
+    <h3>Next Steps</h3>
+    Next steps in improving pgagroal's configuration could be
+
+    <ul>
+      <li>Update pgagroal.conf with the required settings for your system</li>
+      <li>Set the access rights in pgagroal_hba.conf for each user and database</li>
+      <li>Add a pgagroal_users.conf file using pgagroal-admin with a list of known users</li>
+      <li>Disable access for unknown users by setting allow_unknown_users to false</li>
+      <li>Define a pgagroal_databases.conf file with the limits and prefill settings for each database</li>
+    </ul>
+
+    See <a href="configuration.html">Configuration</a> for more information on these subjects.
+
     <h3>Closing</h3>
 
     The <a href="https://github.com/agroal/pgagroal">pgagroal</a> community hopes that you find
