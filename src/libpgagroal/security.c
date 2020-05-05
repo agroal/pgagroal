@@ -65,7 +65,7 @@ static int client_trust(SSL* c_ssl, int client_fd, char* username, char* passwor
 static int client_password(SSL* c_ssl, int client_fd, char* username, char* password, int slot, void* shmem);
 static int client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot, void* shmem);
 static int client_scram256(SSL* c_ssl, int client_fd, char* username, char* password, int slot, void* shmem);
-static int client_ok(SSL* c_ssl, int client_fd, int auth_method, int slot, void* shmem);
+static int client_ok(SSL* c_ssl, int client_fd, int slot, void* shmem);
 static int server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd, int slot, void* shmem);
 static int server_authenticate(struct message* msg, int auth_type, char* username, char* password,
                                int slot, void* shmem);
@@ -717,7 +717,7 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, int h
          goto error;
       }
 
-      if (client_ok(c_ssl, client_fd, hba_method, slot, shmem))
+      if (client_ok(c_ssl, client_fd, slot, shmem))
       {
          goto error;
       }
@@ -882,7 +882,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
          goto error;
       }
 
-      if (client_ok(c_ssl, client_fd, hba_method, slot, shmem))
+      if (client_ok(c_ssl, client_fd, slot, shmem))
       {
          goto error;
       }
@@ -1340,7 +1340,7 @@ error:
 }
 
 static int
-client_ok(SSL* c_ssl, int client_fd, int auth_method, int slot, void* shmem)
+client_ok(SSL* c_ssl, int client_fd, int slot, void* shmem)
 {
    int status;
    size_t size;
@@ -1353,19 +1353,19 @@ client_ok(SSL* c_ssl, int client_fd, int auth_method, int slot, void* shmem)
 
    config = (struct configuration*)shmem;
 
-   if (auth_method == SECURITY_TRUST)
+   if (config->connections[slot].has_security == SECURITY_TRUST)
    {
       size = config->connections[slot].security_lengths[0];
       data = malloc(size);
       memcpy(data, config->connections[slot].security_messages[0], size);
    }
-   else if (auth_method == SECURITY_PASSWORD || auth_method == SECURITY_MD5)
+   else if (config->connections[slot].has_security == SECURITY_PASSWORD || config->connections[slot].has_security == SECURITY_MD5)
    {
       size = config->connections[slot].security_lengths[2];
       data = malloc(size);
       memcpy(data, config->connections[slot].security_messages[2], size);
    }
-   else if (auth_method == SECURITY_SCRAM256)
+   else if (config->connections[slot].has_security == SECURITY_SCRAM256)
    {
       size = config->connections[slot].security_lengths[4] - 55;
       data = malloc(size);
