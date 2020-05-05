@@ -1135,7 +1135,9 @@ ssl_read_message(SSL* ssl, bool block, int timeout, struct message** msg)
 #if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
             case SSL_ERROR_WANT_ASYNC:
             case SSL_ERROR_WANT_ASYNC_JOB:
+#if (OPENSSL_VERSION_NUMBER >= 0x10101000L)
             case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+#endif
 #endif
                keep_read = true;
                break;
@@ -1188,7 +1190,9 @@ ssl_write_message(SSL* ssl, bool nodelay, struct message* msg)
 #if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
             case SSL_ERROR_WANT_ASYNC:
             case SSL_ERROR_WANT_ASYNC_JOB:
+#if (OPENSSL_VERSION_NUMBER >= 0x10101000L)
             case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+#endif
 #endif
                keep_write = true;
                break;
