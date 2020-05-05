@@ -43,7 +43,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/mman.h>
+#include <sys/types.h>
 
 #define ACTION_UNKNOWN        0
 #define ACTION_FLUSH          1
@@ -140,6 +142,12 @@ main(int argc, char **argv)
          default:
             break;
       }
+   }
+
+   if (getuid() == 0)
+   {
+      printf("pgagroal: Using the root account is not allowed\n");
+      exit(1);
    }
 
    size = sizeof(struct configuration);

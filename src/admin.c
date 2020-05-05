@@ -145,6 +145,12 @@ main(int argc, char **argv)
       }
    }
 
+   if (getuid() == 0)
+   {
+      printf("pgagroal: Using the root account is not allowed\n");
+      exit(1);
+   }
+
    if (argc > 0)
    {
       if (!strcmp("master-key", argv[argc - 1]))
