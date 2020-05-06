@@ -30,6 +30,7 @@
 #include <pgagroal.h>
 #include <message.h>
 #include <pipeline.h>
+#include <shmem.h>
 #include <worker.h>
 
 #define ZF_LOG_TAG "pipeline_session"
@@ -40,12 +41,27 @@
 #include <ev.h>
 #include <stdlib.h>
 
-static void* session_initialize(void*);
+static int  session_initialize(void*, void**, size_t*);
 static void session_start(struct worker_io*);
 static void session_client(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void session_server(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void session_stop(struct worker_io*);
-static void session_destroy(void*);
+static void session_destroy(void*, size_t);
+static void session_periodic(void*, void*);
+
+#define CLIENT_INIT   0
+#define CLIENT_IDLE   1
+#define CLIENT_ACTIVE 2
+#define CLIENT_CHECK  3
+
+struct client_session
+{
+   atomic_schar state; /**< The state */
+   time_t timestamp;   /**< The last used timestamp */
+};
+
+static void client_active(int, void*);
+static void client_inactive(int, void*);
 
 struct pipeline session_pipeline()
 {
@@ -57,29 +73,118 @@ struct pipeline session_pipeline()
    pipeline.server = &session_server;
    pipeline.stop = &session_stop;
    pipeline.destroy = &session_destroy;
+   pipeline.periodic = &session_periodic;
 
    return pipeline;
 }
 
-static void*
-session_initialize(void* shmem)
+static int
+session_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_size)
 {
-   return NULL;
+   void* session_shmem = NULL;
+   size_t session_shmem_size;
+   struct client_session* client;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (config->disconnect_client > 0)
+   {
+      session_shmem_size = config->max_connections * sizeof(struct client_session);
+      session_shmem = pgagroal_create_shared_memory(session_shmem_size);
+      memset(session_shmem, 0, session_shmem_size);
+
+      for (int i = 0; i < config->max_connections; i++)
+      {
+         client = session_shmem + (i * sizeof(struct client_session));
+
+         atomic_init(&client->state, CLIENT_INIT);
+         client->timestamp = time(NULL);
+      }
+
+      *pipeline_shmem = session_shmem;
+      *pipeline_shmem_size = session_shmem_size;
+   }
+
+   return 0;
 }
 
 static void
 session_start(struct worker_io* w)
 {
+   struct client_session* client;
+
+   if (w->pipeline_shmem != NULL)
+   {
+      client = w->pipeline_shmem + (w->slot * sizeof(struct client_session));
+
+      atomic_store(&client->state, CLIENT_IDLE);
+      client->timestamp = time(NULL);
+   }
 }
 
 static void
 session_stop(struct worker_io* w)
 {
+   struct client_session* client;
+
+   if (w->pipeline_shmem != NULL)
+   {
+      client = w->pipeline_shmem + (w->slot * sizeof(struct client_session));
+
+      atomic_store(&client->state, CLIENT_INIT);
+      client->timestamp = time(NULL);
+   }
 }
 
 static void
-session_destroy(void* pointer)
+session_destroy(void* pipeline_shmem, size_t pipeline_shmem_size)
 {
+   if (pipeline_shmem != NULL)
+   {
+      pgagroal_destroy_shared_memory(pipeline_shmem, pipeline_shmem_size);
+   }
+}
+
+static void
+session_periodic(void* shmem, void* pipeline_shmem)
+{
+   signed char idle;
+   time_t now;
+   struct client_session* client;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (config->disconnect_client > 0 && pipeline_shmem != NULL)
+   {
+      now = time(NULL);
+
+      for (int i = 0; i < config->max_connections; i++)
+      {
+         client = pipeline_shmem + (i * sizeof(struct client_session));
+
+         idle = CLIENT_IDLE;
+
+         if (atomic_compare_exchange_strong(&client->state, &idle, CLIENT_CHECK))
+         {
+            if (difftime(now, client->timestamp) > config->disconnect_client)
+            {
+               if (config->connections[i].pid != 0)
+               {
+                  ZF_LOGI("Disconnect client using slot %d (%d)", i, config->connections[i].pid);
+                  kill(config->connections[i].pid, SIGQUIT);
+               }
+            }
+            else
+            {
+               atomic_store(&client->state, CLIENT_IDLE);
+            }
+         }
+      }
+   }
+
+   exit(0);
 }
 
 static void
@@ -90,6 +195,8 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
    struct message* msg = NULL;
 
    wi = (struct worker_io*)watcher;
+
+   client_active(wi->slot, wi->pipeline_shmem);
 
    if (wi->client_ssl == NULL)
    {
@@ -120,11 +227,15 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
       goto client_error;
    }
 
+   client_inactive(wi->slot, wi->pipeline_shmem);
+
    ev_break (loop, EVBREAK_ONE);
    return;
 
 client_error:
    ZF_LOGD("client_fd %d - %s (%d)", wi->client_fd, strerror(errno), status);
+
+   client_inactive(wi->slot, wi->pipeline_shmem);
 
    exit_code = WORKER_CLIENT_FAILURE;
    running = 0;
@@ -133,6 +244,8 @@ client_error:
 
 server_error:
    ZF_LOGD("server_fd %d - %s (%d)", wi->server_fd, strerror(errno), status);
+
+   client_inactive(wi->slot, wi->pipeline_shmem);
 
    exit_code = WORKER_SERVER_FAILURE;
    running = 0;
@@ -149,6 +262,8 @@ session_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    struct message* msg = NULL;
 
    wi = (struct worker_io*)watcher;
+
+   client_active(wi->slot, wi->pipeline_shmem);
 
    status = pgagroal_read_socket_message(wi->server_fd, &msg);
    if (likely(status == MESSAGE_STATUS_OK))
@@ -185,11 +300,15 @@ session_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
       goto server_error;
    }
 
+   client_inactive(wi->slot, wi->pipeline_shmem);
+
    ev_break(loop, EVBREAK_ONE);
    return;
 
 client_error:
    ZF_LOGD("client_fd %d - %s (%d)", wi->client_fd, strerror(errno), status);
+
+   client_inactive(wi->slot, wi->pipeline_shmem);
 
    exit_code = WORKER_CLIENT_FAILURE;
    running = 0;
@@ -199,8 +318,36 @@ client_error:
 server_error:
    ZF_LOGD("server_fd %d - %s (%d)", wi->server_fd, strerror(errno), status);
 
+   client_inactive(wi->slot, wi->pipeline_shmem);
+
    exit_code = WORKER_SERVER_FAILURE;
    running = 0;
    ev_break(loop, EVBREAK_ALL);
    return;
+}
+
+static void
+client_active(int slot , void* pipeline_shmem)
+{
+   struct client_session* client;
+
+   if (pipeline_shmem != NULL)
+   {
+      client = pipeline_shmem + (slot * sizeof(struct client_session));
+      atomic_store(&client->state, CLIENT_ACTIVE);
+      client->timestamp = time(NULL);
+   }
+}
+
+static void
+client_inactive(int slot, void* pipeline_shmem)
+{
+   struct client_session* client;
+
+   if (pipeline_shmem != NULL)
+   {
+      client = pipeline_shmem + (slot * sizeof(struct client_session));
+      atomic_store(&client->state, CLIENT_IDLE);
+      client->timestamp = time(NULL);
+   }
 }

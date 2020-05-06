@@ -194,6 +194,11 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
       {
          pgagroal_return_connection(shmem, slot);
       }
+      else if (exit_code == WORKER_SERVER_FAILURE || exit_code == WORKER_SERVER_FATAL || exit_code == WORKER_SHUTDOWN ||
+               (exit_code == WORKER_FAILURE && config->connections[slot].has_security == SECURITY_INVALID))
+      {
+         pgagroal_kill_connection(shmem, slot);
+      }
       else
       {
          if (pgagroal_socket_isvalid(config->connections[slot].fd) &&

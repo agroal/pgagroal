@@ -87,6 +87,7 @@ pgagroal_init_configuration(void* shmem, size_t size)
    config->background_interval = 300;
    config->max_retries = 5;
    config->authentication_timeout = 5;
+   config->disconnect_client = 0;
 
    config->buffer_size = DEFAULT_BUFFER_SIZE;
    config->keep_alive = true;
@@ -368,6 +369,17 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      unknown = true;
                   }
                }
+               else if (!strcmp(key, "disconnect_client"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->disconnect_client = as_int(value);
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
                else if (!strcmp(key, "allow_unknown_users"))
                {
                   if (!strcmp(section, "pgagroal"))
@@ -613,6 +625,11 @@ pgagroal_validate_configuration(void* shmem)
       config->authentication_timeout = 5;
    }
 
+   if (config->disconnect_client <= 0)
+   {
+      config->disconnect_client = 0;
+   }
+
    if (config->number_of_servers <= 0)
    {
       ZF_LOGF("pgagroal: No servers defined");
@@ -641,7 +658,7 @@ pgagroal_validate_configuration(void* shmem)
          tls = true;
       }
 
-      if (tls)
+      if (tls || config->disconnect_client > 0)
       {
          config->pipeline = PIPELINE_SESSION;
       }
@@ -660,6 +677,12 @@ pgagroal_validate_configuration(void* shmem)
       if (tls)
       {
          ZF_LOGF("pgagroal: Performance pipeline does not support TLS");
+         return 1;
+      }
+
+      if (config->disconnect_client > 0)
+      {
+         ZF_LOGF("pgagroal: Performance pipeline does not support disconnect_client");
          return 1;
       }
    }

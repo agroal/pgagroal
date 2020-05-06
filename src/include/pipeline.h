@@ -42,11 +42,12 @@ extern "C" {
 #define PIPELINE_PERFORMANCE  0
 #define PIPELINE_SESSION      1
 
-typedef void* (*initialize)(void*);
+typedef int  (*initialize)(void*, void**, size_t*);
 typedef void (*start)(struct worker_io*);
 typedef void (*callback)(struct ev_loop *, struct ev_io *, int);
 typedef void (*stop)(struct worker_io*);
-typedef void (*destroy)(void*);
+typedef void (*destroy)(void*, size_t);
+typedef void (*periodic)(void*, void*);
 
 /** @struct
  * Define the structure for a pipeline
@@ -59,6 +60,7 @@ struct pipeline
    callback server;       /**< The callback for the server */
    stop stop;             /**< The stop function */
    destroy destroy;       /**< The destroy function for the pipeline */
+   periodic periodic;     /**< The periodic function for the pipeline */
 };
 
 /**

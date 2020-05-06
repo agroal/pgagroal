@@ -50,6 +50,12 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | non_blocking | on | Bool | No | Have `O_NONBLOCK` on sockets |
 | backlog | `max_connections` / 4 | Int | No | The backlog for `listen()`. Minimum `16` |
 
+__Danger zone__
+
+| Property | Default | Unit | Required | Description |
+|----------|---------|------|----------|-------------|
+| disconnect_client | 0 | Int | No | Disconnect clients that have been idle for more than the specified seconds. This setting __DOES NOT__ take long running transactions into account  |
+
 ## Server section
 
 | Property | Default | Unit | Required | Description |

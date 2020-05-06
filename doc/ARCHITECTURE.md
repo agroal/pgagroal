@@ -111,6 +111,7 @@ struct pipeline
    callback server;
    stop stop;
    destroy destroy;
+   periodic periodic;
 };
 ```
 
@@ -126,6 +127,7 @@ The functions in the pipeline are defined as
 | `server` | [PostgreSQL](https://www.postgresql.org) to `pgagroal` communication |
 | `stop` | Called when the pipeline instance is stopped |
 | `destroy` | Global destruction of the pipeline |
+| `periodic` | Called periodic |
 
 The functions `start`, `client`, `server` and `stop` has access to the following information
 
@@ -160,6 +162,7 @@ The pipeline is defined in [pipeline_perf.c](../src/libpgagroal/pipeline_perf.c)
 | `performance_server` | [PostgreSQL](https://www.postgresql.org) to `pgagroal` communication |
 | `performance_stop` | Nothing |
 | `performance_destroy` | Nothing |
+| `performance_periodic` | Nothing |
 
 ### Session pipeline
 
@@ -170,12 +173,13 @@ The pipeline is defined in [pipeline_session.c](../src/libpgagroal/pipeline_sess
 
 | Function | Description |
 |----------|-------------|
-| `session_initialize` | Nothing |
-| `session_start` | Nothing |
+| `session_initialize` | Initialize memory segment if disconnect_client is active |
+| `session_start` | Prepares the client segment if disconnect_client is active |
 | `session_client` | Client to `pgagroal` communication |
 | `session_server` | [PostgreSQL](https://www.postgresql.org) to `pgagroal` communication |
-| `session_stop` | Nothing |
-| `session_destroy` | Nothing |
+| `session_stop` | Updates the client segment if disconnect_client is active |
+| `session_destroy` | Destroys memory segment if initialized |
+| `session_periodic` | Checks if clients should be disconnected |
 
 ## Signals
 

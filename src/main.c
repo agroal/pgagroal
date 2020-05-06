@@ -69,6 +69,7 @@ static void graceful_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void coredump_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents);
 static void validation_cb(struct ev_loop *loop, ev_periodic *w, int revents);
+static void disconnect_client_cb(struct ev_loop *loop, ev_periodic *w, int revents);
 static bool accept_fatal(int error);
 
 struct accept_io
@@ -83,6 +84,7 @@ struct periodic_info
 {
    struct ev_periodic periodic;
    void* shmem;
+   void* pipeline_shmem;
 };
 
 static volatile int keep_running = 1;
@@ -92,6 +94,7 @@ static struct accept_io io_mgt;
 static int* fds = NULL;
 static int fds_length = -1;
 static int unix_socket = -1;
+static struct pipeline main_pipeline;
 static void* shmem = NULL;
 static void* pipeline_shmem = NULL;
 static int known_fds[MAX_NUMBER_OF_CONNECTIONS];
@@ -191,13 +194,14 @@ main(int argc, char **argv)
    struct signal_info signal_watcher[6];
    struct periodic_info idle_timeout;
    struct periodic_info validation;
+   struct periodic_info disconnect_client;
    struct rlimit flimit;
-   size_t size;
+   size_t shmem_size;
+   size_t pipeline_shmem_size = 0;
    size_t tmp_size;
    struct configuration* config = NULL;
    int ret;
    int c;
-   struct pipeline p;
 
    while (1)
    {
@@ -254,9 +258,9 @@ main(int argc, char **argv)
       exit(1);
    }
 
-   size = sizeof(struct configuration);
-   shmem = pgagroal_create_shared_memory(size);
-   pgagroal_init_configuration(shmem, size);
+   shmem_size = sizeof(struct configuration);
+   shmem = pgagroal_create_shared_memory(shmem_size);
+   pgagroal_init_configuration(shmem, shmem_size);
 
    memset(&known_fds, 0, sizeof(known_fds));
 
@@ -348,9 +352,9 @@ main(int argc, char **argv)
       exit(1);
    }
 
-   pgagroal_resize_shared_memory(size, shmem, &tmp_size, &tmp_shmem);
-   pgagroal_destroy_shared_memory(shmem, size);
-   size = tmp_size;
+   pgagroal_resize_shared_memory(shmem_size, shmem, &tmp_size, &tmp_shmem);
+   pgagroal_destroy_shared_memory(shmem, shmem_size);
+   shmem_size = tmp_size;
    shmem = tmp_shmem;
 
    config = (struct configuration*)shmem;
@@ -447,7 +451,7 @@ main(int argc, char **argv)
 
    if (config->pipeline == PIPELINE_PERFORMANCE)
    {
-      p = performance_pipeline();
+      main_pipeline = performance_pipeline();
    }
    else if (config->pipeline == PIPELINE_SESSION)
    {
@@ -457,7 +461,7 @@ main(int argc, char **argv)
          exit(1);
       }
 
-      p = session_pipeline();
+      main_pipeline = session_pipeline();
    }
    else
    {
@@ -465,7 +469,11 @@ main(int argc, char **argv)
       exit(1);
    }
 
-   pipeline_shmem = p.initialize(shmem);
+   if (main_pipeline.initialize(shmem, &pipeline_shmem, &pipeline_shmem_size))
+   {
+      ZF_LOGF("pgagroal: Pipeline initialize error (%d)", config->pipeline);
+      exit(1);
+   }
 
    start_mgt();
    start_io();
@@ -475,6 +483,7 @@ main(int argc, char **argv)
       ev_periodic_init ((struct ev_periodic*)&idle_timeout, idle_timeout_cb, 0.,
                         MAX(1. * config->idle_timeout / 2., 5.), 0);
       idle_timeout.shmem = shmem;
+      idle_timeout.pipeline_shmem = pipeline_shmem;
       ev_periodic_start (main_loop, (struct ev_periodic*)&idle_timeout);
    }
 
@@ -483,7 +492,17 @@ main(int argc, char **argv)
       ev_periodic_init ((struct ev_periodic*)&validation, validation_cb, 0.,
                         MAX(1. * config->background_interval, 5.), 0);
       validation.shmem = shmem;
+      validation.pipeline_shmem = pipeline_shmem;
       ev_periodic_start (main_loop, (struct ev_periodic*)&validation);
+   }
+
+   if (config->disconnect_client > 0)
+   {
+      ev_periodic_init ((struct ev_periodic*)&disconnect_client, disconnect_client_cb, 0.,
+                        MAX(1. * config->disconnect_client / 2., 1.), 0);
+      disconnect_client.shmem = shmem;
+      disconnect_client.pipeline_shmem = pipeline_shmem;
+      ev_periodic_start (main_loop, (struct ev_periodic*)&disconnect_client);
    }
 
    ZF_LOGI("pgagroal: started on %s:%d", config->host, config->port);
@@ -495,12 +514,13 @@ main(int argc, char **argv)
    pgagroal_libev_engines();
    ZF_LOGD("libev engine: %s", pgagroal_libev_engine(ev_backend(main_loop)));
    ZF_LOGD("Pipeline: %d", config->pipeline);
+   ZF_LOGD("Pipeline size: %lu", pipeline_shmem_size);
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L)
    ZF_LOGD("%s", SSLeay_version(SSLEAY_VERSION));
 #else
    ZF_LOGD("%s", OpenSSL_version(OPENSSL_VERSION));
 #endif
-   ZF_LOGD("Configuration size: %lu", size);
+   ZF_LOGD("Configuration size: %lu", shmem_size);
    ZF_LOGD("Max connections: %d", config->max_connections);
    ZF_LOGD("Known users: %d", config->number_of_users);
 
@@ -537,10 +557,10 @@ main(int argc, char **argv)
 
    free(fds);
 
-   p.destroy(pipeline_shmem);
+   main_pipeline.destroy(pipeline_shmem, pipeline_shmem_size);
 
    pgagroal_stop_logging(shmem);
-   pgagroal_destroy_shared_memory(shmem, size);
+   pgagroal_destroy_shared_memory(shmem, shmem_size);
 
    return 0;
 }
@@ -897,6 +917,28 @@ validation_cb(struct ev_loop *loop, ev_periodic *w, int revents)
    if (!fork())
    {
       pgagroal_validation(pi->shmem);
+   }
+}
+
+static void
+disconnect_client_cb(struct ev_loop *loop, ev_periodic *w, int revents)
+{
+   struct periodic_info* pi;
+
+   ZF_LOGV("pgagroal: disconnect_client_cb (%d)", revents);
+
+   if (EV_ERROR & revents)
+   {
+      ZF_LOGV("disconnect_client_cb: got invalid event: %s", strerror(errno));
+      return;
+   }
+
+   pi = (struct periodic_info*)w;
+
+   /* main_pipeline.periodic is always in a fork() */
+   if (!fork())
+   {
+      main_pipeline.periodic(pi->shmem, pi->pipeline_shmem);
    }
 }
 

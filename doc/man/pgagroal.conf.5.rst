@@ -108,6 +108,11 @@ non_blocking
 backlog
   The backlog for listen(). Minimum 16. Default is max_connections / 4
 
+Danger zone
+
+disconnect_client
+  Disconnect clients that have been idle for more than the specified seconds. This setting DOES NOT take long running transactions into account. Default is 0
+
 The options for the PostgreSQL section are
 
 host

@@ -40,12 +40,13 @@
 #include <ev.h>
 #include <stdlib.h>
 
-static void* performance_initialize(void*);
+static int  performance_initialize(void*, void**, size_t*);
 static void performance_start(struct worker_io*);
 static void performance_client(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void performance_server(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void performance_stop(struct worker_io*);
-static void performance_destroy(void*);
+static void performance_destroy(void*, size_t);
+static void performance_periodic(void*, void*);
 
 struct pipeline performance_pipeline()
 {
@@ -57,14 +58,15 @@ struct pipeline performance_pipeline()
    pipeline.server = &performance_server;
    pipeline.stop = &performance_stop;
    pipeline.destroy = &performance_destroy;
+   pipeline.periodic = &performance_periodic;
 
    return pipeline;
 }
 
-static void*
-performance_initialize(void* shmem)
+static int
+performance_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_size)
 {
-   return NULL;
+   return 0;
 }
 
 static void
@@ -78,7 +80,12 @@ performance_stop(struct worker_io* w)
 }
 
 static void
-performance_destroy(void* pointer)
+performance_destroy(void* pipeline_shmem, size_t pipeline_shmem_size)
+{
+}
+
+static void
+performance_periodic(void* shmem, void* pipeline_shmem)
 {
 }
 

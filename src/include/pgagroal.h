@@ -215,6 +215,7 @@ struct configuration
    int background_interval;    /**< Background validation timer in seconds */
    int max_retries;            /**< The maximum number of retries */
    int authentication_timeout; /**< The authentication timeout in seconds */
+   int disconnect_client;      /**< Disconnect client if idle for more than the specified seconds */
 
    char libev[MISC_LENGTH]; /**< Name of libev mode */
    int buffer_size;         /**< Socket buffer size */
