@@ -641,7 +641,7 @@ pgagroal_prefill(void* shmem, bool initial)
                   if (pgagroal_prefill_auth(config->users[user].username, config->users[user].password,
                                             config->limits[i].database, shmem, &slot) != AUTH_SUCCESS)
                   {
-                     ZF_LOGW("Invalid data for user (%s) using limit entry (%d)", config->limits[i].username, i);
+                     ZF_LOGW("Invalid data for user '%s' using limit entry (%d)", config->limits[i].username, i);
 
                      if (slot != -1)
                      {
@@ -666,7 +666,7 @@ pgagroal_prefill(void* shmem, bool initial)
                      }
                      else
                      {
-                        ZF_LOGW("Unsupported security model during prefill for user (%s) using limit entry (%d)", config->limits[i].username, i);
+                        ZF_LOGW("Unsupported security model during prefill for user '%s' using limit entry (%d)", config->limits[i].username, i);
                         if (config->connections[slot].fd != -1)
                         {
                            if (pgagroal_socket_isvalid(config->connections[slot].fd))
@@ -682,7 +682,7 @@ pgagroal_prefill(void* shmem, bool initial)
             }
             else
             {
-               ZF_LOGW("Unknown user (%s) for limit entry (%d)", config->limits[i].username, i);
+               ZF_LOGW("Unknown user '%s' for limit entry (%d)", config->limits[i].username, i);
             }
          }
          else

@@ -505,6 +505,15 @@ get_auth_type(struct message* msg, int* auth_type)
    type = pgagroal_read_int32(msg->data + 5);
    offset = 9;
 
+   if (type == 0 && msg->length > 8)
+   {
+      if ('E' == pgagroal_read_byte(msg->data + 9))
+      {
+         *auth_type = -1;
+         return 0;
+      }
+   }
+
    switch (type)
    {
       case 0:
