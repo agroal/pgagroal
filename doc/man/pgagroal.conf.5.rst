@@ -36,6 +36,9 @@ port
 unix_socket_dir
   The Unix Domain Socket location. Mandatory
 
+metrics
+  The metrics port for pgagroal. Default is 0 (disabled)
+
 log_type
   The logging type (console, file, syslog). Default is console
 

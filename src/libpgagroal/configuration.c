@@ -238,6 +238,17 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      unknown = true;
                   }
                }
+               else if (!strcmp(key, "metrics"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->metrics = as_int(value);
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
                else if (!strcmp(key, "pipeline"))
                {
                   if (!strcmp(section, "pgagroal"))

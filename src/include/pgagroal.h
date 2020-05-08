@@ -188,6 +188,7 @@ struct configuration
 {
    char host[MISC_LENGTH]; /**< The host */
    int port;               /**< The port */
+   int metrics;            /**< The metrics port */
    bool gracefully;        /**< Is pgagroal in gracefully mode */
 
    char disabled[NUMBER_OF_DISABLED][IDENTIFIER_LENGTH]; /**< Which databases are disabled */

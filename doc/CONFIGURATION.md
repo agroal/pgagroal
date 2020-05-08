@@ -25,6 +25,7 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | host | | String | Yes | The bind address for pgagroal |
 | port | | Int | Yes | The bind port for pgagroal |
 | unix_socket_dir | | String | Yes | The Unix Domain Socket location |
+| metrics | 0 | Int | No | The metrics port for pgagroal (disable = 0) |
 | log_type | console | String | No | The logging type (console, file, syslog) |
 | log_level | info | String | No | The logging level (fatal, error, warn, info, debug1, ..., debug5) |
 | log_path | pgagroal.log | String | No | The log file location |

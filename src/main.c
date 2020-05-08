@@ -34,6 +34,7 @@
 #include <network.h>
 #include <pipeline.h>
 #include <pool.h>
+#include <prometheus.h>
 #include <security.h>
 #include <shmem.h>
 #include <utils.h>
@@ -64,6 +65,7 @@
 
 static void accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
+static void accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void graceful_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void coredump_cb(struct ev_loop *loop, ev_signal *w, int revents);
@@ -91,9 +93,12 @@ static volatile int keep_running = 1;
 static struct ev_loop* main_loop = NULL;
 static struct accept_io io_main[MAX_FDS];
 static struct accept_io io_mgt;
-static int* fds = NULL;
-static int fds_length = -1;
+static int* main_fds = NULL;
+static int main_fds_length = -1;
 static int unix_socket = -1;
+static struct accept_io io_metrics[MAX_FDS];
+static int* metrics_fds = NULL;
+static int metrics_fds_length = -1;
 static struct pipeline main_pipeline;
 static void* shmem = NULL;
 static void* pipeline_shmem = NULL;
@@ -127,9 +132,9 @@ shutdown_mgt()
 static void
 start_io()
 {
-   for (int i = 0; i < fds_length; i++)
+   for (int i = 0; i < main_fds_length; i++)
    {
-      int sockfd = *(fds + i);
+      int sockfd = *(main_fds + i);
 
       memset(&io_main[i], 0, sizeof(struct accept_io));
       ev_io_init((struct ev_io*)&io_main[i], accept_main_cb, sockfd, EV_READ);
@@ -143,10 +148,37 @@ start_io()
 static void
 shutdown_io()
 {
-   for (int i = 0; i < fds_length; i++)
+   for (int i = 0; i < main_fds_length; i++)
    {
       ev_io_stop(main_loop, (struct ev_io*)&io_main[i]);
       pgagroal_disconnect(io_main[i].socket);
+      errno = 0;
+   }
+}
+
+static void
+start_metrics()
+{
+   for (int i = 0; i < metrics_fds_length; i++)
+   {
+      int sockfd = *(metrics_fds + i);
+
+      memset(&io_metrics[i], 0, sizeof(struct accept_io));
+      ev_io_init((struct ev_io*)&io_metrics[i], accept_metrics_cb, sockfd, EV_READ);
+      io_metrics[i].socket = sockfd;
+      io_metrics[i].shmem = shmem;
+      io_metrics[i].pipeline_shmem = pipeline_shmem;
+      ev_io_start(main_loop, (struct ev_io*)&io_metrics[i]);
+   }
+}
+
+static void
+shutdown_metrics()
+{
+   for (int i = 0; i < metrics_fds_length; i++)
+   {
+      ev_io_stop(main_loop, (struct ev_io*)&io_metrics[i]);
+      pgagroal_disconnect(io_metrics[i].socket);
       errno = 0;
    }
 }
@@ -414,15 +446,15 @@ main(int argc, char **argv)
    }
 
    /* Bind main socket */
-   if (pgagroal_bind(config->host, config->port, shmem, &fds, &fds_length))
+   if (pgagroal_bind(config->host, config->port, shmem, &main_fds, &main_fds_length))
    {
       ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
       exit(1);
    }
 
-   if (fds_length > MAX_FDS)
+   if (main_fds_length > MAX_FDS)
    {
-      ZF_LOGF("pgagroal: Too many descriptors %d\n", fds_length);
+      ZF_LOGF("pgagroal: Too many descriptors %d\n", main_fds_length);
       exit(1);
    }
 
@@ -505,12 +537,34 @@ main(int argc, char **argv)
       ev_periodic_start (main_loop, (struct ev_periodic*)&disconnect_client);
    }
 
-   ZF_LOGI("pgagroal: started on %s:%d", config->host, config->port);
-   for (int i = 0; i < fds_length; i++)
+   if (config->metrics > 0)
    {
-      ZF_LOGD("Socket: %d", *(fds + i));
+      /* Bind metrics socket */
+      if (pgagroal_bind(config->host, config->metrics, shmem, &metrics_fds, &metrics_fds_length))
+      {
+         ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->metrics);
+         exit(1);
+      }
+
+      if (metrics_fds_length > MAX_FDS)
+      {
+         ZF_LOGF("pgagroal: Too many descriptors %d\n", metrics_fds_length);
+         exit(1);
+      }
+
+      start_metrics();
+   }
+
+   ZF_LOGI("pgagroal: started on %s:%d", config->host, config->port);
+   for (int i = 0; i < main_fds_length; i++)
+   {
+      ZF_LOGD("Socket: %d", *(main_fds + i));
    }
    ZF_LOGD("Management: %d", unix_socket);
+   for (int i = 0; i < metrics_fds_length; i++)
+   {
+      ZF_LOGD("Metrics: %d", *(metrics_fds + i));
+   }
    pgagroal_libev_engines();
    ZF_LOGD("libev engine: %s", pgagroal_libev_engine(ev_backend(main_loop)));
    ZF_LOGD("Pipeline: %d", config->pipeline);
@@ -545,6 +599,7 @@ main(int argc, char **argv)
    ZF_LOGI("pgagroal: shutdown");
    pgagroal_pool_shutdown(shmem);
 
+   shutdown_metrics();
    shutdown_mgt();
    shutdown_io();
 
@@ -555,7 +610,7 @@ main(int argc, char **argv)
 
    ev_loop_destroy(main_loop);
 
-   free(fds);
+   free(main_fds);
 
    main_pipeline.destroy(pipeline_shmem, pipeline_shmem_size);
 
@@ -599,19 +654,19 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          shutdown_io();
 
-         free(fds);
-         fds = NULL;
-         fds_length = 0;
+         free(main_fds);
+         main_fds = NULL;
+         main_fds_length = 0;
 
-         if (pgagroal_bind(config->host, config->port, ai->shmem, &fds, &fds_length))
+         if (pgagroal_bind(config->host, config->port, ai->shmem, &main_fds, &main_fds_length))
          {
             ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
             exit(1);
          }
 
-         if (fds_length > MAX_FDS)
+         if (main_fds_length > MAX_FDS)
          {
-            ZF_LOGF("pgagroal: Too many descriptors %d\n", fds_length);
+            ZF_LOGF("pgagroal: Too many descriptors %d\n", main_fds_length);
             exit(1);
          }
 
@@ -622,9 +677,9 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          start_io();
 
-         for (int i = 0; i < fds_length; i++)
+         for (int i = 0; i < main_fds_length; i++)
          {
-            ZF_LOGD("Socket: %d", *(fds + i));
+            ZF_LOGD("Socket: %d", *(main_fds + i));
          }
       }
       else
@@ -822,6 +877,78 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          keep_running = 0;
          ev_break(loop, EVBREAK_ALL);
       }
+   }
+
+   pgagroal_disconnect(client_fd);
+}
+
+static void
+accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+{
+   struct sockaddr_in client_addr;
+   socklen_t client_addr_length;
+   int client_fd;
+   struct accept_io* ai;
+   struct configuration* config;
+
+   ZF_LOGV("accept_metrics_cb: sockfd ready (%d)", revents);
+
+   if (EV_ERROR & revents)
+   {
+      ZF_LOGD("accept_metrics_cb: invalid event: %s", strerror(errno));
+      errno = 0;
+      return;
+   }
+
+   ai = (struct accept_io*)watcher;
+   config = (struct configuration*)ai->shmem;
+
+   client_addr_length = sizeof(client_addr);
+   client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
+   if (client_fd == -1)
+   {
+      if (accept_fatal(errno) && keep_running)
+      {
+         ZF_LOGW("Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
+
+         shutdown_metrics();
+
+         free(metrics_fds);
+         metrics_fds = NULL;
+         metrics_fds_length = 0;
+
+         if (pgagroal_bind(config->host, config->port, ai->shmem, &metrics_fds, &metrics_fds_length))
+         {
+            ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
+            exit(1);
+         }
+
+         if (metrics_fds_length > MAX_FDS)
+         {
+            ZF_LOGF("pgagroal: Too many descriptors %d\n", metrics_fds_length);
+            exit(1);
+         }
+
+         start_metrics();
+
+         for (int i = 0; i < metrics_fds_length; i++)
+         {
+            ZF_LOGD("Metrics: %d", *(metrics_fds + i));
+         }
+      }
+      else
+      {
+         ZF_LOGD("accept: %s (%d)", strerror(errno), watcher->fd);
+      }
+      errno = 0;
+      return;
+   }
+
+   if (!fork())
+   {
+      ev_loop_fork(loop);
+      /* We are leaving the socket descriptor valid such that the client won't reuse it */
+      pgagroal_prometheus(client_fd, ai->shmem, ai->pipeline_shmem);
    }
 
    pgagroal_disconnect(client_fd);
