@@ -262,9 +262,9 @@ master_key(char* password)
 {
    FILE* file = NULL;
    char buf[MISC_LENGTH];
-   char key[IDENTIFIER_LENGTH];
    char* encoded = NULL;
    struct stat st = {0};
+   bool do_free = true;
 
    memset(&buf, 0, sizeof(buf));
    snprintf(&buf[0], sizeof(buf), "%s/.pgagroal", pgagroal_get_home_directory());
@@ -311,21 +311,23 @@ master_key(char* password)
 
    if (password == NULL)
    {
-      memset(&key, 0, sizeof(key));
-
-      while (!is_valid_key(key))
+      while (!is_valid_key(password))
       {
+         if (password != NULL)
+         {
+            free(password);
+            password = NULL;
+         }
+
          printf("Master key: ");
-
-         memset(&key, 0, sizeof(key));
-         fgets(&key[0], sizeof(key), stdin);
-         key[strlen(key) - 1] = 0;
+         password = pgagroal_get_password();
+         printf("\n");
       }
-
-      password = &key[0];
    }
    else
    {
+      do_free = false;
+
       if (!is_valid_key(password))
       {
          goto error;
@@ -336,6 +338,11 @@ master_key(char* password)
    fputs(encoded, file);
    free(encoded);
 
+   if (do_free)
+   {
+      free(password);
+   }
+
    fclose(file);
 
    chmod(&buf[0], S_IRUSR | S_IWUSR);
@@ -345,6 +352,11 @@ master_key(char* password)
 error:
 
    free(encoded);
+
+   if (do_free)
+   {
+      free(password);
+   }
 
    if (file)
    {
@@ -434,13 +446,21 @@ add_user(char* users_path, char* username, char* password)
    int encrypted_length = 0;
    char* encoded = NULL;
    char un[IDENTIFIER_LENGTH];
-   char pwd[IDENTIFIER_LENGTH];
    int number_of_users = 0;
+   bool do_verify = true;
+   char* verify = NULL;
+   bool do_free = true;
 
    if (pgagroal_get_master_key(&master_key))
    {
       printf("Invalid master key\n");
       goto error;
+   }
+
+   if (password != NULL)
+   {
+      do_verify = false;
+      do_free = false;
    }
 
    users_file = fopen(users_path, "a+");
@@ -487,15 +507,38 @@ username:
 password:
       printf("Password : ");
 
-      memset(&pwd, 0, sizeof(pwd));
-      fgets(&pwd[0], sizeof(pwd), stdin);
-      pwd[strlen(pwd) - 1] = 0;
-      password = &pwd[0];
+      if (password != NULL)
+      {
+         free(password);
+         password = NULL;
+      }
+
+      password = pgagroal_get_password();
+      printf("\n");
    }
 
    for (int i = 0; i < strlen(password); i++)
    {
       if ((unsigned char)(*(password + i)) & 0x80)
+      {
+         goto password;
+      }
+   }
+
+   if (do_verify)
+   {
+      printf("Verify   : ");
+
+      if (verify != NULL)
+      {
+         free(verify);
+         verify = NULL;
+      }
+
+      verify = pgagroal_get_password();
+      printf("\n");
+
+      if (strlen(password) != strlen(verify) || memcmp(password, verify, strlen(password)) != 0)
       {
          goto password;
       }
@@ -511,6 +554,11 @@ password:
    free(master_key);
    free(encrypted);
    free(encoded);
+   if (do_free)
+   {
+      free(password);
+   }
+   free(verify);
 
    fclose(users_file);
 
@@ -521,6 +569,11 @@ error:
    free(master_key);
    free(encrypted);
    free(encoded);
+   if (do_free)
+   {
+      free(password);
+   }
+   free(verify);
 
    if (users_file)
    {
@@ -544,8 +597,10 @@ update_user(char* users_path, char* username, char* password)
    int encrypted_length = 0;
    char* encoded = NULL;
    char un[IDENTIFIER_LENGTH];
-   char pwd[IDENTIFIER_LENGTH];
    bool found = false;
+   bool do_verify = true;
+   char* verify = NULL;
+   bool do_free = true;
 
    memset(&tmpfilename, 0, sizeof(tmpfilename));
 
@@ -553,6 +608,12 @@ update_user(char* users_path, char* username, char* password)
    {
       printf("Invalid master key\n");
       goto error;
+   }
+
+   if (password != NULL)
+   {
+      do_verify = false;
+      do_free = false;
    }
 
    users_file = fopen(users_path, "r");
@@ -597,15 +658,38 @@ username:
 password:
             printf("Password : ");
 
-            memset(&pwd, 0, sizeof(pwd));
-            fgets(&pwd[0], sizeof(pwd), stdin);
-            pwd[strlen(pwd) - 1] = 0;
-            password = &pwd[0];
+            if (password != NULL)
+            {
+               free(password);
+               password = NULL;
+            }
+
+            password = pgagroal_get_password();
+            printf("\n");
          }
 
          for (int i = 0; i < strlen(password); i++)
          {
             if ((unsigned char)(*(password + i)) & 0x80)
+            {
+               goto password;
+            }
+         }
+
+         if (do_verify)
+         {
+            printf("Verify   : ");
+
+            if (verify != NULL)
+            {
+               free(verify);
+               verify = NULL;
+            }
+
+            verify = pgagroal_get_password();
+            printf("\n");
+
+            if (strlen(password) != strlen(verify) || memcmp(password, verify, strlen(password)) != 0)
             {
                goto password;
             }
@@ -636,6 +720,11 @@ password:
    free(master_key);
    free(encrypted);
    free(encoded);
+   if (do_free)
+   {
+      free(password);
+   }
+   free(verify);
 
    fclose(users_file);
    fclose(users_file_tmp);
@@ -649,6 +738,11 @@ error:
    free(master_key);
    free(encrypted);
    free(encoded);
+   if (do_free)
+   {
+      free(password);
+   }
+   free(verify);
 
    if (users_file)
    {

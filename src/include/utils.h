@@ -191,6 +191,13 @@ char*
 pgagroal_get_home_directory();
 
 /**
+ * Get a password from stdin
+ * @return The password
+ */
+char*
+pgagroal_get_password();
+
+/**
  * BASE64 encode a string
  * @param raw The string
  * @param raw_length The length of the raw string

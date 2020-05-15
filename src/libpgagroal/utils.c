@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
 #include <unistd.h>
 #include <openssl/pem.h>
 #include <sys/types.h>
@@ -466,6 +467,40 @@ pgagroal_get_home_directory()
    struct passwd *pw = getpwuid(getuid());
 
    return pw->pw_dir;
+}
+
+char*
+pgagroal_get_password()
+{
+   char p[IDENTIFIER_LENGTH];
+   struct termios oldt, newt;
+   int i = 0;
+   int c;
+   char* result = NULL;
+
+   memset(&p, 0, sizeof(p));
+
+   tcgetattr(STDIN_FILENO, &oldt);
+   newt = oldt;
+
+   newt.c_lflag &= ~(ECHO);
+
+   tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+   while ((c = getchar()) != '\n' && c != EOF && i < IDENTIFIER_LENGTH)
+   {
+      p[i++] = c;
+   }
+   p[i] = '\0';
+
+   tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+   result = malloc(strlen(p) + 1);
+   memset(result, 0, strlen(p) + 1);
+
+   memcpy(result, &p, strlen(p));
+
+   return result;
 }
 
 int
