@@ -29,6 +29,7 @@
 /* pgagroal */
 #include <pgagroal.h>
 #include <memory.h>
+#include <message.h>
 
 #define ZF_LOG_TAG "memory"
 #include <zf_log.h>

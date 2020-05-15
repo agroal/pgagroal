@@ -240,27 +240,6 @@ struct configuration
    struct connection connections[];                /**< The connections (FMA) */
 } __attribute__ ((aligned (64)));
 
-/** @struct
- * Defines a message
- */
-struct message
-{
-   signed char kind;  /**< The kind of the message */
-   ssize_t length;    /**< The length of the message */
-   size_t max_length; /**< The maximum size of the message */
-   void* data;        /**< The message data */
-} __attribute__ ((aligned (64)));
-
-/** @struct
- * Defines the signal structure
- */
-struct signal_info
-{
-   struct ev_signal signal; /**< The libev base type */
-   void* shmem;             /**< The shared memory segment */
-   int slot;                /**< The slot */
-};
-
 #ifdef __cplusplus
 }
 #endif

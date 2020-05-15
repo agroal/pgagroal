@@ -34,8 +34,19 @@ extern "C" {
 #endif
 
 #include <pgagroal.h>
+#include <message.h>
 
 #include <stdlib.h>
+
+/** @struct
+ * Defines the signal structure
+ */
+struct signal_info
+{
+   struct ev_signal signal; /**< The libev base type */
+   void* shmem;             /**< The shared memory segment */
+   int slot;                /**< The slot */
+};
 
 /**
  * Get the request identifier
