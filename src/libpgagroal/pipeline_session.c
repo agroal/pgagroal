@@ -172,7 +172,9 @@ session_periodic(void* shmem, void* pipeline_shmem)
             {
                if (config->connections[i].pid != 0)
                {
-                  ZF_LOGI("Disconnect client using slot %d (%d)", i, config->connections[i].pid);
+                  ZF_LOGI("Disconnect client %s/%s using slot %d (%d)",
+                          config->connections[i].database, config->connections[i].username,
+                          i, config->connections[i].pid);
                   kill(config->connections[i].pid, SIGQUIT);
                }
             }
