@@ -192,6 +192,22 @@ The child processes support `SIGQUIT` as a mechanism to shutdown. This will not 
 It should not be needed to use `SIGKILL` for `pgagroal`. Please, consider using `SIGABRT` instead, and share the
 core dump and debug logs with the `pgagroal` community.
 
+## Prometheus
+
+pgagroal has support for [Prometheus](https://prometheus.io/) when the `metrics` port is specified.
+
+The module serves two endpoints
+
+* `/` - Overview of the functionality (`text/html`)
+* `/metrics` - The metrics (`text/plain`)
+
+All other URLs will result in a 403 response.
+
+The metrics endpoint supports `Transfer-Encoding: chunked` to account for a large amount of data.
+
+The implementation is done in [prometheus.h](../src/include/prometheus.h) and
+[prometheus.c](../src/libpgagroal/prometheus.c).
+
 ## Logging
 
 [zf_log](https://github.com/wonder-mice/zf_log) is used for the logging framework.
