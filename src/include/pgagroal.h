@@ -57,7 +57,12 @@ extern "C" {
 #define DEFAULT_BUFFER_SIZE  65535
 #define SECURITY_BUFFER_SIZE   512
 
-#define IDENTIFIER_LENGTH 64
+#define MAX_USERNAME_LENGTH  128
+#define MAX_DATABASE_LENGTH  256
+#define MAX_TYPE_LENGTH       16
+#define MAX_ADDRESS_LENGTH    64
+#define MAX_PASSWORD_LENGTH 1024
+
 #define MISC_LENGTH 128
 #define NUMBER_OF_SERVERS 64
 #ifdef DEBUG
@@ -116,6 +121,11 @@ extern "C" {
       __typeof__ (b) _b = (b);  \
       _a > _b ? _a : _b; })
 
+#define MIN(a, b)               \
+   ({ __typeof__ (a) _a = (a);  \
+      __typeof__ (b) _b = (b);  \
+      _a < _b ? _a : _b; })
+
 /** @struct
  * Defines a server
  */
@@ -132,8 +142,8 @@ struct server
  */
 struct connection
 {
-   char username[IDENTIFIER_LENGTH]; /**< The user name */
-   char database[IDENTIFIER_LENGTH]; /**< The database */
+   char username[MAX_USERNAME_LENGTH]; /**< The user name */
+   char database[MAX_DATABASE_LENGTH]; /**< The database */
 
    bool new;             /**< Is the connection new */
    unsigned char server; /**< The server identifier */
@@ -153,11 +163,11 @@ struct connection
  */
 struct hba
 {
-   char type[16];                    /**< The type */
-   char database[IDENTIFIER_LENGTH]; /**< The database */
-   char username[IDENTIFIER_LENGTH]; /**< The user name */
-   char address[IDENTIFIER_LENGTH];  /**< The address / mask */
-   char method[IDENTIFIER_LENGTH];   /**< The access method */
+   char type[MAX_TYPE_LENGTH];         /**< The type */
+   char database[MAX_DATABASE_LENGTH]; /**< The database */
+   char username[MAX_USERNAME_LENGTH]; /**< The user name */
+   char address[MAX_ADDRESS_LENGTH];   /**< The address / mask */
+   char method[MAX_ADDRESS_LENGTH];    /**< The access method */
 } __attribute__ ((aligned (64)));
 
 /** @struct
@@ -165,12 +175,12 @@ struct hba
  */
 struct limit
 {
-   char database[IDENTIFIER_LENGTH]; /**< The database */
-   char username[IDENTIFIER_LENGTH]; /**< The user name */
-   atomic_ushort active_connections; /**< The active number of connections */
-   int max_size;                     /**< The maximum pool size */
-   int initial_size;                 /**< The initial pool size */
-   int min_size;                     /**< The minimum pool size */
+   char database[MAX_DATABASE_LENGTH]; /**< The database */
+   char username[MAX_USERNAME_LENGTH]; /**< The user name */
+   atomic_ushort active_connections;   /**< The active number of connections */
+   int max_size;                       /**< The maximum pool size */
+   int initial_size;                   /**< The initial pool size */
+   int min_size;                       /**< The minimum pool size */
 } __attribute__ ((aligned (64)));
 
 /** @struct
@@ -178,8 +188,8 @@ struct limit
  */
 struct user
 {
-   char username[IDENTIFIER_LENGTH]; /**< The user name */
-   char password[IDENTIFIER_LENGTH]; /**< The password */
+   char username[MAX_USERNAME_LENGTH]; /**< The user name */
+   char password[MAX_PASSWORD_LENGTH]; /**< The password */
 } __attribute__ ((aligned (64)));
 
 /** @struct
@@ -193,7 +203,7 @@ struct configuration
    int management;         /**< The management port */
    bool gracefully;        /**< Is pgagroal in gracefully mode */
 
-   char disabled[NUMBER_OF_DISABLED][IDENTIFIER_LENGTH]; /**< Which databases are disabled */
+   char disabled[NUMBER_OF_DISABLED][MAX_DATABASE_LENGTH]; /**< Which databases are disabled */
 
    int pipeline; /**< The pipeline type */
 

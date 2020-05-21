@@ -472,7 +472,7 @@ pgagroal_get_home_directory()
 char*
 pgagroal_get_password()
 {
-   char p[IDENTIFIER_LENGTH];
+   char p[MAX_PASSWORD_LENGTH];
    struct termios oldt, newt;
    int i = 0;
    int c;
@@ -487,7 +487,7 @@ pgagroal_get_password()
 
    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
-   while ((c = getchar()) != '\n' && c != EOF && i < IDENTIFIER_LENGTH)
+   while ((c = getchar()) != '\n' && c != EOF && i < MAX_PASSWORD_LENGTH)
    {
       p[i++] = c;
    }

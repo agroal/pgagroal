@@ -136,7 +136,7 @@ main(int argc, char **argv)
    int32_t action = ACTION_UNKNOWN;
    int32_t mode = FLUSH_IDLE;
    char* database = NULL;
-   char un[IDENTIFIER_LENGTH];
+   char un[MAX_USERNAME_LENGTH];
    struct configuration* config;
 
    while (1)

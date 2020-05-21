@@ -886,11 +886,11 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          {
             if (!strcmp("*", payload_s))
             {
-               memset(&config->disabled[i], 0, IDENTIFIER_LENGTH);
+               memset(&config->disabled[i], 0, MAX_DATABASE_LENGTH);
             }
             else if (!strcmp(config->disabled[i], payload_s))
             {
-               memset(&config->disabled[i], 0, IDENTIFIER_LENGTH);
+               memset(&config->disabled[i], 0, MAX_DATABASE_LENGTH);
             }
          }
 
@@ -904,7 +904,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          {
             for (int i = 0; i < NUMBER_OF_DISABLED; i++)
             {
-               memset(&config->disabled[i], 0, IDENTIFIER_LENGTH);
+               memset(&config->disabled[i], 0, MAX_DATABASE_LENGTH);
             }
 
             memcpy(&config->disabled[0], payload_s, 1);

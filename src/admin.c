@@ -445,7 +445,7 @@ add_user(char* users_path, char* username, char* password)
    char* encrypted = NULL;
    int encrypted_length = 0;
    char* encoded = NULL;
-   char un[IDENTIFIER_LENGTH];
+   char un[MAX_USERNAME_LENGTH];
    int number_of_users = 0;
    bool do_verify = true;
    char* verify = NULL;
@@ -596,7 +596,7 @@ update_user(char* users_path, char* username, char* password)
    char* encrypted = NULL;
    int encrypted_length = 0;
    char* encoded = NULL;
-   char un[IDENTIFIER_LENGTH];
+   char un[MAX_USERNAME_LENGTH];
    bool found = false;
    bool do_verify = true;
    char* verify = NULL;
@@ -771,7 +771,7 @@ remove_user(char* users_path, char* username)
    char line[MISC_LENGTH];
    char line_copy[MISC_LENGTH];
    char* ptr = NULL;
-   char un[IDENTIFIER_LENGTH];
+   char un[MAX_USERNAME_LENGTH];
    bool found = false;
 
    users_file = fopen(users_path, "r");

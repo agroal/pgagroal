@@ -565,7 +565,7 @@ int
 pgagroal_management_read_status(SSL* ssl, int socket)
 {
    char buf[16];
-   char disabled[NUMBER_OF_DISABLED][IDENTIFIER_LENGTH];
+   char disabled[NUMBER_OF_DISABLED][MAX_DATABASE_LENGTH];
    ssize_t r;
    int status;
    int active;
@@ -759,7 +759,7 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
    for (int i = 0; i < limits; i++)
    {
-      char limit[16 + 2 * IDENTIFIER_LENGTH];
+      char limit[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH];
 
       memset(&limit, 0, sizeof(limit));
 
@@ -780,7 +780,7 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
       printf("---------------------\n");
       printf("Database:            %s\n", pgagroal_read_string(&(limit[16])));
-      printf("Username:            %s\n", pgagroal_read_string(&(limit[16 + IDENTIFIER_LENGTH])));
+      printf("Username:            %s\n", pgagroal_read_string(&(limit[16 + MAX_DATABASE_LENGTH])));
       printf("Active connections:  %d\n", pgagroal_read_int32(&(limit)));
       printf("Max connections:     %d\n", pgagroal_read_int32(&(limit[4])));
       printf("Initial connections: %d\n", pgagroal_read_int32(&(limit[8])));
@@ -791,7 +791,7 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
    for (int i = 0; i < max_connections; i++)
    {
-      char details[12 + 2 * IDENTIFIER_LENGTH];
+      char details[12 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH];
       signed char state;
       long time;
       time_t t;
@@ -831,7 +831,7 @@ pgagroal_management_read_details(SSL* ssl, int socket)
              time > 0 ? ts : "",
              pid > 0 ? p : "",
              pgagroal_read_string(&(details[12])),
-             pgagroal_read_string(&(details[12 + IDENTIFIER_LENGTH])));
+             pgagroal_read_string(&(details[12 + MAX_DATABASE_LENGTH])));
    }
 
    return 0;
@@ -871,7 +871,7 @@ pgagroal_management_write_details(int socket, void* shmem)
 
    for (int i = 0; i < config->number_of_limits; i++)
    {
-      char limit[16 + 2 * IDENTIFIER_LENGTH];
+      char limit[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH];
 
       memset(&limit, 0, sizeof(limit));
 
@@ -880,7 +880,7 @@ pgagroal_management_write_details(int socket, void* shmem)
       pgagroal_write_int32(limit + 8, config->limits[i].initial_size);
       pgagroal_write_int32(limit + 12, config->limits[i].min_size);
       pgagroal_write_string(limit + 16, config->limits[i].database);
-      pgagroal_write_string(limit + 16 + IDENTIFIER_LENGTH, config->limits[i].username);
+      pgagroal_write_string(limit + 16 + MAX_DATABASE_LENGTH, config->limits[i].username);
 
       w = write(socket, limit, sizeof(limit));
       if (w == -1)
@@ -893,7 +893,7 @@ pgagroal_management_write_details(int socket, void* shmem)
 
    for (int i = 0; i < config->max_connections; i++)
    {
-      char details[12 + 2 * IDENTIFIER_LENGTH];
+      char details[12 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH];
 
       memset(&details, 0, sizeof(details));
 
@@ -901,7 +901,7 @@ pgagroal_management_write_details(int socket, void* shmem)
       pgagroal_write_int32(details + 8, (int)config->connections[i].pid);
 
       pgagroal_write_string(details + 12, config->connections[i].database);
-      pgagroal_write_string(details + 12 + IDENTIFIER_LENGTH, config->connections[i].username);
+      pgagroal_write_string(details + 12 + MAX_DATABASE_LENGTH, config->connections[i].username);
 
       w = write(socket, details, sizeof(details));
       if (w == -1)

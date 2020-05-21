@@ -66,7 +66,6 @@ pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse,
    signed char free;
    int server;
    int fd;
-   size_t max;
    time_t start_time;
    int best_rule;
    int retries;
@@ -165,15 +164,11 @@ start:
          
          config->connections[*slot].server = server;
 
-         max = strlen(username);
-         if (max > IDENTIFIER_LENGTH - 1)
-            max = IDENTIFIER_LENGTH - 1;
-         memcpy(&config->connections[*slot].username, username, max);
+         memset(&config->connections[*slot].username, 0, MAX_USERNAME_LENGTH);
+         memcpy(&config->connections[*slot].username, username, MIN(strlen(username), MAX_USERNAME_LENGTH - 1));
 
-         max = strlen(database);
-         if (max > IDENTIFIER_LENGTH - 1)
-            max = IDENTIFIER_LENGTH - 1;
-         memcpy(&config->connections[*slot].database, database, max);
+         memset(&config->connections[*slot].database, 0, MAX_DATABASE_LENGTH);
+         memcpy(&config->connections[*slot].database, database, MIN(strlen(database), MAX_DATABASE_LENGTH - 1));
 
          config->connections[*slot].limit_rule = best_rule;
          config->connections[*slot].has_security = SECURITY_INVALID;

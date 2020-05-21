@@ -44,7 +44,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define LINE_LENGTH 256
+#define LINE_LENGTH 512
 
 static void extract_key_value(char* str, char** key, char** value);
 static int as_int(char* str);
@@ -750,20 +750,37 @@ pgagroal_read_hba_configuration(char* filename, void* shmem)
 
             if (type && database && username && address && method)
             {
-               memcpy(&(config->hbas[index].type), type, strlen(type));
-               memcpy(&(config->hbas[index].database), database, strlen(database));
-               memcpy(&(config->hbas[index].username), username, strlen(username));
-               memcpy(&(config->hbas[index].address), address, strlen(address));
-               memcpy(&(config->hbas[index].method), method, strlen(method));
-
-               index++;
-
-               if (index >= NUMBER_OF_HBAS)
+               if (strlen(type) < MAX_TYPE_LENGTH &&
+                   strlen(database) < MAX_DATABASE_LENGTH &&
+                   strlen(username) < MAX_USERNAME_LENGTH &&
+                   strlen(address) < MAX_ADDRESS_LENGTH &&
+                   strlen(method) < MAX_ADDRESS_LENGTH)
                {
-                  printf("pgagroal: Too many HBA entries (%d)\n", NUMBER_OF_HBAS);
-                  fclose(file);
-                  return 2;
+                  memcpy(&(config->hbas[index].type), type, strlen(type));
+                  memcpy(&(config->hbas[index].database), database, strlen(database));
+                  memcpy(&(config->hbas[index].username), username, strlen(username));
+                  memcpy(&(config->hbas[index].address), address, strlen(address));
+                  memcpy(&(config->hbas[index].method), method, strlen(method));
+
+                  index++;
+
+                  if (index >= NUMBER_OF_HBAS)
+                  {
+                     printf("pgagroal: Too many HBA entries (%d)\n", NUMBER_OF_HBAS);
+                     fclose(file);
+                     return 2;
+                  }
                }
+               else
+               {
+                  printf("pgagroal: Invalid HBA entry\n");
+                  printf("%s\n", line);
+               }
+            }
+            else
+            {
+               printf("pgagroal: Invalid HBA entry\n");
+               printf("%s\n", line);
             }
 
             free(type);
@@ -877,39 +894,53 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
 
             if (database && username && max_size > 0)
             {
-               if (initial_size > max_size)
+               if (strlen(database) < MAX_DATABASE_LENGTH &&
+                   strlen(username) < MAX_USERNAME_LENGTH)
                {
-                  initial_size = max_size;
-               }
-               else if (initial_size < 0)
-               {
-                  initial_size = 0;
-               }
+                  if (initial_size > max_size)
+                  {
+                     initial_size = max_size;
+                  }
+                  else if (initial_size < 0)
+                  {
+                     initial_size = 0;
+                  }
 
-               if (min_size > max_size)
-               {
-                  min_size = max_size;
-               }
-               else if (min_size < 0)
-               {
-                  min_size = 0;
-               }
+                  if (min_size > max_size)
+                  {
+                     min_size = max_size;
+                  }
+                  else if (min_size < 0)
+                  {
+                     min_size = 0;
+                  }
 
-               memcpy(&(config->limits[index].database), database, strlen(database));
-               memcpy(&(config->limits[index].username), username, strlen(username));
-               config->limits[index].max_size = max_size;
-               config->limits[index].initial_size = initial_size;
-               config->limits[index].min_size = min_size;
-               atomic_init(&config->limits[index].active_connections, 0);
+                  memcpy(&(config->limits[index].database), database, strlen(database));
+                  memcpy(&(config->limits[index].username), username, strlen(username));
+                  config->limits[index].max_size = max_size;
+                  config->limits[index].initial_size = initial_size;
+                  config->limits[index].min_size = min_size;
+                  atomic_init(&config->limits[index].active_connections, 0);
 
-               index++;
+                  index++;
 
-               if (index >= NUMBER_OF_LIMITS)
-               {
-                  printf("pgagroal: Too many LIMIT entries (%d)\n", NUMBER_OF_LIMITS);
-                  fclose(file);
-                  return 2;
+                  if (index >= NUMBER_OF_LIMITS)
+                  {
+                     printf("pgagroal: Too many LIMIT entries (%d)\n", NUMBER_OF_LIMITS);
+                     fclose(file);
+                     return 2;
+                  }
                }
+               else
+               {
+                  printf("pgagroal: Invalid LIMIT entry\n");
+                  printf("%s\n", line);
+               }
+            }
+            else
+            {
+               printf("pgagroal: Invalid LIMIT entry\n");
+               printf("%s\n", line);
             }
 
             free(database);
@@ -1037,8 +1068,17 @@ pgagroal_read_users_configuration(char* filename, void* shmem)
                goto error;
             }
 
-            memcpy(&config->users[index].username, username, strlen(username));
-            memcpy(&config->users[index].password, password, strlen(password));
+            if (strlen(username) < MAX_USERNAME_LENGTH &&
+                strlen(password) < MAX_PASSWORD_LENGTH)
+            {
+               memcpy(&config->users[index].username, username, strlen(username));
+               memcpy(&config->users[index].password, password, strlen(password));
+            }
+            else
+            {
+               printf("pgagroal: Invalid USER entry\n");
+               printf("%s\n", line);
+            }
 
             free(password);
             free(decoded);
@@ -1171,8 +1211,17 @@ pgagroal_read_admins_configuration(char* filename, void* shmem)
                goto error;
             }
 
-            memcpy(&config->admins[index].username, username, strlen(username));
-            memcpy(&config->admins[index].password, password, strlen(password));
+            if (strlen(username) < MAX_USERNAME_LENGTH &&
+                strlen(password) < MAX_PASSWORD_LENGTH)
+            {
+               memcpy(&config->admins[index].username, username, strlen(username));
+               memcpy(&config->admins[index].password, password, strlen(password));
+            }
+            else
+            {
+               printf("pgagroal: Invalid ADMIN entry\n");
+               printf("%s\n", line);
+            }
 
             free(password);
             free(decoded);
