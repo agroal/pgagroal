@@ -48,7 +48,7 @@
 static int read_message(int socket, bool block, int timeout, struct message** msg);
 static int write_message(int socket, bool nodelay, struct message* msg);
 
-static int ssl_read_message(SSL* ssl, bool block, int timeout, struct message** msg);
+static int ssl_read_message(SSL* ssl, int timeout, struct message** msg);
 static int ssl_write_message(SSL* ssl, bool nodelay, struct message* msg);
 
 int
@@ -59,7 +59,7 @@ pgagroal_read_block_message(SSL* ssl, int socket, struct message** msg)
       return read_message(socket, true, 0, msg);
    }
 
-   return ssl_read_message(ssl, true, 0, msg);
+   return ssl_read_message(ssl, 0, msg);
 }
 
 int
@@ -70,7 +70,7 @@ pgagroal_read_timeout_message(SSL* ssl, int socket, int timeout, struct message*
       return read_message(socket, true, timeout, msg);
    }
 
-   return ssl_read_message(ssl, true, timeout, msg);
+   return ssl_read_message(ssl, timeout, msg);
 }
 
 int
@@ -110,7 +110,7 @@ pgagroal_write_socket_message(int socket, struct message* msg)
 int
 pgagroal_read_ssl_message(SSL* ssl, struct message** msg)
 {
-   return ssl_read_message(ssl, false, 0, msg);
+   return ssl_read_message(ssl, 0, msg);
 }
 
 int
@@ -491,7 +491,7 @@ pgagroal_write_deallocate_all(SSL* ssl, int socket)
    }
    else
    {
-      status = ssl_read_message(ssl, true, 0, &reply);
+      status = ssl_read_message(ssl, 0, &reply);
    }
    if (status != MESSAGE_STATUS_OK)
    {
@@ -548,7 +548,7 @@ pgagroal_write_reset_all(SSL* ssl, int socket)
    }
    else
    {
-      status = ssl_read_message(ssl, true, 0, &reply);
+      status = ssl_read_message(ssl, 0, &reply);
    }
    if (status != MESSAGE_STATUS_OK)
    {
@@ -1107,7 +1107,7 @@ write_message(int socket, bool nodelay, struct message* msg)
 }
 
 static int
-ssl_read_message(SSL* ssl, bool block, int timeout, struct message** msg)
+ssl_read_message(SSL* ssl, int timeout, struct message** msg)
 {
    bool keep_read = false;
    ssize_t numbytes;
