@@ -64,6 +64,28 @@ int
 pgagroal_prefill_auth(char* username, char* password, char* database, void* shmem, int* slot);
 
 /**
+ * Authenticate a remote management user
+ * @param client_fd The descriptor
+ * @param address The client address
+ * @param shmem The shared memory segment
+ * @param client_ssl The client SSL context
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_remote_management_auth(int client_fd, char* address, void* shmem, SSL** client_ssl);
+
+/**
+ * Connect using SCRAM-SHA256
+ * @param username The user name
+ * @param password The password
+ * @param server_fd The descriptor
+ * @param s_ssl The SSL context
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_remote_management_scram_sha256(char* username, char* password, int server_fd, SSL** s_ssl);
+
+/**
  * Get the master key
  * @param masterkey The master key
  * @return 0 upon success, otherwise 1

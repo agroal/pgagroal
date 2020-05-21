@@ -235,7 +235,7 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
 
       if (*fd != -1)
       {
-         if (config->keep_alive)
+         if (config != NULL && config->keep_alive)
          {
             if (setsockopt(*fd, SOL_SOCKET, SO_KEEPALIVE, &yes, optlen) == -1)
             {
@@ -247,7 +247,7 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
             }
          }
 
-         if (config->nodelay)
+         if (config != NULL && config->nodelay)
          {
             if (setsockopt(*fd, IPPROTO_TCP, TCP_NODELAY, &yes, optlen) == -1)
             {
@@ -259,22 +259,25 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
             }
          }
 
-         if (setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &config->buffer_size, optlen) == -1)
+         if (config != NULL)
          {
-            error = errno;
-            pgagroal_disconnect(*fd);
-            errno = 0;
-            *fd = -1;
-            continue;
-         }
+            if (setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &config->buffer_size, optlen) == -1)
+            {
+               error = errno;
+               pgagroal_disconnect(*fd);
+               errno = 0;
+               *fd = -1;
+               continue;
+            }
 
-         if (setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &config->buffer_size, optlen) == -1)
-         {
-            error = errno;
-            pgagroal_disconnect(*fd);
-            errno = 0;
-            *fd = -1;
-            continue;
+            if (setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &config->buffer_size, optlen) == -1)
+            {
+               error = errno;
+               pgagroal_disconnect(*fd);
+               errno = 0;
+               *fd = -1;
+               continue;
+            }
          }
 
          if (connect(*fd, p->ai_addr, p->ai_addrlen) == -1)
@@ -296,7 +299,7 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
    freeaddrinfo(servinfo);
 
    /* Set O_NONBLOCK on the socket */
-   if (config->non_blocking)
+   if (config != NULL && config->non_blocking)
    {
       pgagroal_socket_nonblocking(*fd, true);
    }

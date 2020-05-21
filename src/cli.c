@@ -32,7 +32,9 @@
 #include <logging.h>
 #include <management.h>
 #include <network.h>
+#include <security.h>
 #include <shmem.h>
+#include <utils.h>
 
 #define ZF_LOG_TAG "cli"
 #include <zf_log.h>
@@ -47,6 +49,8 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 
+#include <openssl/ssl.h>
+
 #define ACTION_UNKNOWN        0
 #define ACTION_FLUSH          1
 #define ACTION_GRACEFULLY     2
@@ -57,6 +61,17 @@
 #define ACTION_CANCELSHUTDOWN 7
 #define ACTION_ENABLEDB       8
 #define ACTION_DISABLEDB      9
+
+static int flush(SSL* ssl, int socket, int32_t mode);
+static int enabledb(SSL* ssl, int socket, char* database);
+static int disabledb(SSL* ssl, int socket, char* database);
+static int gracefully(SSL* ssl, int socket);
+static int stop(SSL* ssl, int socket);
+static int cancel_shutdown(SSL* ssl, int socket);
+static int status(SSL* ssl, int socket);
+static int details(SSL* ssl, int socket);
+static int isalive(SSL* ssl, int socket);
+
 
 static void
 version()
@@ -77,6 +92,10 @@ usage()
    printf("\n");
    printf("Options:\n");
    printf("  -c, --config CONFIG_FILE Set the path to the pgagroal.conf file\n");
+   printf("  -h, --host HOST          Set the host name\n");
+   printf("  -p, --port PORT          Set the port number\n");
+   printf("  -U, --user USERNAME      Set the user name\n");
+   printf("  -P, --password PASSWORD  Set the password\n");
    printf("  -V, --version            Display version information\n");
    printf("  -?, --help               Display help\n");
    printf("\n");
@@ -100,9 +119,16 @@ usage()
 int
 main(int argc, char **argv)
 {
+   int socket = -1;
+   SSL* s_ssl = NULL;
    int ret;
    int exit_code = 0;
    char* configuration_path = NULL;
+   char* host = NULL;
+   char* port = NULL;
+   char* username = NULL;
+   char* password = NULL;
+   bool do_free = true;
    int c;
    int option_index = 0;
    void* shmem = NULL;
@@ -110,6 +136,7 @@ main(int argc, char **argv)
    int32_t action = ACTION_UNKNOWN;
    int32_t mode = FLUSH_IDLE;
    char* database = NULL;
+   char un[IDENTIFIER_LENGTH];
    struct configuration* config;
 
    while (1)
@@ -117,11 +144,15 @@ main(int argc, char **argv)
       static struct option long_options[] =
       {
          {"config",  required_argument, 0, 'c'},
+         {"host",  required_argument, 0, 'h'},
+         {"port",  required_argument, 0, 'p'},
+         {"user",  required_argument, 0, 'U'},
+         {"password",  required_argument, 0, 'P'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
 
-      c = getopt_long(argc, argv, "V?c:",
+      c = getopt_long(argc, argv, "V?c:h:p:U:P:",
                       long_options, &option_index);
 
       if (c == -1)
@@ -131,6 +162,18 @@ main(int argc, char **argv)
       {
          case 'c':
             configuration_path = optarg;
+            break;
+         case 'h':
+            host = optarg;
+            break;
+         case 'p':
+            port = optarg;
+            break;
+         case 'U':
+            username = optarg;
+            break;
+         case 'P':
+            password = optarg;
             break;
          case 'V':
             version();
@@ -150,31 +193,30 @@ main(int argc, char **argv)
       exit(1);
    }
 
-   size = sizeof(struct configuration);
-   shmem = pgagroal_create_shared_memory(size);
-   pgagroal_init_configuration(shmem, size);
-   
    if (configuration_path != NULL)
    {
+      size = sizeof(struct configuration);
+      shmem = pgagroal_create_shared_memory(size);
+      pgagroal_init_configuration(shmem, size);
+
       ret = pgagroal_read_configuration(configuration_path, shmem);
       if (ret)
       {
          printf("pgagroal-cli: Configuration not found: %s\n", configuration_path);
          exit(1);
       }
+
+      pgagroal_start_logging(shmem);
+      config = (struct configuration*)shmem;
    }
    else
    {
-      ret = pgagroal_read_configuration("/etc/pgagroal/pgagroal.conf", shmem);
-      if (ret)
+      if (host == NULL || port == NULL)
       {
-         printf("pgagroal-cli: Configuration not found: /etc/pgagroal/pgagroal.conf\n");
+         printf("pgagroal-cli: Host and port must be specified\n");
          exit(1);
       }
    }
-
-   pgagroal_start_logging(shmem);
-   config = (struct configuration*)shmem;
 
    if (argc > 0)
    {
@@ -242,102 +284,130 @@ main(int argc, char **argv)
          action = ACTION_CANCELSHUTDOWN;
       }
 
-      if (action == ACTION_FLUSH)
+      if (configuration_path != NULL)
       {
-         if (pgagroal_management_flush(shmem, mode))
+         /* Local connection */
+         if (pgagroal_connect_unix_socket(config->unix_socket_dir, &socket))
          {
             exit_code = 1;
+            goto done;
          }
+      }
+      else
+      {
+         /* Remote connection */
+         if (pgagroal_connect(NULL, host, atoi(port), &socket))
+         {
+            printf("pgagroal - No route to host: %s:%s\n", host, port);
+            goto done;
+         }
+
+         /* User name */
+         if (username == NULL)
+         {
+username:
+            printf("User name: ");
+
+            memset(&un, 0, sizeof(un));
+            fgets(&un[0], sizeof(un), stdin);
+            un[strlen(un) - 1] = 0;
+            username = &un[0];
+         }
+
+         if (username == NULL || strlen(username) == 0)
+         {
+            goto username;
+         }
+
+         /* Password */
+         if (password == NULL)
+         {
+password:
+            if (password != NULL)
+            {
+               free(password);
+               password = NULL;
+            }
+
+            printf("Password : ");
+            password = pgagroal_get_password();
+            printf("\n");
+         }
+         else
+         {
+            do_free = false;
+         }
+
+         for (int i = 0; i < strlen(password); i++)
+         {
+            if ((unsigned char)(*(password + i)) & 0x80)
+            {
+               goto password;
+            }
+         }
+
+         /* Authenticate */
+         if (pgagroal_remote_management_scram_sha256(username, password, socket, &s_ssl) != AUTH_SUCCESS)
+         {
+            printf("pgagroal - Bad credentials for %s\n", username);
+            goto done;
+         }
+      }
+
+      if (action == ACTION_FLUSH)
+      {
+         exit_code = flush(s_ssl, socket, mode);
       }
       else if (action == ACTION_ENABLEDB)
       {
-         if (pgagroal_management_enabledb(shmem, database))
-         {
-            exit_code = 1;
-         }
+         exit_code = enabledb(s_ssl, socket, database);
       }
       else if (action == ACTION_DISABLEDB)
       {
-         if (pgagroal_management_disabledb(shmem, database))
-         {
-            exit_code = 1;
-         }
+         exit_code = disabledb(s_ssl, socket, database);
       }
       else if (action == ACTION_GRACEFULLY)
       {
-         if (pgagroal_management_gracefully(shmem))
-         {
-            exit_code = 1;
-         }
+         exit_code = gracefully(s_ssl, socket);
       }
       else if (action == ACTION_STOP)
       {
-         if (pgagroal_management_stop(shmem))
-         {
-            exit_code = 1;
-         }
+         exit_code = stop(s_ssl, socket);
       }
       else if (action == ACTION_CANCELSHUTDOWN)
       {
-         if (pgagroal_management_cancel_shutdown(shmem))
-         {
-            exit_code = 1;
-         }
+         exit_code = cancel_shutdown(s_ssl, socket);
       }
       else if (action == ACTION_STATUS)
       {
-         int socket;
-
-         if (pgagroal_management_status(shmem, &socket) == 0)
-         {
-            pgagroal_management_read_status(socket);
-            pgagroal_disconnect(socket);
-         }
-         else
-         {
-            exit_code = 1;
-         }
+         exit_code = status(s_ssl, socket);
       }
       else if (action == ACTION_DETAILS)
       {
-         int socket;
-
-         if (pgagroal_management_details(shmem, &socket) == 0)
-         {
-            pgagroal_management_read_status(socket);
-            pgagroal_management_read_details(socket);
-            pgagroal_disconnect(socket);
-         }
-         else
-         {
-            exit_code = 1;
-         }
+         exit_code = details(s_ssl, socket);
       }
       else if (action == ACTION_ISALIVE)
       {
-         int socket;
-         int status = -1;
-
-         if (pgagroal_management_isalive(shmem, &socket) == 0)
-         {
-            if (pgagroal_management_read_isalive(socket, &status))
-            {
-               exit_code = 1;
-            }
-
-            if (status != 1 && status != 2)
-            {
-               exit_code = 1;
-            }
-
-            pgagroal_disconnect(socket);
-         }
-         else
-         {
-            exit_code = 1;
-         }
+         exit_code = isalive(s_ssl, socket);
       }
    }
+
+done:
+
+   if (s_ssl != NULL)
+   {
+      int res;
+      SSL_CTX* ctx = SSL_get_SSL_CTX(s_ssl);
+      res = SSL_shutdown(s_ssl);
+      if (res == 0)
+      {
+         SSL_shutdown(s_ssl);
+      }
+      SSL_free(s_ssl);
+      SSL_CTX_free(ctx);
+   }
+
+   pgagroal_disconnect(socket);
 
    if (action == ACTION_UNKNOWN)
    {
@@ -345,14 +415,146 @@ main(int argc, char **argv)
       exit_code = 1;
    }
    
-   if (action != ACTION_UNKNOWN && exit_code != 0)
+   if (configuration_path != NULL)
    {
-      printf("No connection to pgagroal on %s\n", config->unix_socket_dir);
+      if (action != ACTION_UNKNOWN && exit_code != 0)
+      {
+         printf("No connection to pgagroal on %s\n", config->unix_socket_dir);
+      }
    }
 
-   pgagroal_stop_logging(shmem);
+   if (shmem != NULL)
+   {
+      pgagroal_stop_logging(shmem);
+      munmap(shmem, size);
+   }
 
-   munmap(shmem, size);
+   if (do_free)
+   {
+      free(password);
+   }
 
    return exit_code;
+}
+
+static int
+flush(SSL* ssl, int socket, int32_t mode)
+{
+   if (pgagroal_management_flush(ssl, socket, mode))
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+enabledb(SSL* ssl, int socket, char* database)
+{
+   if (pgagroal_management_enabledb(ssl, socket, database))
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+disabledb(SSL* ssl, int socket, char* database)
+{
+   if (pgagroal_management_disabledb(ssl, socket, database))
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+gracefully(SSL* ssl, int socket)
+{
+   if (pgagroal_management_gracefully(ssl, socket))
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+stop(SSL* ssl, int socket)
+{
+   if (pgagroal_management_stop(ssl, socket))
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+cancel_shutdown(SSL* ssl, int socket)
+{
+   if (pgagroal_management_cancel_shutdown(ssl, socket))
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+status(SSL* ssl, int socket)
+{
+   if (pgagroal_management_status(ssl, socket) == 0)
+   {
+      pgagroal_management_read_status(ssl, socket);
+   }
+   else
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+details(SSL* ssl, int socket)
+{
+   if (pgagroal_management_details(ssl, socket) == 0)
+   {
+      pgagroal_management_read_status(ssl, socket);
+      pgagroal_management_read_details(ssl, socket);
+   }
+   else
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+isalive(SSL* ssl, int socket)
+{
+   int status = -1;
+
+   if (pgagroal_management_isalive(ssl, socket) == 0)
+   {
+      if (pgagroal_management_read_isalive(ssl, socket, &status))
+      {
+         return 1;
+      }
+
+      if (status != 1 && status != 2)
+      {
+         return 1;
+      }
+   }
+   else
+   {
+      return 1;
+   }
+
+   return 0;
 }

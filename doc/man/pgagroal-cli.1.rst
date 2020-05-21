@@ -24,6 +24,18 @@ OPTIONS
 -c, --config CONFIG_FILE
   Set the path to the pgagroal.conf file
 
+-h, --host HOST
+  Set the host name
+
+-p, --port PORT
+  Set the port number
+
+-U, --user USERNAME
+  Set the user name
+
+-P, --password PASSWORD
+  Set the password
+
 -V, --version
   Display version information
 

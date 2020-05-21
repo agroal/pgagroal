@@ -336,6 +336,14 @@ int
 pgagroal_write_auth_success(SSL* ssl, int socket);
 
 /**
+ * Create a SSL message
+ * @param msg The resulting message
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_create_ssl_message(struct message** msg);
+
+/**
  * Create a startup message
  * @param username The user name
  * @param database The database

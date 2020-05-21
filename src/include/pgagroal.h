@@ -68,6 +68,7 @@ extern "C" {
 #define NUMBER_OF_HBAS     64
 #define NUMBER_OF_LIMITS   64
 #define NUMBER_OF_USERS    64
+#define NUMBER_OF_ADMINS    8
 #define NUMBER_OF_DISABLED 64
 
 #define NUMBER_OF_SECURITY_MESSAGES 5
@@ -189,6 +190,7 @@ struct configuration
    char host[MISC_LENGTH]; /**< The host */
    int port;               /**< The port */
    int metrics;            /**< The metrics port */
+   int management;         /**< The management port */
    bool gracefully;        /**< Is pgagroal in gracefully mode */
 
    char disabled[NUMBER_OF_DISABLED][IDENTIFIER_LENGTH]; /**< Which databases are disabled */
@@ -231,12 +233,14 @@ struct configuration
    int number_of_hbas;    /**< The number of HBA entries */
    int number_of_limits;  /**< The number of limit entries */
    int number_of_users;   /**< The number of users */
+   int number_of_admins;  /**< The number of admins */
 
    atomic_schar states[MAX_NUMBER_OF_CONNECTIONS]; /**< The states */
    struct server servers[NUMBER_OF_SERVERS];       /**< The servers */
    struct hba hbas[NUMBER_OF_HBAS];                /**< The HBA entries */
    struct limit limits[NUMBER_OF_LIMITS];          /**< The limit entries */
    struct user users[NUMBER_OF_USERS];             /**< The users */
+   struct user admins[NUMBER_OF_ADMINS];           /**< The admins */
    struct connection connections[];                /**< The connections (FMA) */
 } __attribute__ ((aligned (64)));
 

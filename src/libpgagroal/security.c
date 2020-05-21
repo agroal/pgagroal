@@ -29,6 +29,7 @@
 /* pgagroal */
 #include <pgagroal.h>
 #include <logging.h>
+#include <memory.h>
 #include <message.h>
 #include <network.h>
 #include <pool.h>
@@ -82,6 +83,7 @@ static bool is_disabled(char* database, void* shmem);
 
 static int   get_hba_method(int index, void* shmem);
 static char* get_password(char* username, void* shmem);
+static char* get_admin_password(char* username, void* shmem);
 static int   get_salt(void* data, char** salt);
 
 static int derive_key_iv(char* password, unsigned char* key, unsigned char* iv);
@@ -90,9 +92,11 @@ static int aes_decrypt(char* ciphertext, int ciphertext_length, unsigned char* k
 
 static int sasl_prep(char* password, char** password_prep);
 static int generate_nounce(char** nounce);
-static int get_scram_attribute(char attribute, char* input, char** value);
+static int get_scram_attribute(char attribute, char* input, size_t size, char** value);
 static int client_proof(char* password, char* salt, int salt_length, int iterations,
-                        char* client_first_message_bare, char* server_first_message, char* client_final_message_wo_proof,
+                        char* client_first_message_bare, size_t client_first_message_bare_length,
+                        char* server_first_message, size_t server_first_message_length,
+                        char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length,
                         unsigned char** result, int* result_length);
 static int  salted_password(char* password, char* salt, int salt_length, int iterations, unsigned char** result, int* result_length);
 static int  salted_password_key(unsigned char* salted_password, int salted_password_length, char* key,
@@ -100,11 +104,14 @@ static int  salted_password_key(unsigned char* salted_password, int salted_passw
 static int  stored_key(unsigned char* client_key, int client_key_length, unsigned char** result, int* result_length);
 static int  generate_salt(char** salt, int* size);
 static int  server_signature(char* password, char* salt, int salt_length, int iterations,
-                             char* client_first_message_bare, char* server_first_message, char* client_final_message_wo_proof,
+                             char* client_first_message_bare, size_t client_first_message_bare_length,
+                             char* server_first_message, size_t server_first_message_length,
+                             char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length,
                              unsigned char** result, int* result_length);
 
 static bool is_tls_user(char* username, char* database, void* shmem);
 static int  create_ssl_ctx(bool client, SSL_CTX** ctx);
+static int  create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, SSL** ssl);
 static int  create_ssl_server(SSL_CTX* ctx, int socket, void* shmem, SSL** ssl);
 
 int
@@ -485,6 +492,558 @@ error:
 
    pgagroal_free_copy_message(startup_msg);
    pgagroal_free_message(msg);
+
+   return AUTH_ERROR;
+}
+
+int
+pgagroal_remote_management_auth(int client_fd, char* address, void* shmem, SSL** client_ssl)
+{
+   int status = MESSAGE_STATUS_ERROR;
+   int hba_method;
+   struct configuration* config;
+   struct message* msg = NULL;
+   struct message* request_msg = NULL;
+   int32_t request;
+   char* username = NULL;
+   char* database = NULL;
+   char* password = NULL;
+   SSL* c_ssl = NULL;
+
+   config = (struct configuration*)shmem;
+
+   *client_ssl = NULL;
+
+   /* Receive client calls - at any point if client exits return AUTH_ERROR */
+   status = pgagroal_read_timeout_message(NULL, client_fd, config->authentication_timeout, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   request = pgagroal_get_request(msg);
+
+   /* SSL request: 80877103 */
+   if (request == 80877103)
+   {
+      ZF_LOGD("SSL request from client: %d", client_fd);
+
+      if (config->tls)
+      {
+         SSL_CTX* ctx = NULL;
+
+         /* We are acting as a server against the client */
+         if (create_ssl_ctx(false, &ctx))
+         {
+            goto error;
+         }
+
+         if (create_ssl_server(ctx, client_fd, shmem, &c_ssl))
+         {
+            goto error;
+         }
+
+         *client_ssl = c_ssl;
+
+         /* Switch to TLS mode */
+         status = pgagroal_write_tls(NULL, client_fd);
+         if (status != MESSAGE_STATUS_OK)
+         {
+            goto error;
+         }
+         pgagroal_free_message(msg);
+
+         status = SSL_accept(c_ssl);
+         if (status != 1)
+         {
+            ZF_LOGE("SSL failed: %d", status);
+            goto error;
+         }
+
+         status = pgagroal_read_timeout_message(c_ssl, client_fd, config->authentication_timeout, &msg);
+         if (status != MESSAGE_STATUS_OK)
+         {
+            goto error;
+         }
+         request = pgagroal_get_request(msg);
+      }
+      else
+      {
+         status = pgagroal_write_notice(NULL, client_fd);
+         if (status != MESSAGE_STATUS_OK)
+         {
+            goto error;
+         }
+         pgagroal_free_message(msg);
+
+         status = pgagroal_read_timeout_message(NULL, client_fd, config->authentication_timeout, &msg);
+         if (status != MESSAGE_STATUS_OK)
+         {
+            goto error;
+         }
+         request = pgagroal_get_request(msg);
+      }
+   }
+
+   /* 196608 -> Ok */
+   if (request == 196608)
+   {
+      request_msg = pgagroal_copy_message(msg);
+
+      /* Extract parameters: username / database */
+      ZF_LOGV("remote_management_auth: username/database (%d)", client_fd);
+      pgagroal_extract_username_database(request_msg, &username, &database);
+
+      /* Must be admin database */
+      if (strcmp("admin", database) != 0)
+      {
+         ZF_LOGD("remote_management_auth: admin: %s / %s", username, address);
+         pgagroal_write_connection_refused(c_ssl, client_fd);
+         pgagroal_write_empty(c_ssl, client_fd);
+         goto bad_password;
+      }
+
+      /* TLS scenario */
+      if (is_tls_user(username, "admin", shmem) && c_ssl == NULL)
+      {
+         ZF_LOGD("remote_management_auth: tls: %s / admin / %s", username, address);
+         pgagroal_write_connection_refused(c_ssl, client_fd);
+         pgagroal_write_empty(c_ssl, client_fd);
+         goto bad_password;
+      }
+
+      /* Verify client against pgagroal_hba.conf */
+      if (!is_allowed(username, "admin", address, shmem, &hba_method))
+      {
+         /* User not allowed */
+         ZF_LOGD("remote_management_auth: not allowed: %s / admin / %s", username, address);
+         pgagroal_write_no_hba_entry(c_ssl, client_fd, username, "admin", address);
+         pgagroal_write_empty(c_ssl, client_fd);
+         goto bad_password;
+      }
+
+      /* Reject scenario */
+      if (hba_method == SECURITY_REJECT)
+      {
+         ZF_LOGD("remote_management_auth: reject: %s / admin / %s", username, address);
+         pgagroal_write_connection_refused(c_ssl, client_fd);
+         pgagroal_write_empty(c_ssl, client_fd);
+         goto bad_password;
+      }
+
+      password = get_admin_password(username, shmem);
+      if (password == NULL)
+      {
+         ZF_LOGD("remote_management_auth: password: %s / admin / %s", username, address);
+         pgagroal_write_connection_refused(c_ssl, client_fd);
+         pgagroal_write_empty(c_ssl, client_fd);
+         goto bad_password;
+      }
+
+      status = client_scram256(c_ssl, client_fd, username, password, -1, shmem);
+      if (status == AUTH_BAD_PASSWORD)
+      {
+         pgagroal_write_connection_refused(c_ssl, client_fd);
+         pgagroal_write_empty(c_ssl, client_fd);
+         goto bad_password;
+      }
+      else if (status == AUTH_ERROR)
+      {
+         pgagroal_write_connection_refused(c_ssl, client_fd);
+         pgagroal_write_empty(c_ssl, client_fd);
+         goto error;
+      }
+
+      status = pgagroal_write_auth_success(c_ssl, client_fd);
+      if (status != MESSAGE_STATUS_OK)
+      {
+         goto error;
+      }
+
+      pgagroal_free_copy_message(request_msg);
+      free(username);
+      free(database);
+
+      ZF_LOGD("remote_management_auth: SUCCESS");
+      return AUTH_SUCCESS;
+   }
+   else if (request == -1)
+   {
+      goto error;
+   }
+   else
+   {
+      ZF_LOGD("remote_management_auth: old version: %d (%s)", request, address);
+      pgagroal_write_connection_refused_old(c_ssl, client_fd);
+      pgagroal_write_empty(c_ssl, client_fd);
+      goto bad_password;
+   }
+
+bad_password:
+   pgagroal_free_message(msg);
+   pgagroal_free_copy_message(request_msg);
+
+   free(username);
+   free(database);
+
+   ZF_LOGD("remote_management_auth: BAD_PASSWORD");
+   return AUTH_BAD_PASSWORD;
+
+error:
+   pgagroal_free_message(msg);
+   pgagroal_free_copy_message(request_msg);
+
+   free(username);
+   free(database);
+
+   ZF_LOGD("remote_management_auth: ERROR");
+   return AUTH_ERROR;
+}
+
+int
+pgagroal_remote_management_scram_sha256(char* username, char* password, int server_fd, SSL** s_ssl)
+{
+   int status = MESSAGE_STATUS_ERROR;
+   SSL* ssl = NULL;
+   char key_file[MISC_LENGTH];
+   char cert_file[MISC_LENGTH];
+   char root_file[MISC_LENGTH];
+   struct stat st = {0};
+   char* salt = NULL;
+   int salt_length = 0;
+   char* password_prep = NULL;
+   char* client_nounce = NULL;
+   char* combined_nounce = NULL;
+   char* base64_salt = NULL;
+   char* iteration_string = NULL;
+   char* err = NULL;
+   int iteration;
+   char* client_first_message_bare = NULL;
+   char* server_first_message = NULL;
+   char wo_proof[58];
+   unsigned char* proof = NULL;
+   int proof_length;
+   char* proof_base = NULL;
+   char* base64_server_signature = NULL;
+   char* server_signature_received = NULL;
+   int server_signature_received_length;
+   unsigned char* server_signature_calc = NULL;
+   int server_signature_calc_length;
+   struct message* sslrequest_msg = NULL;
+   struct message* startup_msg = NULL;
+   struct message* sasl_response = NULL;
+   struct message* sasl_continue = NULL;
+   struct message* sasl_continue_response = NULL;
+   struct message* sasl_final = NULL;
+   struct message* msg = NULL;
+
+   pgagroal_memory_size(DEFAULT_BUFFER_SIZE);
+
+   memset(&key_file, 0, sizeof(key_file));
+   snprintf(&key_file[0], sizeof(key_file), "%s/.pgagroal/pgagroal.key", pgagroal_get_home_directory());
+
+   memset(&cert_file, 0, sizeof(cert_file));
+   snprintf(&cert_file[0], sizeof(cert_file), "%s/.pgagroal/pgagroal.crt", pgagroal_get_home_directory());
+
+   memset(&root_file, 0, sizeof(root_file));
+   snprintf(&root_file[0], sizeof(root_file), "%s/.pgagroal/root.crt", pgagroal_get_home_directory());
+
+   if (stat(&key_file[0], &st) == 0)
+   {
+      if (S_ISREG(st.st_mode) && st.st_mode & (S_IRUSR | S_IWUSR) && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
+      {
+         if (stat(&cert_file[0], &st) == 0)
+         {
+            if (S_ISREG(st.st_mode))
+            {
+               SSL_CTX* ctx = NULL;
+
+               status = pgagroal_create_ssl_message(&sslrequest_msg);
+               if (status != MESSAGE_STATUS_OK)
+               {
+                  goto error;
+               }
+
+               status = pgagroal_write_message(NULL, server_fd, sslrequest_msg);
+               if (status != MESSAGE_STATUS_OK)
+               {
+                  goto error;
+               }
+
+               status = pgagroal_read_block_message(NULL, server_fd, &msg);
+               if (status != MESSAGE_STATUS_OK)
+               {
+                  goto error;
+               }
+
+               if (msg->kind == 'S')
+               {
+                  if (create_ssl_ctx(true, &ctx))
+                  {
+                     goto error;
+                  }
+
+                  if (stat(&root_file[0], &st) == -1)
+                  {
+                     memset(&root_file, 0, sizeof(root_file));
+                  }
+
+                  if (create_ssl_client(ctx, &key_file[0], &cert_file[0], &root_file[0], server_fd, &ssl))
+                  {
+                     goto error;
+                  }
+
+                  *s_ssl = ssl;
+
+                  do
+                  {
+                     status = SSL_connect(ssl);
+
+                     if (status != 1)
+                     {
+                        int err = SSL_get_error(ssl, status);
+                        switch (err)
+                        {
+                           case SSL_ERROR_ZERO_RETURN:
+                           case SSL_ERROR_WANT_READ:
+                           case SSL_ERROR_WANT_WRITE:
+                           case SSL_ERROR_WANT_CONNECT:
+                           case SSL_ERROR_WANT_ACCEPT:
+                           case SSL_ERROR_WANT_X509_LOOKUP:
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+                           case SSL_ERROR_WANT_ASYNC:
+                           case SSL_ERROR_WANT_ASYNC_JOB:
+#if (OPENSSL_VERSION_NUMBER >= 0x10101000L)
+                           case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+#endif
+#endif
+                              break;
+                           case SSL_ERROR_SYSCALL:
+                              ZF_LOGE("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), server_fd);
+                              errno = 0;
+                              goto error;
+                              break;
+                           case SSL_ERROR_SSL:
+                              ZF_LOGE("SSL_ERROR_SSL: %s (%d)", strerror(errno), server_fd);
+                              ZF_LOGE("%s", ERR_error_string(err, NULL));
+                              ZF_LOGE("%s", ERR_lib_error_string(err));
+                              ZF_LOGE("%s", ERR_reason_error_string(err));
+                              errno = 0;
+                              goto error;
+                              break;
+                        }
+                        ERR_clear_error();
+                     }
+                  } while (status != 1);
+               }
+            }
+         }
+      }
+   }
+
+   status = pgagroal_create_startup_message(username, "admin", &startup_msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_write_message(ssl, server_fd, startup_msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_read_block_message(ssl, server_fd, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (msg->kind != 'R')
+   {
+      goto error;
+   }
+
+   status = sasl_prep(password, &password_prep);
+   if (status)
+   {
+      goto error;
+   }
+
+   generate_nounce(&client_nounce);
+
+   status = pgagroal_create_auth_scram256_response(client_nounce, &sasl_response);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_write_message(ssl, server_fd, sasl_response);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_read_block_message(ssl, server_fd, &msg);
+   if (msg->length > SECURITY_BUFFER_SIZE)
+   {
+      goto error;
+   }
+
+   sasl_continue = pgagroal_copy_message(msg);
+
+   get_scram_attribute('r', (char*)(sasl_continue->data + 9), sasl_continue->length - 9, &combined_nounce);
+   get_scram_attribute('s', (char*)(sasl_continue->data + 9), sasl_continue->length - 9, &base64_salt);
+   get_scram_attribute('i', (char*)(sasl_continue->data + 9), sasl_continue->length - 9, &iteration_string);
+   get_scram_attribute('e', (char*)(sasl_continue->data + 9), sasl_continue->length - 9, &err);
+
+   if (err != NULL)
+   {
+      goto error;
+   }
+
+   pgagroal_base64_decode(base64_salt, strlen(base64_salt), &salt, &salt_length);
+
+   iteration = atoi(iteration_string);
+
+   memset(&wo_proof[0], 0, sizeof(wo_proof));
+   snprintf(&wo_proof[0], sizeof(wo_proof), "c=biws,r=%s", combined_nounce);
+
+   /* n=,r=... */
+   client_first_message_bare = sasl_response->data + 26;
+
+   /* r=...,s=...,i=4096 */
+   server_first_message = sasl_continue->data + 9;
+
+   if (client_proof(password_prep, salt, salt_length, iteration,
+                    client_first_message_bare, sasl_response->length - 26,
+                    server_first_message, sasl_continue->length - 9,
+                    &wo_proof[0], strlen(wo_proof),
+                    &proof, &proof_length))
+   {
+      goto error;
+   }
+
+   pgagroal_base64_encode((char*)proof, proof_length, &proof_base);
+
+   status = pgagroal_create_auth_scram256_continue_response(&wo_proof[0], (char*)proof_base, &sasl_continue_response);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_write_message(ssl, server_fd, sasl_continue_response);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_read_block_message(ssl, server_fd, &msg);
+   if (msg->length > SECURITY_BUFFER_SIZE)
+   {
+      goto error;
+   }
+
+   sasl_final = pgagroal_copy_message(msg);
+
+   /* Get 'v' attribute */
+   base64_server_signature = sasl_final->data + 11;
+   pgagroal_base64_decode(base64_server_signature, sasl_final->length - 11, &server_signature_received, &server_signature_received_length);
+
+   if (server_signature(password_prep, salt, salt_length, iteration,
+                        client_first_message_bare, sasl_response->length - 26,
+                        server_first_message, sasl_continue->length - 9,
+                        &wo_proof[0], strlen(wo_proof),
+                        &server_signature_calc, &server_signature_calc_length))
+   {
+      goto error;
+   }
+
+   if (server_signature_calc_length != server_signature_received_length ||
+       memcmp(server_signature_received, server_signature_calc, server_signature_calc_length) != 0)
+   {
+      goto bad_password;
+   }
+
+   status = pgagroal_read_block_message(ssl, server_fd, &msg);
+   if (msg->length > SECURITY_BUFFER_SIZE)
+   {
+      goto error;
+   }
+
+   free(salt);
+   free(err);
+   free(password_prep);
+   free(client_nounce);
+   free(combined_nounce);
+   free(base64_salt);
+   free(iteration_string);
+   free(proof);
+   free(proof_base);
+   free(server_signature_received);
+   free(server_signature_calc);
+
+   pgagroal_free_message(msg);
+   pgagroal_free_copy_message(sslrequest_msg);
+   pgagroal_free_copy_message(startup_msg);
+   pgagroal_free_copy_message(sasl_response);
+   pgagroal_free_copy_message(sasl_continue);
+   pgagroal_free_copy_message(sasl_continue_response);
+   pgagroal_free_copy_message(sasl_final);
+
+   pgagroal_memory_destroy();
+
+   return AUTH_SUCCESS;
+
+bad_password:
+
+   free(salt);
+   free(err);
+   free(password_prep);
+   free(client_nounce);
+   free(combined_nounce);
+   free(base64_salt);
+   free(iteration_string);
+   free(proof);
+   free(proof_base);
+   free(server_signature_received);
+   free(server_signature_calc);
+
+   pgagroal_free_message(msg);
+   pgagroal_free_copy_message(sslrequest_msg);
+   pgagroal_free_copy_message(startup_msg);
+   pgagroal_free_copy_message(sasl_response);
+   pgagroal_free_copy_message(sasl_continue);
+   pgagroal_free_copy_message(sasl_continue_response);
+   pgagroal_free_copy_message(sasl_final);
+
+   pgagroal_memory_destroy();
+
+   return AUTH_BAD_PASSWORD;
+
+error:
+
+   free(salt);
+   free(err);
+   free(password_prep);
+   free(client_nounce);
+   free(combined_nounce);
+   free(base64_salt);
+   free(iteration_string);
+   free(proof);
+   free(proof_base);
+   free(server_signature_received);
+   free(server_signature_calc);
+
+   pgagroal_free_message(msg);
+   pgagroal_free_copy_message(sslrequest_msg);
+   pgagroal_free_copy_message(startup_msg);
+   pgagroal_free_copy_message(sasl_response);
+   pgagroal_free_copy_message(sasl_continue);
+   pgagroal_free_copy_message(sasl_continue_response);
+   pgagroal_free_copy_message(sasl_final);
+
+   pgagroal_memory_destroy();
 
    return AUTH_ERROR;
 }
@@ -1215,7 +1774,7 @@ retry:
    memset(client_first_message_bare, 0, msg->length - 25);
    memcpy(client_first_message_bare, msg->data + 26, msg->length - 26);
    
-   get_scram_attribute('r', (char*)msg->data + 26, &client_nounce);
+   get_scram_attribute('r', (char*)msg->data + 26, msg->length - 26, &client_nounce);
    generate_nounce(&server_nounce);
    generate_salt(&salt, &salt_length);
    pgagroal_base64_encode(salt, salt_length, &base64_salt);
@@ -1224,11 +1783,13 @@ retry:
    memset(server_first_message, 0, 89);
    snprintf(server_first_message, 89, "r=%s%s,s=%s,i=4096", client_nounce, server_nounce, base64_salt);
 
-   status = pgagroal_create_auth_scram256_continue(client_nounce, server_nounce, base64_salt, &sasl_continue);
+   status = pgagroal_create_auth_scram256_continue(client_nounce, server_nounce, base64_salt, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
+
+   sasl_continue = pgagroal_copy_message(msg);
 
    status = pgagroal_write_message(c_ssl, client_fd, sasl_continue);
    if (status != MESSAGE_STATUS_OK)
@@ -1242,8 +1803,8 @@ retry:
       goto error;
    }
 
-   get_scram_attribute('p', (char*)msg->data + 5, &base64_client_proof);
-   pgagroal_base64_decode(base64_client_proof, &client_proof_received, &client_proof_received_length);
+   get_scram_attribute('p', (char*)msg->data + 5, msg->length - 5, &base64_client_proof);
+   pgagroal_base64_decode(base64_client_proof, strlen(base64_client_proof), &client_proof_received, &client_proof_received_length);
 
    client_final_message_without_proof = malloc(58);
    memset(client_final_message_without_proof, 0, 58);
@@ -1252,7 +1813,9 @@ retry:
    sasl_prep(password, &password_prep);
 
    if (client_proof(password_prep, salt, salt_length, 4096,
-                    client_first_message_bare, server_first_message, client_final_message_without_proof,
+                    client_first_message_bare, strlen(client_first_message_bare),
+                    server_first_message, strlen(server_first_message),
+                    client_final_message_without_proof, strlen(client_final_message_without_proof),
                     &client_proof_calc, &client_proof_calc_length))
    {
       goto error;
@@ -1265,7 +1828,9 @@ retry:
    }
 
    if (server_signature(password_prep, salt, salt_length, 4096,
-                        client_first_message_bare, server_first_message, client_final_message_without_proof,
+                        client_first_message_bare, strlen(client_first_message_bare),
+                        server_first_message, strlen(server_first_message),
+                        client_final_message_without_proof, strlen(client_final_message_without_proof),
                         &server_signature_calc, &server_signature_calc_length))
    {
       goto error;
@@ -1273,11 +1838,13 @@ retry:
 
    pgagroal_base64_encode((char*)server_signature_calc, server_signature_calc_length, &base64_server_signature_calc);
 
-   status = pgagroal_create_auth_scram256_final(base64_server_signature_calc, &sasl_final);
+   status = pgagroal_create_auth_scram256_final(base64_server_signature_calc, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
+
+   sasl_final = pgagroal_copy_message(msg);
 
    status = pgagroal_write_message(c_ssl, client_fd, sasl_final);
    if (status != MESSAGE_STATUS_OK)
@@ -1874,6 +2441,7 @@ server_scram256(char* username, char* password, int slot, void* shmem)
    struct message* sasl_continue = NULL;
    struct message* sasl_continue_response = NULL;
    struct message* sasl_final = NULL;
+   struct message* msg = NULL;
    struct configuration* config = NULL;
 
    config = (struct configuration*)shmem;
@@ -1905,21 +2473,23 @@ server_scram256(char* username, char* password, int slot, void* shmem)
       goto error;
    }
 
-   status = pgagroal_read_block_message(NULL, server_fd, &sasl_continue);
-   if (sasl_continue->length > SECURITY_BUFFER_SIZE)
+   status = pgagroal_read_block_message(NULL, server_fd, &msg);
+   if (msg->length > SECURITY_BUFFER_SIZE)
    {
-      ZF_LOGE("Security message too large: %ld", sasl_continue->length);
+      ZF_LOGE("Security message too large: %ld", msg->length);
       goto error;
    }
+
+   sasl_continue = pgagroal_copy_message(msg);
 
    config->connections[slot].security_lengths[auth_index] = sasl_continue->length;
    memcpy(&config->connections[slot].security_messages[auth_index], sasl_continue->data, sasl_continue->length);
    auth_index++;
 
-   get_scram_attribute('r', (char*)(sasl_continue->data + 9), &combined_nounce);
-   get_scram_attribute('s', (char*)(sasl_continue->data + 9), &base64_salt);
-   get_scram_attribute('i', (char*)(sasl_continue->data + 9), &iteration_string);
-   get_scram_attribute('e', (char*)(sasl_continue->data + 9), &err);
+   get_scram_attribute('r', (char*)(sasl_continue->data + 9), sasl_continue->length - 9, &combined_nounce);
+   get_scram_attribute('s', (char*)(sasl_continue->data + 9), sasl_continue->length - 9, &base64_salt);
+   get_scram_attribute('i', (char*)(sasl_continue->data + 9), sasl_continue->length - 9, &iteration_string);
+   get_scram_attribute('e', (char*)(sasl_continue->data + 9), sasl_continue->length - 9, &err);
 
    if (err != NULL)
    {
@@ -1927,7 +2497,7 @@ server_scram256(char* username, char* password, int slot, void* shmem)
       goto error;
    }
 
-   pgagroal_base64_decode(base64_salt, &salt, &salt_length);
+   pgagroal_base64_decode(base64_salt, strlen(base64_salt), &salt, &salt_length);
 
    iteration = atoi(iteration_string);
 
@@ -1941,7 +2511,9 @@ server_scram256(char* username, char* password, int slot, void* shmem)
    server_first_message = config->connections[slot].security_messages[2] + 9;
 
    if (client_proof(password_prep, salt, salt_length, iteration,
-                    client_first_message_bare, server_first_message, &wo_proof[0],
+                    client_first_message_bare, config->connections[slot].security_lengths[1] - 26,
+                    server_first_message, config->connections[slot].security_lengths[2] - 9,
+                    &wo_proof[0], strlen(wo_proof),
                     &proof, &proof_length))
    {
       goto error;
@@ -1965,23 +2537,28 @@ server_scram256(char* username, char* password, int slot, void* shmem)
       goto error;
    }
 
-   status = pgagroal_read_block_message(NULL, server_fd, &sasl_final);
-   if (sasl_final->length > SECURITY_BUFFER_SIZE)
+   status = pgagroal_read_block_message(NULL, server_fd, &msg);
+   if (msg->length > SECURITY_BUFFER_SIZE)
    {
-      ZF_LOGE("Security message too large: %ld", sasl_final->length);
+      ZF_LOGE("Security message too large: %ld", msg->length);
       goto error;
    }
+
+   sasl_final = pgagroal_copy_message(msg);
 
    config->connections[slot].security_lengths[auth_index] = sasl_final->length;
    memcpy(&config->connections[slot].security_messages[auth_index], sasl_final->data, sasl_final->length);
    auth_index++;
 
-   /* Get 'v' attribute */
+   /* Get 'v' attribute -- make this better (strlen will work) */
    base64_server_signature = config->connections[slot].security_messages[4] + 11;
-   pgagroal_base64_decode(base64_server_signature, &server_signature_received, &server_signature_received_length);
+   pgagroal_base64_decode(base64_server_signature, strlen(base64_server_signature) - 1,
+                          &server_signature_received, &server_signature_received_length);
 
    if (server_signature(password_prep, salt, salt_length, iteration,
-                        client_first_message_bare, server_first_message, &wo_proof[0],
+                        client_first_message_bare, config->connections[slot].security_lengths[1] - 26,
+                        server_first_message, config->connections[slot].security_lengths[2] - 9,
+                        &wo_proof[0], strlen(wo_proof),
                         &server_signature_calc, &server_signature_calc_length))
    {
       goto error;
@@ -2008,7 +2585,9 @@ server_scram256(char* username, char* password, int slot, void* shmem)
    free(server_signature_calc);
 
    pgagroal_free_copy_message(sasl_response);
+   pgagroal_free_copy_message(sasl_continue);
    pgagroal_free_copy_message(sasl_continue_response);
+   pgagroal_free_copy_message(sasl_final);
 
    return AUTH_SUCCESS;
 
@@ -2029,7 +2608,9 @@ bad_password:
    free(server_signature_calc);
 
    pgagroal_free_copy_message(sasl_response);
+   pgagroal_free_copy_message(sasl_continue);
    pgagroal_free_copy_message(sasl_continue_response);
+   pgagroal_free_copy_message(sasl_final);
 
    return AUTH_BAD_PASSWORD;
 
@@ -2048,7 +2629,9 @@ error:
    free(server_signature_calc);
 
    pgagroal_free_copy_message(sasl_response);
+   pgagroal_free_copy_message(sasl_continue);
    pgagroal_free_copy_message(sasl_continue_response);
+   pgagroal_free_copy_message(sasl_final);
 
    return AUTH_ERROR;
 }
@@ -2298,6 +2881,24 @@ get_password(char* username, void* shmem)
    return NULL;
 }
 
+static char*
+get_admin_password(char* username, void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < config->number_of_admins; i++)
+   {
+      if (!strcmp(&config->admins[i].username[0], username))
+      {
+         return &config->admins[i].password[0];
+      }
+   }
+
+   return NULL;
+}
+
 static int
 get_salt(void* data, char** salt)
 {
@@ -2369,7 +2970,7 @@ pgagroal_get_master_key(char** masterkey)
       goto error;
    }
 
-   pgagroal_base64_decode(&line[0], &mk, &mk_length);
+   pgagroal_base64_decode(&line[0], strlen(&line[0]), &mk, &mk_length);
 
    *masterkey = mk;
 
@@ -2765,42 +3366,63 @@ error:
 }
 
 static int
-get_scram_attribute(char attribute, char* input, char** value)
+get_scram_attribute(char attribute, char* input, size_t size, char** value)
 {
    char* dup = NULL;
    char* result = NULL;
    char* ptr = NULL;
-   size_t size;
+   size_t token_size;
    char match[2];
 
    match[0] = attribute;
    match[1] = '=';
 
-   dup = strdup(input);
+   dup = (char*)malloc(size + 1);
+   memset(dup, 0, size + 1);
+   memcpy(dup, input, size);
+
    ptr = strtok(dup, ",");
    while (ptr != NULL)
    {
       if (!strncmp(ptr, &match[0], 2))
       {
-         size = strlen(ptr) - 1;
-         result = malloc(size);
-         memset(result, 0, size);
-         memcpy(result, ptr + 2, size);
+         token_size = strlen(ptr) - 1;
+         result = malloc(token_size);
+         memset(result, 0, token_size);
+         memcpy(result, ptr + 2, token_size);
+         goto done;
       }
 
       ptr = strtok(NULL, ",");
    }
+
+   if (result == NULL)
+   {
+      goto error;
+   }
+
+done:
 
    *value = result;
 
    free(dup);
 
    return 0;
+
+error:
+
+   *value = NULL;
+
+   free(dup);
+
+   return 1;
 }
 
 static int
 client_proof(char* password, char* salt, int salt_length, int iterations,
-             char* client_first_message_bare, char* server_first_message, char* client_final_message_wo_proof,
+             char* client_first_message_bare, size_t client_first_message_bare_length,
+             char* server_first_message, size_t server_first_message_length,
+             char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length,
              unsigned char** result, int* result_length)
 {
    size_t size = 32;
@@ -2849,7 +3471,7 @@ client_proof(char* password, char* salt, int salt_length, int iterations,
       goto error;
    }
 
-   if (HMAC_Update(ctx, (unsigned char*)client_first_message_bare, strlen(client_first_message_bare)) != 1)
+   if (HMAC_Update(ctx, (unsigned char*)client_first_message_bare, client_first_message_bare_length) != 1)
    {
       goto error;
    }
@@ -2859,7 +3481,7 @@ client_proof(char* password, char* salt, int salt_length, int iterations,
       goto error;
    }
 
-   if (HMAC_Update(ctx, (unsigned char*)server_first_message, strlen(server_first_message)) != 1)
+   if (HMAC_Update(ctx, (unsigned char*)server_first_message, server_first_message_length) != 1)
    {
       goto error;
    }
@@ -2869,7 +3491,7 @@ client_proof(char* password, char* salt, int salt_length, int iterations,
       goto error;
    }
    
-   if (HMAC_Update(ctx, (unsigned char*)client_final_message_wo_proof, strlen(client_final_message_wo_proof)) != 1)
+   if (HMAC_Update(ctx, (unsigned char*)client_final_message_wo_proof, client_final_message_wo_proof_length) != 1)
    {
       goto error;
    }
@@ -3216,7 +3838,9 @@ error:
 
 static int
 server_signature(char* password, char* salt, int salt_length, int iterations,
-                 char* client_first_message_bare, char* server_first_message, char* client_final_message_wo_proof,
+                 char* client_first_message_bare, size_t client_first_message_bare_length,
+                 char* server_first_message, size_t server_first_message_length,
+                 char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length,
                  unsigned char** result, int* result_length)
 {
    size_t size = 32;
@@ -3259,7 +3883,7 @@ server_signature(char* password, char* salt, int salt_length, int iterations,
       goto error;
    }
 
-   if (HMAC_Update(ctx, (unsigned char*)client_first_message_bare, strlen(client_first_message_bare)) != 1)
+   if (HMAC_Update(ctx, (unsigned char*)client_first_message_bare, client_first_message_bare_length) != 1)
    {
       goto error;
    }
@@ -3269,7 +3893,7 @@ server_signature(char* password, char* salt, int salt_length, int iterations,
       goto error;
    }
 
-   if (HMAC_Update(ctx, (unsigned char*)server_first_message, strlen(server_first_message)) != 1)
+   if (HMAC_Update(ctx, (unsigned char*)server_first_message, server_first_message_length) != 1)
    {
       goto error;
    }
@@ -3279,7 +3903,7 @@ server_signature(char* password, char* salt, int salt_length, int iterations,
       goto error;
    }
 
-   if (HMAC_Update(ctx, (unsigned char*)client_final_message_wo_proof, strlen(client_final_message_wo_proof)) != 1)
+   if (HMAC_Update(ctx, (unsigned char*)client_final_message_wo_proof, client_final_message_wo_proof_length) != 1)
    {
       goto error;
    }
@@ -3404,6 +4028,83 @@ error:
    {
       SSL_CTX_free(c);
    }
+
+   return 1;
+}
+
+static int
+create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, SSL** ssl)
+{
+   SSL* s = NULL;
+   bool have_cert = false;
+   bool have_rootcert = false;
+
+   if (strlen(root) > 0)
+   {
+      if (SSL_CTX_load_verify_locations(ctx, root, NULL) != 1)
+      {
+         ZF_LOGE("Couldn't load TLS CA: %s", root);
+         goto error;
+      }
+
+      have_rootcert = true;
+   }
+
+   if (strlen(cert) > 0)
+   {
+      if (SSL_CTX_use_certificate_chain_file(ctx, cert) != 1)
+      {
+         ZF_LOGE("Couldn't load TLS certificate: %s", cert);
+         goto error;
+      }
+
+      have_cert = true;
+   }
+
+   s = SSL_new(ctx);
+
+   if (s == NULL)
+   {
+      goto error;
+   }
+
+   if (SSL_set_fd(s, socket) == 0)
+   {
+      goto error;
+   }
+
+   if (have_cert && strlen(key) > 0)
+   {
+      if (SSL_use_PrivateKey_file(s, key, SSL_FILETYPE_PEM) != 1)
+      {
+         ZF_LOGE("Couldn't load TLS private key: %s", key);
+         goto error;
+      }
+
+      if (SSL_check_private_key(s) != 1)
+      {
+         ZF_LOGE("TLS private key check failed: %s", key);
+         goto error;
+      }
+   }
+
+   if (have_rootcert)
+   {
+      SSL_set_verify(s, SSL_VERIFY_PEER | SSL_VERIFY_CLIENT_ONCE, NULL);
+   }
+
+   *ssl = s;
+
+   return 0;
+
+error:
+
+   if (s != NULL)
+   {
+      SSL_shutdown(s);
+      SSL_free(s);
+   }
+   SSL_CTX_free(ctx);
 
    return 1;
 }

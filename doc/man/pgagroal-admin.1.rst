@@ -11,7 +11,7 @@ Administration utility for pgagroal
 SYNOPSIS
 ========
 
-pgagroal-admin [ -u USERS_FILE ] [ COMMAND ]
+pgagroal-admin [ -f FILE ] [ COMMAND ]
 
 DESCRIPTION
 ===========
@@ -21,14 +21,14 @@ pgagroal-admin is an administration utility for pgagroal.
 OPTIONS
 =======
 
--U, --user user
+-f, --file FILE
+  Set the path to a user file
+
+-U, --user USER
   Set the user name
 
--P, --password password
+-P, --password PASSWORD
   Set the password for the user
-
--u, --users USERS_FILE
-  Set the path to the pgagroal_users.conf file
 
 -V, --version
   Display version information

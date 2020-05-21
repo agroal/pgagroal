@@ -74,12 +74,12 @@ usage()
    printf("\n");
 
    printf("Usage:\n");
-   printf("  pgagroal-admin [ -u USERS_FILE ] [ COMMAND ] \n");
+   printf("  pgagroal-admin [ -f FILE ] [ COMMAND ] \n");
    printf("\n");
    printf("Options:\n");
-   printf("  -U, --user user         Set the user name\n");
-   printf("  -P, --password password Set the password for the user\n");
-   printf("  -u, --users USERS_FILE  Set the path to the pgagroal_users.conf file\n");
+   printf("  -f, --file FILE         Set the path to a user file\n");
+   printf("  -U, --user USER         Set the user name\n");
+   printf("  -P, --password PASSWORD Set the password for the user\n");
    printf("  -V, --version           Display version information\n");
    printf("  -?, --help              Display help\n");
    printf("\n");
@@ -101,7 +101,7 @@ main(int argc, char **argv)
    int c;
    char* username = NULL;
    char* password = NULL;
-   char* users_path = NULL;
+   char* file_path = NULL;
    int option_index = 0;
    int32_t action = ACTION_UNKNOWN;
 
@@ -111,12 +111,12 @@ main(int argc, char **argv)
       {
          {"user",  required_argument, 0, 'U'},
          {"password",  required_argument, 0, 'P'},
-         {"users",  required_argument, 0, 'u'},
+         {"file",  required_argument, 0, 'f'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
 
-      c = getopt_long(argc, argv, "V?u:U:P:",
+      c = getopt_long(argc, argv, "V?f:U:P:",
                       long_options, &option_index);
 
       if (c == -1)
@@ -130,8 +130,8 @@ main(int argc, char **argv)
          case 'P':
             password = optarg;
             break;
-         case 'u':
-            users_path = optarg;
+         case 'f':
+            file_path = optarg;
             break;
          case 'V':
             version();
@@ -184,9 +184,9 @@ main(int argc, char **argv)
       }
       else if (action == ACTION_ADD_USER)
       {
-         if (users_path != NULL)
+         if (file_path != NULL)
          {
-            if (add_user(users_path, username, password))
+            if (add_user(file_path, username, password))
             {
                printf("Error for add-user\n");
                exit_code = 1;
@@ -194,15 +194,15 @@ main(int argc, char **argv)
          }
          else
          {
-            printf("Missing users file argument\n");
+            printf("Missing file argument\n");
             exit_code = 1;
          }
       }
       else if (action == ACTION_UPDATE_USER)
       {
-         if (users_path != NULL)
+         if (file_path != NULL)
          {
-            if (update_user(users_path, username, password))
+            if (update_user(file_path, username, password))
             {
                printf("Error for update-user\n");
                exit_code = 1;
@@ -210,15 +210,15 @@ main(int argc, char **argv)
          }
          else
          {
-            printf("Missing users file argument\n");
+            printf("Missing file argument\n");
             exit_code = 1;
          }
       }
       else if (action == ACTION_REMOVE_USER)
       {
-         if (users_path != NULL)
+         if (file_path != NULL)
          {
-            if (remove_user(users_path, username))
+            if (remove_user(file_path, username))
             {
                printf("Error for remove-user\n");
                exit_code = 1;
@@ -226,15 +226,15 @@ main(int argc, char **argv)
          }
          else
          {
-            printf("Missing users file argument\n");
+            printf("Missing file argument\n");
             exit_code = 1;
          }
       }
       else if (action == ACTION_LIST_USERS)
       {
-         if (users_path != NULL)
+         if (file_path != NULL)
          {
-            if (list_users(users_path))
+            if (list_users(file_path))
             {
                printf("Error for list-users\n");
                exit_code = 1;
@@ -242,7 +242,7 @@ main(int argc, char **argv)
          }
          else
          {
-            printf("Missing users file argument\n");
+            printf("Missing file argument\n");
             exit_code = 1;
          }
       }

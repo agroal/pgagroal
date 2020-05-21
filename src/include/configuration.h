@@ -112,6 +112,23 @@ pgagroal_read_users_configuration(char* filename, void* shmem);
 int
 pgagroal_validate_users_configuration(void* shmem);
 
+/**
+ * Read the ADMINS configuration from a file
+ * @param filename The file name
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_read_admins_configuration(char* filename, void* shmem);
+
+/**
+ * Validate the ADMINS configuration from a file
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_validate_admins_configuration(void* shmem);
+
 #ifdef __cplusplus
 }
 #endif

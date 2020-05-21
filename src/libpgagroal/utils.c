@@ -511,6 +511,11 @@ pgagroal_base64_encode(char* raw, int raw_length, char** encoded)
    BUF_MEM* mem_bio_mem_ptr;
    char* r = NULL;
 
+   if (raw == NULL)
+   {
+      goto error;
+   }
+
    b64_bio = BIO_new(BIO_f_base64());
    mem_bio = BIO_new(BIO_s_mem());
 
@@ -536,27 +541,36 @@ pgagroal_base64_encode(char* raw, int raw_length, char** encoded)
    *encoded = r;
 
    return 0;
+
+error:
+
+   *encoded = NULL;
+
+   return 1;
 }
 
 int
-pgagroal_base64_decode(char* encoded, char** raw, int* raw_length)
+pgagroal_base64_decode(char* encoded, size_t encoded_length, char** raw, int* raw_length)
 {
    BIO* b64_bio;
    BIO* mem_bio;
-   int length;
    size_t size;
    char* decoded;
    int index;
 
-   length = strlen(encoded);
-   size = (length * 3) / 4 + 1;
+   if (encoded == NULL)
+   {
+      goto error;
+   }
+
+   size = (encoded_length * 3) / 4 + 1;
    decoded = malloc(size);
    memset(decoded, 0, size);
 
    b64_bio = BIO_new(BIO_f_base64());
    mem_bio = BIO_new(BIO_s_mem());
 
-   BIO_write(mem_bio, encoded, length);
+   BIO_write(mem_bio, encoded, encoded_length);
    BIO_push(b64_bio, mem_bio);
    BIO_set_flags(b64_bio, BIO_FLAGS_BASE64_NO_NL);
 
@@ -572,4 +586,11 @@ pgagroal_base64_decode(char* encoded, char** raw, int* raw_length)
    *raw_length = index;
 
    return 0;
+
+error:
+
+   *raw = NULL;
+   *raw_length = 0;
+
+   return 1;
 }

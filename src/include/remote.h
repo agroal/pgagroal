@@ -26,52 +26,29 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PGAGROAL_MEMORY_H
-#define PGAGROAL_MEMORY_H
+#ifndef PGAGROAL_REMOTE_H
+#define PGAGROAL_REMOTE_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <pgagroal.h>
-
+#include <ev.h>
 #include <stdlib.h>
 
 /**
- * Initialize a memory segment for the process local message structure
+ * Create a remote management instance
+ * @param fd The client descriptor
+ * @param address The client address
  * @param shmem The shared memory segment
+ * @param pipeline_shmem The shared memory segment for the pipeline
  */
 void
-pgagroal_memory_init(void* shmem);
-
-/**
- * Set the size of the local message structure
- * @param size The size
- */
-void
-pgagroal_memory_size(size_t size);
-
-/**
- * Get the message structure
- * @return The structure
- */
-struct message*
-pgagroal_memory_message(void);
-
-/**
- * Free the memory segment
- */
-void
-pgagroal_memory_free(void);
-
-/**
- * Destroy the memory segment
- */
-void
-pgagroal_memory_destroy(void);
+pgagroal_remote_management(int fd, char* address, void* shmem, void* pipeline_shmem);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif
+

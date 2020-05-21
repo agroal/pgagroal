@@ -54,18 +54,26 @@ pgagroal_memory_init(void* shmem)
 
    config = (struct configuration*)shmem;
 
-   if (!message)
-      message = (struct message*)malloc(sizeof(struct message));
+   pgagroal_memory_size(config->buffer_size);
+}
 
-   if (!data)
-      data = malloc((size_t)config->buffer_size);
+/**
+ *
+ */
+void
+pgagroal_memory_size(size_t size)
+{
+   pgagroal_memory_destroy();
+
+   message = (struct message*)malloc(sizeof(struct message));
+   data = malloc(size);
 
    memset(message, 0, sizeof(struct message));
-   memset(data, 0, (size_t)config->buffer_size);
+   memset(data, 0, size);
 
    message->kind = 0;
    message->length = 0;
-   message->max_length = (size_t)config->buffer_size;
+   message->max_length = size;
    message->data = data;
 }
 
@@ -77,6 +85,7 @@ pgagroal_memory_message(void)
 {
 #ifdef DEBUG
    assert(message != NULL);
+   assert(data != NULL);
 #endif
 
    return message;

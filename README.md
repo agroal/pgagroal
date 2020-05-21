@@ -15,6 +15,7 @@ Pronounced: p-g-a-gro-al, named after [A](https://www.visitportugal.com/en/conte
 * Enable / disable database access
 * Graceful / fast shutdown
 * Prometheus support
+* Remote management
 * Transport Layer Security (TLS) v1.2+ support
 * Daemon mode
 * User vault

@@ -35,6 +35,7 @@
 #include <pipeline.h>
 #include <pool.h>
 #include <prometheus.h>
+#include <remote.h>
 #include <security.h>
 #include <shmem.h>
 #include <utils.h>
@@ -66,6 +67,7 @@
 static void accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
+static void accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void graceful_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void coredump_cb(struct ev_loop *loop, ev_signal *w, int revents);
@@ -99,6 +101,9 @@ static int unix_socket = -1;
 static struct accept_io io_metrics[MAX_FDS];
 static int* metrics_fds = NULL;
 static int metrics_fds_length = -1;
+static struct accept_io io_management[MAX_FDS];
+static int* management_fds = NULL;
+static int management_fds_length = -1;
 static struct pipeline main_pipeline;
 static void* shmem = NULL;
 static void* pipeline_shmem = NULL;
@@ -184,6 +189,33 @@ shutdown_metrics()
 }
 
 static void
+start_management()
+{
+   for (int i = 0; i < management_fds_length; i++)
+   {
+      int sockfd = *(management_fds + i);
+
+      memset(&io_management[i], 0, sizeof(struct accept_io));
+      ev_io_init((struct ev_io*)&io_management[i], accept_management_cb, sockfd, EV_READ);
+      io_management[i].socket = sockfd;
+      io_management[i].shmem = shmem;
+      io_management[i].pipeline_shmem = pipeline_shmem;
+      ev_io_start(main_loop, (struct ev_io*)&io_management[i]);
+   }
+}
+
+static void
+shutdown_management()
+{
+   for (int i = 0; i < management_fds_length; i++)
+   {
+      ev_io_stop(main_loop, (struct ev_io*)&io_management[i]);
+      pgagroal_disconnect(io_management[i].socket);
+      errno = 0;
+   }
+}
+
+static void
 version()
 {
    printf("pgagroal %s\n", VERSION);
@@ -205,6 +237,7 @@ usage()
    printf("  -a, --hba HBA_CONFIG_FILE     Set the path to the pgagroal_hba.conf file\n");
    printf("  -l, --limit LIMIT_CONFIG_FILE Set the path to the pgagroal_databases.conf file\n");
    printf("  -u, --users USERS_FILE        Set the path to the pgagroal_users.conf file\n");
+   printf("  -A, --admins ADMINS_FILE      Set the path to the pgagroal_admins.conf file\n");
    printf("  -d, --daemon                  Run as a daemon\n");
    printf("  -V, --version                 Display version information\n");
    printf("  -?, --help                    Display help\n");
@@ -220,6 +253,7 @@ main(int argc, char **argv)
    char* hba_path = NULL;
    char* limit_path = NULL;
    char* users_path = NULL;
+   char* admins_path = NULL;
    bool daemon = false;
    pid_t pid, sid;
    void* tmp_shmem = NULL;
@@ -243,13 +277,14 @@ main(int argc, char **argv)
          {"hba", required_argument, 0, 'a'},
          {"limit", required_argument, 0, 'l'},
          {"users", required_argument, 0, 'u'},
+         {"admins", required_argument, 0, 'A'},
          {"daemon", no_argument, 0, 'd'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "dV?a:c:l:u:",
+      c = getopt_long (argc, argv, "dV?a:c:l:u:A:",
                        long_options, &option_index);
 
       if (c == -1)
@@ -268,6 +303,9 @@ main(int argc, char **argv)
             break;
          case 'u':
             users_path = optarg;
+            break;
+         case 'A':
+            admins_path = optarg;
             break;
          case 'd':
             daemon = true;
@@ -367,6 +405,30 @@ main(int argc, char **argv)
       pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_users.conf", shmem);
    }
 
+   if (admins_path != NULL)
+   {
+      ret = pgagroal_read_admins_configuration(admins_path, shmem);
+      if (ret == 1)
+      {
+         printf("pgagroal: ADMINS configuration not found: %s\n", admins_path);
+         exit(1);
+      }
+      else if (ret == 2)
+      {
+         printf("pgagroal: Invalid master key file\n");
+         exit(1);
+      }
+      else if (ret == 3)
+      {
+         printf("pgagroal: ADMINS: Too many admins defined %d (max %d)\n", config->number_of_admins, NUMBER_OF_ADMINS);
+         exit(1);
+      }
+   }
+   else
+   {
+      pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_admins.conf", shmem);
+   }
+
    if (pgagroal_validate_configuration(shmem))
    {
       exit(1);
@@ -380,6 +442,10 @@ main(int argc, char **argv)
       exit(1);
    }
    if (pgagroal_validate_users_configuration(shmem))
+   {
+      exit(1);
+   }
+   if (pgagroal_validate_admins_configuration(shmem))
    {
       exit(1);
    }
@@ -555,6 +621,24 @@ main(int argc, char **argv)
       start_metrics();
    }
 
+   if (config->management > 0)
+   {
+      /* Bind management socket */
+      if (pgagroal_bind(config->host, config->management, shmem, &management_fds, &management_fds_length))
+      {
+         ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->management);
+         exit(1);
+      }
+
+      if (management_fds_length > MAX_FDS)
+      {
+         ZF_LOGF("pgagroal: Too many descriptors %d\n", management_fds_length);
+         exit(1);
+      }
+
+      start_management();
+   }
+
    ZF_LOGI("pgagroal: started on %s:%d", config->host, config->port);
    for (int i = 0; i < main_fds_length; i++)
    {
@@ -564,6 +648,10 @@ main(int argc, char **argv)
    for (int i = 0; i < metrics_fds_length; i++)
    {
       ZF_LOGD("Metrics: %d", *(metrics_fds + i));
+   }
+   for (int i = 0; i < management_fds_length; i++)
+   {
+      ZF_LOGD("Remote management: %d", *(management_fds + i));
    }
    pgagroal_libev_engines();
    ZF_LOGD("libev engine: %s", pgagroal_libev_engine(ev_backend(main_loop)));
@@ -577,6 +665,7 @@ main(int argc, char **argv)
    ZF_LOGD("Configuration size: %lu", shmem_size);
    ZF_LOGD("Max connections: %d", config->max_connections);
    ZF_LOGD("Known users: %d", config->number_of_users);
+   ZF_LOGD("Known admins: %d", config->number_of_admins);
 
    if (!config->allow_unknown_users && config->number_of_users == 0)
    {
@@ -599,6 +688,7 @@ main(int argc, char **argv)
    ZF_LOGI("pgagroal: shutdown");
    pgagroal_pool_shutdown(shmem);
 
+   shutdown_management();
    shutdown_metrics();
    shutdown_mgt();
    shutdown_io();
@@ -852,17 +942,17 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       case MANAGEMENT_STATUS:
          ZF_LOGD("pgagroal: Management status");
          pgagroal_pool_status(ai->shmem);
-         pgagroal_management_write_status(config->gracefully, ai->shmem, client_fd);
+         pgagroal_management_write_status(client_fd, config->gracefully, ai->shmem);
          break;
       case MANAGEMENT_DETAILS:
          ZF_LOGD("pgagroal: Management details");
          pgagroal_pool_status(ai->shmem);
-         pgagroal_management_write_status(config->gracefully, ai->shmem, client_fd);
-         pgagroal_management_write_details(ai->shmem, client_fd);
+         pgagroal_management_write_status(client_fd, config->gracefully, ai->shmem);
+         pgagroal_management_write_details(client_fd, ai->shmem);
          break;
       case MANAGEMENT_ISALIVE:
          ZF_LOGD("pgagroal: Management isalive");
-         pgagroal_management_write_isalive(ai->shmem, config->gracefully, client_fd);
+         pgagroal_management_write_isalive(client_fd, config->gracefully, ai->shmem);
          break;
       default:
          ZF_LOGD("pgagroal: Unknown management id: %d", id);
@@ -949,6 +1039,86 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       ev_loop_fork(loop);
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
       pgagroal_prometheus(client_fd, ai->shmem, ai->pipeline_shmem);
+   }
+
+   pgagroal_disconnect(client_fd);
+}
+
+static void
+accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+{
+   struct sockaddr_in client_addr;
+   socklen_t client_addr_length;
+   int client_fd;
+   char address[INET6_ADDRSTRLEN];
+   struct accept_io* ai;
+   struct configuration* config;
+
+   ZF_LOGV("accept_management_cb: sockfd ready (%d)", revents);
+
+   if (EV_ERROR & revents)
+   {
+      ZF_LOGD("accept_management_cb: invalid event: %s", strerror(errno));
+      errno = 0;
+      return;
+   }
+
+   memset(&address, 0, sizeof(address));
+
+   ai = (struct accept_io*)watcher;
+   config = (struct configuration*)ai->shmem;
+
+   client_addr_length = sizeof(client_addr);
+   client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
+   if (client_fd == -1)
+   {
+      if (accept_fatal(errno) && keep_running)
+      {
+         ZF_LOGW("Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
+
+         shutdown_management();
+
+         free(management_fds);
+         management_fds = NULL;
+         management_fds_length = 0;
+
+         if (pgagroal_bind(config->host, config->port, ai->shmem, &management_fds, &management_fds_length))
+         {
+            ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
+            exit(1);
+         }
+
+         if (management_fds_length > MAX_FDS)
+         {
+            ZF_LOGF("pgagroal: Too many descriptors %d\n", management_fds_length);
+            exit(1);
+         }
+
+         start_management();
+
+         for (int i = 0; i < management_fds_length; i++)
+         {
+            ZF_LOGD("Remote management: %d", *(management_fds + i));
+         }
+      }
+      else
+      {
+         ZF_LOGD("accept: %s (%d)", strerror(errno), watcher->fd);
+      }
+      errno = 0;
+      return;
+   }
+
+   pgagroal_get_address((struct sockaddr *)&client_addr, (char*)&address, sizeof(address));
+
+   if (!fork())
+   {
+      char* addr = malloc(sizeof(address));
+      memcpy(addr, address, sizeof(address));
+
+      ev_loop_fork(loop);
+      /* We are leaving the socket descriptor valid such that the client won't reuse it */
+      pgagroal_remote_management(client_fd, addr, ai->shmem, ai->pipeline_shmem);
    }
 
    pgagroal_disconnect(client_fd);

@@ -77,6 +77,8 @@ Second, the interface is used internally to transfer the connection (socket desc
 to the main `pgagroal` process after a new connection has been created. This is necessary since the socket descriptor
 needs to be available to subsequent client and hence processes.
 
+The management interface use Unix Domain Socket for communication.
+
 The management interface is defined in [management.h](../src/include/management.h). The management interface
 uses its own protocol which always consist of a header
 
@@ -86,6 +88,16 @@ uses its own protocol which always consist of a header
 | `slot` | Int | The slot that the message is for |
 
 The rest of the message is depending on the message type.
+
+### Remote management
+
+The remote management functionality uses the same protocol as the standard management method.
+
+However, before the management packet is sent the client has to authenticate using SCRAM-SHA-256 using the
+same message format that PostgreSQL uses, e.g. StartupMessage, AuthenticationSASL, AuthenticationSASLContinue,
+AuthenticationSASLFinal and AuthenticationOk. The SSLRequest message is supported.
+
+The remote management interface is defined in [remote.h](../src/include/remote.h) ([remote.c](../src/libpgagroal/remote.c)).
 
 ## libev usage
 

@@ -147,6 +147,12 @@ pgagroal_copy_message(struct message* msg)
 {
    struct message* copy = NULL;
 
+#ifdef DEBUG
+   assert(msg != NULL);
+   assert(msg->data != NULL);
+   assert(msg->length > 0);
+#endif
+
    copy = (struct message*)malloc(sizeof(struct message));
    copy->data = malloc(msg->length);
 
@@ -848,6 +854,30 @@ pgagroal_write_auth_success(SSL* ssl, int socket)
    }
 
    return ssl_write_message(ssl, true, &msg);
+}
+
+int
+pgagroal_create_ssl_message(struct message** msg)
+{
+   struct message* m = NULL;
+   size_t size;
+
+   size = 8;
+
+   m = (struct message*)malloc(sizeof(struct message));
+   m->data = malloc(size);
+
+   memset(m->data, 0, size);
+
+   m->kind = 0;
+   m->length = size;
+
+   pgagroal_write_int32(m->data, size);
+   pgagroal_write_int32(m->data + 4, 80877103);
+
+   *msg = m;
+
+   return MESSAGE_STATUS_OK;
 }
 
 int

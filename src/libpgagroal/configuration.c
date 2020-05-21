@@ -249,6 +249,17 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      unknown = true;
                   }
                }
+               else if (!strcmp(key, "management"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->management = as_int(value);
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
                else if (!strcmp(key, "pipeline"))
                {
                   if (!strcmp(section, "pgagroal"))
@@ -1016,7 +1027,7 @@ pgagroal_read_users_configuration(char* filename, void* shmem)
 
             ptr = strtok(NULL, ":");
 
-            if (pgagroal_base64_decode(ptr, &decoded, &decoded_length))
+            if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
             {
                goto error;
             }
@@ -1099,6 +1110,149 @@ above:
 int
 pgagroal_validate_users_configuration(void* shmem)
 {
+   return 0;
+}
+
+/**
+ *
+ */
+int
+pgagroal_read_admins_configuration(char* filename, void* shmem)
+{
+   FILE* file;
+   char line[LINE_LENGTH];
+   int index;
+   char* master_key = NULL;
+   char* username = NULL;
+   char* password = NULL;
+   char* decoded = NULL;
+   int decoded_length = 0;
+   char* ptr = NULL;
+   struct configuration* config;
+
+   file = fopen(filename, "r");
+
+   if (!file)
+   {
+      goto error;
+   }
+
+   if (pgagroal_get_master_key(&master_key))
+   {
+      goto masterkey;
+   }
+
+   index = 0;
+   config = (struct configuration*)shmem;
+
+   while (fgets(line, sizeof(line), file))
+   {
+      if (strcmp(line, ""))
+      {
+         if (line[0] == '#' || line[0] == ';')
+         {
+            /* Comment, so ignore */
+         }
+         else
+         {
+            ptr = strtok(line, ":");
+
+            username = ptr;
+
+            ptr = strtok(NULL, ":");
+
+            if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
+            {
+               goto error;
+            }
+
+            if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+            {
+               goto error;
+            }
+
+            memcpy(&config->admins[index].username, username, strlen(username));
+            memcpy(&config->admins[index].password, password, strlen(password));
+
+            free(password);
+            free(decoded);
+
+            password = NULL;
+            decoded = NULL;
+
+            index++;
+         }
+      }
+   }
+
+   config->number_of_admins = index;
+
+   if (config->number_of_admins > NUMBER_OF_ADMINS)
+   {
+      goto above;
+   }
+
+   free(master_key);
+
+   fclose(file);
+
+   return 0;
+
+error:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return 1;
+
+masterkey:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return 2;
+
+above:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return 3;
+}
+
+/**
+ *
+ */
+int
+pgagroal_validate_admins_configuration(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (config->management > 0 && config->number_of_admins == 0)
+   {
+      ZF_LOGW("pgagroal: Remote management enabled, but no admins are defined");
+   }
+
    return 0;
 }
 

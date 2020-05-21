@@ -25,7 +25,8 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | host | | String | Yes | The bind address for pgagroal |
 | port | | Int | Yes | The bind port for pgagroal |
 | unix_socket_dir | | String | Yes | The Unix Domain Socket location |
-| metrics | 0 | Int | No | The metrics port for pgagroal (disable = 0) |
+| metrics | 0 | Int | No | The metrics port (disable = 0) |
+| management | 0 | Int | No | The remote management port (disable = 0) |
 | log_type | console | String | No | The logging type (console, file, syslog) |
 | log_level | info | String | No | The logging level (fatal, error, warn, info, debug1, ..., debug5) |
 | log_path | pgagroal.log | String | No | The log file location |
@@ -88,6 +89,8 @@ host    all      all   all      all
 | ADDRESS | Yes      | Specifies the network for the rule. `all` for all networks, or IPv4 address with a mask (`0.0.0.0/0`) or IPv6 address with a mask (`::0/0`) |
 | METHOD | Yes      | Specifies the authentication mode for the user. `all` for all methods, otherwise `trust`, `reject`, `password`, `md5` or `scram-sha-256` |
 
+Remote management users needs to have their database set to `admin` in order for the entry to be considered.
+
 # pgagroal_databases configuration
 
 The `pgagroal_databases` configuration defines limits for a database or a user or both.
@@ -118,3 +121,14 @@ The `pgagroal_users` configuration defines the users known to the system. This f
 the `pgagroal-admin` tool.
 
 The configuration is loaded from either the path specified by the `-u` flag or `/etc/pgagroal/pgagroal_users.conf`.
+
+# pgagroal_admins configuration
+
+The `pgagroal_admins` configuration defines the administrators known to the system. This file is created and managed through
+the `pgagroal-admin` tool.
+
+The configuration is loaded from either the path specified by the `-A` flag or `/etc/pgagroal/pgagroal_admins.conf`.
+
+If pgagroal has both Transport Layer Security (TLS) and `management` enabled then `pgagroal-cli` can
+connect with TLS using the files `~/.pgagroal/pgagroal.key` (must be 0600 permission),
+`~/.pgagroal/pgagroal.crt` and `~/.pgagroal/root.crt`.

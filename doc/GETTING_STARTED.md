@@ -15,6 +15,7 @@ Options:
   -a, --hba HBA_CONFIG_FILE     Set the path to the pgagroal_hba.conf file
   -l, --limit LIMIT_CONFIG_FILE Set the path to the pgagroal_databases.conf file
   -u, --users USERS_FILE        Set the path to the pgagroal_users.conf file
+  -A, --admins ADMINS_FILE      Set the path to the pgagroal_admins.conf file
   -d, --daemon                  Run as a daemon
   -V, --version                 Display version information
   -?, --help                    Display help
@@ -127,6 +128,10 @@ Usage:
 
 Options:
   -c, --config CONFIG_FILE Set the path to the pgagroal.conf file
+  -h, --host HOST          Set the host name
+  -p, --port PORT          Set the port number
+  -U, --user USERNAME      Set the user name
+  -P, --password PASSWORD  Set the password
   -V, --version            Display version information
   -?, --help               Display help
 
@@ -158,6 +163,16 @@ To stop pgagroal you would use
 pgagroal-cli -c pgagroal.conf stop
 ```
 
+Check the outcome of the operations by verifying the exit code, like
+
+```
+echo $?
+```
+
+If pgagroal has both Transport Layer Security (TLS) and `management` enabled then `pgagroal-cli` can
+connect with TLS using the files `~/.pgagroal/pgagroal.key` (must be 0600 permission),
+`~/.pgagroal/pgagroal.crt` and `~/.pgagroal/root.crt`.
+
 ## Administration
 
 `pgagroal` has an administration tool called `pgagroal-admin`, which is used to control user
@@ -170,12 +185,12 @@ pgagroal-admin 0.7.0
   Administration utility for pgagroal
 
 Usage:
-  pgagroal-admin [ -u USERS_FILE ] [ COMMAND ]
+  pgagroal-admin [ -f FILE ] [ COMMAND ]
 
 Options:
-  -U, --user user         Set the user name
-  -P, --password password Set the password for the user
-  -u, --users USERS_FILE  Set the path to the pgagroal_users.conf file
+  -f, --file FILE         Set the path to a user file
+  -U, --user USER         Set the user name
+  -P, --password PASSWORD Set the password for the user
   -V, --version           Display version information
   -?, --help              Display help
 
@@ -206,7 +221,7 @@ in order to be considered valid.
 Then use the other commands to add, update, remove or list the current user names, f.ex.
 
 ```
-pgagroal-admin -u pgagroal_users.conf add-user
+pgagroal-admin -f pgagroal_users.conf add-user
 ```
 
 ## Next Steps
@@ -218,6 +233,7 @@ Next steps in improving pgagroal's configuration could be
 * Add a `pgagroal_users.conf` file using `pgagroal-admin` with a list of known users
 * Disable access for unknown users by setting `allow_unknown_users` to `false`
 * Define a `pgagroal_databases.conf` file with the limits and prefill settings for each database
+* Enable Transport Layer Security v1.2+ (TLS)
 
 See [Configuration](./CONFIGURATION.md) for more information on these subjects.
 
