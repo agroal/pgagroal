@@ -33,7 +33,52 @@ add_compile_options(-D_POSIX_C_SOURCE=200809L)
 add_compile_options(-D__USE_ISOC11)
 add_compile_options(-D_GNU_SOURCE)
 
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fno-omit-frame-pointer -DDEBUG")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -Wformat -Wformat-security -fno-omit-frame-pointer -fstack-protector-strong -DDEBUG")
+
+if (CMAKE_BUILD_TYPE MATCHES Release)
+  add_compile_options(-O2)
+  add_compile_options(-DNDEBUG)
+
+  check_c_compiler_flag(-Wformat HAS_FORMAT)
+  if (HAS_FORMAT)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat")
+  endif()
+
+  check_c_compiler_flag(-Wformat-security HAS_FORMAT_SECURITY)
+  if (HAS_FORMAT)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat-security")
+  endif()
+
+  check_c_compiler_flag(-fstack-protector-strong HAS_STACKPROTECTOR_STRONG)
+  if (HAS_STACKPROTECTOR_STRONG)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-strong")
+  else()
+    check_c_compiler_flag(-fstack-protector HAS_STACKPROTECTOR)
+    if (HAS_STACKPROTECTOR)
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector")
+    endif()
+  endif()
+
+  check_c_compiler_flag(-fPIC HAS_PIC)
+  if (HAS_PIC)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+  endif()
+
+  check_c_compiler_flag(-pie HAS_PIE)
+  if (HAS_PIE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -pie")
+  endif()
+
+  check_c_compiler_flag(-Wl,-z,relro HAS_RELRO)
+  if (HAS_RELRO)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,relro")
+  endif()
+
+  check_c_compiler_flag(-Wl,-z,now HAS_NOW)
+  if (HAS_RELRO)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,now")
+  endif()
+endif (CMAKE_BUILD_TYPE MATCHES Release)
 
 if (CMAKE_BUILD_TYPE MATCHES Performance)
   add_compile_options(-O2)
