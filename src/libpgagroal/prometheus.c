@@ -190,7 +190,7 @@ home_page(int client_fd)
 {
    char* data = NULL;
    char* body = NULL;
-   char body_length[5];
+   char body_length[21];
    time_t now;
    char time_buf[32];
    int status;
@@ -621,8 +621,8 @@ send_chunk(int client_fd, char* data)
 
    memset(&msg, 0, sizeof(struct message));
 
-   m = malloc(7);
-   memset(m, 0, 7);
+   m = malloc(20);
+   memset(m, 0, 20);
 
    sprintf(m, "%lX\r\n", strlen(data));
 
