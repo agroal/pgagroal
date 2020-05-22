@@ -33,6 +33,7 @@
 #include <message.h>
 #include <network.h>
 #include <pool.h>
+#include <prometheus.h>
 #include <security.h>
 #include <server.h>
 #include <utils.h>
@@ -366,6 +367,8 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
       free(username);
       free(database);
       
+      pgagroal_prometheus_auth_user_success(shmem);
+
       ZF_LOGD("authenticate: SUCCESS");
       return AUTH_SUCCESS;
    }
@@ -388,6 +391,8 @@ bad_password:
    free(username);
    free(database);
 
+   pgagroal_prometheus_auth_user_bad_password(shmem);
+
    ZF_LOGD("authenticate: BAD_PASSWORD");
    return AUTH_BAD_PASSWORD;
 
@@ -397,6 +402,8 @@ error:
 
    free(username);
    free(database);
+
+   pgagroal_prometheus_auth_user_error(shmem);
 
    ZF_LOGD("authenticate: ERROR");
    return AUTH_ERROR;

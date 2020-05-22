@@ -34,6 +34,7 @@
 #include <memory.h>
 #include <message.h>
 #include <pool.h>
+#include <prometheus.h>
 #include <security.h>
 #include <server.h>
 
@@ -74,6 +75,8 @@ pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse,
    config = (struct configuration*)shmem;
 
    prefill = false;
+
+   pgagroal_prometheus_connection_get(shmem);
 
    best_rule = find_best_rule(shmem, username, database);
    retries = 0;
@@ -223,6 +226,8 @@ start:
          }
       }
 
+      pgagroal_prometheus_connection_success(shmem);
+
       return 0;
    }
    else
@@ -268,6 +273,9 @@ retry2:
    }
 
 timeout:
+
+   pgagroal_prometheus_connection_timeout(shmem);
+
    return 1;
 
 error:
@@ -276,6 +284,8 @@ error:
       atomic_fetch_sub(&config->limits[best_rule].active_connections, 1);
    }
    atomic_fetch_sub(&config->active_connections, 1);
+
+   pgagroal_prometheus_connection_error(shmem);
 
    return 2;
 }
@@ -329,6 +339,8 @@ pgagroal_return_connection(void* shmem, int slot)
          config->connections[slot].pid = -1;
          atomic_store(&config->states[slot], STATE_FREE);
          atomic_fetch_sub(&config->active_connections, 1);
+
+         pgagroal_prometheus_connection_return(shmem);
 
          return 0;
       }
@@ -395,6 +407,8 @@ pgagroal_kill_connection(void* shmem, int slot)
 
    atomic_store(&config->states[slot], STATE_NOTINIT);
 
+   pgagroal_prometheus_connection_kill(shmem);
+
    return result;
 }
 
@@ -425,6 +439,7 @@ pgagroal_idle_timeout(void* shmem)
          double diff = difftime(now, config->connections[i].timestamp);
          if (diff >= (double)config->idle_timeout)
          {
+            pgagroal_prometheus_connection_idletimeout(shmem);
             pgagroal_kill_connection(shmem, i);
             prefill = true;
          }
@@ -500,6 +515,7 @@ pgagroal_validation(void* shmem)
 
          if (kill)
          {
+            pgagroal_prometheus_connection_invalid(shmem);
             pgagroal_kill_connection(shmem, i);
             prefill = true;
          }
@@ -552,6 +568,7 @@ pgagroal_flush(void* shmem, int mode)
          {
             pgagroal_write_terminate(NULL, config->connections[i].fd);
          }
+         pgagroal_prometheus_connection_flush(shmem);
          pgagroal_kill_connection(shmem, i);
          prefill = true;
       }
@@ -562,6 +579,7 @@ pgagroal_flush(void* shmem, int mode)
             if (mode == FLUSH_ALL)
             {
                kill(config->connections[i].pid, SIGQUIT);
+               pgagroal_prometheus_connection_flush(shmem);
                pgagroal_kill_connection(shmem, i);
                prefill = true;
             }
@@ -845,6 +863,7 @@ remove_connection(void* shmem, char* username, char* database)
          }
          else
          {
+            pgagroal_prometheus_connection_remove(shmem);
             pgagroal_kill_connection(shmem, i);
          }
 

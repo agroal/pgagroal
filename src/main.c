@@ -954,6 +954,10 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          ZF_LOGD("pgagroal: Management isalive");
          pgagroal_management_write_isalive(client_fd, config->gracefully, ai->shmem);
          break;
+      case MANAGEMENT_RESET:
+         ZF_LOGD("pgagroal: Management reset");
+         pgagroal_prometheus_reset(ai->shmem);
+         break;
       default:
          ZF_LOGD("pgagroal: Unknown management id: %d", id);
          break;

@@ -52,6 +52,7 @@ extern "C" {
 #define MANAGEMENT_CANCEL_SHUTDOWN    10
 #define MANAGEMENT_ENABLEDB           11
 #define MANAGEMENT_DISABLEDB          12
+#define MANAGEMENT_RESET              13
 
 /**
  * Read the management header
@@ -239,6 +240,15 @@ pgagroal_management_read_isalive(SSL* ssl, int socket, int* status);
  */
 int
 pgagroal_management_write_isalive(int socket, bool gracefully, void* shmem);
+
+/**
+ * Management operation: Reset
+ * @param ssl The SSL connection
+ * @param socket The socket
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_reset(SSL* ssl, int socket);
 
 #ifdef __cplusplus
 }

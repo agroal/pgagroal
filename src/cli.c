@@ -51,16 +51,17 @@
 
 #include <openssl/ssl.h>
 
-#define ACTION_UNKNOWN        0
-#define ACTION_FLUSH          1
-#define ACTION_GRACEFULLY     2
-#define ACTION_STOP           3
-#define ACTION_STATUS         4
-#define ACTION_DETAILS        5
-#define ACTION_ISALIVE        6
-#define ACTION_CANCELSHUTDOWN 7
-#define ACTION_ENABLEDB       8
-#define ACTION_DISABLEDB      9
+#define ACTION_UNKNOWN         0
+#define ACTION_FLUSH           1
+#define ACTION_GRACEFULLY      2
+#define ACTION_STOP            3
+#define ACTION_STATUS          4
+#define ACTION_DETAILS         5
+#define ACTION_ISALIVE         6
+#define ACTION_CANCELSHUTDOWN  7
+#define ACTION_ENABLEDB        8
+#define ACTION_DISABLEDB       9
+#define ACTION_RESET          10
 
 static int flush(SSL* ssl, int socket, int32_t mode);
 static int enabledb(SSL* ssl, int socket, char* database);
@@ -71,6 +72,7 @@ static int cancel_shutdown(SSL* ssl, int socket);
 static int status(SSL* ssl, int socket);
 static int details(SSL* ssl, int socket);
 static int isalive(SSL* ssl, int socket);
+static int reset(SSL* ssl, int socket);
 
 
 static void
@@ -111,6 +113,7 @@ usage()
    printf("  cancel-shutdown          Cancel the graceful shutdown\n");
    printf("  status                   Status of pgagroal\n");
    printf("  details                  Detailed status of pgagroal\n");
+   printf("  reset                    Reset the Prometheus statistics\n");
    printf("\n");
    printf("pgagroal: %s\n", PGAGROAL_HOMEPAGE);
    printf("Report bugs: %s\n", PGAGROAL_ISSUES);
@@ -283,6 +286,10 @@ main(int argc, char **argv)
       {
          action = ACTION_CANCELSHUTDOWN;
       }
+      else if (!strcmp("reset", argv[argc - 1]))
+      {
+         action = ACTION_RESET;
+      }
 
       if (configuration_path != NULL)
       {
@@ -389,6 +396,10 @@ password:
       else if (action == ACTION_ISALIVE)
       {
          exit_code = isalive(s_ssl, socket);
+      }
+      else if (action == ACTION_RESET)
+      {
+         exit_code = reset(s_ssl, socket);
       }
    }
 
@@ -552,6 +563,17 @@ isalive(SSL* ssl, int socket)
       }
    }
    else
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+reset(SSL* ssl, int socket)
+{
+   if (pgagroal_management_reset(ssl, socket))
    {
       return 1;
    }

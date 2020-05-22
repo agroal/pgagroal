@@ -51,6 +51,24 @@
 #define PAGE_HOME    1
 #define PAGE_METRICS 2
 
+#define FIVE_SECONDS           5
+#define TEN_SECONDS           10
+#define TWENTY_SECONDS        20
+#define THIRTY_SECONDS        30
+#define FOURTYFIVE_SECONDS    45
+#define ONE_MINUTE            60
+#define FIVE_MINUTES         300
+#define TEN_MINUTES          600
+#define TWENTY_MINUTES      1200
+#define THIRTY_MINUTES      1800
+#define FOURTYFIVE_MINUTES  2700
+#define ONE_HOUR            3600
+#define TWO_HOURS           7200
+#define FOUR_HOURS         14400
+#define SIX_HOURS          21600
+#define TWELVE_HOURS       43200
+#define TWENTYFOUR_HOURS   86400
+
 static int resolve_page(struct message* msg);
 static int unknown_page(int client_fd);
 static int home_page(int client_fd);
@@ -58,11 +76,15 @@ static int metrics_page(int client_fd, void* shmem, void* pipeline_shmem);
 
 static void connection_information(int client_fd, void* shmem);
 static void limit_information(int client_fd, void* shmem);
+static void session_information(int client_fd, void* shmem);
+static void pool_information(int client_fd, void* shmem);
+static void auth_information(int client_fd, void* shmem);
 
 static int send_chunk(int client_fd, char* data);
 
 static char* append(char* orig, char* s);
 static char* append_int(char* orig, int i);
+static char* append_ulong(char* orig, unsigned long i);
 
 void
 pgagroal_prometheus(int client_fd, void* shmem, void* pipeline_shmem)
@@ -117,6 +139,251 @@ error:
    pgagroal_stop_logging(shmem);
 
    exit(1);
+}
+
+void
+pgagroal_prometheus_session_time(double time, void* shmem)
+{
+   unsigned long t;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   t = (unsigned long)time;
+
+   atomic_fetch_add(&config->prometheus.session_time_sum, t);
+
+   if (t <= FIVE_SECONDS)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[0], 1);
+   }
+   else if (t > FIVE_SECONDS && t <= TEN_SECONDS)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[1], 1);
+   }
+   else if (t > TEN_SECONDS && t <= TWENTY_SECONDS)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[2], 1);
+   }
+   else if (t > TWENTY_SECONDS && t <= THIRTY_SECONDS)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[3], 1);
+   }
+   else if (t > THIRTY_SECONDS && t <= FOURTYFIVE_SECONDS)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[4], 1);
+   }
+   else if (t > FOURTYFIVE_SECONDS && t <= ONE_MINUTE)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[5], 1);
+   }
+   else if (t > ONE_MINUTE && t <= FIVE_MINUTES)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[6], 1);
+   }
+   else if (t > FIVE_MINUTES && t <= TEN_MINUTES)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[7], 1);
+   }
+   else if (t > TEN_MINUTES && t <= TWENTY_MINUTES)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[8], 1);
+   }
+   else if (t > TWENTY_MINUTES && t <= THIRTY_MINUTES)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[9], 1);
+   }
+   else if (t > THIRTY_MINUTES && t <= FOURTYFIVE_MINUTES)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[10], 1);
+   }
+   else if (t > FOURTYFIVE_MINUTES && t <= ONE_HOUR)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[11], 1);
+   }
+   else if (t > ONE_HOUR && t <= TWO_HOURS)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[12], 1);
+   }
+   else if (t > TWO_HOURS && t <= FOUR_HOURS)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[13], 1);
+   }
+   else if (t > FOUR_HOURS && t <= SIX_HOURS)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[14], 1);
+   }
+   else if (t > SIX_HOURS && t <= TWELVE_HOURS)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[15], 1);
+   }
+   else if (t > TWELVE_HOURS && t <= TWENTYFOUR_HOURS)
+   {
+      atomic_fetch_add(&config->prometheus.session_time[16], 1);
+   }
+   else
+   {
+      atomic_fetch_add(&config->prometheus.session_time[17], 1);
+   }
+}
+
+void
+pgagroal_prometheus_connection_error(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.connection_error, 1);
+}
+
+void
+pgagroal_prometheus_connection_kill(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.connection_kill, 1);
+}
+
+void
+pgagroal_prometheus_connection_remove(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.connection_remove, 1);
+}
+
+void
+pgagroal_prometheus_connection_timeout(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.connection_timeout, 1);
+}
+
+void
+pgagroal_prometheus_connection_return(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.connection_return, 1);
+}
+
+void
+pgagroal_prometheus_connection_invalid(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.connection_invalid, 1);
+}
+
+void
+pgagroal_prometheus_connection_get(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.connection_get, 1);
+}
+
+void
+pgagroal_prometheus_connection_idletimeout(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.connection_idletimeout, 1);
+}
+
+void
+pgagroal_prometheus_connection_flush(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.connection_flush, 1);
+}
+
+void
+pgagroal_prometheus_connection_success(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.connection_success, 1);
+}
+
+void
+pgagroal_prometheus_auth_user_success(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.auth_user_success, 1);
+}
+
+void
+pgagroal_prometheus_auth_user_bad_password(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.auth_user_bad_password, 1);
+}
+
+void
+pgagroal_prometheus_auth_user_error(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.auth_user_error, 1);
+}
+
+void
+pgagroal_prometheus_reset(void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < HISTOGRAM_BUCKETS; i++)
+   {
+      atomic_store(&config->prometheus.session_time[i], 0);
+   }
+   atomic_store(&config->prometheus.session_time_sum, 0);
+
+   atomic_store(&config->prometheus.connection_error, 0);
+   atomic_store(&config->prometheus.connection_kill, 0);
+   atomic_store(&config->prometheus.connection_remove, 0);
+   atomic_store(&config->prometheus.connection_timeout, 0);
+   atomic_store(&config->prometheus.connection_return, 0);
+   atomic_store(&config->prometheus.connection_invalid, 0);
+   atomic_store(&config->prometheus.connection_get, 0);
+   atomic_store(&config->prometheus.connection_idletimeout, 0);
+   atomic_store(&config->prometheus.connection_flush, 0);
+   atomic_store(&config->prometheus.connection_success, 0);
+
+   atomic_store(&config->prometheus.auth_user_success, 0);
+   atomic_store(&config->prometheus.auth_user_bad_password, 0);
+   atomic_store(&config->prometheus.auth_user_error, 0);
 }
 
 static int
@@ -287,6 +554,48 @@ home_page(int client_fd)
    body = append(body, "    </tbody>\n");
    body = append(body, "  </table>\n");
    body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_session_time</h2>\n");
+   body = append(body, "  Histogram of session times\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_connection_error</h2>\n");
+   body = append(body, "  Number of connection errors\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_connection_kill</h2>\n");
+   body = append(body, "  Number of connection kills\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_connection_remove</h2>\n");
+   body = append(body, "  Number of connection removes\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_connection_timeout</h2>\n");
+   body = append(body, "  Number of connection time outs\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_connection_return</h2>\n");
+   body = append(body, "  Number of connection returns\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_connection_invalid</h2>\n");
+   body = append(body, "  Number of connection invalids\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_connection_get</h2>\n");
+   body = append(body, "  Number of connection gets\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_connection_idletimeout</h2>\n");
+   body = append(body, "  Number of connection idle timeouts\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_connection_flush</h2>\n");
+   body = append(body, "  Number of connection flushes\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_connection_success</h2>\n");
+   body = append(body, "  Number of connection successes\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_auth_user_success</h2>\n");
+   body = append(body, "  Number of successful user authentications\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_auth_user_bad_password</h2>\n");
+   body = append(body, "  Number of bad passwords during user authentication\n");
+   body = append(body, "  <p>\n");
+   body = append(body, "  <h2>pgagroal_auth_user_error</h2>\n");
+   body = append(body, "  Number of errors during user authentication\n");
+   body = append(body, "  <p>\n");
    body = append(body, "  <a href=\"https://agroal.github.io/pgagroal/\">agroal.github.io/pgagroal/</a>\n");
    body = append(body, "</body>\n");
    body = append(body, "</html>\n");
@@ -329,12 +638,14 @@ metrics_page(int client_fd, void* shmem, void* pipeline_shmem)
 
    memset(&time_buf, 0, sizeof(time_buf));
    ctime_r(&now, &time_buf[0]);
+   time_buf[strlen(time_buf) - 1] = 0;
    
    data = append(data, "HTTP/1.1 200 OK\r\n");
    data = append(data, "Content-Type: text/plain; version=0.0.1; charset=utf-8\r\n");
-   data = append(data, "Transfer-Encoding: chunked\r\n");
    data = append(data, "Date: ");
    data = append(data, &time_buf[0]);
+   data = append(data, "\r\n");
+   data = append(data, "Transfer-Encoding: chunked\r\n");
    data = append(data, "\r\n");
 
    msg.kind = 0;
@@ -352,9 +663,12 @@ metrics_page(int client_fd, void* shmem, void* pipeline_shmem)
 
    connection_information(client_fd, shmem);
    limit_information(client_fd, shmem);
+   session_information(client_fd, shmem);
+   pool_information(client_fd, shmem);
+   auth_information(client_fd, shmem);
 
    /* Footer */
-   data = append(data, "0\r\n");
+   data = append(data, "0\r\n\r\n");
 
    msg.kind = 0;
    msg.length = strlen(data);
@@ -392,8 +706,8 @@ connection_information(int client_fd, void* shmem)
    data = append(data, "#HELP pgagroal_active_connections The number of active connections\n");
    data = append(data, "#TYPE pgagroal_active_connections gauge\n");
    data = append(data, "pgagroal_active_connections ");
-   data = append_int(data, config->active_connections);
-   data = append(data, "\n");
+   data = append_int(data, atomic_load(&config->active_connections));
+   data = append(data, "\n\n");
 
    gauge = 0;
    for (int i = 0; i < config->max_connections; i++)
@@ -420,13 +734,13 @@ connection_information(int client_fd, void* shmem)
    data = append(data, "#TYPE pgagroal_total_connections gauge\n");
    data = append(data, "pgagroal_total_connections ");
    data = append_int(data, gauge);
-   data = append(data, "\n");
+   data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_max_connections The maximum number of connections\n");
-   data = append(data, "#TYPE pgagroal_max_connections gauge\n");
+   data = append(data, "#TYPE pgagroal_max_connections counter\n");
    data = append(data, "pgagroal_max_connections ");
    data = append_int(data, config->max_connections);
-   data = append(data, "\n");
+   data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_connection The connection information\n");
    data = append(data, "#TYPE pgagroal_connection gauge\n");
@@ -434,7 +748,7 @@ connection_information(int client_fd, void* shmem)
    {
       int state = atomic_load(&config->states[i]);
 
-      data = append(data, "pgagroal_connection(");
+      data = append(data, "pgagroal_connection{");
 
       data = append(data, "id=\"");
       data = append_int(data, i);
@@ -483,7 +797,7 @@ connection_information(int client_fd, void* shmem)
             break;
       }
 
-      data = append(data, "\") ");
+      data = append(data, "\"} ");
 
       switch (state)
       {
@@ -514,6 +828,8 @@ connection_information(int client_fd, void* shmem)
       }
    }
 
+   data = append(data, "\n");
+
    if (data != NULL)
    {
       send_chunk(client_fd, data);
@@ -539,7 +855,7 @@ limit_information(int client_fd, void* shmem)
       data = append(data, "#TYPE pgagroal_limit gauge\n");
       for (int i = 0; i < config->number_of_limits; i++)
       {
-         data = append(data, "pgagroal_limit(");
+         data = append(data, "pgagroal_limit{");
 
          data = append(data, "user=\"");
          data = append(data, config->limits[i].username);
@@ -549,11 +865,11 @@ limit_information(int client_fd, void* shmem)
          data = append(data, config->limits[i].database);
          data = append(data, "\",");
       
-         data = append(data, "type=\"min\") ");
+         data = append(data, "type=\"min\"} ");
          data = append_int(data, config->limits[i].min_size);
          data = append(data, "\n");
          
-         data = append(data, "pgagroal_limit(");
+         data = append(data, "pgagroal_limit{");
 
          data = append(data, "user=\"");
          data = append(data, config->limits[i].username);
@@ -563,11 +879,11 @@ limit_information(int client_fd, void* shmem)
          data = append(data, config->limits[i].database);
          data = append(data, "\",");
       
-         data = append(data, "type=\"initial\") ");
+         data = append(data, "type=\"initial\"} ");
          data = append_int(data, config->limits[i].initial_size);
          data = append(data, "\n");
          
-         data = append(data, "pgagroal_limit(");
+         data = append(data, "pgagroal_limit{");
 
          data = append(data, "user=\"");
          data = append(data, config->limits[i].username);
@@ -577,11 +893,11 @@ limit_information(int client_fd, void* shmem)
          data = append(data, config->limits[i].database);
          data = append(data, "\",");
       
-         data = append(data, "type=\"max\") ");
+         data = append(data, "type=\"max\"} ");
          data = append_int(data, config->limits[i].max_size);
          data = append(data, "\n");
          
-         data = append(data, "pgagroal_limit(");
+         data = append(data, "pgagroal_limit{");
 
          data = append(data, "user=\"");
          data = append(data, config->limits[i].username);
@@ -591,7 +907,7 @@ limit_information(int client_fd, void* shmem)
          data = append(data, config->limits[i].database);
          data = append(data, "\",");
       
-         data = append(data, "type=\"active\") ");
+         data = append(data, "type=\"active\"} ");
          data = append_int(data, config->limits[i].active_connections);
          data = append(data, "\n");
          
@@ -603,6 +919,8 @@ limit_information(int client_fd, void* shmem)
          }
       }
 
+      data = append(data, "\n");
+
       if (data != NULL)
       {
          send_chunk(client_fd, data);
@@ -610,6 +928,236 @@ limit_information(int client_fd, void* shmem)
          data = NULL;
       }
    }
+}
+
+static void
+session_information(int client_fd, void* shmem)
+{
+   char* data = NULL;
+   unsigned long counter;
+   struct message msg;
+   struct configuration* config;
+
+   memset(&msg, 0, sizeof(struct message));
+
+   config = (struct configuration*)shmem;
+
+   counter = 0;
+
+   data = append(data, "#HELP pgagroal_session_time_seconds The session times\n");
+   data = append(data, "#TYPE pgagroal_session_time_seconds histogram\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"5\"} ");
+   counter += atomic_load(&config->prometheus.session_time[0]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"10\"} ");
+   counter += atomic_load(&config->prometheus.session_time[1]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"20\"} ");
+   counter += atomic_load(&config->prometheus.session_time[2]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"30\"} ");
+   counter += atomic_load(&config->prometheus.session_time[3]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"45\"} ");
+   counter += atomic_load(&config->prometheus.session_time[4]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"60\"} ");
+   counter += atomic_load(&config->prometheus.session_time[5]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"300\"} ");
+   counter += atomic_load(&config->prometheus.session_time[6]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"600\"} ");
+   counter += atomic_load(&config->prometheus.session_time[7]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"1200\"} ");
+   counter += atomic_load(&config->prometheus.session_time[8]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"1800\"} ");
+   counter += atomic_load(&config->prometheus.session_time[9]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"2700\"} ");
+   counter += atomic_load(&config->prometheus.session_time[10]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"3600\"} ");
+   counter += atomic_load(&config->prometheus.session_time[11]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"7200\"} ");
+   counter += atomic_load(&config->prometheus.session_time[12]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"14400\"} ");
+   counter += atomic_load(&config->prometheus.session_time[13]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"21600\"} ");
+   counter += atomic_load(&config->prometheus.session_time[14]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"43200\"} ");
+   counter += atomic_load(&config->prometheus.session_time[15]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"86400\"} ");
+   counter += atomic_load(&config->prometheus.session_time[16]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"+Inf\"} ");
+   counter += atomic_load(&config->prometheus.session_time[17]);
+   data = append_ulong(data, counter);
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_sum ");
+   data = append_ulong(data, atomic_load(&config->prometheus.session_time_sum));
+   data = append(data, "\n");
+
+   data = append(data, "pgagroal_session_time_seconds_count ");
+   data = append_ulong(data, counter);
+   data = append(data, "\n\n");
+
+   send_chunk(client_fd, data);
+   free(data);
+   data = NULL;
+}
+
+static void
+pool_information(int client_fd, void* shmem)
+{
+   char* data = NULL;
+   struct message msg;
+   struct configuration* config;
+
+   memset(&msg, 0, sizeof(struct message));
+
+   config = (struct configuration*)shmem;
+
+   data = append(data, "#HELP pgagroal_connection_error Number of connection errors\n");
+   data = append(data, "#TYPE pgagroal_connection_error counter\n");
+   data = append(data, "pgagroal_connection_error ");
+   data = append_ulong(data, atomic_load(&config->prometheus.connection_error));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_connection_kill Number of connection kills\n");
+   data = append(data, "#TYPE pgagroal_connection_kill counter\n");
+   data = append(data, "pgagroal_connection_kill ");
+   data = append_ulong(data, atomic_load(&config->prometheus.connection_kill));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_connection_remove Number of connection removes\n");
+   data = append(data, "#TYPE pgagroal_connection_remove counter\n");
+   data = append(data, "pgagroal_connection_remove ");
+   data = append_ulong(data, atomic_load(&config->prometheus.connection_remove));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_connection_timeout Number of connection time outs\n");
+   data = append(data, "#TYPE pgagroal_connection_timeout counter\n");
+   data = append(data, "pgagroal_connection_timeout ");
+   data = append_ulong(data, atomic_load(&config->prometheus.connection_timeout));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_connection_return Number of connection returns\n");
+   data = append(data, "#TYPE pgagroal_connection_return counter\n");
+   data = append(data, "pgagroal_connection_return ");
+   data = append_ulong(data, atomic_load(&config->prometheus.connection_return));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_connection_invalid Number of connection invalids\n");
+   data = append(data, "#TYPE pgagroal_connection_invalid counter\n");
+   data = append(data, "pgagroal_connection_invalid ");
+   data = append_ulong(data, atomic_load(&config->prometheus.connection_invalid));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_connection_get Number of connection gets\n");
+   data = append(data, "#TYPE pgagroal_connection_get counter\n");
+   data = append(data, "pgagroal_connection_get ");
+   data = append_ulong(data, atomic_load(&config->prometheus.connection_get));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_connection_idletimeout Number of connection idle timeouts\n");
+   data = append(data, "#TYPE pgagroal_connection_idletimeout counter\n");
+   data = append(data, "pgagroal_connection_idletimeout ");
+   data = append_ulong(data, atomic_load(&config->prometheus.connection_idletimeout));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_connection_flush Number of connection flushes\n");
+   data = append(data, "#TYPE pgagroal_connection_flush counter\n");
+   data = append(data, "pgagroal_connection_flush ");
+   data = append_ulong(data, atomic_load(&config->prometheus.connection_flush));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_connection_success Number of connection successes\n");
+   data = append(data, "#TYPE pgagroal_connection_success counter\n");
+   data = append(data, "pgagroal_connection_success ");
+   data = append_ulong(data, atomic_load(&config->prometheus.connection_success));
+   data = append(data, "\n\n");
+
+   send_chunk(client_fd, data);
+   free(data);
+   data = NULL;
+}
+
+static void
+auth_information(int client_fd, void* shmem)
+{
+   char* data = NULL;
+   struct message msg;
+   struct configuration* config;
+
+   memset(&msg, 0, sizeof(struct message));
+
+   config = (struct configuration*)shmem;
+
+   data = append(data, "#HELP pgagroal_auth_user_success Number of successful user authentications\n");
+   data = append(data, "#TYPE pgagroal_auth_user_success counter\n");
+   data = append(data, "pgagroal_auth_user_success ");
+   data = append_ulong(data, atomic_load(&config->prometheus.auth_user_success));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_auth_user_bad_password Number of bad passwords during user authentication\n");
+   data = append(data, "#TYPE pgagroal_auth_user_bad_password counter\n");
+   data = append(data, "pgagroal_auth_user_bad_password ");
+   data = append_ulong(data, atomic_load(&config->prometheus.auth_user_bad_password));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_auth_user_error Number of errors during user authentication\n");
+   data = append(data, "#TYPE pgagroal_auth_user_error counter\n");
+   data = append(data, "pgagroal_auth_user_error ");
+   data = append_ulong(data, atomic_load(&config->prometheus.auth_user_error));
+   data = append(data, "\n\n");
+
+   send_chunk(client_fd, data);
+   free(data);
+   data = NULL;
 }
 
 static int
@@ -627,6 +1175,7 @@ send_chunk(int client_fd, char* data)
    sprintf(m, "%lX\r\n", strlen(data));
 
    m = append(m, data);
+   m = append(m, "\r\n");
    
    msg.kind = 0;
    msg.length = strlen(m);
@@ -674,10 +1223,22 @@ append(char* orig, char* s)
 static char*
 append_int(char* orig, int i)
 {
-   char number[32];
+   char number[12];
 
    memset(&number[0], 0, sizeof(number));
-   sprintf(&number[0], "%d", i);
+   snprintf(&number[0], 11, "%d", i);
+   orig = append(orig, number);
+
+   return orig;
+}
+
+static char*
+append_ulong(char* orig, unsigned long l)
+{
+   char number[21];
+
+   memset(&number[0], 0, sizeof(number));
+   snprintf(&number[0], 20, "%lu", l);
    orig = append(orig, number);
 
    return orig;

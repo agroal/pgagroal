@@ -80,6 +80,9 @@ status
 details
   Detailed status of pgagroal
 
+reset
+  Reset the Prometheus statistics
+
 REPORTING BUGS
 ==============
 

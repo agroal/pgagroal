@@ -147,6 +147,7 @@ Commands:
   cancel-shutdown          Cancel the graceful shutdown
   status                   Status of pgagroal
   details                  Detailed status of pgagroal
+  reset                    Reset the Prometheus statistics
 ```
 
 This tool can be used on the machine running `pgagroal` to flush connections.

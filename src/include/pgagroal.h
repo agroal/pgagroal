@@ -113,6 +113,8 @@ extern "C" {
 #define VALIDATION_FOREGROUND 1
 #define VALIDATION_BACKGROUND 2
 
+#define HISTOGRAM_BUCKETS 18
+
 #define likely(x)    __builtin_expect (!!(x), 1)
 #define unlikely(x)  __builtin_expect (!!(x), 0)
 
@@ -193,6 +195,31 @@ struct user
 } __attribute__ ((aligned (64)));
 
 /** @struct
+ * Defines the Prometheus metrics
+ */
+struct prometheus
+{
+   atomic_ulong session_time[HISTOGRAM_BUCKETS]; /**< The histogram buckets */
+   atomic_ulong session_time_sum;                /**< Total session time */
+
+   atomic_ulong connection_error;       /**< The number of error calls */
+   atomic_ulong connection_kill;        /**< The number of kill calls */
+   atomic_ulong connection_remove;      /**< The number of remove calls */
+   atomic_ulong connection_timeout;     /**< The number of timeout calls */
+   atomic_ulong connection_return;      /**< The number of return calls */
+   atomic_ulong connection_invalid;     /**< The number of invalid calls */
+   atomic_ulong connection_get;         /**< The number of get calls */
+   atomic_ulong connection_idletimeout; /**< The number of idle timeout calls */
+   atomic_ulong connection_flush;       /**< The number of flush calls */
+   atomic_ulong connection_success;     /**< The number of success calls */
+
+   atomic_ulong auth_user_success;      /**< The number of AUTH_SUCCESS calls */
+   atomic_ulong auth_user_bad_password; /**< The number of AUTH_BAD_PASSWORD calls */
+   atomic_ulong auth_user_error;        /**< The number of AUTH_ERROR calls */
+
+} __attribute__ ((aligned (64)));
+
+/** @struct
  * Defines the configuration and state of pgagroal
  */
 struct configuration
@@ -251,6 +278,7 @@ struct configuration
    struct limit limits[NUMBER_OF_LIMITS];          /**< The limit entries */
    struct user users[NUMBER_OF_USERS];             /**< The users */
    struct user admins[NUMBER_OF_ADMINS];           /**< The admins */
+   struct prometheus prometheus;                   /**< The Prometheus metrics */
    struct connection connections[];                /**< The connections (FMA) */
 } __attribute__ ((aligned (64)));
 

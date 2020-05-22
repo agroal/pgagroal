@@ -45,6 +45,112 @@ extern "C" {
 void
 pgagroal_prometheus(int fd, void* shmem, void* pipeline_shmem);
 
+/**
+ * Add session time information
+ * @param time The time
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_session_time(double time, void* shmem);
+
+/**
+ * Connection error
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_connection_error(void* shmem);
+
+/**
+ * Connection kill
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_connection_kill(void* shmem);
+
+/**
+ * Connection remove
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_connection_remove(void* shmem);
+
+/**
+ * Connection timeout
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_connection_timeout(void* shmem);
+
+/**
+ * Connection return
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_connection_return(void* shmem);
+
+/**
+ * Connection invalid
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_connection_invalid(void* shmem);
+
+/**
+ * Connection get
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_connection_get(void* shmem);
+
+/**
+ * Connection idle timeout
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_connection_idletimeout(void* shmem);
+
+/**
+ * Connection flush
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_connection_flush(void* shmem);
+
+/**
+ * Connection success
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_connection_success(void* shmem);
+
+/**
+ * Increase AUTH_SUCCESS for a user
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_auth_user_success(void* shmem);
+
+/**
+ * Increase AUTH_BAD_PASSWORD for a user
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_auth_user_bad_password(void* shmem);
+
+/**
+ * Increase AUTH_ERROR for a user
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_auth_user_error(void* shmem);
+
+/**
+ * Reset the counters and histograms
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_reset(void* shmem);
+
 #ifdef __cplusplus
 }
 #endif

@@ -181,6 +181,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
       case MANAGEMENT_CANCEL_SHUTDOWN:
       case MANAGEMENT_STATUS:
       case MANAGEMENT_DETAILS:
+      case MANAGEMENT_RESET:
          *payload_i = -1;
          *payload_s = NULL;
          break;
@@ -992,6 +993,26 @@ pgagroal_management_write_isalive(int socket, bool gracefully, void* shmem)
    if (w == -1)
    {
       ZF_LOGW("pgagroal_management_write_isalive: write: %d %s", socket, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+int
+pgagroal_management_reset(SSL* ssl, int fd)
+{
+   ssize_t w;
+
+   w = write_header(ssl, fd, MANAGEMENT_RESET, -1);
+   if (w == -1)
+   {
+      ZF_LOGW("pgagroal_management_reset: write: %d", fd);
       errno = 0;
       goto error;
    }

@@ -96,6 +96,7 @@ pgagroal_remote_management(int client_fd, char* address, void* shmem, void* pipe
          case MANAGEMENT_GRACEFULLY:
          case MANAGEMENT_STOP:
          case MANAGEMENT_CANCEL_SHUTDOWN:
+         case MANAGEMENT_RESET:
             break;
          case MANAGEMENT_STATUS:
          case MANAGEMENT_ISALIVE:

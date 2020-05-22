@@ -35,6 +35,7 @@
 #include <network.h>
 #include <pipeline.h>
 #include <pool.h>
+#include <prometheus.h>
 #include <security.h>
 #include <worker.h>
 #include <utils.h>
@@ -61,6 +62,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    struct signal_info signal_watcher;
    struct worker_io client_io;
    struct worker_io server_io;
+   time_t start_time;
    bool started = false;
    int auth_status;
    struct configuration* config;
@@ -75,6 +77,8 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
 
    memset(&client_io, 0, sizeof(struct worker_io));
    memset(&server_io, 0, sizeof(struct worker_io));
+
+   start_time = time(NULL);
 
    /* Authentication */
    auth_status = pgagroal_authenticate(client_fd, address, shmem, &slot, &client_ssl);
@@ -186,6 +190,8 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
       if (started)
       {
          p.stop(&client_io);
+
+         pgagroal_prometheus_session_time(difftime(time(NULL), start_time), shmem);
       }
 
       if ((auth_status == AUTH_SUCCESS || auth_status == AUTH_BAD_PASSWORD) &&
