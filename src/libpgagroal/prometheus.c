@@ -436,10 +436,12 @@ unknown_page(int client_fd)
 
    memset(&time_buf, 0, sizeof(time_buf));
    ctime_r(&now, &time_buf[0]);
+   time_buf[strlen(time_buf) - 1] = 0;
    
    data = append(data, "HTTP/1.1 403 Forbidden\r\n");
    data = append(data, "Date: ");
    data = append(data, &time_buf[0]);
+   data = append(data, "\r\n");
 
    msg.kind = 0;
    msg.length = strlen(data);
@@ -456,8 +458,6 @@ static int
 home_page(int client_fd)
 {
    char* data = NULL;
-   char* body = NULL;
-   char body_length[21];
    time_t now;
    char time_buf[32];
    int status;
@@ -466,150 +466,164 @@ home_page(int client_fd)
    memset(&msg, 0, sizeof(struct message));
    memset(&data, 0, sizeof(data));
 
-   memset(&body_length, 0, sizeof(body_length));
-
    now = time(NULL);
 
    memset(&time_buf, 0, sizeof(time_buf));
    ctime_r(&now, &time_buf[0]);
+   time_buf[strlen(time_buf) - 1] = 0;
    
    data = append(data, "HTTP/1.1 200 OK\r\n");
-
-   body = append(body, "<html>\n");
-   body = append(body, "<head>\n");
-   body = append(body, "  <title>pgagroal exporter</title>\n");
-   body = append(body, "</head>\n");
-   body = append(body, "<body>\n");
-   body = append(body, "  <h1>pgagroal exporter</h1>\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <a href=\"/metrics\">Metrics</a>\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_active_connections</h2>\n");
-   body = append(body, "  The number of active connections\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_total_connections</h2>\n");
-   body = append(body, "  The number of total connections\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_max_connections</h2>\n");
-   body = append(body, "  The maximum number of connections\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_connection</h2>\n");
-   body = append(body, "  Connection information\n");
-   body = append(body, "  <table border=\"1\">\n");
-   body = append(body, "    <tbody>\n");
-   body = append(body, "      <tr>\n");
-   body = append(body, "        <td>id</td>\n");
-   body = append(body, "        <td>The connection identifier</td>\n");
-   body = append(body, "      </tr>\n");
-   body = append(body, "      <tr>\n");
-   body = append(body, "        <td>user</td>\n");
-   body = append(body, "        <td>The user name</td>\n");
-   body = append(body, "      </tr>\n");
-   body = append(body, "      <tr>\n");
-   body = append(body, "        <td>database</td>\n");
-   body = append(body, "        <td>The database</td>\n");
-   body = append(body, "      </tr>\n");
-   body = append(body, "      <tr>\n");
-   body = append(body, "        <td>state</td>\n");
-   body = append(body, "        <td>The connection state\n");
-   body = append(body, "          <ul>\n");
-   body = append(body, "            <li>not_init</li>\n");
-   body = append(body, "            <li>init</li>\n");
-   body = append(body, "            <li>free</li>\n");
-   body = append(body, "            <li>in_use</li>\n");
-   body = append(body, "            <li>gracefully</li>\n");
-   body = append(body, "            <li>flush</li>\n");
-   body = append(body, "            <li>idle_check</li>\n");
-   body = append(body, "            <li>validation</li>\n");
-   body = append(body, "            <li>remove</li>\n");
-   body = append(body, "          </ul>\n");
-   body = append(body, "        </td>\n");
-   body = append(body, "      </tr>\n");
-   body = append(body, "    </tbody>\n");
-   body = append(body, "  </table>\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_limit</h2>\n");
-   body = append(body, "  Limit information\n");
-   body = append(body, "  <table border=\"1\">\n");
-   body = append(body, "    <tbody>\n");
-   body = append(body, "      <tr>\n");
-   body = append(body, "        <td>user</td>\n");
-   body = append(body, "        <td>The user name</td>\n");
-   body = append(body, "      </tr>\n");
-   body = append(body, "      <tr>\n");
-   body = append(body, "        <td>database</td>\n");
-   body = append(body, "        <td>The database</td>\n");
-   body = append(body, "      </tr>\n");
-   body = append(body, "      <tr>\n");
-   body = append(body, "        <td>type</td>\n");
-   body = append(body, "        <td>The information type\n");
-   body = append(body, "          <ul>\n");
-   body = append(body, "            <li>min</li>\n");
-   body = append(body, "            <li>initial</li>\n");
-   body = append(body, "            <li>max</li>\n");
-   body = append(body, "            <li>active</li>\n");
-   body = append(body, "          </ul>\n");
-   body = append(body, "        </td>\n");
-   body = append(body, "      </tr>\n");
-   body = append(body, "    </tbody>\n");
-   body = append(body, "  </table>\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_session_time</h2>\n");
-   body = append(body, "  Histogram of session times\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_connection_error</h2>\n");
-   body = append(body, "  Number of connection errors\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_connection_kill</h2>\n");
-   body = append(body, "  Number of connection kills\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_connection_remove</h2>\n");
-   body = append(body, "  Number of connection removes\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_connection_timeout</h2>\n");
-   body = append(body, "  Number of connection time outs\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_connection_return</h2>\n");
-   body = append(body, "  Number of connection returns\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_connection_invalid</h2>\n");
-   body = append(body, "  Number of connection invalids\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_connection_get</h2>\n");
-   body = append(body, "  Number of connection gets\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_connection_idletimeout</h2>\n");
-   body = append(body, "  Number of connection idle timeouts\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_connection_flush</h2>\n");
-   body = append(body, "  Number of connection flushes\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_connection_success</h2>\n");
-   body = append(body, "  Number of connection successes\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_auth_user_success</h2>\n");
-   body = append(body, "  Number of successful user authentications\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_auth_user_bad_password</h2>\n");
-   body = append(body, "  Number of bad passwords during user authentication\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <h2>pgagroal_auth_user_error</h2>\n");
-   body = append(body, "  Number of errors during user authentication\n");
-   body = append(body, "  <p>\n");
-   body = append(body, "  <a href=\"https://agroal.github.io/pgagroal/\">agroal.github.io/pgagroal/</a>\n");
-   body = append(body, "</body>\n");
-   body = append(body, "</html>\n");
-
-   sprintf(&body_length[0], "%ld", strlen(body));
-
-   data = append(data, "Content-Length: ");
-   data = append(data, &body_length[0]);
-   data = append(data, "\r\n");
    data = append(data, "Content-Type: text/html; charset=utf-8\r\n");
    data = append(data, "Date: ");
    data = append(data, &time_buf[0]);
    data = append(data, "\r\n");
-   data = append(data, body);
+   data = append(data, "Transfer-Encoding: chunked\r\n");
+   data = append(data, "\r\n");
+
+   msg.kind = 0;
+   msg.length = strlen(data);
+   msg.data = data;
+
+   status = pgagroal_write_message(NULL, client_fd, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto done;
+   }
+
+   free(data);
+   data = NULL;
+
+   data = append(data, "<html>\n");
+   data = append(data, "<head>\n");
+   data = append(data, "  <title>pgagroal exporter</title>\n");
+   data = append(data, "</head>\n");
+   data = append(data, "<body>\n");
+   data = append(data, "  <h1>pgagroal exporter</h1>\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <a href=\"/metrics\">Metrics</a>\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_active_connections</h2>\n");
+   data = append(data, "  The number of active connections\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_total_connections</h2>\n");
+   data = append(data, "  The number of total connections\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_max_connections</h2>\n");
+   data = append(data, "  The maximum number of connections\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection</h2>\n");
+   data = append(data, "  Connection information\n");
+   data = append(data, "  <table border=\"1\">\n");
+   data = append(data, "    <tbody>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>id</td>\n");
+   data = append(data, "        <td>The connection identifier</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>user</td>\n");
+   data = append(data, "        <td>The user name</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>database</td>\n");
+   data = append(data, "        <td>The database</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>state</td>\n");
+   data = append(data, "        <td>The connection state\n");
+   data = append(data, "          <ul>\n");
+   data = append(data, "            <li>not_init</li>\n");
+   data = append(data, "            <li>init</li>\n");
+   data = append(data, "            <li>free</li>\n");
+   data = append(data, "            <li>in_use</li>\n");
+   data = append(data, "            <li>gracefully</li>\n");
+   data = append(data, "            <li>flush</li>\n");
+   data = append(data, "            <li>idle_check</li>\n");
+   data = append(data, "            <li>validation</li>\n");
+   data = append(data, "            <li>remove</li>\n");
+   data = append(data, "          </ul>\n");
+   data = append(data, "        </td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "    </tbody>\n");
+   data = append(data, "  </table>\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_limit</h2>\n");
+   data = append(data, "  Limit information\n");
+   data = append(data, "  <table border=\"1\">\n");
+   data = append(data, "    <tbody>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>user</td>\n");
+   data = append(data, "        <td>The user name</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>database</td>\n");
+   data = append(data, "        <td>The database</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>type</td>\n");
+   data = append(data, "        <td>The information type\n");
+   data = append(data, "          <ul>\n");
+   data = append(data, "            <li>min</li>\n");
+   data = append(data, "            <li>initial</li>\n");
+   data = append(data, "            <li>max</li>\n");
+   data = append(data, "            <li>active</li>\n");
+   data = append(data, "          </ul>\n");
+   data = append(data, "        </td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "    </tbody>\n");
+   data = append(data, "  </table>\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_session_time</h2>\n");
+   data = append(data, "  Histogram of session times\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_error</h2>\n");
+   data = append(data, "  Number of connection errors\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_kill</h2>\n");
+   data = append(data, "  Number of connection kills\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_remove</h2>\n");
+   data = append(data, "  Number of connection removes\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_timeout</h2>\n");
+   data = append(data, "  Number of connection time outs\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_return</h2>\n");
+   data = append(data, "  Number of connection returns\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_invalid</h2>\n");
+   data = append(data, "  Number of connection invalids\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_get</h2>\n");
+   data = append(data, "  Number of connection gets\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_idletimeout</h2>\n");
+   data = append(data, "  Number of connection idle timeouts\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_flush</h2>\n");
+   data = append(data, "  Number of connection flushes\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_success</h2>\n");
+   data = append(data, "  Number of connection successes\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_auth_user_success</h2>\n");
+   data = append(data, "  Number of successful user authentications\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_auth_user_bad_password</h2>\n");
+   data = append(data, "  Number of bad passwords during user authentication\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_auth_user_error</h2>\n");
+   data = append(data, "  Number of errors during user authentication\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <a href=\"https://agroal.github.io/pgagroal/\">agroal.github.io/pgagroal/</a>\n");
+   data = append(data, "</body>\n");
+   data = append(data, "</html>\n");
+
+   send_chunk(client_fd, data);
+   free(data);
+   data = NULL;
+
+   /* Footer */
+   data = append(data, "0\r\n\r\n");
 
    msg.kind = 0;
    msg.length = strlen(data);
@@ -617,8 +631,11 @@ home_page(int client_fd)
 
    status = pgagroal_write_message(NULL, client_fd, &msg);
 
-   free(body);
-   free(data);
+done:
+   if (data != NULL)
+   {
+      free(data);
+   }
 
    return status;
 }
@@ -696,10 +713,7 @@ connection_information(int client_fd, void* shmem)
 {
    char* data = NULL;
    int gauge;
-   struct message msg;
    struct configuration* config;
-
-   memset(&msg, 0, sizeof(struct message));
 
    config = (struct configuration*)shmem;
 
@@ -842,10 +856,7 @@ static void
 limit_information(int client_fd, void* shmem)
 {
    char* data = NULL;
-   struct message msg;
    struct configuration* config;
-
-   memset(&msg, 0, sizeof(struct message));
 
    config = (struct configuration*)shmem;
 
@@ -935,10 +946,7 @@ session_information(int client_fd, void* shmem)
 {
    char* data = NULL;
    unsigned long counter;
-   struct message msg;
    struct configuration* config;
-
-   memset(&msg, 0, sizeof(struct message));
 
    config = (struct configuration*)shmem;
 
@@ -1054,10 +1062,7 @@ static void
 pool_information(int client_fd, void* shmem)
 {
    char* data = NULL;
-   struct message msg;
    struct configuration* config;
-
-   memset(&msg, 0, sizeof(struct message));
 
    config = (struct configuration*)shmem;
 
@@ -1130,10 +1135,7 @@ static void
 auth_information(int client_fd, void* shmem)
 {
    char* data = NULL;
-   struct message msg;
    struct configuration* config;
-
-   memset(&msg, 0, sizeof(struct message));
 
    config = (struct configuration*)shmem;
 
