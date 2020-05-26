@@ -48,6 +48,20 @@ layout: default
           <td>The Unix Domain Socket location</td>
         </tr>
         <tr>
+          <td>metrics</td>
+          <td>0</td>
+          <td>Int</td>
+          <td>No</td>
+          <td>The metrics port (disable = 0)</td>
+        </tr>
+        <tr>
+          <td>management</td>
+          <td>0</td>
+          <td>Int</td>
+          <td>No</td>
+          <td>The remote management port (disable = 0)</td>
+        </tr>
+        <tr>
           <td>log_type</td>
           <td>console</td>
           <td>String</td>
@@ -204,6 +218,30 @@ layout: default
       </tbody>
     </table>
 
+    <p/>
+    <b>Danger zone</b><br/>
+    <table border="1">
+      <thead>
+        <th align="left">Property</th>
+        <th align="left">Default</th>
+        <th align="left">Unit</th>
+        <th align="left">Required</th>
+        <th align="left">Description</th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>disconnect_client</td>
+          <td>0</td>
+          <td>Int</td>
+          <td>No</td>
+          <td>
+            Disconnect clients that have been idle for more than the specified seconds.
+            This setting <b>DOES NOT</b> take long running transactions into account
+          </td>
+        </tr>
+      </tbody>
+    </table>
+      
     <h3>Server section</h3>
 
     Specifies the PostgreSQL instances.
@@ -318,6 +356,8 @@ port = 5432
 host    all      all   all      all
     </pre>
 
+    Remote management users needs to have their database set to admin in order for the entry to be considered.
+
     <h2>pgagroal_databases.conf</h2>
 
     Specifies the limits for a database or a user or both.
@@ -376,5 +416,17 @@ all        all  all
     the pgagroal-admin tool.
     <p/>
     The configuration is loaded from either the path specified by the -u flag or /etc/pgagroal/pgagroal_users.conf.
+
+    <h2>pgagroal_admins.conf</h2>
+
+    The pgagroal_admins configuration defines the administrators known to the system. This file is created and managed through
+    the pgagroal-admin tool.
+    <p/>
+    The configuration is loaded from either the path specified by the -A flag or /etc/pgagroal/pgagroal_admins.conf.
+    <p/>
+
+    If pgagroal has both Transport Layer Security (TLS) and "management" enabled then pgagroal-cli can
+    connect with TLS using the files ~/.pgagroal/pgagroal.key (must be 0600 permission),
+    ~/.pgagroal/pgagroal.crt and ~/.pgagroal/root.crt.
 
 </div>
