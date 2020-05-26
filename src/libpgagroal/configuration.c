@@ -38,6 +38,7 @@
 #include <zf_log.h>
 
 /* system */
+#include <errno.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -47,8 +48,8 @@
 #define LINE_LENGTH 512
 
 static void extract_key_value(char* str, char** key, char** value);
-static int as_int(char* str);
-static bool as_bool(char* str);
+static int as_int(char* str, int* i);
+static int as_bool(char* str, bool* b);
 static int as_logging_type(char* str);
 static int as_logging_level(char* str);
 static int as_validation(char* str);
@@ -228,12 +229,18 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->port = as_int(value);
+                     if (as_int(value, &config->port))
+                     {
+                        unknown = true;
+                     }
                   }
                   else if (strlen(section) > 0)
                   {
                      memcpy(&srv.name, section, strlen(section));
-                     srv.port = as_int(value);
+                     if (as_int(value, &srv.port))
+                     {
+                        unknown = true;
+                     }
                      srv.primary = SERVER_NOTINIT;
                   }
                   else
@@ -245,7 +252,12 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (strcmp(section, "pgagroal") && strlen(section) > 0)
                   {
-                     if (as_bool(value))
+                     bool b = false;
+                     if (as_bool(value, &b))
+                     {
+                        unknown = true;
+                     }
+                     if (b)
                      {
                         srv.primary = SERVER_NOTINIT_PRIMARY;
                      }
@@ -263,7 +275,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->metrics = as_int(value);
+                     if (as_int(value, &config->metrics))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -274,7 +289,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->management = as_int(value);
+                     if (as_int(value, &config->management))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -297,7 +315,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->tls = as_bool(value);
+                     if (as_bool(value, &config->tls))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -350,7 +371,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->blocking_timeout = as_int(value);
+                     if (as_int(value, &config->blocking_timeout))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -361,7 +385,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->idle_timeout = as_int(value);
+                     if (as_int(value, &config->idle_timeout))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -383,7 +410,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->background_interval = as_int(value);
+                     if (as_int(value, &config->background_interval))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -394,7 +424,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->max_retries = as_int(value);
+                     if (as_int(value, &config->max_retries))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -405,7 +438,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->authentication_timeout = as_int(value);
+                     if (as_int(value, &config->authentication_timeout))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -416,7 +452,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->disconnect_client = as_int(value);
+                     if (as_int(value, &config->disconnect_client))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -427,7 +466,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->allow_unknown_users = as_bool(value);
+                     if (as_bool(value, &config->allow_unknown_users))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -474,7 +516,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->log_connections = as_bool(value);
+                     if (as_bool(value, &config->log_connections))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -485,7 +530,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->log_disconnections = as_bool(value);
+                     if (as_bool(value, &config->log_disconnections))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -496,7 +544,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->max_connections = as_int(value);
+                     if (as_int(value, &config->max_connections))
+                     {
+                        unknown = true;
+                     }
                      if (config->max_connections > MAX_NUMBER_OF_CONNECTIONS)
                      {
                         config->max_connections = MAX_NUMBER_OF_CONNECTIONS;
@@ -539,8 +590,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->buffer_size = as_int(value);
-
+                     if (as_int(value, &config->buffer_size))
+                     {
+                        unknown = true;
+                     }
                      if (config->buffer_size > MAX_BUFFER_SIZE)
                      {
                         config->buffer_size = MAX_BUFFER_SIZE;
@@ -555,7 +608,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->keep_alive = as_bool(value);
+                     if (as_bool(value, &config->keep_alive))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -566,7 +622,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->nodelay = as_bool(value);
+                     if (as_bool(value, &config->nodelay))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -577,7 +636,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->non_blocking = as_bool(value);
+                     if (as_bool(value, &config->non_blocking))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -588,7 +650,10 @@ pgagroal_read_configuration(char* filename, void* shmem)
                {
                   if (!strcmp(section, "pgagroal"))
                   {
-                     config->backlog = as_int(value);
+                     if (as_int(value, &config->backlog))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -1363,32 +1428,55 @@ extract_key_value(char* str, char** key, char** value)
    }
 }
 
-static int as_int(char* str)
+static int as_int(char* str, int* i)
 {
-   return atoi(str);
+   char* endptr;
+   long val;
+
+   errno = 0;
+   val = strtol(str, &endptr, 10);
+
+   if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN)) || (errno != 0 && val == 0))
+   {
+      goto error;
+   }
+
+   if (str == endptr)
+   {
+      goto error;
+   }
+
+   if (*endptr != '\0')
+   {
+      goto error;
+   }
+
+   *i = (int)val;
+
+   return 0;
+
+error:
+
+   errno = 0;
+
+   return 1;
 }
 
-static bool as_bool(char* str)
+static int as_bool(char* str, bool* b)
 {
-   if (!strcasecmp(str, "true"))
-      return true;
+   if (!strcasecmp(str, "true") || !strcasecmp(str, "on") || !strcasecmp(str, "1"))
+   {
+      *b = true;
+      return 0;
+   }
 
-   if (!strcasecmp(str, "on"))
-      return true;
+   if (!strcasecmp(str, "false") || !strcasecmp(str, "off") || !strcasecmp(str, "0"))
+   {
+      *b = false;
+      return 0;
+   }
 
-   if (!strcasecmp(str, "1"))
-      return true;
-
-   if (!strcasecmp(str, "false"))
-      return false;
-
-   if (!strcasecmp(str, "off"))
-      return false;
-
-   if (!strcasecmp(str, "0"))
-      return false;
-
-   return false;
+   return 1;
 }
 
 static int as_logging_type(char* str)
@@ -1496,7 +1584,7 @@ extract_hba(char* str, char** type, char** database, char** user, char** address
 }
 
 static void
-extract_limit(char* str, int server_max, char** database, char** user, int* max_connections, int* initial_size, int* min_size)
+extract_limit(char* str, int server_max, char** database, char** user, int* max_size, int* initial_size, int* min_size)
 {
    int offset = 0;
    int length = strlen(str);
@@ -1519,11 +1607,15 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
 
    if (!strcmp("all", value))
    {
-      *max_connections = server_max;
+      *max_size = server_max;
    }
    else
    {
-      *max_connections = atoi(value);
+      if (as_int(value, max_size))
+      {
+         printf("Invalid max_size value: %s\n", value);
+         return;
+      }
    }
 
    free(value);
@@ -1534,7 +1626,11 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    if (offset == -1)
       return;
 
-   *initial_size = atoi(value);
+   if (as_int(value, initial_size))
+   {
+      printf("Invalid initial_size value: %s\n", value);
+      return;
+   }
 
    free(value);
    value = NULL;
@@ -1544,7 +1640,11 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    if (offset == -1)
       return;
 
-   *min_size = atoi(value);
+   if (as_int(value, min_size))
+   {
+      printf("Invalid min_size value: %s\n", value);
+      return;
+   }
 
    free(value);
 }
