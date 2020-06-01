@@ -77,6 +77,9 @@ pgagroal_management_read_header(int socket, signed char* id, int32_t* slot)
 
 error:
 
+   *id = -1;
+   *slot = -1;
+
    return 1;
 }
 
@@ -92,6 +95,9 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
    struct cmsghdr *cmptr = NULL;
    struct iovec iov[1];
    struct msghdr msg;
+
+   *payload_i = -1;
+   *payload_s = NULL;
 
    switch (id)
    {
@@ -143,7 +149,6 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          }
 
          *payload_i = newfd;
-         *payload_s = NULL;
 
          free(cmptr);
          break;
@@ -155,7 +160,6 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
             goto error;
          }
          *payload_i = pgagroal_read_int32(&buf4);
-         *payload_s = NULL;
          break;
       case MANAGEMENT_ENABLEDB:
       case MANAGEMENT_DISABLEDB:
@@ -182,10 +186,9 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
       case MANAGEMENT_STATUS:
       case MANAGEMENT_DETAILS:
       case MANAGEMENT_RESET:
-         *payload_i = -1;
-         *payload_s = NULL;
          break;
       default:
+         goto error;
          break;
    }   
 
