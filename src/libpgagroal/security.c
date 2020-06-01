@@ -129,6 +129,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
    int32_t request;
    char* username = NULL;
    char* database = NULL;
+   char* appname = NULL;
    SSL* c_ssl = NULL;
 
    config = (struct configuration*)shmem;
@@ -261,7 +262,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
 
       /* Extract parameters: username / database */
       ZF_LOGV("authenticate: username/database (%d)", client_fd);
-      pgagroal_extract_username_database(request_msg, &username, &database);
+      pgagroal_extract_username_database(request_msg, &username, &database, &appname);
 
       /* TLS scenario */
       if (is_tls_user(username, database, shmem) && c_ssl == NULL)
@@ -329,6 +330,13 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
          goto bad_password;
       }
 
+      /* Set the application_name on the connection */
+      if (appname != NULL)
+      {
+         memset(&config->connections[*slot].appname, 0, MAX_APPLICATION_NAME);
+         memcpy(&config->connections[*slot].appname, appname, strlen(appname));
+      }
+
       if (config->connections[*slot].has_security != SECURITY_INVALID)
       {
          ZF_LOGD("authenticate: getting pooled connection");
@@ -366,6 +374,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
       pgagroal_free_copy_message(request_msg);
       free(username);
       free(database);
+      free(appname);
       
       pgagroal_prometheus_auth_user_success(shmem);
 
@@ -390,6 +399,7 @@ bad_password:
 
    free(username);
    free(database);
+   free(appname);
 
    pgagroal_prometheus_auth_user_bad_password(shmem);
 
@@ -402,6 +412,7 @@ error:
 
    free(username);
    free(database);
+   free(appname);
 
    pgagroal_prometheus_auth_user_error(shmem);
 
@@ -514,6 +525,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, void* shmem, SSL**
    int32_t request;
    char* username = NULL;
    char* database = NULL;
+   char* appname = NULL;
    char* password = NULL;
    SSL* c_ssl = NULL;
 
@@ -599,7 +611,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, void* shmem, SSL**
 
       /* Extract parameters: username / database */
       ZF_LOGV("remote_management_auth: username/database (%d)", client_fd);
-      pgagroal_extract_username_database(request_msg, &username, &database);
+      pgagroal_extract_username_database(request_msg, &username, &database, &appname);
 
       /* Must be admin database */
       if (strcmp("admin", database) != 0)
@@ -670,6 +682,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, void* shmem, SSL**
       pgagroal_free_copy_message(request_msg);
       free(username);
       free(database);
+      free(appname);
 
       ZF_LOGD("remote_management_auth: SUCCESS");
       return AUTH_SUCCESS;
@@ -692,6 +705,7 @@ bad_password:
 
    free(username);
    free(database);
+   free(appname);
 
    ZF_LOGD("remote_management_auth: BAD_PASSWORD");
    return AUTH_BAD_PASSWORD;
@@ -702,6 +716,7 @@ error:
 
    free(username);
    free(database);
+   free(appname);
 
    ZF_LOGD("remote_management_auth: ERROR");
    return AUTH_ERROR;

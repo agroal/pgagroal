@@ -66,7 +66,7 @@ pgagroal_get_request(struct message* msg)
 }
 
 int
-pgagroal_extract_username_database(struct message* msg, char** username, char** database)
+pgagroal_extract_username_database(struct message* msg, char** username, char** database, char** appname)
 {
    int start, end;
    int counter = 0;
@@ -75,6 +75,11 @@ pgagroal_extract_username_database(struct message* msg, char** username, char** 
    size_t size;
    char* un = NULL;
    char* db = NULL;
+   char* an = NULL;
+
+   *username = NULL;
+   *database = NULL;
+   *appname = NULL;
 
    /* We know where the parameters start, and we know that the message is zero terminated */
    for (int i = 8; i < msg->length - 1; i++)
@@ -125,6 +130,15 @@ pgagroal_extract_username_database(struct message* msg, char** username, char** 
          memcpy(db, array[i + 1], size);
 
          *database = db;
+      }
+      else if (!strcmp(array[i], "application_name"))
+      {
+         size = strlen(array[i + 1]) + 1;
+         an = malloc(size);
+         memset(an, 0, size);
+         memcpy(an, array[i + 1], size);
+
+         *appname = an;
       }
    }
 

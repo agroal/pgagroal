@@ -795,7 +795,7 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
    for (int i = 0; i < max_connections; i++)
    {
-      char details[12 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH];
+      char details[12 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH + MAX_APPLICATION_NAME];
       signed char state;
       long time;
       time_t t;
@@ -829,13 +829,14 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
       sprintf(p, "%d", pid);
 
-      printf("Connection %4d:     %-15s %-19s %-6s %s %s\n",
+      printf("Connection %4d:     %-15s %-19s %-6s %s %s %s\n",
              i,
              pgagroal_get_state_string(state),
              time > 0 ? ts : "",
              pid > 0 ? p : "",
              pgagroal_read_string(&(details[12])),
-             pgagroal_read_string(&(details[12 + MAX_DATABASE_LENGTH])));
+             pgagroal_read_string(&(details[12 + MAX_DATABASE_LENGTH])),
+             pgagroal_read_string(&(details[12 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH])));
    }
 
    return 0;
@@ -897,7 +898,7 @@ pgagroal_management_write_details(int socket, void* shmem)
 
    for (int i = 0; i < config->max_connections; i++)
    {
-      char details[12 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH];
+      char details[12 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH + MAX_APPLICATION_NAME];
 
       memset(&details, 0, sizeof(details));
 
@@ -906,6 +907,7 @@ pgagroal_management_write_details(int socket, void* shmem)
 
       pgagroal_write_string(details + 12, config->connections[i].database);
       pgagroal_write_string(details + 12 + MAX_DATABASE_LENGTH, config->connections[i].username);
+      pgagroal_write_string(details + 12 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH, config->connections[i].appname);
 
       w = write(socket, details, sizeof(details));
       if (w == -1)

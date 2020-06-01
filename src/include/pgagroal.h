@@ -57,11 +57,12 @@ extern "C" {
 #define DEFAULT_BUFFER_SIZE  65535
 #define SECURITY_BUFFER_SIZE   512
 
-#define MAX_USERNAME_LENGTH  128
-#define MAX_DATABASE_LENGTH  256
-#define MAX_TYPE_LENGTH       16
-#define MAX_ADDRESS_LENGTH    64
-#define MAX_PASSWORD_LENGTH 1024
+#define MAX_USERNAME_LENGTH   128
+#define MAX_DATABASE_LENGTH   256
+#define MAX_TYPE_LENGTH        16
+#define MAX_ADDRESS_LENGTH     64
+#define MAX_PASSWORD_LENGTH  1024
+#define MAX_APPLICATION_NAME   64
 
 #define MISC_LENGTH 128
 #define NUMBER_OF_SERVERS 64
@@ -146,6 +147,7 @@ struct connection
 {
    char username[MAX_USERNAME_LENGTH]; /**< The user name */
    char database[MAX_DATABASE_LENGTH]; /**< The database */
+   char appname[MAX_APPLICATION_NAME]; /**< The application_name */
 
    bool new;             /**< Is the connection new */
    unsigned char server; /**< The server identifier */

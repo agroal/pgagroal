@@ -337,6 +337,7 @@ pgagroal_return_connection(void* shmem, int slot)
 
          config->connections[slot].new = false;
          config->connections[slot].pid = -1;
+         memset(&config->connections[slot].appname, 0, sizeof(config->connections[slot].appname));
          atomic_store(&config->states[slot], STATE_FREE);
          atomic_fetch_sub(&config->active_connections, 1);
 
@@ -389,6 +390,7 @@ pgagroal_kill_connection(void* shmem, int slot)
 
    memset(&config->connections[slot].username, 0, sizeof(config->connections[slot].username));
    memset(&config->connections[slot].database, 0, sizeof(config->connections[slot].database));
+   memset(&config->connections[slot].appname, 0, sizeof(config->connections[slot].appname));
 
    config->connections[slot].new = true;
    config->connections[slot].server = 0;
@@ -909,6 +911,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
@@ -927,6 +930,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
@@ -945,6 +949,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
@@ -963,6 +968,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
@@ -981,6 +987,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
@@ -999,6 +1006,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);
@@ -1017,6 +1025,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      Server: %d", connection.server);
          ZF_LOGD("                      User: %s", connection.username);
          ZF_LOGD("                      Database: %s", connection.database);
+         ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
          ZF_LOGV("                      FD: %d", connection.fd);

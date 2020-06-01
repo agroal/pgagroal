@@ -61,10 +61,11 @@ pgagroal_get_request(struct message* msg);
  * @param msg The message
  * @param username The resulting user name
  * @param database The resulting database
+ * @param appname The resulting application_name
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_extract_username_database(struct message* msg, char** username, char** database);
+pgagroal_extract_username_database(struct message* msg, char** username, char** database, char** appname);
 
 /**
  * Get a string for the state

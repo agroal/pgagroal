@@ -528,6 +528,10 @@ home_page(int client_fd)
    data = append(data, "        <td>The database</td>\n");
    data = append(data, "      </tr>\n");
    data = append(data, "      <tr>\n");
+   data = append(data, "        <td>application_name</td>\n");
+   data = append(data, "        <td>The application name</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "      <tr>\n");
    data = append(data, "        <td>state</td>\n");
    data = append(data, "        <td>The connection state\n");
    data = append(data, "          <ul>\n");
@@ -658,7 +662,7 @@ metrics_page(int client_fd, void* shmem, void* pipeline_shmem)
    time_buf[strlen(time_buf) - 1] = 0;
    
    data = append(data, "HTTP/1.1 200 OK\r\n");
-   data = append(data, "Content-Type: text/plain; version=0.0.1; charset=utf-8\r\n");
+   data = append(data, "Content-Type: text/plain; version=0.0.2; charset=utf-8\r\n");
    data = append(data, "Date: ");
    data = append(data, &time_buf[0]);
    data = append(data, "\r\n");
@@ -776,6 +780,10 @@ connection_information(int client_fd, void* shmem)
       data = append(data, config->connections[i].database);
       data = append(data, "\",");
       
+      data = append(data, "application_name=\"");
+      data = append(data, config->connections[i].appname);
+      data = append(data, "\",");
+
       data = append(data, "state=\"");
 
       switch (state)
