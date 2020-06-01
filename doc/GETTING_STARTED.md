@@ -132,6 +132,7 @@ Options:
   -p, --port PORT          Set the port number
   -U, --user USERNAME      Set the user name
   -P, --password PASSWORD  Set the password
+  -v, --verbose            Output text string of result
   -V, --version            Display version information
   -?, --help               Display help
 
@@ -169,6 +170,8 @@ Check the outcome of the operations by verifying the exit code, like
 ```
 echo $?
 ```
+
+or by using the `-v` flag.
 
 If pgagroal has both Transport Layer Security (TLS) and `management` enabled then `pgagroal-cli` can
 connect with TLS using the files `~/.pgagroal/pgagroal.key` (must be 0600 permission),

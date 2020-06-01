@@ -98,6 +98,7 @@ usage()
    printf("  -p, --port PORT          Set the port number\n");
    printf("  -U, --user USERNAME      Set the user name\n");
    printf("  -P, --password PASSWORD  Set the password\n");
+   printf("  -v, --verbose            Output text string of result\n");
    printf("  -V, --version            Display version information\n");
    printf("  -?, --help               Display help\n");
    printf("\n");
@@ -131,6 +132,7 @@ main(int argc, char **argv)
    char* port = NULL;
    char* username = NULL;
    char* password = NULL;
+   bool verbose = false;
    bool do_free = true;
    int c;
    int option_index = 0;
@@ -151,11 +153,12 @@ main(int argc, char **argv)
          {"port",  required_argument, 0, 'p'},
          {"user",  required_argument, 0, 'U'},
          {"password",  required_argument, 0, 'P'},
+         {"verbose", no_argument, 0, 'v'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
 
-      c = getopt_long(argc, argv, "V?c:h:p:U:P:",
+      c = getopt_long(argc, argv, "vV?c:h:p:U:P:",
                       long_options, &option_index);
 
       if (c == -1)
@@ -177,6 +180,9 @@ main(int argc, char **argv)
             break;
          case 'P':
             password = optarg;
+            break;
+         case 'v':
+            verbose = true;
             break;
          case 'V':
             version();
@@ -443,6 +449,18 @@ done:
    if (do_free)
    {
       free(password);
+   }
+
+   if (verbose)
+   {
+      if (exit_code == 0)
+      {
+         printf("Success (0)\n");
+      }
+      else
+      {
+         printf("Error (%d)\n", exit_code);
+      }
    }
 
    return exit_code;

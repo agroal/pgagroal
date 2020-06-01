@@ -36,6 +36,9 @@ OPTIONS
 -P, --password PASSWORD
   Set the password
 
+-v, --verbose
+  Output text string of result
+
 -V, --version
   Display version information
 
