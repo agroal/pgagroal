@@ -54,16 +54,15 @@
 
 #define MANAGEMENT_HEADER_SIZE 5
 
+static int read_complete(SSL* ssl, int socket, void* buf, size_t count);
 static int write_header(SSL* ssl, int fd, signed char type, int slot);
 
 int
 pgagroal_management_read_header(int socket, signed char* id, int32_t* slot)
 {
    char header[MANAGEMENT_HEADER_SIZE];
-   ssize_t r;
 
-   r = read(socket, &header, MANAGEMENT_HEADER_SIZE);
-   if (r == -1)
+   if (read_complete(NULL, socket, &header[0], sizeof(header)))
    {
       ZF_LOGW("pgagroal_management_read_header: %d %s", socket, strerror(errno));
       errno = 0;
@@ -87,7 +86,6 @@ int
 pgagroal_management_read_payload(int socket, signed char id, int* payload_i, char** payload_s)
 {
    int newfd, nr, status;
-   ssize_t r;
    char *ptr;
    char* s = NULL;
    char buf2[2];
@@ -154,8 +152,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          break;
       case MANAGEMENT_FLUSH:
       case MANAGEMENT_KILL_CONNECTION:
-         r = read(socket, &buf4, 4 * sizeof(char));
-         if (r == -1)
+         if (read_complete(NULL, socket, &buf4[0], sizeof(buf4)))
          {
             goto error;
          }
@@ -163,8 +160,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          break;
       case MANAGEMENT_ENABLEDB:
       case MANAGEMENT_DISABLEDB:
-         r = read(socket, &buf4, 4 * sizeof(char));
-         if (r == -1)
+         if (read_complete(NULL, socket, &buf4[0], sizeof(buf4)))
          {
             goto error;
          }
@@ -172,8 +168,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
 
          s = malloc(*payload_i + 1);
          memset(s, 0, *payload_i + 1);
-         r = read(socket, s, *payload_i);
-         if (r == -1)
+         if (read_complete(NULL, socket, s, *payload_i))
          {
             goto error;
          }
@@ -570,7 +565,6 @@ pgagroal_management_read_status(SSL* ssl, int socket)
 {
    char buf[16];
    char disabled[NUMBER_OF_DISABLED][MAX_DATABASE_LENGTH];
-   ssize_t r;
    int status;
    int active;
    int total;
@@ -579,30 +573,14 @@ pgagroal_management_read_status(SSL* ssl, int socket)
    memset(&buf, 0, sizeof(buf));
    memset(&disabled, 0, sizeof(disabled));
 
-   if (ssl == NULL)
-   {
-      r = read(socket, &buf, sizeof(buf));
-   }
-   else
-   {
-      r = SSL_read(ssl, &buf, sizeof(buf));
-   }
-   if (r == -1)
+   if (read_complete(ssl, socket, &buf[0], sizeof(buf)))
    {
       ZF_LOGW("pgagroal_management_read_status: read: %d %s", socket, strerror(errno));
       errno = 0;
       goto error;
    }
 
-   if (ssl == NULL)
-   {
-      r = read(socket, &disabled, sizeof(disabled));
-   }
-   else
-   {
-      r = SSL_read(ssl, &disabled, sizeof(disabled));
-   }
-   if (r == -1)
+   if (read_complete(ssl, socket, &disabled[0], sizeof(disabled)))
    {
       ZF_LOGW("pgagroal_management_read_status: read: %d %s", socket, strerror(errno));
       errno = 0;
@@ -737,21 +715,12 @@ int
 pgagroal_management_read_details(SSL* ssl, int socket)
 {
    char header[8 + MAX_NUMBER_OF_CONNECTIONS];
-   ssize_t r;
    int max_connections = 0;
    int limits = 0;
 
    memset(&header, 0, sizeof(header));
 
-   if (ssl == NULL)
-   {
-      r = read(socket, &header, sizeof(header));
-   }
-   else
-   {
-      r = SSL_read(ssl, &header, sizeof(header));
-   }
-   if (r == -1)
+   if (read_complete(ssl, socket, &header[0], sizeof(header)))
    {
       ZF_LOGW("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
       errno = 0;
@@ -767,15 +736,7 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
       memset(&limit, 0, sizeof(limit));
 
-      if (ssl == NULL)
-      {
-         r = read(socket, &limit, sizeof(limit));
-      }
-      else
-      {
-         r = SSL_read(ssl, &limit, sizeof(limit));
-      }
-      if (r == -1)
+      if (read_complete(ssl, socket, &limit[0], sizeof(limit)))
       {
          ZF_LOGW("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
          errno = 0;
@@ -805,15 +766,7 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
       memset(&details, 0, sizeof(details));
 
-      if (ssl == NULL)
-      {
-         r = read(socket, &details, sizeof(details));
-      }
-      else
-      {
-         r = SSL_read(ssl, &details, sizeof(details));
-      }
-      if (r == -1)
+      if (read_complete(ssl, socket, &details[0], sizeof(details)))
       {
          ZF_LOGW("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
          errno = 0;
@@ -946,20 +899,11 @@ error:
 int
 pgagroal_management_read_isalive(SSL* ssl, int socket, int* status)
 {
-   char buf[MAX_BUFFER_SIZE];
-   ssize_t r;
+   char buf[4];
 
    memset(&buf, 0, sizeof(buf));
 
-   if (ssl == NULL)
-   {
-      r = read(socket, &buf, sizeof(buf));
-   }
-   else
-   {
-      r = SSL_read(ssl, &buf, sizeof(buf));
-   }
-   if (r == -1)
+   if (read_complete(ssl, socket, &buf[0], sizeof(buf)))
    {
       ZF_LOGW("pgagroal_management_read_isalive: read: %d %s", socket, strerror(errno));
       errno = 0;
@@ -1018,6 +962,63 @@ pgagroal_management_reset(SSL* ssl, int fd)
       ZF_LOGW("pgagroal_management_reset: write: %d", fd);
       errno = 0;
       goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+read_complete(SSL* ssl, int socket, void* buf, size_t count)
+{
+   ssize_t r;
+   size_t offset;
+   size_t needs;
+   int retries;
+
+   offset = 0;
+   needs = count;
+   retries = 0;
+
+read:
+   if (ssl == NULL)
+   {
+      r = read(socket, buf + offset, needs);
+   }
+   else
+   {
+      r = SSL_read(ssl, buf + offset, needs);
+   }
+
+   if (r == -1)
+   {
+      goto error;
+   }
+   else if (r < needs)
+   {
+      /* Sleep for 10ms */
+      struct timespec ts;
+      ts.tv_sec = 0;
+      ts.tv_nsec = 10000000L;
+      nanosleep(&ts, NULL);
+
+      ZF_LOGV("Got: %ld, needs: %ld", r, needs);
+
+      if (retries < 100)
+      {
+         offset += r;
+         needs -= r;
+         retries++;
+         goto read;
+      }
+      else
+      {
+         errno = EINVAL;
+         goto error;
+      }
    }
 
    return 0;

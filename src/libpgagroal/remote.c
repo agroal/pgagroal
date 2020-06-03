@@ -92,7 +92,6 @@ pgagroal_remote_management(int client_fd, char* address, void* shmem, void* pipe
 
       switch (type)
       {
-         case MANAGEMENT_FLUSH:
          case MANAGEMENT_GRACEFULLY:
          case MANAGEMENT_STOP:
          case MANAGEMENT_CANCEL_SHUTDOWN:
@@ -100,43 +99,30 @@ pgagroal_remote_management(int client_fd, char* address, void* shmem, void* pipe
             break;
          case MANAGEMENT_STATUS:
          case MANAGEMENT_ISALIVE:
-            status = pgagroal_read_block_message(NULL, server_fd, &msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
-
-            status = pgagroal_write_message(client_ssl, client_fd, msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
-            break;
          case MANAGEMENT_DETAILS:
-            status = pgagroal_read_block_message(NULL, server_fd, &msg);
-            if (status != MESSAGE_STATUS_OK)
+            do
             {
-               goto done;
-            }
+               status = pgagroal_read_timeout_message(NULL, server_fd, 1, &msg);
+               if (status != MESSAGE_STATUS_OK)
+               {
+                  goto done;
+               }
 
-            status = pgagroal_write_message(client_ssl, client_fd, msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
-
-            status = pgagroal_read_block_message(NULL, server_fd, &msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
-
-            status = pgagroal_write_message(client_ssl, client_fd, msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
+               status = pgagroal_write_message(client_ssl, client_fd, msg);
+            } while (status == MESSAGE_STATUS_OK);
             break;
+         case MANAGEMENT_FLUSH:
+            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->authentication_timeout, &msg);
+            if (status != MESSAGE_STATUS_OK)
+            {
+               goto done;
+            }
+
+            status = pgagroal_write_message(NULL, server_fd, msg);
+            if (status != MESSAGE_STATUS_OK)
+            {
+               goto done;
+            }
          case MANAGEMENT_ENABLEDB:
          case MANAGEMENT_DISABLEDB:
             status = pgagroal_read_timeout_message(client_ssl, client_fd, config->authentication_timeout, &msg);
