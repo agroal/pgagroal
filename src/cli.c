@@ -297,73 +297,76 @@ main(int argc, char **argv)
          action = ACTION_RESET;
       }
 
-      if (configuration_path != NULL)
+      if (action != ACTION_UNKNOWN)
       {
-         /* Local connection */
-         if (pgagroal_connect_unix_socket(config->unix_socket_dir, &socket))
+         if (configuration_path != NULL)
          {
-            exit_code = 1;
-            goto done;
-         }
-      }
-      else
-      {
-         /* Remote connection */
-         if (pgagroal_connect(NULL, host, atoi(port), &socket))
-         {
-            printf("pgagroal - No route to host: %s:%s\n", host, port);
-            goto done;
-         }
-
-         /* User name */
-         if (username == NULL)
-         {
-username:
-            printf("User name: ");
-
-            memset(&un, 0, sizeof(un));
-            fgets(&un[0], sizeof(un), stdin);
-            un[strlen(un) - 1] = 0;
-            username = &un[0];
-         }
-
-         if (username == NULL || strlen(username) == 0)
-         {
-            goto username;
-         }
-
-         /* Password */
-         if (password == NULL)
-         {
-password:
-            if (password != NULL)
+            /* Local connection */
+            if (pgagroal_connect_unix_socket(config->unix_socket_dir, &socket))
             {
-               free(password);
-               password = NULL;
+               exit_code = 1;
+               goto done;
             }
-
-            printf("Password : ");
-            password = pgagroal_get_password();
-            printf("\n");
          }
          else
          {
-            do_free = false;
-         }
-
-         for (int i = 0; i < strlen(password); i++)
-         {
-            if ((unsigned char)(*(password + i)) & 0x80)
+            /* Remote connection */
+            if (pgagroal_connect(NULL, host, atoi(port), &socket))
             {
-               goto password;
+               printf("pgagroal - No route to host: %s:%s\n", host, port);
+               goto done;
             }
-         }
 
-         /* Authenticate */
-         if (pgagroal_remote_management_scram_sha256(username, password, socket, &s_ssl) != AUTH_SUCCESS)
-         {
-            printf("pgagroal - Bad credentials for %s\n", username);
-            goto done;
+            /* User name */
+            if (username == NULL)
+            {
+username:
+               printf("User name: ");
+
+               memset(&un, 0, sizeof(un));
+               fgets(&un[0], sizeof(un), stdin);
+               un[strlen(un) - 1] = 0;
+               username = &un[0];
+            }
+
+            if (username == NULL || strlen(username) == 0)
+            {
+               goto username;
+            }
+
+            /* Password */
+            if (password == NULL)
+            {
+password:
+               if (password != NULL)
+               {
+                  free(password);
+                  password = NULL;
+               }
+
+               printf("Password : ");
+               password = pgagroal_get_password();
+               printf("\n");
+            }
+            else
+            {
+               do_free = false;
+            }
+
+            for (int i = 0; i < strlen(password); i++)
+            {
+               if ((unsigned char)(*(password + i)) & 0x80)
+               {
+                  goto password;
+               }
+            }
+
+            /* Authenticate */
+            if (pgagroal_remote_management_scram_sha256(username, password, socket, &s_ssl) != AUTH_SUCCESS)
+            {
+               printf("pgagroal - Bad credentials for %s\n", username);
+               goto done;
+            }
          }
       }
 
