@@ -25,3 +25,6 @@
 - name: pgagroal 0.7.0
   date: 2020-05-26
   announce: release/announcement/2020/05/26/pgagroal-0.7.0.html
+- name: pgagroal 0.7.1
+  date: 2020-06-09
+  announce: release/announcement/2020/06/09/pgagroal-0.7.1.html
