@@ -94,27 +94,6 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
 
       pgagroal_pool_status(shmem);
 
-      if (config->nodelay)
-      {
-         if (pgagroal_tcp_nodelay(client_fd, shmem))
-         {
-            ZF_LOGW("pgagroal_worker: TCP_NODELAY failed for %d", client_fd);
-         }
-      }
-      
-      if (config->non_blocking)
-      {
-         if (pgagroal_socket_nonblocking(client_fd, true))
-         {
-            ZF_LOGW("pgagroal_worker: O_NONBLOCK failed for %d", client_fd);
-         }
-      }
-      
-      if (pgagroal_socket_buffers(client_fd, shmem))
-      {
-         ZF_LOGW("pgagroal_worker: SO_RCVBUF/SO_SNDBUF failed for %d", client_fd);
-      }
-      
       if (config->pipeline == PIPELINE_PERFORMANCE)
       {
          p = performance_pipeline();
