@@ -1512,6 +1512,7 @@ client_password(SSL* c_ssl, int client_fd, char* username, char* password, int s
 {
    int status;
    time_t start_time;
+   bool non_blocking;
    struct configuration* config;
    struct message* msg = NULL;
 
@@ -1527,6 +1528,7 @@ client_password(SSL* c_ssl, int client_fd, char* username, char* password, int s
 
    start_time = time(NULL);
 
+   non_blocking = pgagroal_socket_is_nonblocking(client_fd);
    pgagroal_socket_nonblocking(client_fd, true);
 
    /* psql may just close the connection without word, so loop */
@@ -1554,7 +1556,7 @@ retry:
       goto error;
    }
 
-   if (!config->non_blocking)
+   if (!non_blocking)
    {
       pgagroal_socket_nonblocking(client_fd, false);
    }
@@ -1589,6 +1591,7 @@ client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot, 
    int status;
    char salt[4];
    time_t start_time;
+   bool non_blocking;
    size_t size;
    char* pwdusr = NULL;
    char* shadow = NULL;
@@ -1614,6 +1617,7 @@ client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot, 
 
    start_time = time(NULL);
 
+   non_blocking = pgagroal_socket_is_nonblocking(client_fd);
    pgagroal_socket_nonblocking(client_fd, true);
 
    /* psql may just close the connection without word, so loop */
@@ -1641,7 +1645,7 @@ retry:
       goto error;
    }
 
-   if (!config->non_blocking)
+   if (!non_blocking)
    {
       pgagroal_socket_nonblocking(client_fd, false);
    }
@@ -1711,6 +1715,7 @@ client_scram256(SSL* c_ssl, int client_fd, char* username, char* password, int s
 {
    int status;
    time_t start_time;
+   bool non_blocking;
    char* password_prep = NULL;
    char* client_first_message_bare = NULL;
    char* server_first_message = NULL;
@@ -1745,6 +1750,7 @@ client_scram256(SSL* c_ssl, int client_fd, char* username, char* password, int s
 
    start_time = time(NULL);
 
+   non_blocking = pgagroal_socket_is_nonblocking(client_fd);
    pgagroal_socket_nonblocking(client_fd, true);
 
    /* psql may just close the connection without word, so loop */
@@ -1772,7 +1778,7 @@ retry:
       goto error;
    }
 
-   if (!config->non_blocking)
+   if (!non_blocking)
    {
       pgagroal_socket_nonblocking(client_fd, false);
    }

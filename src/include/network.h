@@ -146,6 +146,14 @@ pgagroal_socket_buffers(int fd, void* shmem);
 int
 pgagroal_socket_nonblocking(int fd, bool value);
 
+/**
+ * Does the descriptor have O_NONBLOCK
+ * @param fd The descriptor
+ * @return true if non blocking, otherwise false
+ */
+bool
+pgagroal_socket_is_nonblocking(int fd);
+
 #ifdef __cplusplus
 }
 #endif

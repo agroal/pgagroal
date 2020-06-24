@@ -424,6 +424,16 @@ pgagroal_socket_nonblocking(int fd, bool value)
    return 0;
 }
 
+bool
+pgagroal_socket_is_nonblocking(int fd)
+{
+   int flags;
+
+   flags = fcntl(fd, F_GETFL);
+
+   return flags & O_NONBLOCK;
+}
+
 int
 pgagroal_tcp_nodelay(int fd, void* shmem)
 {
