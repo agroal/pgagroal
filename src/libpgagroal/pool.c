@@ -309,7 +309,7 @@ pgagroal_return_connection(void* shmem, int slot)
    if (config->connections[slot].has_security != SECURITY_INVALID &&
        (config->connections[slot].has_security != SECURITY_SCRAM256 ||
         (config->connections[slot].has_security == SECURITY_SCRAM256 &&
-         pgagroal_user_known(config->connections[slot].username, shmem))))
+         (config->authquery || pgagroal_user_known(config->connections[slot].username, shmem)))))
    {
       state = atomic_load(&config->states[slot]);
 

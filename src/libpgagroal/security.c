@@ -60,7 +60,7 @@
 static int get_auth_type(struct message* msg, int* auth_type);
 static int compare_auth_response(struct message* orig, struct message* response, int auth_type);
 
-static int use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, int hba_method, void* shmem);
+static int use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, void* shmem);
 static int use_unpooled_connection(struct message* msg, SSL* c_ssl, int client_fd, int slot,
                                    char* username, int hba_method, void* shmem);
 static int client_trust(SSL* c_ssl, int client_fd, char* username, char* password, int slot, void* shmem);
@@ -99,12 +99,19 @@ static int client_proof(char* password, char* salt, int salt_length, int iterati
                         char* server_first_message, size_t server_first_message_length,
                         char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length,
                         unsigned char** result, int* result_length);
+static int verify_client_proof(char* stored_key, int stored_key_length,
+                               char* client_proof, int client_proof_length,
+                               char* salt, int salt_length, int iterations,
+                               char* client_first_message_bare, size_t client_first_message_bare_length,
+                               char* server_first_message, size_t server_first_message_length,
+                               char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length);
 static int  salted_password(char* password, char* salt, int salt_length, int iterations, unsigned char** result, int* result_length);
 static int  salted_password_key(unsigned char* salted_password, int salted_password_length, char* key,
                                 unsigned char** result, int* result_length);
 static int  stored_key(unsigned char* client_key, int client_key_length, unsigned char** result, int* result_length);
 static int  generate_salt(char** salt, int* size);
 static int  server_signature(char* password, char* salt, int salt_length, int iterations,
+                             char* server_key, int server_key_length,
                              char* client_first_message_bare, size_t client_first_message_bare_length,
                              char* server_first_message, size_t server_first_message_length,
                              char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length,
@@ -114,6 +121,14 @@ static bool is_tls_user(char* username, char* database, void* shmem);
 static int  create_ssl_ctx(bool client, SSL_CTX** ctx);
 static int  create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, SSL** ssl);
 static int  create_ssl_server(SSL_CTX* ctx, int socket, void* shmem, SSL** ssl);
+
+static int auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, void* shmem);
+static int auth_query_get_connection(char* username, char* password, char* database, void* shmem, int* server_fd);
+static int auth_query_server_md5(struct message* startup_response_msg, char* username, char* password, int socket);
+static int auth_query_server_scram256(char* username, char* password, int socket);
+static int auth_query_get_password(int socket, char* username, char* database, char** password);
+static int auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int slot, void* shmem);
+static int auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username, char* shadow, int slot, void* shmem);
 
 int
 pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL** client_ssl)
@@ -342,7 +357,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
          ZF_LOGD("authenticate: getting pooled connection");
          pgagroal_free_message(msg);
 
-         ret = use_pooled_connection(c_ssl, client_fd, *slot, username, hba_method, shmem);
+         ret = use_pooled_connection(c_ssl, client_fd, *slot, username, database, hba_method, shmem);
          if (ret == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
@@ -973,6 +988,7 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
    pgagroal_base64_decode(base64_server_signature, sasl_final->length - 11, &server_signature_received, &server_signature_received_length);
 
    if (server_signature(password_prep, salt, salt_length, iteration,
+                        NULL, 0,
                         client_first_message_bare, sasl_response->length - 26,
                         server_first_message, sasl_continue->length - 9,
                         &wo_proof[0], strlen(wo_proof),
@@ -1185,7 +1201,7 @@ compare_auth_response(struct message* orig, struct message* response, int auth_t
 }
 
 static int
-use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, int hba_method, void* shmem)
+use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, void* shmem)
 {
    int status = MESSAGE_STATUS_ERROR;
    struct configuration* config = NULL;
@@ -1202,7 +1218,19 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, int h
       hba_method = config->connections[slot].has_security;
    }
 
-   if (password == NULL)
+   if (config->authquery)
+   {
+      status = auth_query(c_ssl, client_fd, slot, username, database, hba_method, shmem);
+      if (status == AUTH_BAD_PASSWORD)
+      {
+         goto bad_password;
+      }
+      else if (status == AUTH_ERROR)
+      {
+         goto error;
+      }
+   }
+   else if (password == NULL)
    {
       /* We can only deal with SECURITY_TRUST, SECURITY_PASSWORD and SECURITY_MD5 */
       pgagroal_create_message(&config->connections[slot].security_messages[0],
@@ -1856,6 +1884,7 @@ retry:
    }
 
    if (server_signature(password_prep, salt, salt_length, 4096,
+                        NULL, 0,
                         client_first_message_bare, strlen(client_first_message_bare),
                         server_first_message, strlen(server_first_message),
                         client_final_message_without_proof, strlen(client_final_message_without_proof),
@@ -2584,6 +2613,7 @@ server_scram256(char* username, char* password, int slot, void* shmem)
                           &server_signature_received, &server_signature_received_length);
 
    if (server_signature(password_prep, salt, salt_length, iteration,
+                        NULL, 0,
                         client_first_message_bare, config->connections[slot].security_lengths[1] - 26,
                         server_first_message, config->connections[slot].security_lengths[2] - 9,
                         &wo_proof[0], strlen(wo_proof),
@@ -3574,6 +3604,129 @@ error:
 }
 
 static int
+verify_client_proof(char* s_key, int s_key_length,
+                    char* client_proof, int client_proof_length,
+                    char* salt, int salt_length, int iterations,
+                    char* client_first_message_bare, size_t client_first_message_bare_length,
+                    char* server_first_message, size_t server_first_message_length,
+                    char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length)
+{
+   size_t size = 32;
+   unsigned char* c_k = NULL;
+   int c_k_length;
+   unsigned char* s_k = NULL;
+   int s_k_length;
+   unsigned char* c_s = NULL;
+   unsigned int length;
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+   HMAC_CTX* ctx = HMAC_CTX_new();
+#else
+   HMAC_CTX hctx;
+   HMAC_CTX* ctx = &hctx;
+
+   HMAC_CTX_init(ctx);
+#endif
+
+   /* if (salted_password(password, salt, salt_length, iterations, &s_p, &s_p_length)) */
+   /* { */
+   /*    goto error; */
+   /* } */
+
+   /* if (salted_password_key(s_p, s_p_length, "Client Key", &c_k, &c_k_length)) */
+   /* { */
+   /*    goto error; */
+   /* } */
+
+   c_k = malloc(size);
+   memset(c_k, 0, size);
+   c_k_length = size;
+
+   c_s = malloc(size);
+   memset(c_s, 0, size);
+
+   /* Client signature: HMAC(StoredKey, AuthMessage) */
+   if (HMAC_Init_ex(ctx, s_key, s_key_length, EVP_sha256(), NULL) != 1)
+   {
+      goto error;
+   }
+
+   if (HMAC_Update(ctx, (unsigned char*)client_first_message_bare, client_first_message_bare_length) != 1)
+   {
+      goto error;
+   }
+   
+   if (HMAC_Update(ctx, (unsigned char*)",", 1) != 1)
+   {
+      goto error;
+   }
+
+   if (HMAC_Update(ctx, (unsigned char*)server_first_message, server_first_message_length) != 1)
+   {
+      goto error;
+   }
+   
+   if (HMAC_Update(ctx, (unsigned char*)",", 1) != 1)
+   {
+      goto error;
+   }
+   
+   if (HMAC_Update(ctx, (unsigned char*)client_final_message_wo_proof, client_final_message_wo_proof_length) != 1)
+   {
+      goto error;
+   }
+
+   if (HMAC_Final(ctx, c_s, &length) != 1)
+   {
+      goto error;
+   }
+
+   /* ClientKey: ClientProof XOR ClientSignature */
+   for (int i = 0; i < size; i++)
+   {
+      *(c_k + i) = *(client_proof + i) ^ *(c_s + i);
+   }
+
+   if (stored_key(c_k, c_k_length, &s_k, &s_k_length))
+   {
+      goto error;
+   }
+
+   if (memcmp(s_key, s_k, size) != 0)
+   {
+      goto error;
+   }
+
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+   HMAC_CTX_free(ctx);
+#else
+   HMAC_CTX_cleanup(ctx);
+#endif
+
+   free(c_k);
+   free(s_k);
+   free(c_s);
+
+   return 0;
+
+error:
+
+   if (ctx != NULL)
+   {
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+   HMAC_CTX_free(ctx);
+#else
+   HMAC_CTX_cleanup(ctx);
+#endif
+   }
+
+   free(c_k);
+   free(s_k);
+   free(c_s);
+
+   return 1;
+}
+
+static int
 salted_password(char* password, char* salt, int salt_length, int iterations, unsigned char** result, int* result_length)
 {
    size_t size = 32;
@@ -3866,6 +4019,7 @@ error:
 
 static int
 server_signature(char* password, char* salt, int salt_length, int iterations,
+                 char* s_key, int s_key_length,
                  char* client_first_message_bare, size_t client_first_message_bare_length,
                  char* server_first_message, size_t server_first_message_length,
                  char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length,
@@ -3878,6 +4032,7 @@ server_signature(char* password, char* salt, int salt_length, int iterations,
    unsigned char* s_k = NULL;
    int s_k_length;
    unsigned int length;
+   bool do_free = true;
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
    HMAC_CTX* ctx = HMAC_CTX_new();
 #else
@@ -3895,14 +4050,23 @@ server_signature(char* password, char* salt, int salt_length, int iterations,
    r = malloc(size);
    memset(r, 0, size);
 
-   if (salted_password(password, salt, salt_length, iterations, &s_p, &s_p_length))
+   if (password != NULL)
    {
-      goto error;
-   }
+      if (salted_password(password, salt, salt_length, iterations, &s_p, &s_p_length))
+      {
+         goto error;
+      }
 
-   if (salted_password_key(s_p, s_p_length, "Server Key", &s_k, &s_k_length))
+      if (salted_password_key(s_p, s_p_length, "Server Key", &s_k, &s_k_length))
+      {
+         goto error;
+      }
+   }
+   else
    {
-      goto error;
+      do_free = false;
+      s_k = (unsigned char*)s_key;
+      s_k_length = s_key_length;
    }
 
    /* Server signature: HMAC(ServerKey, AuthMessage) */
@@ -3951,7 +4115,10 @@ server_signature(char* password, char* salt, int salt_length, int iterations,
 #endif
 
    free(s_p);
-   free(s_k);
+   if (do_free)
+   {
+      free(s_k);
+   }
 
    return 0;
 
@@ -3970,7 +4137,10 @@ error:
    }
 
    free(s_p);
-   free(s_k);
+   if (do_free)
+   {
+      free(s_k);
+   }
 
    return 1;
 }
@@ -4221,4 +4391,1075 @@ error:
    SSL_CTX_free(ctx);
 
    return 1;
+}
+
+static int
+auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, void* shmem)
+{
+   int su_socket;
+   char* shadow = NULL;
+   int ret;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+   
+   /* Get connection to server using the superuser */
+   ret = auth_query_get_connection(config->superuser.username, config->superuser.password, database, shmem, &su_socket);
+   if (ret == AUTH_BAD_PASSWORD)
+   {
+      pgagroal_write_connection_refused(c_ssl, client_fd);
+      pgagroal_write_empty(c_ssl, client_fd);
+      atomic_store(&config->su_connection, STATE_FREE);
+      goto bad_password;
+   }
+   else if (ret == AUTH_ERROR)
+   {
+      pgagroal_write_connection_refused(c_ssl, client_fd);
+      pgagroal_write_empty(c_ssl, client_fd);
+      atomic_store(&config->su_connection, STATE_FREE);
+      goto error;
+   }
+   else if (ret == AUTH_TIMEOUT)
+   {
+      pgagroal_write_connection_refused(c_ssl, client_fd);
+      pgagroal_write_empty(c_ssl, client_fd);
+      atomic_store(&config->su_connection, STATE_FREE);
+      goto error;
+   }
+
+   /* Call pgagroal_get_password */
+   if (auth_query_get_password(su_socket, username, database, &shadow))
+   {
+      pgagroal_write_connection_refused(c_ssl, client_fd);
+      pgagroal_write_empty(c_ssl, client_fd);
+      atomic_store(&config->su_connection, STATE_FREE);
+      goto error;
+   }
+
+   /* Close connection */
+   pgagroal_disconnect(su_socket);
+   atomic_store(&config->su_connection, STATE_FREE);
+
+   /* Client security */
+   if (config->connections[slot].has_security == SECURITY_MD5)
+   {
+      ret = auth_query_client_md5(c_ssl, client_fd, username, shadow, slot, shmem);
+      if (ret == AUTH_BAD_PASSWORD)
+      {
+         pgagroal_write_bad_password(c_ssl, client_fd, username);
+         pgagroal_write_empty(c_ssl, client_fd);
+         goto bad_password;
+      }
+      else if (ret == AUTH_ERROR)
+      {
+         goto error;
+      }
+   }
+   else if (config->connections[slot].has_security == SECURITY_SCRAM256)
+   {
+      ret = auth_query_client_scram256(c_ssl, client_fd, username, shadow, slot, shmem);
+      if (ret == AUTH_BAD_PASSWORD)
+      {
+         pgagroal_write_bad_password(c_ssl, client_fd, username);
+         pgagroal_write_empty(c_ssl, client_fd);
+         goto bad_password;
+      }
+      else if (ret == AUTH_ERROR)
+      {
+         goto error;
+      }
+   }
+   else
+   {
+      ZF_LOGE("Authentication query not supported: %d", config->connections[slot].has_security);
+      pgagroal_write_connection_refused(c_ssl, client_fd);
+      pgagroal_write_empty(c_ssl, client_fd);
+      goto error;
+   }
+
+   /* Client ok */
+   if (client_ok(c_ssl, client_fd, slot, shmem))
+   {
+      pgagroal_write_connection_refused(c_ssl, client_fd);
+      pgagroal_write_empty(c_ssl, client_fd);
+      goto error;
+   }
+
+   free(shadow);
+
+   return AUTH_SUCCESS;
+
+bad_password:
+
+   free(shadow);
+
+   return AUTH_BAD_PASSWORD;
+
+error:
+
+   free(shadow);
+
+   return AUTH_ERROR;
+}
+
+static int
+auth_query_get_connection(char* username, char* password, char* database, void* shmem, int* server_fd)
+{
+   int auth_type = -1;
+   int server;
+   signed char isfree;
+   time_t start_time;
+   char* error = NULL;
+   struct configuration* config = NULL;
+   struct message* startup_msg = NULL;
+   struct message* startup_response_msg = NULL;
+   struct message* msg = NULL;
+   int ret = -1;
+   int status = -1;
+
+   config = (struct configuration*)shmem;
+
+   *server_fd = -1;
+
+   /* We need to find the server for the connection */
+   pgagroal_get_primary(shmem, &server);
+   ZF_LOGD("connect: server %d", server);
+
+   start_time = time(NULL);
+
+retry:
+
+   isfree = STATE_FREE;
+
+   if (atomic_compare_exchange_strong(&config->su_connection, &isfree, STATE_IN_USE))
+   {
+      if (pgagroal_connect(shmem, config->servers[server].host, config->servers[server].port, server_fd))
+      {
+         ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
+         atomic_store(&config->su_connection, STATE_FREE);
+         goto error;
+      }
+   }
+   else
+   {
+      if (config->blocking_timeout > 0)
+      {
+         /* Sleep for 100ms */
+         struct timespec ts;
+         ts.tv_sec = 0;
+         ts.tv_nsec = 100000000L;
+         nanosleep(&ts, NULL);
+
+         double diff = difftime(time(NULL), start_time);
+         if (diff >= (double)config->blocking_timeout)
+         {
+            goto timeout;
+         }
+
+         goto retry;
+      }
+      else
+      {
+         goto timeout;
+      }
+   }
+
+   ZF_LOGD("connect: %s:%d using fd %d", config->servers[server].host, config->servers[server].port, *server_fd);
+
+   /* Startup message */
+   status = pgagroal_create_startup_message(username, database, &startup_msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_write_message(NULL, *server_fd, startup_msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_read_block_message(NULL, *server_fd, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   startup_response_msg = pgagroal_copy_message(msg);
+
+   get_auth_type(msg, &auth_type);
+   ZF_LOGV("auth_query_get_connection: auth type %d", auth_type);
+
+   /* Supported security models: */
+   /*   md5 (5) */
+   /*   scram256 (10) */
+   if (auth_type == SECURITY_MD5)
+   {
+      ret = auth_query_server_md5(startup_response_msg, username, password, *server_fd);
+      if (ret == AUTH_BAD_PASSWORD)
+      {
+         goto bad_password;
+      }
+      else if (ret == AUTH_ERROR)
+      {
+         goto error;
+      }
+   }
+   else if (auth_type == SECURITY_SCRAM256)
+   {
+      ret = auth_query_server_scram256(username, password, *server_fd);
+      if (ret == AUTH_BAD_PASSWORD)
+      {
+         goto bad_password;
+      }
+      else if (ret == AUTH_ERROR)
+      {
+         goto error;
+      }
+   }
+   else
+   {
+      if (msg->kind == 'E')
+      {
+         if (pgagroal_extract_error_message(msg, &error))
+         {
+            goto error;
+         }
+         ZF_LOGE("%s", error);
+      }
+
+      goto error;
+   }
+
+   free(error);
+
+   pgagroal_free_copy_message(startup_msg);
+   pgagroal_free_copy_message(startup_response_msg);
+   pgagroal_free_message(msg);
+
+   return AUTH_SUCCESS;
+
+bad_password:
+
+   ZF_LOGD("auth_query_get_connection: BAD_PASSWORD");
+
+   if (*server_fd != -1)
+   {
+      pgagroal_disconnect(*server_fd);
+   }
+
+   *server_fd = -1;
+
+   free(error);
+
+   pgagroal_free_copy_message(startup_msg);
+   pgagroal_free_copy_message(startup_response_msg);
+   pgagroal_free_message(msg);
+
+   return AUTH_BAD_PASSWORD;
+
+error:
+
+   ZF_LOGD("auth_query_get_connection: ERROR (%d)", auth_type);
+
+   if (*server_fd != -1)
+   {
+      pgagroal_disconnect(*server_fd);
+   }
+
+   *server_fd = -1;
+
+   free(error);
+
+   pgagroal_free_copy_message(startup_msg);
+   pgagroal_free_copy_message(startup_response_msg);
+   pgagroal_free_message(msg);
+
+   return AUTH_ERROR;
+
+timeout:
+
+   ZF_LOGD("auth_query_get_connection: TIMEOUT");
+
+   *server_fd = -1;
+
+   free(error);
+
+   pgagroal_free_copy_message(startup_msg);
+   pgagroal_free_copy_message(startup_response_msg);
+   pgagroal_free_message(msg);
+
+   return AUTH_TIMEOUT;
+}
+
+static int
+auth_query_server_md5(struct message* startup_response_msg, char* username, char* password, int socket)
+{
+   int status = MESSAGE_STATUS_ERROR;
+   int auth_response = -1;
+   size_t size;
+   char* pwdusr = NULL;
+   char* shadow = NULL;
+   char* md5_req = NULL;
+   char* md5 = NULL;
+   char md5str[36];
+   char* salt = NULL;
+   struct message* auth_msg = NULL;
+   struct message* md5_msg = NULL;
+
+   ZF_LOGV("auth_query_server_md5");
+
+   if (get_salt(startup_response_msg->data, &salt))
+   {
+      goto error;
+   }
+
+   size = strlen(username) + strlen(password) + 1;
+   pwdusr = malloc(size);
+   memset(pwdusr, 0, size);
+
+   snprintf(pwdusr, size, "%s%s", password, username);
+
+   if (pgagroal_md5(pwdusr, strlen(pwdusr), &shadow))
+   {
+      goto error;
+   }
+
+   md5_req = malloc(36);
+   memset(md5_req, 0, 36);
+   memcpy(md5_req, shadow, 32);
+   memcpy(md5_req + 32, salt, 4);
+
+   if (pgagroal_md5(md5_req, 36, &md5))
+   {
+      goto error;
+   }
+
+   memset(&md5str, 0, sizeof(md5str));
+   snprintf(&md5str[0], 36, "md5%s", md5);
+
+   status = pgagroal_create_auth_md5_response(md5str, &md5_msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_write_message(NULL, socket, md5_msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_read_block_message(NULL, socket, &auth_msg);
+   if (auth_msg->length > SECURITY_BUFFER_SIZE)
+   {
+      ZF_LOGE("Security message too large: %ld", auth_msg->length);
+      goto error;
+   }
+
+   get_auth_type(auth_msg, &auth_response);
+   ZF_LOGV("authenticate: auth response %d", auth_response);
+
+   if (auth_response == 0)
+   {
+      if (auth_msg->length > SECURITY_BUFFER_SIZE)
+      {
+         ZF_LOGE("Security message too large: %ld", auth_msg->length);
+         goto error;
+      }
+   }
+   else
+   {
+      goto bad_password;
+   }
+
+   free(pwdusr);
+   free(shadow);
+   free(md5_req);
+   free(md5);
+   free(salt);
+
+   pgagroal_free_copy_message(md5_msg);
+   pgagroal_free_message(auth_msg);
+
+   return AUTH_SUCCESS;
+
+bad_password:
+
+   ZF_LOGW("Wrong password for user: %s", username);
+
+   free(pwdusr);
+   free(shadow);
+   free(md5_req);
+   free(md5);
+   free(salt);
+
+   pgagroal_free_copy_message(md5_msg);
+   pgagroal_free_message(auth_msg);
+
+   return AUTH_BAD_PASSWORD;
+
+error:
+
+   free(pwdusr);
+   free(shadow);
+   free(md5_req);
+   free(md5);
+   free(salt);
+
+   pgagroal_free_copy_message(md5_msg);
+   pgagroal_free_message(auth_msg);
+
+   return AUTH_ERROR;
+}
+
+static int
+auth_query_server_scram256(char* username, char* password, int socket)
+{
+   int status = MESSAGE_STATUS_ERROR;
+   char* salt = NULL;
+   int salt_length = 0;
+   char* password_prep = NULL;
+   char* client_nounce = NULL;
+   char* combined_nounce = NULL;
+   char* base64_salt = NULL;
+   char* iteration_string = NULL;
+   char* err = NULL;
+   int iteration;
+   char* client_first_message_bare = NULL;
+   char* server_first_message = NULL;
+   char wo_proof[58];
+   unsigned char* proof = NULL;
+   int proof_length;
+   char* proof_base = NULL;
+   char* base64_server_signature = NULL;
+   char* server_signature_received = NULL;
+   int server_signature_received_length;
+   unsigned char* server_signature_calc = NULL;
+   int server_signature_calc_length;
+   char* error = NULL;
+   struct message* sasl_response = NULL;
+   struct message* sasl_continue = NULL;
+   struct message* sasl_continue_response = NULL;
+   struct message* sasl_final = NULL;
+   struct message* msg = NULL;
+
+   ZF_LOGV("auth_query_server_scram256");
+
+   status = sasl_prep(password, &password_prep);
+   if (status)
+   {
+      goto error;
+   }
+
+   generate_nounce(&client_nounce);
+
+   status = pgagroal_create_auth_scram256_response(client_nounce, &sasl_response);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_write_message(NULL, socket, sasl_response);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_read_block_message(NULL, socket, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   pgagroal_log_message(msg);
+
+   sasl_continue = pgagroal_copy_message(msg);
+
+   get_scram_attribute('r', (char*)(sasl_continue->data + 9), sasl_continue->length - 9, &combined_nounce);
+   get_scram_attribute('s', (char*)(sasl_continue->data + 9), sasl_continue->length - 9, &base64_salt);
+   get_scram_attribute('i', (char*)(sasl_continue->data + 9), sasl_continue->length - 9, &iteration_string);
+   get_scram_attribute('e', (char*)(sasl_continue->data + 9), sasl_continue->length - 9, &err);
+
+   if (err != NULL)
+   {
+      ZF_LOGE("SCRAM-SHA-256: %s", err);
+      goto error;
+   }
+
+   pgagroal_base64_decode(base64_salt, strlen(base64_salt), &salt, &salt_length);
+
+   iteration = atoi(iteration_string);
+
+   memset(&wo_proof[0], 0, sizeof(wo_proof));
+   snprintf(&wo_proof[0], sizeof(wo_proof), "c=biws,r=%s", combined_nounce);
+
+   /* n=,r=... */
+   client_first_message_bare = sasl_response->data + 26;
+
+   /* r=...,s=...,i=4096 */
+   server_first_message = sasl_continue->data + 9;
+
+   if (client_proof(password_prep, salt, salt_length, iteration,
+                    client_first_message_bare, sasl_response->length - 26,
+                    server_first_message, sasl_continue->length - 9,
+                    &wo_proof[0], strlen(wo_proof),
+                    &proof, &proof_length))
+   {
+      goto error;
+   }
+
+   pgagroal_base64_encode((char*)proof, proof_length, &proof_base);
+
+   status = pgagroal_create_auth_scram256_continue_response(&wo_proof[0], (char*)proof_base, &sasl_continue_response);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_write_message(NULL, socket, sasl_continue_response);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_read_block_message(NULL, socket, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   pgagroal_log_message(msg);
+
+   if (msg->kind == 'E')
+   {
+      pgagroal_extract_error_message(msg, &error);
+      if (error != NULL)
+      {
+         ZF_LOGE("%s", error);
+      }
+      goto bad_password;
+   }
+
+   sasl_final = pgagroal_copy_message(msg);
+
+   /* Get 'v' attribute -- make this better (strlen will work) */
+   base64_server_signature = sasl_final->data + 11;
+   pgagroal_base64_decode(base64_server_signature, strlen(base64_server_signature) - 1,
+                          &server_signature_received, &server_signature_received_length);
+
+   if (server_signature(password_prep, salt, salt_length, iteration,
+                        NULL, 0,
+                        client_first_message_bare, sasl_response->length - 26,
+                        server_first_message, sasl_continue_response->length - 9,
+                        &wo_proof[0], strlen(wo_proof),
+                        &server_signature_calc, &server_signature_calc_length))
+   {
+      goto error;
+   }
+
+   if (server_signature_calc_length != server_signature_received_length ||
+       memcmp(server_signature_received, server_signature_calc, server_signature_calc_length) != 0)
+   {
+      goto bad_password;
+   }
+
+   free(error);
+   free(salt);
+   free(err);
+   free(password_prep);
+   free(client_nounce);
+   free(combined_nounce);
+   free(base64_salt);
+   free(iteration_string);
+   free(proof);
+   free(proof_base);
+   free(server_signature_received);
+   free(server_signature_calc);
+
+   pgagroal_free_copy_message(sasl_response);
+   pgagroal_free_copy_message(sasl_continue);
+   pgagroal_free_copy_message(sasl_continue_response);
+   pgagroal_free_copy_message(sasl_final);
+
+   return AUTH_SUCCESS;
+
+bad_password:
+
+   ZF_LOGW("Wrong password for user: %s", username);
+
+   free(error);
+   free(salt);
+   free(err);
+   free(password_prep);
+   free(client_nounce);
+   free(combined_nounce);
+   free(base64_salt);
+   free(iteration_string);
+   free(proof);
+   free(proof_base);
+   free(server_signature_received);
+   free(server_signature_calc);
+
+   pgagroal_free_copy_message(sasl_response);
+   pgagroal_free_copy_message(sasl_continue);
+   pgagroal_free_copy_message(sasl_continue_response);
+   pgagroal_free_copy_message(sasl_final);
+
+   return AUTH_BAD_PASSWORD;
+
+error:
+
+   free(error);
+   free(salt);
+   free(err);
+   free(password_prep);
+   free(client_nounce);
+   free(combined_nounce);
+   free(base64_salt);
+   free(iteration_string);
+   free(proof);
+   free(proof_base);
+   free(server_signature_received);
+   free(server_signature_calc);
+
+   pgagroal_free_copy_message(sasl_response);
+   pgagroal_free_copy_message(sasl_continue);
+   pgagroal_free_copy_message(sasl_continue_response);
+   pgagroal_free_copy_message(sasl_final);
+
+   return AUTH_ERROR;
+}
+
+static int
+auth_query_get_password(int socket, char* username, char* database, char** password)
+{
+   int status;
+   size_t size;
+   char* aq = NULL;
+   size_t result_size;
+   char* result = NULL;
+   struct message qmsg;
+   struct message* tmsg = NULL;
+   struct message* dmsg = NULL;
+
+   *password = NULL;
+
+   size = 46 + strlen(username);
+   aq = malloc(size);
+
+   memset(&qmsg, 0, sizeof(struct message));
+   memset(aq, 0, size);
+
+   pgagroal_write_byte(aq, 'Q');
+   pgagroal_write_int32(aq + 1, size - 1);
+   pgagroal_write_string(aq + 5, "SELECT * FROM pgagroal_get_password(\'");
+   pgagroal_write_string(aq + 42, username);
+   pgagroal_write_string(aq + 42 + strlen(username), "\');");
+
+   qmsg.kind = 'Q';
+   qmsg.length = size;
+   qmsg.data = aq;
+
+   status = pgagroal_write_message(NULL, socket, &qmsg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_read_block_message(NULL, socket, &tmsg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (pgagroal_extract_message('D', tmsg, &dmsg))
+   {
+      goto error;
+   }
+
+   result_size = dmsg->length - 11 + 1;
+   result = (char*)malloc(result_size);
+   memset(result, 0, result_size);
+   memcpy(result, dmsg->data + 11, dmsg->length - 11);
+
+   *password = result;
+
+   free(aq);
+   pgagroal_free_message(tmsg);
+   pgagroal_free_copy_message(dmsg);
+
+   return 0;
+
+error:
+   ZF_LOGV("auth_query_get_password: socket (%d) status (%d)", socket, status);
+
+   if (tmsg->kind == 'E')
+   {
+      char* error = NULL;
+
+      if (pgagroal_extract_error_message(tmsg, &error))
+      {
+         goto error;
+      }
+
+      ZF_LOGE("%s in %s", error, database);
+      free(error);
+   }
+
+   free(aq);
+   pgagroal_free_message(tmsg);
+   pgagroal_free_copy_message(dmsg);
+
+   return 1;
+}
+
+
+static int
+auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int slot, void* shmem)
+{
+   int status;
+   char salt[4];
+   time_t start_time;
+   bool non_blocking;
+   char* md5_req = NULL;
+   char* md5 = NULL;
+   struct configuration* config;
+   struct message* msg = NULL;
+
+   config = (struct configuration*)shmem;
+
+   salt[0] = (char)(random() & 0xFF);
+   salt[1] = (char)(random() & 0xFF);
+   salt[2] = (char)(random() & 0xFF);
+   salt[3] = (char)(random() & 0xFF);
+
+   status = pgagroal_write_auth_md5(c_ssl, client_fd, salt);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   start_time = time(NULL);
+
+   non_blocking = pgagroal_socket_is_nonblocking(client_fd);
+   pgagroal_socket_nonblocking(client_fd, true);
+
+   /* psql may just close the connection without word, so loop */
+retry:
+   status = pgagroal_read_timeout_message(c_ssl, client_fd, 1, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      if (difftime(time(NULL), start_time) < config->authentication_timeout)
+      {
+         if (pgagroal_socket_isvalid(client_fd))
+         {
+            /* Sleep for 100ms */
+            struct timespec ts;
+            ts.tv_sec = 0;
+            ts.tv_nsec = 100000000L;
+            nanosleep(&ts, NULL);
+
+            goto retry;
+         }
+      }
+   }
+
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (!non_blocking)
+   {
+      pgagroal_socket_nonblocking(client_fd, false);
+   }
+
+   md5_req = malloc(36);
+   memset(md5_req, 0, 36);
+   memcpy(md5_req, hash + 3, 32);
+   memcpy(md5_req + 32, &salt[0], 4);
+
+   if (pgagroal_md5(md5_req, 36, &md5))
+   {
+      goto error;
+   }
+
+   if (strcmp(pgagroal_read_string(msg->data + 8), md5))
+   {
+      pgagroal_write_bad_password(c_ssl, client_fd, username);
+
+      goto bad_password;
+   }
+
+   pgagroal_free_message(msg);
+
+   free(md5_req);
+   free(md5);
+
+   return AUTH_SUCCESS;
+
+bad_password:
+
+   pgagroal_free_message(msg);
+
+   free(md5_req);
+   free(md5);
+
+   return AUTH_BAD_PASSWORD;
+
+error:
+
+   pgagroal_free_message(msg);
+
+   free(md5_req);
+   free(md5);
+
+   return AUTH_ERROR;
+}
+
+static int
+auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username, char* shadow, int slot, void* shmem)
+{
+   int status;
+   time_t start_time;
+   bool non_blocking;
+   char* scram256 = NULL;
+   char* s1 = NULL;
+   char* s2 = NULL;
+   char* s_iterations = NULL;
+   char* base64_stored_key = NULL;
+   char* base64_server_key = NULL;
+   int iterations = 4096;
+   char* stored_key = NULL;
+   int stored_key_length = 0;
+   char* server_key = NULL;
+   int server_key_length = 0;
+   char* client_first_message_bare = NULL;
+   char* server_first_message = NULL;
+   char* client_final_message_without_proof = NULL;
+   char* client_nounce = NULL;
+   char* server_nounce = NULL;
+   char* salt = NULL;
+   int salt_length = 0;
+   char* base64_salt = NULL;
+   char* base64_client_proof = NULL;
+   char* client_proof_received = NULL;
+   int client_proof_received_length = 0;
+   unsigned char* server_signature_calc = NULL;
+   int server_signature_calc_length = 0;
+   char* base64_server_signature_calc = NULL;
+   struct configuration* config;
+   struct message* msg = NULL;
+   struct message* sasl_continue = NULL;
+   struct message* sasl_final = NULL;
+
+   ZF_LOGD("auth_query_client_scram256 %d %d", client_fd, slot);
+
+   config = (struct configuration*)shmem;
+
+   status = pgagroal_write_auth_scram256(c_ssl, client_fd);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   start_time = time(NULL);
+
+   non_blocking = pgagroal_socket_is_nonblocking(client_fd);
+   pgagroal_socket_nonblocking(client_fd, true);
+
+   /* psql may just close the connection without word, so loop */
+retry:
+   status = pgagroal_read_timeout_message(c_ssl, client_fd, 1, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      if (difftime(time(NULL), start_time) < config->authentication_timeout)
+      {
+         if (pgagroal_socket_isvalid(client_fd))
+         {
+            /* Sleep for 100ms */
+            struct timespec ts;
+            ts.tv_sec = 0;
+            ts.tv_nsec = 100000000L;
+            nanosleep(&ts, NULL);
+
+            goto retry;
+         }
+      }
+   }
+
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (!non_blocking)
+   {
+      pgagroal_socket_nonblocking(client_fd, false);
+   }
+
+   /* Split shadow */
+   scram256 = strtok(shadow, "$");
+   s1 = strtok(NULL, "$");
+   s2 = strtok(NULL, "$");
+
+   s_iterations = strtok(s1, ":");
+   base64_salt = strtok(NULL, ":");
+
+   base64_stored_key = strtok(s2, ":");
+   base64_server_key = strtok(NULL, ":");
+
+   if (strcmp("SCRAM-SHA-256", scram256) != 0)
+   {
+      goto error;
+   }
+
+   /* Process shadow information */
+   iterations = atoi(s_iterations);
+   if (pgagroal_base64_decode(base64_salt, strlen(base64_salt), &salt, &salt_length))
+   {
+      goto error;
+   }
+   if (pgagroal_base64_decode(base64_stored_key, strlen(base64_stored_key), &stored_key, &stored_key_length))
+   {
+      goto error;
+   }
+   if (pgagroal_base64_decode(base64_server_key, strlen(base64_server_key), &server_key, &server_key_length))
+   {
+      goto error;
+   }
+
+   /* Start the flow */
+   client_first_message_bare = malloc(msg->length - 25);
+   memset(client_first_message_bare, 0, msg->length - 25);
+   memcpy(client_first_message_bare, msg->data + 26, msg->length - 26);
+
+   get_scram_attribute('r', (char*)msg->data + 26, msg->length - 26, &client_nounce);
+   generate_nounce(&server_nounce);
+
+   server_first_message = malloc(89);
+   memset(server_first_message, 0, 89);
+   snprintf(server_first_message, 89, "r=%s%s,s=%s,i=%d", client_nounce, server_nounce, base64_salt, iterations);
+
+   status = pgagroal_create_auth_scram256_continue(client_nounce, server_nounce, base64_salt, &sasl_continue);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_write_message(c_ssl, client_fd, sasl_continue);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_read_timeout_message(c_ssl, client_fd, config->authentication_timeout, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   get_scram_attribute('p', (char*)msg->data + 5, msg->length - 5, &base64_client_proof);
+   pgagroal_base64_decode(base64_client_proof, strlen(base64_client_proof), &client_proof_received, &client_proof_received_length);
+
+   client_final_message_without_proof = malloc(58);
+   memset(client_final_message_without_proof, 0, 58);
+   memcpy(client_final_message_without_proof, msg->data + 5, 57);
+
+   if (verify_client_proof(stored_key, stored_key_length,
+                           client_proof_received, client_proof_received_length,
+                           salt, salt_length, iterations,
+                           client_first_message_bare, strlen(client_first_message_bare),
+                           server_first_message, strlen(server_first_message),
+                           client_final_message_without_proof, strlen(client_final_message_without_proof)))
+   {
+      goto bad_password;
+   }
+
+   if (server_signature(NULL, salt, salt_length, iterations,
+                        server_key, server_key_length,
+                        client_first_message_bare, strlen(client_first_message_bare),
+                        server_first_message, strlen(server_first_message),
+                        client_final_message_without_proof, strlen(client_final_message_without_proof),
+                        &server_signature_calc, &server_signature_calc_length))
+   {
+      goto error;
+   }
+
+   pgagroal_base64_encode((char*)server_signature_calc, server_signature_calc_length, &base64_server_signature_calc);
+
+   status = pgagroal_create_auth_scram256_final(base64_server_signature_calc, &sasl_final);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   status = pgagroal_write_message(c_ssl, client_fd, sasl_final);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   ZF_LOGD("auth_query_client_scram256 success (%d)", slot);
+
+   free(salt);
+   free(stored_key);
+   free(server_key);
+   free(client_first_message_bare);
+   free(server_first_message);
+   free(client_final_message_without_proof);
+   free(client_nounce);
+   free(server_nounce);
+   free(base64_client_proof);
+   free(client_proof_received);
+   free(server_signature_calc);
+   free(base64_server_signature_calc);
+
+   pgagroal_free_copy_message(sasl_continue);
+   pgagroal_free_copy_message(sasl_final);
+
+   return AUTH_SUCCESS;
+
+bad_password:
+   ZF_LOGD("auth_query_client_scram256 bad_password (%d)", slot);
+
+   free(salt);
+   free(stored_key);
+   free(server_key);
+   free(client_first_message_bare);
+   free(server_first_message);
+   free(client_final_message_without_proof);
+   free(client_nounce);
+   free(server_nounce);
+   free(base64_client_proof);
+   free(client_proof_received);
+   free(server_signature_calc);
+   free(base64_server_signature_calc);
+
+   pgagroal_free_copy_message(sasl_continue);
+   pgagroal_free_copy_message(sasl_final);
+
+   return AUTH_BAD_PASSWORD;
+
+error:
+   ZF_LOGD("auth_query_client_scram256 error (%d)", slot);
+
+   free(salt);
+   free(stored_key);
+   free(server_key);
+   free(client_first_message_bare);
+   free(server_first_message);
+   free(client_final_message_without_proof);
+   free(client_nounce);
+   free(server_nounce);
+   free(base64_client_proof);
+   free(client_proof_received);
+   free(server_signature_calc);
+   free(base64_server_signature_calc);
+
+   pgagroal_free_copy_message(sasl_continue);
+   pgagroal_free_copy_message(sasl_final);
+
+   return AUTH_ERROR;
 }

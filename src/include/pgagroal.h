@@ -100,6 +100,7 @@ extern "C" {
 #define AUTH_SUCCESS      0
 #define AUTH_BAD_PASSWORD 1
 #define AUTH_ERROR        2
+#define AUTH_TIMEOUT      3
 
 #define SERVER_NOTINIT         -2
 #define SERVER_NOTINIT_PRIMARY -1
@@ -242,6 +243,8 @@ struct configuration
    bool log_connections;       /**< Log successful logins */
    bool log_disconnections;    /**< Log disconnects */
 
+   bool authquery; /**< Is authentication query enabled */
+
    bool tls;                        /**< Is TLS enabled */
    char tls_cert_file[MISC_LENGTH]; /**< TLS certificate path */
    char tls_key_file[MISC_LENGTH];  /**< TLS key path */
@@ -268,6 +271,8 @@ struct configuration
 
    char unix_socket_dir[MISC_LENGTH]; /**< The directory for the Unix Domain Socket */
 
+   atomic_schar su_connection; /**< The superuser connection */
+
    int number_of_servers; /**< The number of servers */
    int number_of_hbas;    /**< The number of HBA entries */
    int number_of_limits;  /**< The number of limit entries */
@@ -280,6 +285,7 @@ struct configuration
    struct limit limits[NUMBER_OF_LIMITS];          /**< The limit entries */
    struct user users[NUMBER_OF_USERS];             /**< The users */
    struct user admins[NUMBER_OF_ADMINS];           /**< The admins */
+   struct user superuser;                          /**< The superuser */
    struct prometheus prometheus;                   /**< The Prometheus metrics */
    struct connection connections[];                /**< The connections (FMA) */
 } __attribute__ ((aligned (64)));

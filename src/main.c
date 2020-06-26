@@ -233,14 +233,15 @@ usage()
    printf("  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] [ -d ]\n");
    printf("\n");
    printf("Options:\n");
-   printf("  -c, --config CONFIG_FILE      Set the path to the pgagroal.conf file\n");
-   printf("  -a, --hba HBA_CONFIG_FILE     Set the path to the pgagroal_hba.conf file\n");
-   printf("  -l, --limit LIMIT_CONFIG_FILE Set the path to the pgagroal_databases.conf file\n");
-   printf("  -u, --users USERS_FILE        Set the path to the pgagroal_users.conf file\n");
-   printf("  -A, --admins ADMINS_FILE      Set the path to the pgagroal_admins.conf file\n");
-   printf("  -d, --daemon                  Run as a daemon\n");
-   printf("  -V, --version                 Display version information\n");
-   printf("  -?, --help                    Display help\n");
+   printf("  -c, --config CONFIG_FILE       Set the path to the pgagroal.conf file\n");
+   printf("  -a, --hba HBA_CONFIG_FILE      Set the path to the pgagroal_hba.conf file\n");
+   printf("  -l, --limit LIMIT_CONFIG_FILE  Set the path to the pgagroal_databases.conf file\n");
+   printf("  -u, --users USERS_FILE         Set the path to the pgagroal_users.conf file\n");
+   printf("  -A, --admins ADMINS_FILE       Set the path to the pgagroal_admins.conf file\n");
+   printf("  -S, --superuser SUPERUSER_FILE Set the path to the pgagroal_superuser.conf file\n");
+   printf("  -d, --daemon                   Run as a daemon\n");
+   printf("  -V, --version                  Display version information\n");
+   printf("  -?, --help                     Display help\n");
    printf("\n");
    printf("pgagroal: %s\n", PGAGROAL_HOMEPAGE);
    printf("Report bugs: %s\n", PGAGROAL_ISSUES);
@@ -254,6 +255,7 @@ main(int argc, char **argv)
    char* limit_path = NULL;
    char* users_path = NULL;
    char* admins_path = NULL;
+   char* superuser_path = NULL;
    bool daemon = false;
    pid_t pid, sid;
    void* tmp_shmem = NULL;
@@ -278,13 +280,14 @@ main(int argc, char **argv)
          {"limit", required_argument, 0, 'l'},
          {"users", required_argument, 0, 'u'},
          {"admins", required_argument, 0, 'A'},
+         {"superuser", required_argument, 0, 'S'},
          {"daemon", no_argument, 0, 'd'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "dV?a:c:l:u:A:",
+      c = getopt_long (argc, argv, "dV?a:c:l:u:A:S:",
                        long_options, &option_index);
 
       if (c == -1)
@@ -306,6 +309,9 @@ main(int argc, char **argv)
             break;
          case 'A':
             admins_path = optarg;
+            break;
+         case 'S':
+            superuser_path = optarg;
             break;
          case 'd':
             daemon = true;
@@ -427,6 +433,30 @@ main(int argc, char **argv)
    else
    {
       pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_admins.conf", shmem);
+   }
+
+   if (superuser_path != NULL)
+   {
+      ret = pgagroal_read_superuser_configuration(superuser_path, shmem);
+      if (ret == 1)
+      {
+         printf("pgagroal: SUPERUSER configuration not found: %s\n", superuser_path);
+         exit(1);
+      }
+      else if (ret == 2)
+      {
+         printf("pgagroal: Invalid master key file\n");
+         exit(1);
+      }
+      else if (ret == 3)
+      {
+         printf("pgagroal: SUPERUSER: Too many superusers defined (max 1)\n");
+         exit(1);
+      }
+   }
+   else
+   {
+      pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_superuser.conf", shmem);
    }
 
    if (pgagroal_validate_configuration(shmem))
@@ -666,6 +696,7 @@ main(int argc, char **argv)
    ZF_LOGD("Max connections: %d", config->max_connections);
    ZF_LOGD("Known users: %d", config->number_of_users);
    ZF_LOGD("Known admins: %d", config->number_of_admins);
+   ZF_LOGD("Known superuser: %s", strlen(config->superuser.username) > 0 ? "Yes" : "No");
 
    if (!config->allow_unknown_users && config->number_of_users == 0)
    {

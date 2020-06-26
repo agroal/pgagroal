@@ -155,6 +155,93 @@ pgagroal_extract_username_database(struct message* msg, char** username, char** 
    return 0;
 }
 
+int
+pgagroal_extract_message(char type, struct message* msg, struct message** extracted)
+{
+   int offset;
+   int m_length;
+   void* data = NULL;
+   struct message* result = NULL;
+
+   offset = 0;
+   *extracted = NULL;
+
+   while (result == NULL && offset < msg->length)
+   {
+      char t = (char)pgagroal_read_byte(msg->data + offset);
+
+      if (type == t)
+      {
+         m_length = pgagroal_read_int32(msg->data + offset + 1);
+
+         result = (struct message*)malloc(sizeof(struct message));
+         data = (void*)malloc(1 + m_length);
+
+         memcpy(data, msg->data + offset, 1 + m_length);
+
+         result->kind = pgagroal_read_byte(data);
+         result->length = 1 + m_length;
+         result->max_length = 1 + m_length;
+         result->data = data;
+
+         *extracted = result;
+
+         return 0;
+      }
+      else
+      {
+         offset += 1;
+         offset += pgagroal_read_int32(msg->data + offset);
+      }
+   }
+
+   return 1;
+}
+
+int
+pgagroal_extract_error_message(struct message* msg, char** error)
+{
+   int max = 0;
+   int offset = 5;
+   signed char type;
+   char* s = NULL;
+   char* result = NULL;
+
+   *error = NULL;
+
+   if (msg->kind == 'E')
+   {
+      max = pgagroal_read_int32(msg->data + 1);
+
+      while (result == NULL && offset < max)
+      {
+         type = pgagroal_read_byte(msg->data + offset);
+         s = pgagroal_read_string(msg->data + offset + 1);
+
+         if (type == 'M')
+         {
+            result = (char*)malloc(strlen(s) + 1);
+            memset(result, 0, strlen(s) + 1);
+            memcpy(result, s, strlen(s));
+
+            *error = result;
+         }
+
+         offset += 1 + strlen(s) + 1;
+      }
+   }
+   else
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
 char*
 pgagroal_get_state_string(signed char state)
 {

@@ -77,10 +77,9 @@ pgagroal_init_configuration(void* shmem, size_t size)
    }
 
    config->tls = false;
-
    config->gracefully = false;
-
    config->pipeline = PIPELINE_AUTO;
+   config->authquery = false;
 
    config->blocking_timeout = 30;
    config->idle_timeout = 0;
@@ -103,6 +102,8 @@ pgagroal_init_configuration(void* shmem, size_t size)
 
    config->max_connections = 100;
    config->allow_unknown_users = true;
+
+   atomic_init(&config->su_connection, STATE_FREE);
 
    for (int i = 0; i < HISTOGRAM_BUCKETS; i++)
    {
@@ -305,6 +306,20 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   {
                      config->pipeline = as_pipeline(value);
 
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "auth_query"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     if (as_bool(value, &config->authquery))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
@@ -736,6 +751,12 @@ pgagroal_validate_configuration(void* shmem)
    if (config->disconnect_client <= 0)
    {
       config->disconnect_client = 0;
+   }
+
+   if (config->authquery && strlen(config->superuser.username) == 0)
+   {
+      ZF_LOGF("pgagroal: Authentication query requires a superuser");
+      return 1;
    }
 
    if (config->number_of_servers <= 0)
@@ -1391,6 +1412,135 @@ pgagroal_validate_admins_configuration(void* shmem)
    return 0;
 }
 
+int
+pgagroal_read_superuser_configuration(char* filename, void* shmem)
+{
+   FILE* file;
+   char line[LINE_LENGTH];
+   int index;
+   char* master_key = NULL;
+   char* username = NULL;
+   char* password = NULL;
+   char* decoded = NULL;
+   int decoded_length = 0;
+   char* ptr = NULL;
+   struct configuration* config;
+
+   file = fopen(filename, "r");
+
+   if (!file)
+   {
+      goto error;
+   }
+
+   if (pgagroal_get_master_key(&master_key))
+   {
+      goto masterkey;
+   }
+
+   index = 0;
+   config = (struct configuration*)shmem;
+
+   while (fgets(line, sizeof(line), file))
+   {
+      if (strcmp(line, ""))
+      {
+         if (line[0] == '#' || line[0] == ';')
+         {
+            /* Comment, so ignore */
+         }
+         else
+         {
+            if (index > 0)
+            {
+               goto above;
+            }
+
+            ptr = strtok(line, ":");
+
+            username = ptr;
+
+            ptr = strtok(NULL, ":");
+
+            if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
+            {
+               goto error;
+            }
+
+            if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+            {
+               goto error;
+            }
+
+            if (strlen(username) < MAX_USERNAME_LENGTH &&
+                strlen(password) < MAX_PASSWORD_LENGTH)
+            {
+               memcpy(&config->superuser.username, username, strlen(username));
+               memcpy(&config->superuser.password, password, strlen(password));
+            }
+            else
+            {
+               printf("pgagroal: Invalid SUPERUSER entry\n");
+               printf("%s\n", line);
+            }
+
+            free(password);
+            free(decoded);
+
+            password = NULL;
+            decoded = NULL;
+
+            index++;
+         }
+      }
+   }
+
+   free(master_key);
+
+   fclose(file);
+
+   return 0;
+
+error:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return 1;
+
+masterkey:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return 2;
+
+above:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return 3;
+}
+
 static void
 extract_key_value(char* str, char** key, char** value)
 {
@@ -1428,7 +1578,8 @@ extract_key_value(char* str, char** key, char** value)
    }
 }
 
-static int as_int(char* str, int* i)
+static int
+as_int(char* str, int* i)
 {
    char* endptr;
    long val;
@@ -1462,7 +1613,8 @@ error:
    return 1;
 }
 
-static int as_bool(char* str, bool* b)
+static int
+as_bool(char* str, bool* b)
 {
    if (!strcasecmp(str, "true") || !strcasecmp(str, "on") || !strcasecmp(str, "1"))
    {
@@ -1479,7 +1631,8 @@ static int as_bool(char* str, bool* b)
    return 1;
 }
 
-static int as_logging_type(char* str)
+static int
+as_logging_type(char* str)
 {
    if (!strcasecmp(str, "console"))
       return PGAGROAL_LOGGING_TYPE_CONSOLE;
@@ -1493,7 +1646,8 @@ static int as_logging_type(char* str)
    return 0;
 }
 
-static int as_logging_level(char* str)
+static int
+as_logging_level(char* str)
 {
    if (!strcasecmp(str, "debug5"))
       return PGAGROAL_LOGGING_LEVEL_DEBUG5;
@@ -1525,7 +1679,8 @@ static int as_logging_level(char* str)
    return PGAGROAL_LOGGING_LEVEL_INFO;
 }
 
-static int as_validation(char* str)
+static int
+as_validation(char* str)
 {
    if (!strcasecmp(str, "off"))
       return VALIDATION_OFF;

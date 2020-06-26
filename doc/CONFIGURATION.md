@@ -41,6 +41,7 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | allow_unknown_users | `true` | Bool | No | Allow unknown users to connect |
 | authentication_timeout | 5 | Int | No | The number of seconds the process will wait for valid credentials |
 | pipeline | `auto` | String | No | The pipeline type (`auto`, `performance`, `session`) |
+| auth_query | `off` | Bool | No | Enable authentication query |
 | tls | `off` | Bool | No | Enable Transport Layer Security (TLS) |
 | tls_cert_file | | String | No | Certificate file for TLS |
 | tls_key_file | | String | No | Private key file for TLS |
@@ -132,3 +133,10 @@ The configuration is loaded from either the path specified by the `-A` flag or `
 If pgagroal has both Transport Layer Security (TLS) and `management` enabled then `pgagroal-cli` can
 connect with TLS using the files `~/.pgagroal/pgagroal.key` (must be 0600 permission),
 `~/.pgagroal/pgagroal.crt` and `~/.pgagroal/root.crt`.
+
+# pgagroal_superuser configuration
+
+The `pgagroal_superuser` configuration defines the superuser known to the system. This file is created and managed through
+the `pgagroal-admin` tool. It may only have one user defined.
+
+The configuration is loaded from either the path specified by the `-S` flag or `/etc/pgagroal/pgagroal_superuser.conf`.

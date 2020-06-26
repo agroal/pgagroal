@@ -84,6 +84,9 @@ authentication_timeout
 pipeline
   The pipeline type. Valid options are auto, performance and session. Default is auto
 
+auth_query
+  Enable authentication query. Default is false
+
 tls
   Enable Transport Layer Security (TLS). Default is false
 

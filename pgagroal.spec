@@ -40,6 +40,7 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/GETTING_STARTED.md %{buildroot}%{_docdir}/%{name}/GETTING_STARTED.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/PERFORMANCE.md %{buildroot}%{_docdir}/%{name}/PERFORMANCE.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/RPM.md %{buildroot}%{_docdir}/%{name}/RPM.md
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/RPM.md %{buildroot}%{_docdir}/%{name}/SECURITY.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/images/perf-extended.png %{buildroot}%{_docdir}/%{name}/images/perf-extended.png
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/images/perf-prepared.png %{buildroot}%{_docdir}/%{name}/images/perf-prepared.png
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/images/perf-readonly.png %{buildroot}%{_docdir}/%{name}/images/perf-readonly.png
@@ -77,6 +78,7 @@ cd %{buildroot}%{_libdir}/
 %{_docdir}/%{name}/PERFORMANCE.md
 %{_docdir}/%{name}/README.md
 %{_docdir}/%{name}/RPM.md
+%{_docdir}/%{name}/SECURITY.md
 %{_docdir}/%{name}/images/perf-extended.png
 %{_docdir}/%{name}/images/perf-prepared.png
 %{_docdir}/%{name}/images/perf-readonly.png

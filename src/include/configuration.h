@@ -129,6 +129,15 @@ pgagroal_read_admins_configuration(char* filename, void* shmem);
 int
 pgagroal_validate_admins_configuration(void* shmem);
 
+/**
+ * Read the superuser from a file
+ * @param filename The file name
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_read_superuser_configuration(char* filename, void* shmem);
+
 #ifdef __cplusplus
 }
 #endif

@@ -68,6 +68,25 @@ int
 pgagroal_extract_username_database(struct message* msg, char** username, char** database, char** appname);
 
 /**
+ * Extract a message from a message
+ * @param type The message type to be extracted
+ * @param msg The message
+ * @param extracted The resulting message
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_extract_message(char type, struct message* msg, struct message** extracted);
+
+/**
+ * Extract an error message from a message
+ * @param msg The message
+ * @param error The error
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_extract_error_message(struct message* msg, char** error);
+
+/**
  * Get a string for the state
  * @param state
  * @return The string

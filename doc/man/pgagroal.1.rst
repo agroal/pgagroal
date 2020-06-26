@@ -33,6 +33,12 @@ OPTIONS
 -u, --users USERS_FILE
   Set the path to the pgagroal_users.conf file
 
+-A, --admins ADMINS_FILE
+  Set the path to the pgagroal_admins.conf file
+
+-S, --superuser SUPERUSER_FILE
+  Set the path to the pgagroal_superuser.conf file
+
 -d, --daemon
   Run as a daemon
 
