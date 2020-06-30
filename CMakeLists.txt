@@ -76,6 +76,13 @@ else ()
   message(FATAL_ERROR "rst2man needed")
 endif()
 
+find_package(Systemd)
+if (SYSTEMD_FOUND)
+  message(STATUS "systemd found")
+else ()
+  message(FATAL_ERROR "systemd needed")
+endif()
+
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/src/")
 
 add_subdirectory(doc)

@@ -61,6 +61,7 @@
 #include <sys/types.h>
 
 #include <openssl/crypto.h>
+#include <systemd/sd-daemon.h>
 
 #define MAX_FDS 64
 
@@ -258,6 +259,10 @@ main(int argc, char **argv)
    char* superuser_path = NULL;
    bool daemon = false;
    pid_t pid, sid;
+   int sds;
+   char** sd_names = NULL;
+   bool has_unix_socket = false;
+   bool has_main_sockets = false;
    void* tmp_shmem = NULL;
    struct signal_info signal_watcher[6];
    struct periodic_info idle_timeout;
@@ -331,6 +336,7 @@ main(int argc, char **argv)
    if (getuid() == 0)
    {
       printf("pgagroal: Using the root account is not allowed\n");
+      sd_notify(0, "STATUS=Using the root account is not allowed");
       exit(1);
    }
 
@@ -345,6 +351,7 @@ main(int argc, char **argv)
       if (pgagroal_read_configuration(configuration_path, shmem))
       {
          printf("pgagroal: Configuration not found: %s\n", configuration_path);
+         sd_notifyf(0, "STATUS=Configuration not found: %s", configuration_path);
          exit(1);
       }
    }
@@ -353,6 +360,7 @@ main(int argc, char **argv)
       if (pgagroal_read_configuration("/etc/pgagroal/pgagroal.conf", shmem))
       {
          printf("pgagroal: Configuration not found: /etc/pgagroal/pgagroal.conf\n");
+         sd_notify(0, "STATUS=Configuration not found: /etc/pgagroal/pgagroal.conf");
          exit(1);
       }
    }
@@ -362,6 +370,7 @@ main(int argc, char **argv)
       if (pgagroal_read_hba_configuration(hba_path, shmem))
       {
          printf("pgagroal: HBA configuration not found: %s\n", hba_path);
+         sd_notifyf(0, "STATUS=HBA configuration not found: %s", hba_path);
          exit(1);
       }
    }
@@ -370,6 +379,7 @@ main(int argc, char **argv)
       if (pgagroal_read_hba_configuration("/etc/pgagroal/pgagroal_hba.conf", shmem))
       {
          printf("pgagroal: HBA configuration not found: /etc/pgagroal/pgagroal_hba.conf\n");
+         sd_notify(0, "STATUS=HBA configuration not found: /etc/pgagroal/pgagroal_hba.conf");
          exit(1);
       }
    }
@@ -379,6 +389,7 @@ main(int argc, char **argv)
       if (pgagroal_read_limit_configuration(limit_path, shmem))
       {
          printf("pgagroal: LIMIT configuration not found: %s\n", limit_path);
+         sd_notifyf(0, "STATUS=LIMIT configuration not found: %s", limit_path);
          exit(1);
       }
    }
@@ -393,16 +404,19 @@ main(int argc, char **argv)
       if (ret == 1)
       {
          printf("pgagroal: USERS configuration not found: %s\n", users_path);
+         sd_notifyf(0, "STATUS=USERS configuration not found: %s", users_path);
          exit(1);
       }
       else if (ret == 2)
       {
          printf("pgagroal: Invalid master key file\n");
+         sd_notify(0, "STATUS=Invalid master key file");
          exit(1);
       }
       else if (ret == 3)
       {
          printf("pgagroal: USERS: Too many users defined %d (max %d)\n", config->number_of_users, NUMBER_OF_USERS);
+         sd_notifyf(0, "STATUS=USERS: Too many users defined %d (max %d)", config->number_of_users, NUMBER_OF_USERS);
          exit(1);
       }
    }
@@ -417,16 +431,19 @@ main(int argc, char **argv)
       if (ret == 1)
       {
          printf("pgagroal: ADMINS configuration not found: %s\n", admins_path);
+         sd_notifyf(0, "STATUS=ADMINS configuration not found: %s", admins_path);
          exit(1);
       }
       else if (ret == 2)
       {
          printf("pgagroal: Invalid master key file\n");
+         sd_notify(0, "STATUS=Invalid master key file");
          exit(1);
       }
       else if (ret == 3)
       {
          printf("pgagroal: ADMINS: Too many admins defined %d (max %d)\n", config->number_of_admins, NUMBER_OF_ADMINS);
+         sd_notifyf(0, "STATUS=ADMINS: Too many admins defined %d (max %d)", config->number_of_admins, NUMBER_OF_ADMINS);
          exit(1);
       }
    }
@@ -441,16 +458,19 @@ main(int argc, char **argv)
       if (ret == 1)
       {
          printf("pgagroal: SUPERUSER configuration not found: %s\n", superuser_path);
+         sd_notifyf(0, "STATUS=SUPERUSER configuration not found: %s", superuser_path);
          exit(1);
       }
       else if (ret == 2)
       {
          printf("pgagroal: Invalid master key file\n");
+         sd_notify(0, "STATUS=Invalid master key file");
          exit(1);
       }
       else if (ret == 3)
       {
          printf("pgagroal: SUPERUSER: Too many superusers defined (max 1)\n");
+         sd_notify(0, "STATUS=SUPERUSER: Too many superusers defined (max 1)");
          exit(1);
       }
    }
@@ -459,24 +479,76 @@ main(int argc, char **argv)
       pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_superuser.conf", shmem);
    }
 
-   if (pgagroal_validate_configuration(shmem))
+   /* systemd sockets */
+   sds = sd_listen_fds_with_names(0, &sd_names);
+   if (sds > 0)
    {
+      int m = 0;
+
+      main_fds_length = 0;
+
+      for (int i = 0; i < sds; i++)
+      {
+         int fd = SD_LISTEN_FDS_START + i;
+
+         if (sd_is_socket(fd, AF_INET, 0, -1) || sd_is_socket(fd, AF_INET6, 0, -1))
+         {
+            main_fds_length++;
+         }
+      }
+
+      if (main_fds_length > 0)
+      {
+         main_fds = malloc(main_fds_length * sizeof(int));
+      }
+
+      for (int i = 0; i < sds; i++)
+      {
+         int fd = SD_LISTEN_FDS_START + i;
+
+         if (sd_is_socket(fd, AF_UNIX, 0, -1))
+         {
+            unix_socket = fd;
+            has_unix_socket = true;
+         }
+         else if (sd_is_socket(fd, AF_INET, 0, -1) || sd_is_socket(fd, AF_INET6, 0, -1))
+         {
+            *(main_fds + (m * sizeof(int))) = fd;
+            has_main_sockets = true;
+            m++;
+         }
+      }
+
+      for (int i = 0; i < sds; i++)
+      {
+         free(sd_names[i]);
+      }
+      free(sd_names);
+   }
+
+   if (pgagroal_validate_configuration(has_unix_socket, has_main_sockets, shmem))
+   {
+      sd_notify(0, "STATUS=Invalid configuration");
       exit(1);
    }
    if (pgagroal_validate_hba_configuration(shmem))
    {
+      sd_notify(0, "STATUS=Invalid HBA configuration");
       exit(1);
    }
    if (pgagroal_validate_limit_configuration(shmem))
    {
+      sd_notify(0, "STATUS=Invalid LIMIT configuration");
       exit(1);
    }
    if (pgagroal_validate_users_configuration(shmem))
    {
+      sd_notify(0, "STATUS=Invalid USERS configuration");
       exit(1);
    }
    if (pgagroal_validate_admins_configuration(shmem))
    {
+      sd_notify(0, "STATUS=Invalid ADMINS configuration");
       exit(1);
    }
 
@@ -490,6 +562,7 @@ main(int argc, char **argv)
    if (getrlimit(RLIMIT_NOFILE, &flimit) == -1)
    {
       printf("pgagroal: Unable to find limit due to %s\n", strerror(errno));
+      sd_notifyf(0, "STATUS=Unable to find limit due to %s", strerror(errno));
       exit(1);
    }
 
@@ -497,6 +570,9 @@ main(int argc, char **argv)
    if (config->max_connections > (flimit.rlim_cur - 30))
    {
       printf("pgagroal: max_connections is larger than the number of available file descriptors for connections (%ld)\n", flimit.rlim_cur - 30);
+      sd_notifyf(0,
+                 "STATUS=max_connections is larger than the number of available file descriptors for connections (%ld)",
+                 flimit.rlim_cur - 30);
       exit(1);
    }
 
@@ -505,6 +581,7 @@ main(int argc, char **argv)
       if (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
       {
          printf("pgagroal: Daemon mode can't be used with console logging\n");
+         sd_notify(0, "STATUS=Daemon mode can't be used with console logging");
          exit(1);
       }
 
@@ -513,6 +590,7 @@ main(int argc, char **argv)
       if (pid < 0)
       {
          printf("pgagroal: Daemon mode failed\n");
+         sd_notify(0, "STATUS=Daemon mode failed");
          exit(1);
       }
 
@@ -535,22 +613,31 @@ main(int argc, char **argv)
    pgagroal_pool_init(shmem);
 
    /* Bind Unix Domain Socket for file descriptor transfers */
-   if (pgagroal_bind_unix_socket(config->unix_socket_dir, shmem, &unix_socket))
+   if (!has_unix_socket)
    {
-      ZF_LOGF("pgagroal: Could not bind to %s\n", config->unix_socket_dir);
-      exit(1);
+      if (pgagroal_bind_unix_socket(config->unix_socket_dir, shmem, &unix_socket))
+      {
+         ZF_LOGF("pgagroal: Could not bind to %s\n", config->unix_socket_dir);
+         sd_notifyf(0, "STATUS=Could not bind to %s", config->unix_socket_dir);
+         exit(1);
+      }
    }
 
    /* Bind main socket */
-   if (pgagroal_bind(config->host, config->port, shmem, &main_fds, &main_fds_length))
+   if (!has_main_sockets)
    {
-      ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
-      exit(1);
+      if (pgagroal_bind(config->host, config->port, shmem, &main_fds, &main_fds_length))
+      {
+         ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
+         sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->port);
+         exit(1);
+      }
    }
 
    if (main_fds_length > MAX_FDS)
    {
       ZF_LOGF("pgagroal: Too many descriptors %d\n", main_fds_length);
+      sd_notifyf(0, "STATUS=Too many descriptors %d", main_fds_length);
       exit(1);
    }
 
@@ -560,6 +647,7 @@ main(int argc, char **argv)
    {
       ZF_LOGF("pgagroal: No loop implementation (%x) (%x)\n",
               pgagroal_libev(config->libev), ev_supported_backends());
+      sd_notifyf(0, "STATUS=No loop implementation (%x) (%x)", pgagroal_libev(config->libev), ev_supported_backends());
       exit(1);
    }
 
@@ -586,6 +674,7 @@ main(int argc, char **argv)
       if (pgagroal_tls_valid(shmem))
       {
          ZF_LOGF("pgagroal: Invalid TLS configuration");
+         sd_notify(0, "STATUS=Invalid TLS configuration");
          exit(1);
       }
 
@@ -594,12 +683,14 @@ main(int argc, char **argv)
    else
    {
       ZF_LOGF("pgagroal: Unknown pipeline identifier (%d)", config->pipeline);
+      sd_notifyf(0, "STATUS=Unknown pipeline identifier (%d)", config->pipeline);
       exit(1);
    }
 
    if (main_pipeline.initialize(shmem, &pipeline_shmem, &pipeline_shmem_size))
    {
       ZF_LOGF("pgagroal: Pipeline initialize error (%d)", config->pipeline);
+      sd_notifyf(0, "STATUS=Pipeline initialize error (%d)", config->pipeline);
       exit(1);
    }
 
@@ -639,12 +730,14 @@ main(int argc, char **argv)
       if (pgagroal_bind(config->host, config->metrics, shmem, &metrics_fds, &metrics_fds_length))
       {
          ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->metrics);
+         sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->metrics);
          exit(1);
       }
 
       if (metrics_fds_length > MAX_FDS)
       {
          ZF_LOGF("pgagroal: Too many descriptors %d\n", metrics_fds_length);
+         sd_notifyf(0, "STATUS=Too many descriptors %d", metrics_fds_length);
          exit(1);
       }
 
@@ -657,12 +750,14 @@ main(int argc, char **argv)
       if (pgagroal_bind(config->host, config->management, shmem, &management_fds, &management_fds_length))
       {
          ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->management);
+         sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->management);
          exit(1);
       }
 
       if (management_fds_length > MAX_FDS)
       {
          ZF_LOGF("pgagroal: Too many descriptors %d\n", management_fds_length);
+         sd_notifyf(0, "STATUS=Too many descriptors %d", management_fds_length);
          exit(1);
       }
 
@@ -711,12 +806,18 @@ main(int argc, char **argv)
       }
    }
 
+   sd_notifyf(0,
+              "READY=1\n"
+              "STATUS=Running\n"
+              "MAINPID=%lu", (unsigned long)getpid());
+
    while (keep_running)
    {
       ev_loop(main_loop, 0);
    }
 
    ZF_LOGI("pgagroal: shutdown");
+   sd_notify(0, "STOPPING=1");
    pgagroal_pool_shutdown(shmem);
 
    shutdown_management();

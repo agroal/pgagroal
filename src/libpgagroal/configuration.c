@@ -711,7 +711,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
  *
  */
 int
-pgagroal_validate_configuration(void* shmem)
+pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets, void* shmem)
 {
    bool tls;
    struct configuration* config;
@@ -720,22 +720,28 @@ pgagroal_validate_configuration(void* shmem)
 
    config = (struct configuration*)shmem;
 
-   if (strlen(config->host) == 0)
+   if (!has_main_sockets)
    {
-      ZF_LOGF("pgagroal: No host defined");
-      return 1;
+      if (strlen(config->host) == 0)
+      {
+         ZF_LOGF("pgagroal: No host defined");
+         return 1;
+      }
+
+      if (config->port <= 0)
+      {
+         ZF_LOGF("pgagroal: No port defined");
+         return 1;
+      }
    }
 
-   if (config->port <= 0)
+   if (!has_unix_socket)
    {
-      ZF_LOGF("pgagroal: No port defined");
-      return 1;
-   }
-
-   if (strlen(config->unix_socket_dir) == 0)
-   {
-      ZF_LOGF("pgagroal: No unix_socket_dir defined");
-      return 1;
+      if (strlen(config->unix_socket_dir) == 0)
+      {
+         ZF_LOGF("pgagroal: No unix_socket_dir defined");
+         return 1;
+      }
    }
 
    if (config->backlog <= 0)

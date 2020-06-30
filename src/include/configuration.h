@@ -55,11 +55,13 @@ pgagroal_read_configuration(char* filename, void* shmem);
 
 /**
  * Validate the configuration
- * @param filename The file name
+ * @param has_unix_socket Has Unix socket
+ * @param has_main_sockets Has main sockets
+ * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_validate_configuration(void* shmem);
+pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets, void* shmem);
 
 /**
  * Read the HBA configuration from a file

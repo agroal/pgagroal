@@ -13,6 +13,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${LIBEV_INCLUDE_DIRS}
   ${OPENSSL_INCLUDE_DIRS}
+  ${SYSTEMD_INCLUDE_DIRS}
 )
 
 #
@@ -21,6 +22,7 @@ include_directories(
 link_libraries(
   ${LIBEV_LIBRARIES}
   ${OPENSSL_LIBRARIES}
+  ${SYSTEMD_LIBRARIES}
 )
 
 #
