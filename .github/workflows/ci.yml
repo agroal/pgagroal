@@ -22,7 +22,7 @@ jobs:
     - name: Install gcc-9
       run: sudo apt install -y gcc-9
     - name: Install systemd
-      run: sudo apt install -y systemd systemd-devel
+      run: sudo apt install -y libsystemd-dev
     - name: Install rst2man
       run: sudo apt install -y python-docutils
     - name: Update alternatives
