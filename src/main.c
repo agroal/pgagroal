@@ -260,7 +260,6 @@ main(int argc, char **argv)
    bool daemon = false;
    pid_t pid, sid;
    int sds;
-   char** sd_names = NULL;
    bool has_unix_socket = false;
    bool has_main_sockets = false;
    void* tmp_shmem = NULL;
@@ -480,7 +479,7 @@ main(int argc, char **argv)
    }
 
    /* systemd sockets */
-   sds = sd_listen_fds_with_names(0, &sd_names);
+   sds = sd_listen_fds(0);
    if (sds > 0)
    {
       int m = 0;
@@ -518,12 +517,6 @@ main(int argc, char **argv)
             m++;
          }
       }
-
-      for (int i = 0; i < sds; i++)
-      {
-         free(sd_names[i]);
-      }
-      free(sd_names);
    }
 
    if (pgagroal_validate_configuration(has_unix_socket, has_main_sockets, shmem))
