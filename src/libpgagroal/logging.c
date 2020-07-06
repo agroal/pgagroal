@@ -32,6 +32,7 @@
 #include <zf_log.h>
 
 /* system */
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -111,7 +112,8 @@ pgagroal_start_logging(void* shmem)
 
       if (!log_file)
       {
-         ZF_LOGW("Failed to open log file %s", strlen(config->log_path) > 0 ? config->log_path : "pgagroal.log");
+         ZF_LOGW("Failed to open log file %s due to %s", strlen(config->log_path) > 0 ? config->log_path : "pgagroal.log", strerror(errno));
+         errno = 0;
          return 1;
       }
 
@@ -140,7 +142,14 @@ pgagroal_stop_logging(void* shmem)
 
    if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
    {
-      return fclose(log_file);
+      if (log_file != NULL)
+      {
+         return fclose(log_file);
+      }
+      else
+      {
+         return 1;
+      }
    }
    else if (config->log_type == PGAGROAL_LOGGING_TYPE_SYSLOG)
    {
