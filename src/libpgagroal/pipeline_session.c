@@ -235,7 +235,8 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
    return;
 
 client_error:
-   ZF_LOGD("client_fd %d - %s (%d)", wi->client_fd, strerror(errno), status);
+   ZF_LOGW("Client error: %s (socket %d status %d)", strerror(errno), wi->client_fd, status);
+   errno = 0;
 
    client_inactive(wi->slot, wi->pipeline_shmem);
 
@@ -245,7 +246,8 @@ client_error:
    return;
 
 server_error:
-   ZF_LOGD("server_fd %d - %s (%d)", wi->server_fd, strerror(errno), status);
+   ZF_LOGW("Server error: %s (socket %d status %d)", strerror(errno), wi->server_fd, status);
+   errno = 0;
 
    client_inactive(wi->slot, wi->pipeline_shmem);
 
@@ -308,7 +310,8 @@ session_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    return;
 
 client_error:
-   ZF_LOGD("client_fd %d - %s (%d)", wi->client_fd, strerror(errno), status);
+   ZF_LOGW("Client error: %s (socket %d status %d)", strerror(errno), wi->client_fd, status);
+   errno = 0;
 
    client_inactive(wi->slot, wi->pipeline_shmem);
 
@@ -318,7 +321,8 @@ client_error:
    return;
 
 server_error:
-   ZF_LOGD("server_fd %d - %s (%d)", wi->server_fd, strerror(errno), status);
+   ZF_LOGW("Server error: %s (socket %d status %d)", strerror(errno), wi->server_fd, status);
+   errno = 0;
 
    client_inactive(wi->slot, wi->pipeline_shmem);
 
