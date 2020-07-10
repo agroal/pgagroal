@@ -123,7 +123,7 @@ pgagroal_start_logging(void* shmem)
    {
       openlog("pgagroal", LOG_CONS | LOG_PERROR | LOG_PID, LOG_USER);
 
-      const unsigned put_mask = ZF_LOG_PUT_STD & !ZF_LOG_PUT_CTX;
+      const unsigned put_mask = ZF_LOG_PUT_STD;
       zf_log_set_output_v(put_mask, 0, syslog_callback);
    }
 
