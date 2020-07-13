@@ -914,7 +914,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGD("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
@@ -933,7 +933,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGD("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
@@ -971,7 +971,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGD("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
@@ -990,7 +990,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGD("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
@@ -1009,7 +1009,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGD("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
@@ -1028,7 +1028,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGD("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
