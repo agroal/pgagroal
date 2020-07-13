@@ -1071,15 +1071,23 @@ static int
 write_message(int socket, bool nodelay, struct message* msg)
 {
    bool keep_write = false;
-   ssize_t numbytes;  
+   ssize_t numbytes;
+   int offset;
+   ssize_t totalbytes;
+   ssize_t remaining;
 
 #ifdef DEBUG
    assert(msg != NULL);
 #endif
 
+   numbytes = 0;
+   offset = 0;
+   totalbytes = 0;
+   remaining = msg->length;
+
    do
    {
-      numbytes = write(socket, msg->data, msg->length);
+      numbytes = write(socket, msg->data + offset, remaining);
 
       if (likely(numbytes == msg->length))
       {
@@ -1087,8 +1095,18 @@ write_message(int socket, bool nodelay, struct message* msg)
       }
       else if (numbytes != -1)
       {
-         ZF_LOGD("Write - %zd vs %zd", numbytes, msg->length);
+         offset += numbytes;
+         totalbytes += numbytes;
+         remaining -= numbytes;
+
+         if (totalbytes == msg->length)
+         {
+            return MESSAGE_STATUS_OK;
+         }
+
+         ZF_LOGD("Write %d - %zd/%zd vs %zd", socket, numbytes, totalbytes, msg->length);
          keep_write = true;
+         errno = 0;
       }
       else
       {
@@ -1098,7 +1116,16 @@ write_message(int socket, bool nodelay, struct message* msg)
          }
          else
          {
-            keep_write = true;
+            switch (errno)
+            {
+               case EAGAIN:
+                  keep_write = true;
+                  errno = 0;
+                  break;
+               default:
+                  keep_write = false;
+                  break;
+            }
          }
       }
    } while (keep_write);
@@ -1193,22 +1220,46 @@ ssl_write_message(SSL* ssl, bool nodelay, struct message* msg)
 {
    bool keep_write = false;
    ssize_t numbytes;
+   int offset;
+   ssize_t totalbytes;
+   ssize_t remaining;
+
+#ifdef DEBUG
+   assert(msg != NULL);
+#endif
+
+   numbytes = 0;
+   offset = 0;
+   totalbytes = 0;
+   remaining = msg->length;
 
    do
    {
-      numbytes = SSL_write(ssl, msg->data, msg->length);
+      numbytes = SSL_write(ssl, msg->data + offset, remaining);
 
       if (likely(numbytes == msg->length))
       {
          return MESSAGE_STATUS_OK;
       }
+      else if (numbytes > 0)
+      {
+         offset += numbytes;
+         totalbytes += numbytes;
+         remaining -= numbytes;
+
+         if (totalbytes == msg->length)
+         {
+            return MESSAGE_STATUS_OK;
+         }
+
+         ZF_LOGD("SSL/Write %d - %zd/%zd vs %zd", SSL_get_fd(ssl), numbytes, totalbytes, msg->length);
+         keep_write = true;
+         errno = 0;
+      }
       else
       {
-         int err;
+         int err = SSL_get_error(ssl, numbytes);
 
-         pgagroal_memory_free();
-
-         err = SSL_get_error(ssl, numbytes);
          switch (err)
          {
             case SSL_ERROR_ZERO_RETURN:
@@ -1224,6 +1275,7 @@ ssl_write_message(SSL* ssl, bool nodelay, struct message* msg)
             case SSL_ERROR_WANT_CLIENT_HELLO_CB:
 #endif
 #endif
+               errno = 0;
                keep_write = true;
                break;
             case SSL_ERROR_SYSCALL:
