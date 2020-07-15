@@ -898,12 +898,12 @@ connection_details(void* shmem, int slot)
       case STATE_NOTINIT:
          ZF_LOGD("pgagroal_pool_status: State: NOTINIT");
          ZF_LOGD("                      Slot: %d", slot);
-         ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGD("                      FD: %d", connection.fd);
          break;
       case STATE_INIT:
          ZF_LOGD("pgagroal_pool_status: State: INIT");
          ZF_LOGD("                      Slot: %d", slot);
-         ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGD("                      FD: %d", connection.fd);
          break;
       case STATE_FREE:
          ZF_LOGD("pgagroal_pool_status: State: FREE");
@@ -952,7 +952,7 @@ connection_details(void* shmem, int slot)
          ZF_LOGD("                      AppName: %s", connection.appname);
          ZF_LOGD("                      Rule: %d", connection.limit_rule);
          ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGV("                      FD: %d", connection.fd);
+         ZF_LOGD("                      FD: %d", connection.fd);
          ZF_LOGV("                      PID: %d", connection.pid);
          ZF_LOGV("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
