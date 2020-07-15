@@ -143,7 +143,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
    char* ptr = NULL;
    size_t max;
    struct configuration* config;
-   int idx_server = -1;
+   int idx_server = 0;
    struct server srv;
 
    file = fopen(filename, "r");
@@ -170,19 +170,18 @@ pgagroal_read_configuration(char* filename, void* shmem)
                memcpy(&section, line + 1, max);
                if (strcmp(section, "pgagroal"))
                {
-                  idx_server++;
-
-                  if (idx_server > 0 && idx_server < NUMBER_OF_SERVERS)
+                  if (idx_server > 0 && idx_server <= NUMBER_OF_SERVERS)
                   {
-                     memcpy(&(config->servers[idx_server]), &srv, sizeof(struct server));
+                     memcpy(&(config->servers[idx_server - 1]), &srv, sizeof(struct server));
                   }
-                  else if (idx_server >= NUMBER_OF_SERVERS)
+                  else if (idx_server > NUMBER_OF_SERVERS)
                   {
                      printf("Maximum number of servers exceeded\n");
                   }
 
                   memset(&srv, 0, sizeof(struct server));
                   memcpy(&srv.name, &section, strlen(section));
+                  idx_server++;
                }
             }
          }
@@ -694,10 +693,9 @@ pgagroal_read_configuration(char* filename, void* shmem)
       }
    }
 
-   if (idx_server != -1 && strlen(srv.name) > 0)
+   if (strlen(srv.name) > 0)
    {
-      memcpy(&(config->servers[idx_server]), &srv, sizeof(struct server));
-      idx_server++;
+      memcpy(&(config->servers[idx_server - 1]), &srv, sizeof(struct server));
    }
 
    config->number_of_servers = idx_server;
