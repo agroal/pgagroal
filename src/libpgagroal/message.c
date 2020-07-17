@@ -46,10 +46,10 @@
 #include <openssl/ssl.h>
 
 static int read_message(int socket, bool block, int timeout, struct message** msg);
-static int write_message(int socket, bool nodelay, struct message* msg);
+static int write_message(int socket, struct message* msg);
 
 static int ssl_read_message(SSL* ssl, int timeout, struct message** msg);
-static int ssl_write_message(SSL* ssl, bool nodelay, struct message* msg);
+static int ssl_write_message(SSL* ssl, struct message* msg);
 
 int
 pgagroal_read_block_message(SSL* ssl, int socket, struct message** msg)
@@ -78,21 +78,10 @@ pgagroal_write_message(SSL* ssl, int socket, struct message* msg)
 {
    if (ssl == NULL)
    {
-      return write_message(socket, false, msg);
+      return write_message(socket, msg);
    }
 
-   return ssl_write_message(ssl, false, msg);
-}
-
-int
-pgagroal_write_nodelay_message(SSL* ssl, int socket, struct message* msg)
-{
-   if (ssl == NULL)
-   {
-      return write_message(socket, true, msg);
-   }
-
-   return ssl_write_message(ssl, true, msg);
+   return ssl_write_message(ssl, msg);
 }
 
 int
@@ -104,7 +93,7 @@ pgagroal_read_socket_message(int socket, struct message** msg)
 int
 pgagroal_write_socket_message(int socket, struct message* msg)
 {
-   return write_message(socket, false, msg);
+   return write_message(socket, msg);
 }
 
 int
@@ -116,7 +105,7 @@ pgagroal_read_ssl_message(SSL* ssl, struct message** msg)
 int
 pgagroal_write_ssl_message(SSL* ssl, struct message* msg)
 {
-   return ssl_write_message(ssl, false, msg);
+   return ssl_write_message(ssl, msg);
 }
 
 int
@@ -194,10 +183,10 @@ pgagroal_write_empty(SSL* ssl, int socket)
 
    if (ssl == NULL)
    {
-      return write_message(socket, false, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, false, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -217,10 +206,10 @@ pgagroal_write_notice(SSL* ssl, int socket)
 
    if (ssl == NULL)
    {
-      return write_message(socket, false, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, false, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -240,10 +229,10 @@ pgagroal_write_tls(SSL* ssl, int socket)
 
    if (ssl == NULL)
    {
-      return write_message(socket, false, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, false, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -269,10 +258,10 @@ pgagroal_write_pool_full(SSL* ssl, int socket)
 
    if (ssl == NULL)
    {
-      return write_message(socket, true, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, true, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -298,10 +287,10 @@ pgagroal_write_connection_refused(SSL* ssl, int socket)
 
    if (ssl == NULL)
    {
-      return write_message(socket, true, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, true, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -323,10 +312,10 @@ pgagroal_write_connection_refused_old(SSL* ssl, int socket)
 
    if (ssl == NULL)
    {
-      return write_message(socket, true, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, true, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -357,10 +346,10 @@ pgagroal_write_bad_password(SSL* ssl, int socket, char* username)
 
    if (ssl == NULL)
    {
-      return write_message(socket, true, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, true, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -390,10 +379,10 @@ pgagroal_write_unsupported_security_model(SSL* ssl, int socket, char* username)
 
    if (ssl == NULL)
    {
-      return write_message(socket, true, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, true, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -445,10 +434,10 @@ pgagroal_write_no_hba_entry(SSL* ssl, int socket, char* username, char* database
 
    if (ssl == NULL)
    {
-      return write_message(socket, true, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, true, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -474,11 +463,11 @@ pgagroal_write_deallocate_all(SSL* ssl, int socket)
 
    if (ssl == NULL)
    {
-      status = write_message(socket, true, &msg);
+      status = write_message(socket, &msg);
    }
    else
    {
-      status = ssl_write_message(ssl, true, &msg);
+      status = ssl_write_message(ssl, &msg);
    }
    if (status != MESSAGE_STATUS_OK)
    {
@@ -531,11 +520,11 @@ pgagroal_write_reset_all(SSL* ssl, int socket)
 
    if (ssl == NULL)
    {
-      status = write_message(socket, true, &msg);
+      status = write_message(socket, &msg);
    }
    else
    {
-      status = ssl_write_message(ssl, true, &msg);
+      status = ssl_write_message(ssl, &msg);
    }
    if (status != MESSAGE_STATUS_OK)
    {
@@ -583,10 +572,10 @@ pgagroal_write_terminate(SSL* ssl, int socket)
 
    if (ssl == NULL)
    {
-      return write_message(socket, true, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, true, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -608,10 +597,10 @@ pgagroal_write_auth_password(SSL* ssl, int socket)
 
    if (ssl == NULL)
    {
-      return write_message(socket, true, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, true, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -662,10 +651,10 @@ pgagroal_write_auth_md5(SSL* ssl, int socket, char salt[4])
 
    if (ssl == NULL)
    {
-      return write_message(socket, true, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, true, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -713,10 +702,10 @@ pgagroal_write_auth_scram256(SSL* ssl, int socket)
 
    if (ssl == NULL)
    {
-      return write_message(socket, true, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, true, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -850,10 +839,10 @@ pgagroal_write_auth_success(SSL* ssl, int socket)
 
    if (ssl == NULL)
    {
-      return write_message(socket, true, &msg);
+      return write_message(socket, &msg);
    }
 
-   return ssl_write_message(ssl, true, &msg);
+   return ssl_write_message(ssl, &msg);
 }
 
 int
@@ -935,7 +924,7 @@ pgagroal_connection_isvalid(int socket)
    msg.length = size;
    msg.data = &valid;
 
-   status = write_message(socket, true, &msg);
+   status = write_message(socket, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -1068,7 +1057,7 @@ read_message(int socket, bool block, int timeout, struct message** msg)
 }
 
 static int
-write_message(int socket, bool nodelay, struct message* msg)
+write_message(int socket, struct message* msg)
 {
    bool keep_write = false;
    ssize_t numbytes;
@@ -1110,22 +1099,15 @@ write_message(int socket, bool nodelay, struct message* msg)
       }
       else
       {
-         if (!nodelay)
+         switch (errno)
          {
-            return MESSAGE_STATUS_ERROR;
-         }
-         else
-         {
-            switch (errno)
-            {
-               case EAGAIN:
-                  keep_write = true;
-                  errno = 0;
-                  break;
-               default:
-                  keep_write = false;
-                  break;
-            }
+            case EAGAIN:
+               keep_write = true;
+               errno = 0;
+               break;
+            default:
+               keep_write = false;
+               break;
          }
       }
    } while (keep_write);
@@ -1216,7 +1198,7 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
 }
 
 static int
-ssl_write_message(SSL* ssl, bool nodelay, struct message* msg)
+ssl_write_message(SSL* ssl, struct message* msg)
 {
    bool keep_write = false;
    ssize_t numbytes;
@@ -1291,7 +1273,7 @@ ssl_write_message(SSL* ssl, bool nodelay, struct message* msg)
          }
          ERR_clear_error();
 
-         if (!nodelay || !keep_write)
+         if (!keep_write)
          {
             return MESSAGE_STATUS_ERROR;
          }
