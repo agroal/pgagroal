@@ -763,6 +763,12 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets, voi
       return 1;
    }
 
+   if (config->max_connections <= 0)
+   {
+      ZF_LOGF("pgagroal: max_connections must be greater than 0");
+      return 1;
+   }
+
    if (config->number_of_servers <= 0)
    {
       ZF_LOGF("pgagroal: No servers defined");
