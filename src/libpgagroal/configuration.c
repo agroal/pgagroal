@@ -736,6 +736,12 @@ pgagroal_validate_configuration(void* shmem)
       config->disconnect_client = 0;
    }
 
+   if (config->max_connections <= 0)
+   {
+      ZF_LOGF("pgagroal: max_connections must be greater than 0");
+      return 1;
+   }
+
    if (config->number_of_servers <= 0)
    {
       ZF_LOGF("pgagroal: No servers defined");
