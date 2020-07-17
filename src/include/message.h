@@ -87,16 +87,6 @@ int
 pgagroal_write_message(SSL* ssl, int socket, struct message* msg);
 
 /**
- * Write a message with NODELAY
- * @param ssl The SSL struct
- * @param socket The socket descriptor
- * @param msg The message
- * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
- */
-int
-pgagroal_write_nodelay_message(SSL* ssl, int socket, struct message* msg);
-
-/**
  * Create a message
  * @param data A pointer to the data
  * @param length The length of the message

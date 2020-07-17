@@ -50,11 +50,15 @@
 #include <sys/types.h>
 #include <sys/un.h>
 
+#include <openssl/err.h>
 #include <openssl/ssl.h>
 
 #define MANAGEMENT_HEADER_SIZE 5
 
-static int read_complete(SSL* ssl, int socket, void* buf, size_t count);
+static int read_complete(SSL* ssl, int socket, void* buf, size_t size);
+static int write_complete(SSL* ssl, int socket, void* buf, size_t size);
+static int write_socket(int socket, void* buf, size_t size);
+static int write_ssl(SSL* ssl, void* buf, size_t size);
 static int write_header(SSL* ssl, int fd, signed char type, int slot);
 
 int
@@ -200,7 +204,6 @@ error:
 int
 pgagroal_management_transfer_connection(void* shmem, int32_t slot)
 {
-   ssize_t w;
    int fd;
    struct configuration* config;
    struct cmsghdr *cmptr = NULL;
@@ -217,8 +220,7 @@ pgagroal_management_transfer_connection(void* shmem, int32_t slot)
       goto error;
    }
 
-   w = write_header(NULL, fd, MANAGEMENT_TRANSFER_CONNECTION, slot);
-   if (w == -1)
+   if (write_header(NULL, fd, MANAGEMENT_TRANSFER_CONNECTION, slot))
    {
       ZF_LOGW("pgagroal_management_transfer_connection: write: %d", fd);
       errno = 0;
@@ -264,7 +266,6 @@ error:
 int
 pgagroal_management_return_connection(void* shmem, int32_t slot)
 {
-   ssize_t w;
    int fd;
    struct configuration* config;
 
@@ -277,8 +278,7 @@ pgagroal_management_return_connection(void* shmem, int32_t slot)
       goto error;
    }
 
-   w = write_header(NULL, fd, MANAGEMENT_RETURN_CONNECTION, slot);
-   if (w == -1)
+   if (write_header(NULL, fd, MANAGEMENT_RETURN_CONNECTION, slot))
    {
       ZF_LOGW("pgagroal_management_return_connection: write: %d", fd);
       errno = 0;
@@ -298,7 +298,6 @@ error:
 int
 pgagroal_management_kill_connection(void* shmem, int32_t slot, int socket)
 {
-   ssize_t w;
    int fd;
    char buf[4];
    struct configuration* config;
@@ -312,8 +311,7 @@ pgagroal_management_kill_connection(void* shmem, int32_t slot, int socket)
       goto error;
    }
 
-   w = write_header(NULL, fd, MANAGEMENT_KILL_CONNECTION, slot);
-   if (w == -1)
+   if (write_header(NULL, fd, MANAGEMENT_KILL_CONNECTION, slot))
    {
       ZF_LOGW("pgagroal_management_kill_connection: write: %d", fd);
       errno = 0;
@@ -321,8 +319,7 @@ pgagroal_management_kill_connection(void* shmem, int32_t slot, int socket)
    }
 
    pgagroal_write_int32(&buf, socket);
-   w = write(fd, &buf, sizeof(buf));
-   if (w == -1)
+   if (write_complete(NULL, fd, &buf, sizeof(buf)))
    {
       ZF_LOGW("pgagroal_management_kill_connection: write: %d %s", fd, strerror(errno));
       errno = 0;
@@ -342,11 +339,9 @@ error:
 int
 pgagroal_management_flush(SSL* ssl, int fd, int32_t mode)
 {
-   ssize_t w;
    char buf[4];
 
-   w = write_header(ssl, fd, MANAGEMENT_FLUSH, -1);
-   if (w == -1)
+   if (write_header(ssl, fd, MANAGEMENT_FLUSH, -1))
    {
       ZF_LOGW("pgagroal_management_flush: write: %d", fd);
       errno = 0;
@@ -354,15 +349,7 @@ pgagroal_management_flush(SSL* ssl, int fd, int32_t mode)
    }
 
    pgagroal_write_int32(&buf, mode);
-   if (ssl == NULL)
-   {
-      w = write(fd, &buf, sizeof(buf));
-   }
-   else
-   {
-      w = SSL_write(ssl, &buf, sizeof(buf));
-   }
-   if (w == -1)
+   if (write_complete(ssl, fd, &buf, sizeof(buf)))
    {
       ZF_LOGW("pgagroal_management_flush: write: %d %s", fd, strerror(errno));
       errno = 0;
@@ -379,11 +366,9 @@ error:
 int
 pgagroal_management_enabledb(SSL* ssl, int fd, char* database)
 {
-   ssize_t w;
    char buf[4];
 
-   w = write_header(ssl, fd, MANAGEMENT_ENABLEDB, -1);
-   if (w == -1)
+   if (write_header(ssl, fd, MANAGEMENT_ENABLEDB, -1))
    {
       ZF_LOGW("pgagroal_management_enabledb: write: %d", fd);
       errno = 0;
@@ -391,30 +376,14 @@ pgagroal_management_enabledb(SSL* ssl, int fd, char* database)
    }
 
    pgagroal_write_int32(&buf, strlen(database));
-   if (ssl == NULL)
-   {
-      w = write(fd, &buf, sizeof(buf));
-   }
-   else
-   {
-      w = SSL_write(ssl, &buf, sizeof(buf));
-   }
-   if (w == -1)
+   if (write_complete(ssl, fd, &buf, sizeof(buf)))
    {
       ZF_LOGW("pgagroal_management_enabledb: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }
 
-   if (ssl == NULL)
-   {
-      w = write(fd, database, strlen(database));
-   }
-   else
-   {
-      w = SSL_write(ssl, database, strlen(database));
-   }
-   if (w == -1)
+   if (write_complete(ssl, fd, database, strlen(database)))
    {
       ZF_LOGW("pgagroal_management_enabledb: write: %d %s", fd, strerror(errno));
       errno = 0;
@@ -431,11 +400,9 @@ error:
 int
 pgagroal_management_disabledb(SSL* ssl, int fd, char* database)
 {
-   ssize_t w;
    char buf[4];
 
-   w = write_header(ssl, fd, MANAGEMENT_DISABLEDB, -1);
-   if (w == -1)
+   if (write_header(ssl, fd, MANAGEMENT_DISABLEDB, -1))
    {
       ZF_LOGW("pgagroal_management_disabledb: write: %d", fd);
       errno = 0;
@@ -443,30 +410,14 @@ pgagroal_management_disabledb(SSL* ssl, int fd, char* database)
    }
 
    pgagroal_write_int32(&buf, strlen(database));
-   if (ssl == NULL)
-   {
-      w = write(fd, &buf, sizeof(buf));
-   }
-   else
-   {
-      w = SSL_write(ssl, &buf, sizeof(buf));
-   }
-   if (w == -1)
+   if (write_complete(ssl, fd, &buf, sizeof(buf)))
    {
       ZF_LOGW("pgagroal_management_disabledb: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }
 
-   if (ssl == NULL)
-   {
-      w = write(fd, database, strlen(database));
-   }
-   else
-   {
-      w = SSL_write(ssl, database, strlen(database));
-   }
-   if (w == -1)
+   if (write_complete(ssl, fd, database, strlen(database)))
    {
       ZF_LOGW("pgagroal_management_disabledb: write: %d %s", fd, strerror(errno));
       errno = 0;
@@ -483,10 +434,7 @@ error:
 int
 pgagroal_management_gracefully(SSL* ssl, int fd)
 {
-   ssize_t w;
-
-   w = write_header(ssl, fd, MANAGEMENT_GRACEFULLY, -1);
-   if (w == -1)
+   if (write_header(ssl, fd, MANAGEMENT_GRACEFULLY, -1))
    {
       ZF_LOGW("pgagroal_management_gracefully: write: %d", fd);
       errno = 0;
@@ -503,10 +451,7 @@ error:
 int
 pgagroal_management_stop(SSL* ssl, int fd)
 {
-   ssize_t w;
-
-   w = write_header(ssl, fd, MANAGEMENT_STOP, -1);
-   if (w == -1)
+   if (write_header(ssl, fd, MANAGEMENT_STOP, -1))
    {
       ZF_LOGW("pgagroal_management_stop: write: %d", fd);
       errno = 0;
@@ -523,10 +468,7 @@ error:
 int
 pgagroal_management_cancel_shutdown(SSL* ssl, int fd)
 {
-   ssize_t w;
-
-   w = write_header(ssl, fd, MANAGEMENT_CANCEL_SHUTDOWN, -1);
-   if (w == -1)
+   if (write_header(ssl, fd, MANAGEMENT_CANCEL_SHUTDOWN, -1))
    {
       ZF_LOGW("pgagroal_management_cancel_shutdown: write: %d", fd);
       errno = 0;
@@ -543,10 +485,7 @@ error:
 int
 pgagroal_management_status(SSL* ssl, int fd)
 {
-   ssize_t w;
-
-   w = write_header(ssl, fd, MANAGEMENT_STATUS, -1);
-   if (w == -1)
+   if (write_header(ssl, fd, MANAGEMENT_STATUS, -1))
    {
       ZF_LOGW("pgagroal_management_status: write: %d", fd);
       errno = 0;
@@ -625,7 +564,6 @@ pgagroal_management_write_status(int socket, bool graceful, void* shmem)
    char buf[16];
    int active;
    int total;
-   ssize_t w;
    struct configuration* config;
 
    memset(&buf, 0, sizeof(buf));
@@ -668,16 +606,14 @@ pgagroal_management_write_status(int socket, bool graceful, void* shmem)
    pgagroal_write_int32(&(buf[8]), total);
    pgagroal_write_int32(&(buf[12]), config->max_connections);
 
-   w = write(socket, &buf, sizeof(buf));
-   if (w == -1)
+   if (write_complete(NULL, socket, &buf, sizeof(buf)))
    {
       ZF_LOGW("pgagroal_management_write_status: write: %d %s", socket, strerror(errno));
       errno = 0;
       goto error;
    }
 
-   w = write(socket, &config->disabled, sizeof(config->disabled));
-   if (w == -1)
+   if (write_complete(NULL, socket, &config->disabled, sizeof(config->disabled)))
    {
       ZF_LOGW("pgagroal_management_write_status: write: %d %s", socket, strerror(errno));
       errno = 0;
@@ -694,10 +630,7 @@ error:
 int
 pgagroal_management_details(SSL* ssl, int fd)
 {
-   ssize_t w;
-
-   w = write_header(ssl, fd, MANAGEMENT_DETAILS, -1);
-   if (w == -1)
+   if (write_header(ssl, fd, MANAGEMENT_DETAILS, -1))
    {
       ZF_LOGW("pgagroal_management_details: write: %d", fd);
       errno = 0;
@@ -802,7 +735,6 @@ int
 pgagroal_management_write_details(int socket, void* shmem)
 {
    char header[8 + MAX_NUMBER_OF_CONNECTIONS];
-   ssize_t w;
    struct configuration* config;
 
    config = (struct configuration*)shmem;
@@ -818,8 +750,7 @@ pgagroal_management_write_details(int socket, void* shmem)
       header[8 + i] = (char)state;
    }
 
-   w = write(socket, header, sizeof(header));
-   if (w == -1)
+   if (write_complete(NULL, socket, header, sizeof(header)))
    {
       ZF_LOGW("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
       errno = 0;
@@ -839,8 +770,7 @@ pgagroal_management_write_details(int socket, void* shmem)
       pgagroal_write_string(limit + 16, config->limits[i].database);
       pgagroal_write_string(limit + 16 + MAX_DATABASE_LENGTH, config->limits[i].username);
 
-      w = write(socket, limit, sizeof(limit));
-      if (w == -1)
+      if (write_complete(NULL, socket, &limit, sizeof(limit)))
       {
          ZF_LOGW("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
          errno = 0;
@@ -860,8 +790,7 @@ pgagroal_management_write_details(int socket, void* shmem)
       pgagroal_write_string(details + 12, config->connections[i].database);
       pgagroal_write_string(details + 12 + MAX_DATABASE_LENGTH, config->connections[i].username);
 
-      w = write(socket, details, sizeof(details));
-      if (w == -1)
+      if (write_complete(NULL, socket, &details, sizeof(details)))
       {
          ZF_LOGW("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
          errno = 0;
@@ -879,10 +808,7 @@ error:
 int
 pgagroal_management_isalive(SSL* ssl, int fd)
 {
-   ssize_t w;
-
-   w = write_header(ssl, fd, MANAGEMENT_ISALIVE, -1);
-   if (w == -1)
+   if (write_header(ssl, fd, MANAGEMENT_ISALIVE, -1))
    {
       ZF_LOGW("pgagroal_management_isalive: write: %d", fd);
       errno = 0;
@@ -922,7 +848,6 @@ error:
 int
 pgagroal_management_write_isalive(int socket, bool gracefully, void* shmem)
 {
-   ssize_t w;
    char buf[4];
 
    memset(&buf, 0, sizeof(buf));
@@ -936,8 +861,7 @@ pgagroal_management_write_isalive(int socket, bool gracefully, void* shmem)
       pgagroal_write_int32(buf, 2);
    }
 
-   w = write(socket, buf, sizeof(buf));
-   if (w == -1)
+   if (write_complete(NULL, socket, &buf, sizeof(buf)))
    {
       ZF_LOGW("pgagroal_management_write_isalive: write: %d %s", socket, strerror(errno));
       errno = 0;
@@ -954,10 +878,7 @@ error:
 int
 pgagroal_management_reset(SSL* ssl, int fd)
 {
-   ssize_t w;
-
-   w = write_header(ssl, fd, MANAGEMENT_RESET, -1);
-   if (w == -1)
+   if (write_header(ssl, fd, MANAGEMENT_RESET, -1))
    {
       ZF_LOGW("pgagroal_management_reset: write: %d", fd);
       errno = 0;
@@ -972,7 +893,7 @@ error:
 }
 
 static int
-read_complete(SSL* ssl, int socket, void* buf, size_t count)
+read_complete(SSL* ssl, int socket, void* buf, size_t size)
 {
    ssize_t r;
    size_t offset;
@@ -980,7 +901,7 @@ read_complete(SSL* ssl, int socket, void* buf, size_t count)
    int retries;
 
    offset = 0;
-   needs = count;
+   needs = size;
    retries = 0;
 
 read:
@@ -1029,22 +950,160 @@ error:
 }
 
 static int
+write_complete(SSL* ssl, int socket, void* buf, size_t size)
+{
+   if (ssl == NULL)
+   {
+      return write_socket(socket, buf, size);
+   }
+
+   return write_ssl(ssl, buf, size);
+}
+
+static int
+write_socket(int socket, void* buf, size_t size)
+{
+   bool keep_write = false;
+   ssize_t numbytes;
+   int offset;
+   ssize_t totalbytes;
+   ssize_t remaining;
+
+   numbytes = 0;
+   offset = 0;
+   totalbytes = 0;
+   remaining = size;
+
+   do
+   {
+      numbytes = write(socket, buf + offset, remaining);
+
+      if (likely(numbytes == size))
+      {
+         return 0;
+      }
+      else if (numbytes != -1)
+      {
+         offset += numbytes;
+         totalbytes += numbytes;
+         remaining -= numbytes;
+
+         if (totalbytes == size)
+         {
+            return 0;
+         }
+
+         ZF_LOGD("Write %d - %zd/%zd vs %zd", socket, numbytes, totalbytes, size);
+         keep_write = true;
+         errno = 0;
+      }
+      else
+      {
+         switch (errno)
+         {
+            case EAGAIN:
+               keep_write = true;
+               errno = 0;
+               break;
+            default:
+               keep_write = false;
+               break;
+         }
+      }
+   } while (keep_write);
+
+   return 1;
+}
+
+static int
+write_ssl(SSL* ssl, void* buf, size_t size)
+{
+   bool keep_write = false;
+   ssize_t numbytes;
+   int offset;
+   ssize_t totalbytes;
+   ssize_t remaining;
+
+   numbytes = 0;
+   offset = 0;
+   totalbytes = 0;
+   remaining = size;
+
+   do
+   {
+      numbytes = SSL_write(ssl, buf + offset, remaining);
+
+      if (likely(numbytes == size))
+      {
+         return 0;
+      }
+      else if (numbytes > 0)
+      {
+         offset += numbytes;
+         totalbytes += numbytes;
+         remaining -= numbytes;
+
+         if (totalbytes == size)
+         {
+            return 0;
+         }
+
+         ZF_LOGD("SSL/Write %d - %zd/%zd vs %zd", SSL_get_fd(ssl), numbytes, totalbytes, size);
+         keep_write = true;
+         errno = 0;
+      }
+      else
+      {
+         int err = SSL_get_error(ssl, numbytes);
+
+         switch (err)
+         {
+            case SSL_ERROR_ZERO_RETURN:
+            case SSL_ERROR_WANT_READ:
+            case SSL_ERROR_WANT_WRITE:
+            case SSL_ERROR_WANT_CONNECT:
+            case SSL_ERROR_WANT_ACCEPT:
+            case SSL_ERROR_WANT_X509_LOOKUP:
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+            case SSL_ERROR_WANT_ASYNC:
+            case SSL_ERROR_WANT_ASYNC_JOB:
+#if (OPENSSL_VERSION_NUMBER >= 0x10101000L)
+            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+#endif
+#endif
+               errno = 0;
+               keep_write = true;
+               break;
+            case SSL_ERROR_SYSCALL:
+               ZF_LOGE("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               errno = 0;
+               keep_write = false;
+               break;
+            case SSL_ERROR_SSL:
+               ZF_LOGE("SSL_ERROR_SSL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               errno = 0;
+               keep_write = false;
+               break;
+         }
+         ERR_clear_error();
+
+         if (!keep_write)
+         {
+            return 1;
+         }
+      }
+   } while (keep_write);
+
+   return 1;
+}
+
+static int
 write_header(SSL* ssl, int fd, signed char type, int slot)
 {
    char header[MANAGEMENT_HEADER_SIZE];
-   ssize_t w;
 
    pgagroal_write_byte(&(header), type);
    pgagroal_write_int32(&(header[1]), slot);
 
-   if (ssl == NULL)
-   {
-      w = write(fd, &(header), MANAGEMENT_HEADER_SIZE);
-   }
-   else
-   {
-      w = SSL_write(ssl, &(header), MANAGEMENT_HEADER_SIZE);
-   }
-
-   return w;
+   return write_complete(ssl, fd, &(header), MANAGEMENT_HEADER_SIZE);
 }
