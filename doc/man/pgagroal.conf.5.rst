@@ -100,7 +100,7 @@ tls_ca_file
   Certificate Authority (CA) file for TLS
 
 libev
-  The libev backend to use. Valid options: auto, select, poll, epoll, linuxaio, iouring, devpoll and port. Default is auto
+  The libev backend to use. Valid options: auto, select, poll, epoll, iouring, devpoll and port. Default is auto
 
 buffer_size
   The network buffer size (SO_RCVBUF and SO_SNDBUF). Default is 65535

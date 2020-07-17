@@ -481,14 +481,7 @@ pgagroal_libev(char* engine)
       }
       else if (!strcmp("linuxaio", engine))
       {
-         if (engines & EVBACKEND_LINUXAIO)
-         {
-            return EVBACKEND_LINUXAIO;
-         }
-         else
-         {
-            ZF_LOGW("libev not available: linuxaio");
-         }
+         return EVFLAG_AUTO;
       }
       else if (!strcmp("iouring", engine))
       {

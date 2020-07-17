@@ -46,7 +46,7 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | tls_cert_file | | String | No | Certificate file for TLS |
 | tls_key_file | | String | No | Private key file for TLS |
 | tls_ca_file | | String | No | Certificate Authority (CA) file for TLS |
-| libev | `auto` | String | No | Select the [libev](http://software.schmorp.de/pkg/libev.html) backend to use. Valid options: `auto`, `select`, `poll`, `epoll`, `linuxaio`, `iouring`, `devpoll` and `port` |
+| libev | `auto` | String | No | Select the [libev](http://software.schmorp.de/pkg/libev.html) backend to use. Valid options: `auto`, `select`, `poll`, `epoll`, `iouring`, `devpoll` and `port` |
 | buffer_size | 65535 | Int | No | The network buffer size (`SO_RCVBUF` and `SO_SNDBUF`) |
 | keep_alive | on | Bool | No | Have `SO_KEEPALIVE` on sockets |
 | nodelay | on | Bool | No | Have `TCP_NODELAY` on sockets |
