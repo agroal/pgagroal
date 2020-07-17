@@ -74,6 +74,7 @@ static int unknown_page(int client_fd);
 static int home_page(int client_fd);
 static int metrics_page(int client_fd, void* shmem, void* pipeline_shmem);
 
+static void general_information(int client_fd, void* shmem);
 static void connection_information(int client_fd, void* shmem);
 static void limit_information(int client_fd, void* shmem);
 static void session_information(int client_fd, void* shmem);
@@ -502,6 +503,9 @@ home_page(int client_fd)
    data = append(data, "  <p>\n");
    data = append(data, "  <a href=\"/metrics\">Metrics</a>\n");
    data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_state</h2>\n");
+   data = append(data, "  The state of pgagroal\n");
+   data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_active_connections</h2>\n");
    data = append(data, "  The number of active connections\n");
    data = append(data, "  <p>\n");
@@ -682,6 +686,7 @@ metrics_page(int client_fd, void* shmem, void* pipeline_shmem)
    free(data);
    data = NULL;
 
+   general_information(client_fd, shmem);
    connection_information(client_fd, shmem);
    limit_information(client_fd, shmem);
    session_information(client_fd, shmem);
@@ -710,6 +715,35 @@ error:
    free(data);
 
    return 1;
+}
+
+static void
+general_information(int client_fd, void* shmem)
+{
+   char* data = NULL;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   data = append(data, "#HELP pgagroal_state The state of pgagroal\n");
+   data = append(data, "#TYPE pgagroal_state gauge\n");
+   data = append(data, "pgagroal_state ");
+   if (config->gracefully)
+   {
+      data = append(data, "2");
+   }
+   else
+   {
+      data = append(data, "1");
+   }
+   data = append(data, "\n\n");
+
+   if (data != NULL)
+   {
+      send_chunk(client_fd, data);
+      free(data);
+      data = NULL;
+   }
 }
 
 static void
