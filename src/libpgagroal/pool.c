@@ -154,6 +154,7 @@ start:
          if (pgagroal_connect(shmem, config->servers[server].host, config->servers[server].port, &fd))
          {
             ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
+            atomic_store(&config->states[*slot], STATE_NOTINIT);
 
             if (!fork())
             {
