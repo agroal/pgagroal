@@ -742,6 +742,11 @@ pgagroal_validate_configuration(void* shmem)
       return 1;
    }
 
+   if (config->max_connections > MAX_NUMBER_OF_CONNECTIONS)
+   {
+      config->max_connections = MAX_NUMBER_OF_CONNECTIONS;
+   }
+
    if (config->number_of_servers <= 0)
    {
       ZF_LOGF("pgagroal: No servers defined");
