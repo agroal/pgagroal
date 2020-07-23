@@ -141,6 +141,49 @@ pgagroal_extract_username_database(struct message* msg, char** username, char** 
    return 0;
 }
 
+int
+pgagroal_extract_message(char type, struct message* msg, struct message** extracted)
+{
+   int offset;
+   int m_length;
+   void* data = NULL;
+   struct message* result = NULL;
+
+   offset = 0;
+   *extracted = NULL;
+
+   while (result == NULL && offset < msg->length)
+   {
+      char t = (char)pgagroal_read_byte(msg->data + offset);
+
+      if (type == t)
+      {
+         m_length = pgagroal_read_int32(msg->data + offset + 1);
+
+         result = (struct message*)malloc(sizeof(struct message));
+         data = (void*)malloc(1 + m_length);
+
+         memcpy(data, msg->data + offset, 1 + m_length);
+
+         result->kind = pgagroal_read_byte(data);
+         result->length = 1 + m_length;
+         result->max_length = 1 + m_length;
+         result->data = data;
+
+         *extracted = result;
+
+         return 0;
+      }
+      else
+      {
+         offset += 1;
+         offset += pgagroal_read_int32(msg->data + offset);
+      }
+   }
+
+   return 1;
+}
+
 char*
 pgagroal_get_state_string(signed char state)
 {

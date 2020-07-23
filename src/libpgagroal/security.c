@@ -946,12 +946,15 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
    }
 
    status = pgagroal_read_block_message(ssl, server_fd, &msg);
-   if (msg->length > SECURITY_BUFFER_SIZE)
+   if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   sasl_final = pgagroal_copy_message(msg);
+   if (pgagroal_extract_message('R', msg, &sasl_final))
+   {
+      goto error;
+   }
 
    /* Get 'v' attribute */
    base64_server_signature = sasl_final->data + 11;
@@ -972,10 +975,13 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
       goto bad_password;
    }
 
-   status = pgagroal_read_block_message(ssl, server_fd, &msg);
-   if (msg->length > SECURITY_BUFFER_SIZE)
+   if (msg->length == 55)
    {
-      goto error;
+      status = pgagroal_read_block_message(ssl, server_fd, &msg);
+      if (status != MESSAGE_STATUS_OK)
+      {
+         goto error;
+      }
    }
 
    free(salt);
@@ -2557,15 +2563,18 @@ server_scram256(char* username, char* password, int slot, void* shmem)
       goto error;
    }
 
-   sasl_final = pgagroal_copy_message(msg);
-
-   config->connections[slot].security_lengths[auth_index] = sasl_final->length;
-   memcpy(&config->connections[slot].security_messages[auth_index], sasl_final->data, sasl_final->length);
+   config->connections[slot].security_lengths[auth_index] = msg->length;
+   memcpy(&config->connections[slot].security_messages[auth_index], msg->data, msg->length);
    auth_index++;
 
-   /* Get 'v' attribute -- make this better (strlen will work) */
-   base64_server_signature = config->connections[slot].security_messages[4] + 11;
-   pgagroal_base64_decode(base64_server_signature, strlen(base64_server_signature) - 1,
+   if (pgagroal_extract_message('R', msg, &sasl_final))
+   {
+      goto error;
+   }
+
+   /* Get 'v' attribute */
+   base64_server_signature = sasl_final->data + 11;
+   pgagroal_base64_decode(base64_server_signature, sasl_final->length - 11,
                           &server_signature_received, &server_signature_received_length);
 
    if (server_signature(password_prep, salt, salt_length, iteration,
