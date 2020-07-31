@@ -86,6 +86,9 @@ details
 reset
   Reset the Prometheus statistics
 
+reset-server
+  Reset the state of a server. Requires a server name as an argument
+
 REPORTING BUGS
 ==============
 

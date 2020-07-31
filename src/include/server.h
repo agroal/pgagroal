@@ -64,6 +64,33 @@ pgagroal_update_server_state(void* shmem, int slot, int socket);
 int
 pgagroal_server_status(void* shmem);
 
+/**
+ * Failover
+ * @param shmem The shared memory segment
+ * @param slot The slot
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_server_failover(void* shmem, int slot);
+
+/**
+ * Force failover
+ * @param shmem The shared memory segment
+ * @param server The server
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_server_force_failover(void* shmem, int server);
+
+/**
+ * Reset server
+ * @param shmem The shared memory segment
+ * @param server The server
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_server_reset(void* shmem, char* server);
+
 #ifdef __cplusplus
 }
 #endif

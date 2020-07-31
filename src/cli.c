@@ -62,6 +62,7 @@
 #define ACTION_ENABLEDB        8
 #define ACTION_DISABLEDB       9
 #define ACTION_RESET          10
+#define ACTION_RESET_SERVER   11
 
 static int flush(SSL* ssl, int socket, int32_t mode);
 static int enabledb(SSL* ssl, int socket, char* database);
@@ -73,6 +74,7 @@ static int status(SSL* ssl, int socket);
 static int details(SSL* ssl, int socket);
 static int isalive(SSL* ssl, int socket);
 static int reset(SSL* ssl, int socket);
+static int reset_server(SSL* ssl, int socket, char* server);
 
 
 static void
@@ -115,6 +117,7 @@ usage()
    printf("  status                   Status of pgagroal\n");
    printf("  details                  Detailed status of pgagroal\n");
    printf("  reset                    Reset the Prometheus statistics\n");
+   printf("  reset-server             Reset the state of a server\n");
    printf("\n");
    printf("pgagroal: %s\n", PGAGROAL_HOMEPAGE);
    printf("Report bugs: %s\n", PGAGROAL_ISSUES);
@@ -142,6 +145,7 @@ main(int argc, char **argv)
    int32_t mode = FLUSH_IDLE;
    char* database = NULL;
    char un[MAX_USERNAME_LENGTH];
+   char* server = NULL;
    struct configuration* config;
 
    while (1)
@@ -296,6 +300,14 @@ main(int argc, char **argv)
       {
          action = ACTION_RESET;
       }
+      else if (!strcmp("reset-server", argv[argc - 1]) || !strcmp("reset-server", argv[argc - 2]))
+      {
+         if (!strcmp("reset-server", argv[argc - 2]))
+         {
+            action = ACTION_RESET_SERVER;
+            server = argv[argc - 1];
+         }
+      }
 
       if (action != ACTION_UNKNOWN)
       {
@@ -409,6 +421,10 @@ password:
       else if (action == ACTION_RESET)
       {
          exit_code = reset(s_ssl, socket);
+      }
+      else if (action == ACTION_RESET_SERVER)
+      {
+         exit_code = reset_server(s_ssl, socket, server);
       }
    }
 
@@ -595,6 +611,17 @@ static int
 reset(SSL* ssl, int socket)
 {
    if (pgagroal_management_reset(ssl, socket))
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+reset_server(SSL* ssl, int socket, char* server)
+{
+   if (pgagroal_management_reset_server(ssl, socket, server))
    {
       return 1;
    }

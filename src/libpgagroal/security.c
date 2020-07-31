@@ -42,6 +42,7 @@
 #include <zf_log.h>
 
 /* system */
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -167,7 +168,13 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
       ZF_LOGD("Cancel request from client: %d", client_fd);
 
       /* We need to find the server for the connection */
-      pgagroal_get_primary(shmem, &server);
+      if (pgagroal_get_primary(shmem, &server))
+      {
+         ZF_LOGE("pgagroal: No valid server available");
+         pgagroal_write_connection_refused(NULL, client_fd);
+         pgagroal_write_empty(NULL, client_fd);
+         goto error;
+      }
 
       if (pgagroal_connect(shmem, config->servers[server].host, config->servers[server].port, &server_fd))
       {
@@ -334,15 +341,17 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
             /* Pool full */
             ZF_LOGD("authenticate: pool is full");
             pgagroal_write_pool_full(c_ssl, client_fd);
+            pgagroal_write_empty(c_ssl, client_fd);
+            goto bad_password;
          }
          else
          {
             /* Other error */
             ZF_LOGD("authenticate: connection error");
             pgagroal_write_connection_refused(c_ssl, client_fd);
+            pgagroal_write_empty(c_ssl, client_fd);
+            goto error;
          }
-         pgagroal_write_empty(c_ssl, client_fd);
-         goto bad_password;
       }
 
       /* Set the application_name on the connection */
@@ -440,6 +449,7 @@ pgagroal_prefill_auth(char* username, char* password, char* database, void* shme
 {
    int server_fd = -1;
    int auth_type = -1;
+   signed char server_state;
    struct configuration* config = NULL;
    struct message* startup_msg = NULL;
    struct message* msg = NULL;
@@ -496,8 +506,8 @@ pgagroal_prefill_auth(char* username, char* password, char* database, void* shme
       goto error;
    }
 
-   if (config->servers[config->connections[*slot].server].primary == SERVER_NOTINIT ||
-       config->servers[config->connections[*slot].server].primary == SERVER_NOTINIT_PRIMARY)
+   server_state = atomic_load(&config->servers[config->connections[*slot].server].state);
+   if (server_state == SERVER_NOTINIT || server_state == SERVER_NOTINIT_PRIMARY)
    {
       ZF_LOGD("Verify server mode: %d", config->connections[*slot].server);
       pgagroal_update_server_state(shmem, *slot, server_fd);
@@ -1370,6 +1380,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    int server_fd;
    int auth_type = -1;
    char* password;
+   signed char server_state;
    struct message* msg = NULL;
    struct message* auth_msg = NULL;
    struct configuration* config = NULL;
@@ -1512,8 +1523,8 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
       }
    }
 
-   if (config->servers[config->connections[slot].server].primary == SERVER_NOTINIT ||
-       config->servers[config->connections[slot].server].primary == SERVER_NOTINIT_PRIMARY)
+   server_state = atomic_load(&config->servers[config->connections[slot].server].state);
+   if (server_state == SERVER_NOTINIT || server_state == SERVER_NOTINIT_PRIMARY)
    {
       ZF_LOGD("Verify server mode: %d", config->connections[slot].server);
       pgagroal_update_server_state(shmem, slot, server_fd);
@@ -4531,7 +4542,11 @@ auth_query_get_connection(char* username, char* password, char* database, void* 
    *server_fd = -1;
 
    /* We need to find the server for the connection */
-   pgagroal_get_primary(shmem, &server);
+   if (pgagroal_get_primary(shmem, &server))
+   {
+      ZF_LOGE("pgagroal: No valid server available");
+      goto error;
+   }
    ZF_LOGD("connect: server %d", server);
 
    start_time = time(NULL);

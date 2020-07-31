@@ -232,6 +232,15 @@ int
 pgagroal_write_terminate(SSL* ssl, int socket);
 
 /**
+ * Write a failover message to the client
+ * @param ssl The SSL struct
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_write_client_failover(SSL* ssl, int socket);
+
+/**
  * Write an auth password message
  * @param ssl The SSL struct
  * @param socket The socket descriptor

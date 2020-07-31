@@ -87,6 +87,12 @@ pipeline
 auth_query
   Enable authentication query. Default is false
 
+failover
+  Enable failover support. Default is false
+
+failover_script
+  The failover script
+
 tls
   Enable Transport Layer Security (TLS). Default is false
 

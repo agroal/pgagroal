@@ -71,11 +71,6 @@ pgagroal_remote_management(int client_fd, char* address, void* shmem, void* pipe
    auth_status = pgagroal_remote_management_auth(client_fd, address, shmem, &client_ssl);
    if (auth_status == AUTH_SUCCESS)
    {
-      if (pgagroal_connect_unix_socket(config->unix_socket_dir, &server_fd))
-      {
-         goto done;
-      }
-
       status = pgagroal_read_timeout_message(client_ssl, client_fd, config->authentication_timeout, &msg);
       if (status != MESSAGE_STATUS_OK)
       {
@@ -83,6 +78,11 @@ pgagroal_remote_management(int client_fd, char* address, void* shmem, void* pipe
       }
 
       type = pgagroal_read_byte(msg->data);
+
+      if (pgagroal_connect_unix_socket(config->unix_socket_dir, &server_fd))
+      {
+         goto done;
+      }
 
       status = pgagroal_write_message(NULL, server_fd, msg);
       if (status != MESSAGE_STATUS_OK)
@@ -112,6 +112,7 @@ pgagroal_remote_management(int client_fd, char* address, void* shmem, void* pipe
             } while (status == MESSAGE_STATUS_OK);
             break;
          case MANAGEMENT_FLUSH:
+         case MANAGEMENT_RESET_SERVER:
             status = pgagroal_read_timeout_message(client_ssl, client_fd, config->authentication_timeout, &msg);
             if (status != MESSAGE_STATUS_OK)
             {

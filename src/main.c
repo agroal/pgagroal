@@ -37,6 +37,7 @@
 #include <prometheus.h>
 #include <remote.h>
 #include <security.h>
+#include <server.h>
 #include <shmem.h>
 #include <utils.h>
 #include <worker.h>
@@ -1082,6 +1083,10 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       case MANAGEMENT_RESET:
          ZF_LOGD("pgagroal: Management reset");
          pgagroal_prometheus_reset(ai->shmem);
+         break;
+      case MANAGEMENT_RESET_SERVER:
+         ZF_LOGD("pgagroal: Management reset server");
+         pgagroal_server_reset(ai->shmem, payload_s);
          break;
       default:
          ZF_LOGD("pgagroal: Unknown management id: %d", id);

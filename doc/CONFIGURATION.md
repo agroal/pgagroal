@@ -42,6 +42,8 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | authentication_timeout | 5 | Int | No | The number of seconds the process will wait for valid credentials |
 | pipeline | `auto` | String | No | The pipeline type (`auto`, `performance`, `session`) |
 | auth_query | `off` | Bool | No | Enable authentication query |
+| failover | `off` | Bool | No | Enable failover support |
+| failover_script | | String | No | The failover script to execute |
 | tls | `off` | Bool | No | Enable Transport Layer Security (TLS) |
 | tls_cert_file | | String | No | Certificate file for TLS |
 | tls_key_file | | String | No | Private key file for TLS |

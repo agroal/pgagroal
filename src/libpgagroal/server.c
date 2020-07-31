@@ -36,38 +36,73 @@
 #include <zf_log.h>
 
 /* system */
+#include <errno.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+static int failover(void* shmem, int old_primary);
 
 int
 pgagroal_get_primary(void* shmem, int* server)
 {
    int primary;
+   signed char server_state;
    struct configuration* config;
 
-   primary = -3;
+   primary = -1;
    config = (struct configuration*)shmem;
 
-   for (int i = 0; primary == -3 && i < NUMBER_OF_SERVERS; i++)
+   /* Find PRIMARY */
+   for (int i = 0; primary == -1 && i < config->number_of_servers; i++)
    {
-      if (strlen(config->servers[i].name) > 0)
+      server_state = atomic_load(&config->servers[i].state);
+      if (server_state == SERVER_PRIMARY)
       {
-         ZF_LOGV("pgagroal_get_primary: server (%d) name (%s) primary (%d)", i, config->servers[i].name, config->servers[i].primary);
-         if (config->servers[i].primary == SERVER_PRIMARY ||
-             config->servers[i].primary == SERVER_NOTINIT_PRIMARY)
-         {
-            primary = i;
-         }
+         ZF_LOGV("pgagroal_get_primary: server (%d) name (%s) primary", i, config->servers[i].name);
+         primary = i;
       }
    }
 
-   /* Assume that the first server defined is primary */
-   if (primary == -3)
-      primary = 0;
+   /* Find NOTINIT_PRIMARY */
+   for (int i = 0; primary == -1 && i < config->number_of_servers; i++)
+   {
+      server_state = atomic_load(&config->servers[i].state);
+      if (server_state == SERVER_NOTINIT_PRIMARY)
+      {
+         ZF_LOGV("pgagroal_get_primary: server (%d) name (%s) noninit_primary", i, config->servers[i].name);
+         primary = i;
+      }
+   }
+
+   /* Find the first valid server */
+   for (int i = 0; primary == -1 && i < config->number_of_servers; i++)
+   {
+      server_state = atomic_load(&config->servers[i].state);
+      if (server_state != SERVER_FAILOVER && server_state != SERVER_FAILED)
+      {
+         ZF_LOGV("pgagroal_get_primary: server (%d) name (%s) any (%d)", i, config->servers[i].name, server_state);
+         primary = i;
+      }
+   }
    
+   if (primary == -1)
+   {
+      goto error;
+   }
+
    *server = primary;
 
    return 0;
+
+error:
+
+   *server = -1;
+
+   return 1;
 }
 
 int
@@ -115,11 +150,11 @@ pgagroal_update_server_state(void* shmem, int slot, int socket)
 
    if (state == 'f')
    {
-      config->servers[server].primary = SERVER_PRIMARY;
+      atomic_store(&config->servers[server].state, SERVER_PRIMARY);
    }
    else
    {
-      config->servers[server].primary = SERVER_REPLICA;
+      atomic_store(&config->servers[server].state, SERVER_REPLICA);
    }
    
    pgagroal_free_message(tmsg);
@@ -149,26 +184,191 @@ pgagroal_server_status(void* shmem)
          ZF_LOGD("                        Name: %s", config->servers[i].name);
          ZF_LOGD("                        Host: %s", config->servers[i].host);
          ZF_LOGD("                        Port: %d", config->servers[i].port);
-         switch (config->servers[i].primary)
+         switch (atomic_load(&config->servers[i].state))
          {
             case SERVER_NOTINIT:
-               ZF_LOGD("                        Type: NOTINIT");
+               ZF_LOGD("                        State: NOTINIT");
                break;
             case SERVER_NOTINIT_PRIMARY:
-               ZF_LOGD("                        Type: NOTINIT_PRIMARY");
+               ZF_LOGD("                        State: NOTINIT_PRIMARY");
                break;
             case SERVER_PRIMARY:
-               ZF_LOGD("                        Type: PRIMARY");
+               ZF_LOGD("                        State: PRIMARY");
                break;
             case SERVER_REPLICA:
-               ZF_LOGD("                        Type: REPLICA");
+               ZF_LOGD("                        State: REPLICA");
+               break;
+            case SERVER_FAILOVER:
+               ZF_LOGD("                        State: FAILOVER");
+               break;
+            case SERVER_FAILED:
+               ZF_LOGD("                        State: FAILED");
                break;
             default:
-               ZF_LOGD("                        Type: %d", config->servers[i].primary);
+               ZF_LOGD("                        State: %d", atomic_load(&config->servers[i].state));
                break;
          }
       }
    }
 
    return 0;
+}
+
+int
+pgagroal_server_failover(void* shmem, int slot)
+{
+   signed char primary;
+   int old_primary;
+   struct configuration* config = NULL;
+
+   config = (struct configuration*)shmem;
+   
+   primary = SERVER_PRIMARY;
+
+   old_primary = config->connections[slot].server;
+
+   if (atomic_compare_exchange_strong(&config->servers[old_primary].state, &primary, SERVER_FAILOVER))
+   {
+      return failover(shmem, config->connections[slot].server);
+   }
+
+   return 1;
+}
+
+int
+pgagroal_server_force_failover(void* shmem, int server)
+{
+   signed char cur_state;
+   signed char prev_state;
+   struct configuration* config = NULL;
+
+   config = (struct configuration*)shmem;
+
+   cur_state = atomic_load(&config->servers[server].state);
+
+   if (cur_state != SERVER_FAILOVER && cur_state != SERVER_FAILED)
+   {
+      prev_state = atomic_exchange(&config->servers[server].state, SERVER_FAILOVER);
+
+      if (prev_state == SERVER_NOTINIT || prev_state == SERVER_NOTINIT_PRIMARY || prev_state == SERVER_PRIMARY  || prev_state == SERVER_REPLICA)
+      {
+         return failover(shmem, server);
+      }
+      else if (prev_state == SERVER_FAILED)
+      {
+         atomic_store(&config->servers[server].state, SERVER_FAILED);
+      }
+   }
+
+   return 1;
+}
+
+int
+pgagroal_server_reset(void* shmem, char* server)
+{
+   signed char state;
+   struct configuration* config = NULL;
+
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < config->number_of_servers; i++)
+   {
+      if (!strcmp(config->servers[i].name, server))
+      {
+         state = atomic_load(&config->servers[i].state);
+
+         if (state == SERVER_FAILED)
+         {
+            atomic_store(&config->servers[i].state, SERVER_NOTINIT);
+         }
+
+         return 0;
+      }
+   }
+
+   return 1;
+}
+
+static int
+failover(void* shmem, int old_primary)
+{
+   signed char state;
+   char old_primary_port[6];
+   int new_primary;
+   char new_primary_port[6];
+   int status;
+   pid_t pid;
+   struct configuration* config = NULL;
+
+   config = (struct configuration*)shmem;
+
+   new_primary = -1;
+
+   for (int i = 0; new_primary == -1 && i < config->number_of_servers; i++)
+   {
+      state = atomic_load(&config->servers[i].state);
+      if (state == SERVER_NOTINIT || state == SERVER_NOTINIT_PRIMARY || state == SERVER_REPLICA)
+      {
+         new_primary = i;
+      }
+   }
+
+   if (new_primary == -1)
+   {
+      ZF_LOGE("Failover: New primary could not be found");
+      atomic_store(&config->servers[old_primary].state, SERVER_FAILED);
+      goto error;
+   }
+
+   pid = fork();
+   if (pid == -1)
+   {
+      ZF_LOGE("Failover: Unable to execute failover script");
+      atomic_store(&config->servers[old_primary].state, SERVER_FAILED);
+      goto error;
+   }
+   else if (pid > 0)
+   {
+      waitpid(pid, &status, 0);
+
+      if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+      {
+         ZF_LOGI("Failover: New primary is %s (%s:%d)", config->servers[new_primary].name, config->servers[new_primary].host, config->servers[new_primary].port);
+         atomic_store(&config->servers[old_primary].state, SERVER_FAILED);
+         atomic_store(&config->servers[new_primary].state, SERVER_PRIMARY);
+      }
+      else
+      {
+         if (WIFEXITED(status))
+         {
+            ZF_LOGE("Failover: Error from failover script (exit %d)", WEXITSTATUS(status));
+         }
+         else
+         {
+            ZF_LOGE("Failover: Error from failover script (status %d)", status);
+         }
+
+         atomic_store(&config->servers[old_primary].state, SERVER_FAILED);
+         atomic_store(&config->servers[new_primary].state, SERVER_FAILED);
+      }
+   }
+   else
+   {
+      memset(&old_primary_port, 0, sizeof(old_primary_port));
+      memset(&new_primary_port, 0, sizeof(new_primary_port));
+
+      sprintf(&old_primary_port[0], "%d", config->servers[old_primary].port);
+      sprintf(&new_primary_port[0], "%d", config->servers[new_primary].port);
+
+      execl(config->failover_script, "pgagroal_failover",
+            config->servers[old_primary].host, old_primary_port,
+            config->servers[new_primary].host, new_primary_port,
+            (char*)NULL);
+   }
+
+   return 0;
+
+error:
+
+   return 1;
 }

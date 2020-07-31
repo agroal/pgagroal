@@ -30,6 +30,7 @@
 #include <pgagroal.h>
 #include <message.h>
 #include <pipeline.h>
+#include <server.h>
 #include <shmem.h>
 #include <worker.h>
 
@@ -195,8 +196,10 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
+   struct configuration* config = NULL;
 
    wi = (struct worker_io*)watcher;
+   config = (struct configuration*)wi->shmem;
 
    client_active(wi->slot, wi->pipeline_shmem);
 
@@ -213,9 +216,19 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
       if (likely(msg->kind != 'X'))
       {
          status = pgagroal_write_socket_message(wi->server_fd, msg);
-         if (unlikely(status != MESSAGE_STATUS_OK))
+         if (unlikely(status == MESSAGE_STATUS_ERROR))
          {
-            goto server_error;
+            if (config->failover)
+            {
+               pgagroal_server_failover(config, wi->slot);
+               pgagroal_write_client_failover(wi->client_ssl, wi->client_fd);
+
+               goto failover;
+            }
+            else
+            {
+               goto server_error;
+            }
          }
       }
       else if (msg->kind == 'X')
@@ -231,7 +244,7 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
    client_inactive(wi->slot, wi->pipeline_shmem);
 
-   ev_break (loop, EVBREAK_ONE);
+   ev_break(loop, EVBREAK_ONE);
    return;
 
 client_error:
@@ -252,6 +265,15 @@ server_error:
    client_inactive(wi->slot, wi->pipeline_shmem);
 
    exit_code = WORKER_SERVER_FAILURE;
+   running = 0;
+   ev_break(loop, EVBREAK_ALL);
+   return;
+
+failover:
+
+   client_inactive(wi->slot, wi->pipeline_shmem);
+
+   exit_code = WORKER_FAILOVER;
    running = 0;
    ev_break(loop, EVBREAK_ALL);
    return;

@@ -106,6 +106,8 @@ extern "C" {
 #define SERVER_NOTINIT_PRIMARY -1
 #define SERVER_PRIMARY          0
 #define SERVER_REPLICA          1
+#define SERVER_FAILOVER         2
+#define SERVER_FAILED           3
 
 #define FLUSH_IDLE       0
 #define FLUSH_GRACEFULLY 1
@@ -138,7 +140,7 @@ struct server
    char name[MISC_LENGTH]; /**< The name of the server */
    char host[MISC_LENGTH]; /**< The host name of the server */
    int port;               /**< The port of the server */
-   int primary;            /**< The status of the server */
+   atomic_schar state;     /**< The state of the server */
 } __attribute__ ((aligned (64)));
 
 /** @struct
@@ -150,8 +152,8 @@ struct connection
    char database[MAX_DATABASE_LENGTH]; /**< The database */
    char appname[MAX_APPLICATION_NAME]; /**< The application_name */
 
-   bool new;             /**< Is the connection new */
-   unsigned char server; /**< The server identifier */
+   bool new;           /**< Is the connection new */
+   signed char server; /**< The server identifier */
 
    signed char has_security;                                                  /**< The security identifier */
    ssize_t security_lengths[NUMBER_OF_SECURITY_MESSAGES];                     /**< The lengths of the security messages */
@@ -236,6 +238,9 @@ struct configuration
    char disabled[NUMBER_OF_DISABLED][MAX_DATABASE_LENGTH]; /**< Which databases are disabled */
 
    int pipeline; /**< The pipeline type */
+
+   bool failover;                     /**< Is failover enabled */
+   char failover_script[MISC_LENGTH]; /**< The failover script */
 
    int log_type;               /**< The logging type */
    int log_level;              /**< The logging level */

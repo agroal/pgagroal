@@ -178,6 +178,15 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          }
          *payload_s = s;
          break;
+      case MANAGEMENT_RESET_SERVER:
+         s = malloc(MISC_LENGTH);
+         memset(s, 0, MISC_LENGTH);
+         if (read_complete(NULL, socket, s, MISC_LENGTH))
+         {
+            goto error;
+         }
+         *payload_s = s;
+         break;
       case MANAGEMENT_RETURN_CONNECTION:
       case MANAGEMENT_GRACEFULLY:
       case MANAGEMENT_STOP:
@@ -647,9 +656,10 @@ error:
 int
 pgagroal_management_read_details(SSL* ssl, int socket)
 {
-   char header[8 + MAX_NUMBER_OF_CONNECTIONS];
+   char header[12 + MAX_NUMBER_OF_CONNECTIONS];
    int max_connections = 0;
    int limits = 0;
+   int servers = 0;
 
    memset(&header, 0, sizeof(header));
 
@@ -662,6 +672,56 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
    max_connections = pgagroal_read_int32(&header);
    limits = pgagroal_read_int32(&(header[4]));
+   servers = pgagroal_read_int32(&(header[8]));
+
+   for (int i = 0; i < servers; i++)
+   {
+      char server[5 + MISC_LENGTH + MISC_LENGTH];
+      signed char state;
+
+      memset(&server, 0, sizeof(server));
+
+      if (read_complete(ssl, socket, &server[0], sizeof(server)))
+      {
+         ZF_LOGW("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
+         errno = 0;
+         goto error;
+      }
+
+      state = pgagroal_read_byte(&(server[MISC_LENGTH + MISC_LENGTH + 4]));
+
+      printf("---------------------\n");
+      printf("Server:              %s\n", pgagroal_read_string(&(server[0])));
+      printf("Host:                %s\n", pgagroal_read_string(&(server[MISC_LENGTH])));
+      printf("Port:                %d\n", pgagroal_read_int32(&(server[MISC_LENGTH + MISC_LENGTH])));
+
+      switch (state)
+      {
+         case SERVER_NOTINIT:
+            printf("State:               Not init\n");
+            break;
+         case SERVER_NOTINIT_PRIMARY:
+            printf("State:               Not init (primary)\n");
+            break;
+         case SERVER_PRIMARY:
+            printf("State:               Primary\n");
+            break;
+         case SERVER_REPLICA:
+            printf("State:               Replica\n");
+            break;
+         case SERVER_FAILOVER:
+            printf("State:               Failover\n");
+            break;
+         case SERVER_FAILED:
+            printf("State:               Failed\n");
+            break;
+         default:
+            printf("State:               %d\n", state);
+            break;
+      }
+   }
+
+   printf("---------------------\n");
 
    for (int i = 0; i < limits; i++)
    {
@@ -685,7 +745,10 @@ pgagroal_management_read_details(SSL* ssl, int socket)
       printf("Min connections:     %d\n", pgagroal_read_int32(&(limit[12])));
    }
 
-   printf("---------------------\n");
+   if (limits > 0)
+   {
+      printf("---------------------\n");
+   }
 
    for (int i = 0; i < max_connections; i++)
    {
@@ -706,7 +769,7 @@ pgagroal_management_read_details(SSL* ssl, int socket)
          goto error;
       }
 
-      state = (signed char)header[8 + i];
+      state = (signed char)header[12 + i];
       time = pgagroal_read_long(&(details[0]));
       pid = pgagroal_read_int32(&(details[8]));
 
@@ -735,7 +798,7 @@ error:
 int
 pgagroal_management_write_details(int socket, void* shmem)
 {
-   char header[8 + MAX_NUMBER_OF_CONNECTIONS];
+   char header[12 + MAX_NUMBER_OF_CONNECTIONS];
    struct configuration* config;
 
    config = (struct configuration*)shmem;
@@ -744,11 +807,12 @@ pgagroal_management_write_details(int socket, void* shmem)
 
    pgagroal_write_int32(header, config->max_connections);
    pgagroal_write_int32(header + 4, config->number_of_limits);
+   pgagroal_write_int32(header + 8, config->number_of_servers);
 
    for (int i = 0; i < config->max_connections; i++)
    {
       signed char state = atomic_load(&config->states[i]);
-      header[8 + i] = (char)state;
+      header[12 + i] = (char)state;
    }
 
    if (write_complete(NULL, socket, header, sizeof(header)))
@@ -756,6 +820,25 @@ pgagroal_management_write_details(int socket, void* shmem)
       ZF_LOGW("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
       errno = 0;
       goto error;
+   }
+
+   for (int i = 0; i < config->number_of_servers; i++)
+   {
+      char server[5 + MISC_LENGTH + MISC_LENGTH];
+
+      memset(&server, 0, sizeof(server));
+
+      pgagroal_write_string(server, config->servers[i].name);
+      pgagroal_write_string(server + MISC_LENGTH, config->servers[i].host);
+      pgagroal_write_int32(server + MISC_LENGTH + MISC_LENGTH, config->servers[i].port);
+      pgagroal_write_byte(server + MISC_LENGTH + MISC_LENGTH + 4, atomic_load(&config->servers[i].state));
+
+      if (write_complete(NULL, socket, server, sizeof(server)))
+      {
+         ZF_LOGW("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
+         errno = 0;
+         goto error;
+      }
    }
 
    for (int i = 0; i < config->number_of_limits; i++)
@@ -883,6 +966,35 @@ pgagroal_management_reset(SSL* ssl, int fd)
    if (write_header(ssl, fd, MANAGEMENT_RESET, -1))
    {
       ZF_LOGW("pgagroal_management_reset: write: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+int
+pgagroal_management_reset_server(SSL* ssl, int fd, char* server)
+{
+   char name[MISC_LENGTH];
+
+   if (write_header(ssl, fd, MANAGEMENT_RESET_SERVER, -1))
+   {
+      ZF_LOGW("pgagroal_management_reset_server: write: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   memset(&name[0], 0, MISC_LENGTH);
+   memcpy(&name[0], server, strlen(server));
+
+   if (write_complete(ssl, fd, &name[0], sizeof(name)))
+   {
+      ZF_LOGW("pgagroal_management_reset_server_: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }

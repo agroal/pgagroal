@@ -44,6 +44,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #define LINE_LENGTH 512
 
@@ -73,9 +75,10 @@ pgagroal_init_configuration(void* shmem, size_t size)
    
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
-      config->servers[i].primary = SERVER_NOTINIT;
+      atomic_init(&config->servers[i].state, SERVER_NOTINIT);
    }
 
+   config->failover = false;
    config->tls = false;
    config->gracefully = false;
    config->pipeline = PIPELINE_AUTO;
@@ -180,6 +183,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   }
 
                   memset(&srv, 0, sizeof(struct server));
+                  atomic_init(&srv.state, SERVER_NOTINIT);
                   memcpy(&srv.name, &section, strlen(section));
                   idx_server++;
                }
@@ -218,7 +222,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      if (max > MISC_LENGTH - 1)
                         max = MISC_LENGTH - 1;
                      memcpy(&srv.host, value, max);
-                     srv.primary = SERVER_NOTINIT;
+                     atomic_store(&srv.state, SERVER_NOTINIT);
                   }
                   else
                   {
@@ -241,7 +245,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      {
                         unknown = true;
                      }
-                     srv.primary = SERVER_NOTINIT;
+                     atomic_store(&srv.state, SERVER_NOTINIT);
                   }
                   else
                   {
@@ -259,11 +263,11 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      }
                      if (b)
                      {
-                        srv.primary = SERVER_NOTINIT_PRIMARY;
+                        atomic_store(&srv.state, SERVER_NOTINIT_PRIMARY);
                      }
                      else
                      {
-                        srv.primary = SERVER_NOTINIT;
+                        atomic_store(&srv.state, SERVER_NOTINIT);
                      }
                   }
                   else
@@ -305,6 +309,34 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   {
                      config->pipeline = as_pipeline(value);
 
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "failover"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     if (as_bool(value, &config->failover))
+                     {
+                        unknown = true;
+                     }
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "failover_script"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     max = strlen(value);
+                     if (max > MISC_LENGTH - 1)
+                        max = MISC_LENGTH - 1;
+                     memcpy(config->failover_script, value, max);
                   }
                   else
                   {
@@ -712,6 +744,7 @@ int
 pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets, void* shmem)
 {
    bool tls;
+   struct stat st;
    struct configuration* config;
 
    tls = false;
@@ -774,6 +807,41 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets, voi
       config->max_connections = MAX_NUMBER_OF_CONNECTIONS;
    }
 
+   if (config->failover)
+   {
+      if (strlen(config->failover_script) == 0)
+      {
+         ZF_LOGF("pgagroal: Failover requires a script definition");
+         return 1;
+      }
+
+      memset(&st, 0, sizeof(struct stat));
+
+      if (stat(config->failover_script, &st) == -1)
+      {
+         ZF_LOGE("Can't locate failover script: %s", config->failover_script);
+         return 1;
+      }
+
+      if (!S_ISREG(st.st_mode))
+      {
+         ZF_LOGE("Failover script is not a regular file: %s", config->failover_script);
+         return 1;
+      }
+
+      if (st.st_uid != geteuid())
+      {
+         ZF_LOGE("Failover script not owned by user: %s", config->failover_script);
+         return 1;
+      }
+
+      if (!(st.st_mode & (S_IRUSR | S_IXUSR)))
+      {
+         ZF_LOGE("Failover script must be executable: %s", config->failover_script);
+         return 1;
+      }
+   }
+
    if (config->number_of_servers <= 0)
    {
       ZF_LOGF("pgagroal: No servers defined");
@@ -802,7 +870,7 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets, voi
          tls = true;
       }
 
-      if (tls || config->disconnect_client > 0)
+      if (config->failover || tls || config->disconnect_client > 0)
       {
          config->pipeline = PIPELINE_SESSION;
       }
@@ -816,6 +884,12 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets, voi
       if (config->tls && (strlen(config->tls_cert_file) > 0 || strlen(config->tls_key_file) > 0))
       {
          tls = true;
+      }
+
+      if (config->failover)
+      {
+         ZF_LOGF("pgagroal: Performance pipeline does not support failover");
+         return 1;
       }
 
       if (tls)

@@ -220,6 +220,15 @@ The metrics endpoint supports `Transfer-Encoding: chunked` to account for a larg
 The implementation is done in [prometheus.h](../src/include/prometheus.h) and
 [prometheus.c](../src/libpgagroal/prometheus.c).
 
+## Failover support
+
+pgagroal can failover a PostgreSQL instance if clients can't write to it.
+
+This is done using an external script provided by the user.
+
+The implementation is done in [server.h](../src/include/server.h) and
+[server.c](../src/libpgagroal/server.c).
+
 ## Logging
 
 [zf_log](https://github.com/wonder-mice/zf_log) is used for the logging framework.

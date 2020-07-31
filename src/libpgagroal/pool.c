@@ -147,7 +147,17 @@ start:
       if (do_init)
       {
          /* We need to find the server for the connection */
-         pgagroal_get_primary(shmem, &server);
+         if (pgagroal_get_primary(shmem, &server))
+         {
+            atomic_store(&config->states[*slot], STATE_NOTINIT);
+
+            if (!fork())
+            {
+               pgagroal_flush(shmem, FLUSH_GRACEFULLY);
+            }
+
+            goto error;
+         }
 
          ZF_LOGD("connect: server %d", server);
          
@@ -159,6 +169,12 @@ start:
             if (!fork())
             {
                pgagroal_flush(shmem, FLUSH_GRACEFULLY);
+            }
+
+            if (config->failover)
+            {
+               pgagroal_server_force_failover(config, server);
+               goto retry;
             }
 
             goto error;
@@ -394,7 +410,7 @@ pgagroal_kill_connection(void* shmem, int slot)
    memset(&config->connections[slot].appname, 0, sizeof(config->connections[slot].appname));
 
    config->connections[slot].new = true;
-   config->connections[slot].server = 0;
+   config->connections[slot].server = -1;
 
    config->connections[slot].has_security = SECURITY_INVALID;
    for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
@@ -421,6 +437,7 @@ pgagroal_idle_timeout(void* shmem)
    bool prefill;
    time_t now;
    signed char free;
+   signed char idle_check;
    struct configuration* config;
 
    pgagroal_start_logging(shmem);
@@ -436,8 +453,9 @@ pgagroal_idle_timeout(void* shmem)
    for (int i = config->max_connections - 1; i >= 0; i--)
    {
       free = STATE_FREE;
+      idle_check = STATE_IDLE_CHECK;
 
-      if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_IDLE_CHECK))
+      if (atomic_compare_exchange_strong(&config->states[i], &free, idle_check))
       {
          double diff = difftime(now, config->connections[i].timestamp);
          if (diff >= (double)config->idle_timeout)
@@ -448,7 +466,12 @@ pgagroal_idle_timeout(void* shmem)
          }
          else
          {
-            atomic_store(&config->states[i], STATE_FREE);
+            if (!atomic_compare_exchange_strong(&config->states[i], &idle_check, STATE_FREE))
+            {
+               pgagroal_prometheus_connection_idletimeout(shmem);
+               pgagroal_kill_connection(shmem, i);
+               prefill = true;
+            }
          }
       }
    }
@@ -474,6 +497,7 @@ pgagroal_validation(void* shmem)
    bool prefill = true;
    time_t now;
    signed char free;
+   signed char validation;
    struct configuration* config;
 
    pgagroal_start_logging(shmem);
@@ -488,8 +512,9 @@ pgagroal_validation(void* shmem)
    for (int i = config->max_connections - 1; i >= 0; i--)
    {
       free = STATE_FREE;
+      validation = STATE_VALIDATION;
 
-      if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_VALIDATION))
+      if (atomic_compare_exchange_strong(&config->states[i], &free, validation))
       {
          bool kill = false;
          double diff;
@@ -524,7 +549,12 @@ pgagroal_validation(void* shmem)
          }
          else
          {
-            atomic_store(&config->states[i], STATE_FREE);
+            if (!atomic_compare_exchange_strong(&config->states[i], &validation, STATE_FREE))
+            {
+               pgagroal_prometheus_connection_invalid(shmem);
+               pgagroal_kill_connection(shmem, i);
+               prefill = true;
+            }
          }
       }
    }
@@ -550,6 +580,8 @@ pgagroal_flush(void* shmem, int mode)
    bool prefill;
    signed char free;
    signed char in_use;
+   bool do_kill;
+   signed char server_state;
    struct configuration* config;
 
    pgagroal_start_logging(shmem);
@@ -564,32 +596,73 @@ pgagroal_flush(void* shmem, int mode)
    {
       free = STATE_FREE;
       in_use = STATE_IN_USE;
+      do_kill = false;
 
-      if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_FLUSH))
+      if (config->connections[i].server != -1)
       {
-         if (pgagroal_socket_isvalid(config->connections[i].fd))
+         server_state = atomic_load(&config->servers[config->connections[i].server].state);
+         if (server_state == SERVER_FAILED)
          {
-            pgagroal_write_terminate(NULL, config->connections[i].fd);
+            do_kill = true;
          }
-         pgagroal_prometheus_connection_flush(shmem);
-         pgagroal_kill_connection(shmem, i);
-         prefill = true;
       }
-      else if (mode == FLUSH_ALL || mode == FLUSH_GRACEFULLY)
+
+      if (!do_kill)
       {
-         if (atomic_compare_exchange_strong(&config->states[i], &in_use, STATE_FLUSH))
+         if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_FLUSH))
          {
-            if (mode == FLUSH_ALL)
+            if (pgagroal_socket_isvalid(config->connections[i].fd))
             {
-               kill(config->connections[i].pid, SIGQUIT);
+               pgagroal_write_terminate(NULL, config->connections[i].fd);
+            }
+            pgagroal_prometheus_connection_flush(shmem);
+            pgagroal_kill_connection(shmem, i);
+            prefill = true;
+         }
+         else if (mode == FLUSH_ALL || mode == FLUSH_GRACEFULLY)
+         {
+            if (atomic_compare_exchange_strong(&config->states[i], &in_use, STATE_FLUSH))
+            {
+               if (mode == FLUSH_ALL)
+               {
+                  kill(config->connections[i].pid, SIGQUIT);
+                  pgagroal_prometheus_connection_flush(shmem);
+                  pgagroal_kill_connection(shmem, i);
+                  prefill = true;
+               }
+               else if (mode == FLUSH_GRACEFULLY)
+               {
+                  atomic_store(&config->states[i], STATE_GRACEFULLY);
+               }
+            }
+         }
+      }
+      else
+      {
+         switch (atomic_load(&config->states[i]))
+         {
+            case STATE_NOTINIT:
+            case STATE_INIT:
+               /* Do nothing */
+               break;
+            case STATE_FREE:
+               atomic_store(&config->states[i], STATE_GRACEFULLY);
                pgagroal_prometheus_connection_flush(shmem);
                pgagroal_kill_connection(shmem, i);
                prefill = true;
-            }
-            else if (mode == FLUSH_GRACEFULLY)
-            {
+               break;
+            case STATE_IN_USE:
+            case STATE_GRACEFULLY:
+            case STATE_FLUSH:
                atomic_store(&config->states[i], STATE_GRACEFULLY);
-            }
+               break;
+            case STATE_IDLE_CHECK:
+            case STATE_VALIDATION:
+            case STATE_REMOVE:
+               atomic_store(&config->states[i], STATE_GRACEFULLY);
+               break;
+            default:
+               break;
          }
       }
    }
@@ -732,6 +805,7 @@ pgagroal_pool_init(void* shmem)
    for (int i = 0; i < config->max_connections; i++)
    {
       config->connections[i].new = true;
+      config->connections[i].server = -1;
       config->connections[i].has_security = SECURITY_INVALID;
       config->connections[i].limit_rule = -1;
       config->connections[i].timestamp = -1;
@@ -849,20 +923,26 @@ static bool
 remove_connection(void* shmem, char* username, char* database)
 {
    signed char free;
+   signed char remove;
    struct configuration* config;
 
    config = (struct configuration*)shmem;
 
-   ZF_LOGD("remove_connection");
+   ZF_LOGV("remove_connection");
    for (int i = config->max_connections - 1; i >= 0; i--)
    {
       free = STATE_FREE;
+      remove = STATE_REMOVE;
 
-      if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_REMOVE))
+      if (atomic_compare_exchange_strong(&config->states[i], &free, remove))
       {
          if (!strcmp(username, config->connections[i].username) && !strcmp(database, config->connections[i].database))
          {
-            atomic_store(&config->states[i], STATE_FREE);
+            if (!atomic_compare_exchange_strong(&config->states[i], &remove, STATE_FREE))
+            {
+               pgagroal_prometheus_connection_remove(shmem);
+               pgagroal_kill_connection(shmem, i);
+            }
          }
          else
          {

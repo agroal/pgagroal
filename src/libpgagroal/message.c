@@ -579,6 +579,36 @@ pgagroal_write_terminate(SSL* ssl, int socket)
 }
 
 int
+pgagroal_write_client_failover(SSL* ssl, int socket)
+{
+   int size = 57;
+   char failover[size];
+   struct message msg;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&failover, 0, sizeof(failover));
+
+   pgagroal_write_byte(&failover, 'E');
+   pgagroal_write_int32(&(failover[1]), size - 1);
+   pgagroal_write_string(&(failover[5]), "SFATAL");
+   pgagroal_write_string(&(failover[12]), "VFATAL");
+   pgagroal_write_string(&(failover[19]), "C53300");
+   pgagroal_write_string(&(failover[26]), "Mserver failover");
+   pgagroal_write_string(&(failover[43]), "Rauth_failed");
+
+   msg.kind = 'E';
+   msg.length = size;
+   msg.data = &failover;
+
+   if (ssl == NULL)
+   {
+      return write_message(socket, &msg);
+   }
+
+   return ssl_write_message(ssl, &msg);
+}
+
+int
 pgagroal_write_auth_password(SSL* ssl, int socket)
 {
    char password[9];

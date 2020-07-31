@@ -150,6 +150,7 @@ Commands:
   status                   Status of pgagroal
   details                  Detailed status of pgagroal
   reset                    Reset the Prometheus statistics
+  reset-server             Reset the state of a server
 ```
 
 This tool can be used on the machine running `pgagroal` to flush connections.
