@@ -5068,7 +5068,7 @@ auth_query_get_password(int socket, char* username, char* database, char** passw
 
    *password = NULL;
 
-   size = 46 + strlen(username);
+   size = 53 + strlen(username);
    aq = malloc(size);
 
    memset(&qmsg, 0, sizeof(struct message));
@@ -5076,9 +5076,9 @@ auth_query_get_password(int socket, char* username, char* database, char** passw
 
    pgagroal_write_byte(aq, 'Q');
    pgagroal_write_int32(aq + 1, size - 1);
-   pgagroal_write_string(aq + 5, "SELECT * FROM pgagroal_get_password(\'");
-   pgagroal_write_string(aq + 42, username);
-   pgagroal_write_string(aq + 42 + strlen(username), "\');");
+   pgagroal_write_string(aq + 5, "SELECT * FROM public.pgagroal_get_password(\'");
+   pgagroal_write_string(aq + 49, username);
+   pgagroal_write_string(aq + 49 + strlen(username), "\');");
 
    qmsg.kind = 'Q';
    qmsg.length = size;

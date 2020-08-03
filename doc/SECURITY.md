@@ -27,7 +27,7 @@ Authentication query will use the below defined function to query the database
 for the user password
 
 ```
-CREATE FUNCTION pgagroal_get_password(
+CREATE FUNCTION public.pgagroal_get_password(
   IN  p_user     name,
   OUT p_password text
 ) RETURNS text
@@ -40,17 +40,19 @@ This function needs to be installed in each database.
 The function requires a user that is able to execute it, like
 
 ```
+-- Create a role used for the authentication query
 CREATE ROLE pgagroal LOGIN;
 -- Set the password
 \password pgagroal
 
--- Make sure only "pgagroal" can use the function
-REVOKE EXECUTE ON FUNCTION pgagroal_get_password(name) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION pgagroal_get_password(name) TO pgagroal;
+-- Only allow access to "pgagroal"
+REVOKE EXECUTE ON FUNCTION public.pgagroal_get_password(name) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.pgagroal_get_password(name) TO pgagroal;
 ```
 
 Make sure that the user is different from the actual application users accessing
 the database. The user accessing the function needs to have its credential present
 in the vault passed to the `-S` or `--superuser` command line parameter.
 
-Authentication query is only supported with MD5 or SCRAM-SHA-256 based accounts.
+The user executing the authentication query must use either a MD5 or a SCRAM-SHA-256
+password protected based account.
