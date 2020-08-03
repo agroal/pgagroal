@@ -819,25 +819,31 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets, voi
 
       if (stat(config->failover_script, &st) == -1)
       {
-         ZF_LOGE("Can't locate failover script: %s", config->failover_script);
+         ZF_LOGE("pgagroal: Can't locate failover script: %s", config->failover_script);
          return 1;
       }
 
       if (!S_ISREG(st.st_mode))
       {
-         ZF_LOGE("Failover script is not a regular file: %s", config->failover_script);
+         ZF_LOGE("pgagroal: Failover script is not a regular file: %s", config->failover_script);
          return 1;
       }
 
       if (st.st_uid != geteuid())
       {
-         ZF_LOGE("Failover script not owned by user: %s", config->failover_script);
+         ZF_LOGE("pgagroal: Failover script not owned by user: %s", config->failover_script);
          return 1;
       }
 
       if (!(st.st_mode & (S_IRUSR | S_IXUSR)))
       {
-         ZF_LOGE("Failover script must be executable: %s", config->failover_script);
+         ZF_LOGE("pgagroal: Failover script must be executable: %s", config->failover_script);
+         return 1;
+      }
+
+      if (config->number_of_servers <= 1)
+      {
+         ZF_LOGF("pgagroal: Failover requires at least 2 servers defined");
          return 1;
       }
    }
