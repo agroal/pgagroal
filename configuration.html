@@ -146,6 +146,27 @@ layout: default
           <td>The pipeline type (auto, performance, session)</td>
         </tr>
         <tr>
+          <td>auth_query</td>
+          <td>off</td>
+          <td>Bool</td>
+          <td>No</td>
+          <td>Enable authentication query</td>
+        </tr>
+        <tr>
+          <td>failover</td>
+          <td>off</td>
+          <td>Bool</td>
+          <td>No</td>
+          <td>Enable failover support</td>
+        </tr>
+        <tr>
+          <td>failover_script</td>
+          <td></td>
+          <td>String</td>
+          <td>No</td>
+          <td>The failover script to execute</td>
+        </tr>
+        <tr>
           <td>tls</td>
           <td>off</td>
           <td>Bool</td>
@@ -178,7 +199,7 @@ layout: default
           <td>auto</td>
           <td>String</td>
           <td>No</td>
-          <td>Select the <a href="http://software.schmorp.de/pkg/libev.html">libev</a> backend to use. Valid options: auto, select, poll, epoll, linuxaio, iouring, devpoll and port</td>
+          <td>Select the <a href="http://software.schmorp.de/pkg/libev.html">libev</a> backend to use. Valid options: auto, select, poll, epoll, iouring, devpoll and port</td>
         </tr>
         <tr>
           <td>buffer_size</td>
@@ -428,5 +449,12 @@ all        all  all
     If pgagroal has both Transport Layer Security (TLS) and "management" enabled then pgagroal-cli can
     connect with TLS using the files ~/.pgagroal/pgagroal.key (must be 0600 permission),
     ~/.pgagroal/pgagroal.crt and ~/.pgagroal/root.crt.
+
+    <h2>pgagroal_superuser.conf</h2>
+
+    The pgagroal_superuser configuration defines the superuser known to the system. This file is created and managed through
+    the pgagroal-admin tool. It may only have one user defined.
+    <p/>
+    The configuration is loaded from either the path specified by the -S flag or /etc/pgagroal/pgagroal_superuser.conf.
 
 </div>
