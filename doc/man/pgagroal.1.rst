@@ -11,7 +11,7 @@ High-performance connection pool for PostgreSQL
 SYNOPSIS
 ========
 
-pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] [ -l LIMIT_CONFIG_FILE ] [ -d ]
+pgagroal [ -c CONFIG_FILE ] [ -a HBA_FILE ] [ -d ]
 
 DESCRIPTION
 ===========
@@ -24,10 +24,10 @@ OPTIONS
 -c, --config CONFIG_FILE
   Set the path to the pgagroal.conf file
 
--a, --hba HBA_CONFIG_FILE
+-a, --hba HBA_FILE
   Set the path to the pgagroal_hba.conf file
 
--l, --limit LIMIT_CONFIG_FILE
+-l, --limit LIMIT_FILE
   Set the path to the pgagroal_databases.conf file
 
 -u, --users USERS_FILE

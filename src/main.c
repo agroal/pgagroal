@@ -232,12 +232,12 @@ usage()
    printf("\n");
 
    printf("Usage:\n");
-   printf("  pgagroal [ -c CONFIG_FILE ] [ -a HBA_CONFIG_FILE ] [ -d ]\n");
+   printf("  pgagroal [ -c CONFIG_FILE ] [ -a HBA_FILE ] [ -d ]\n");
    printf("\n");
    printf("Options:\n");
    printf("  -c, --config CONFIG_FILE       Set the path to the pgagroal.conf file\n");
-   printf("  -a, --hba HBA_CONFIG_FILE      Set the path to the pgagroal_hba.conf file\n");
-   printf("  -l, --limit LIMIT_CONFIG_FILE  Set the path to the pgagroal_databases.conf file\n");
+   printf("  -a, --hba HBA_FILE             Set the path to the pgagroal_hba.conf file\n");
+   printf("  -l, --limit LIMIT_FILE         Set the path to the pgagroal_databases.conf file\n");
    printf("  -u, --users USERS_FILE         Set the path to the pgagroal_users.conf file\n");
    printf("  -A, --admins ADMINS_FILE       Set the path to the pgagroal_admins.conf file\n");
    printf("  -S, --superuser SUPERUSER_FILE Set the path to the pgagroal_superuser.conf file\n");
