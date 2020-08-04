@@ -1,0 +1,68 @@
+---
+layout: default
+---
+
+<div id="home">
+    <h1>
+        {% for header in site.headers %}
+        <a class="header" href="{{ header.url }}">{{ header.name }}</a>
+        {% endfor %}
+    </h1>
+    <p/>
+
+    <h2>pgagroal failover</h2>
+
+    pgagroal can failover a PostgreSQL instance if the clients can't write to it.
+
+    <p/>
+    
+    In pgagroal.conf define
+    
+    <pre>
+failover = on
+failover_script = /path/to/myscript.sh
+    </pre>
+
+    <p/>
+
+    The script will be run as the same user as the pgagroal process so proper permissions
+    (access and execution) must be in place.
+
+    <p/>
+
+    The following information is passed to the script as parameters
+
+    <ol>
+      <li>Old primary host</li>
+      <li>Old primary port</li>
+      <li>New primary host</li>
+      <li>New primary port</li>
+    </ol>
+
+    <p/>
+
+    so a script could look like
+
+    <pre>
+#!/bin/bash
+
+OLD_PRIMARY_HOST=$1
+OLD_PRIMARY_PORT=$2
+NEW_PRIMARY_HOST=$3
+NEW_PRIMARY_PORT=$4
+
+ssh -tt -o StrictHostKeyChecking=no postgres@${NEW_PRIMARY_HOST} pg_ctl promote -D /mnt/pgdata
+
+if [ $? -ne 0 ]; then
+  exit 1
+fi
+
+exit 0
+    </pre>
+    
+    <p/>
+
+    The script is assumed successful if it has an exit code of 0. Otherwise both servers will be
+    recorded as failed.
+
+</div>

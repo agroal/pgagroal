@@ -27,6 +27,12 @@ urls:
     - text: getting started
       url: https://agroal.github.io/pgagroal/gettingstarted.html
       icon: https://agroal.github.io/pgagroal/images/icomoon/027-bullhorn.png
+    - text: security
+      url: https://agroal.github.io/pgagroal/security.html
+      icon: https://agroal.github.io/pgagroal/images/icomoon/181-shield.png
+    - text: failover
+      url: https://agroal.github.io/pgagroal/failover.html
+      icon: https://agroal.github.io/pgagroal/images/icomoon/170-fire.png
 
 github:
     - text: github
