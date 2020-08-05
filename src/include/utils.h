@@ -238,6 +238,17 @@ pgagroal_base64_encode(char* raw, int raw_length, char** encoded);
 int
 pgagroal_base64_decode(char* encoded, size_t encoded_length, char** raw, int* raw_length);
 
+#ifdef DEBUG
+
+/**
+ * Generate a backtrace in the log
+ * @return 0 if success, otherwise 1
+ */
+int
+pgagroal_backtrace(void);
+
+#endif
+
 #ifdef __cplusplus
 }
 #endif

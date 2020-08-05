@@ -35,7 +35,36 @@ add_compile_options(-D_POSIX_C_SOURCE=200809L)
 add_compile_options(-D__USE_ISOC11)
 add_compile_options(-D_GNU_SOURCE)
 
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -Wformat -Wformat-security -fno-omit-frame-pointer -fstack-protector-strong -DDEBUG")
+if (CMAKE_BUILD_TYPE MATCHES Debug)
+  add_compile_options(-O0)
+  add_compile_options(-DDEBUG)
+
+  check_c_compiler_flag(-Wformat HAS_FORMAT)
+  if (HAS_FORMAT)
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wformat")
+  endif()
+
+  check_c_compiler_flag(-Wformat-security HAS_FORMAT_SECURITY)
+  if (HAS_FORMAT_SECURITY)
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wformat-security")
+  endif()
+
+  check_c_compiler_flag(-fno-omit-frame-pointer HAS_NO_OMIT_FRAME_POINTER)
+  if (HAS_NO_OMIT_FRAME_POINTER)
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer")
+  endif()
+
+  check_c_compiler_flag(-fstack-protector-strong HAS_STACK_PROTECTOR_STRONG)
+  if (HAS_STACK_PROTECTOR_STRONG)
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fstack-protector-strong")
+  endif()
+
+  check_c_compiler_flag(-rdynamic HAS_DYNAMIC)
+  if (HAS_DYNAMIC)
+    set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -rdynamic")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
+  endif()
+endif()
 
 if (CMAKE_BUILD_TYPE MATCHES Release OR CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
   add_compile_options(-O2)
@@ -47,7 +76,7 @@ if (CMAKE_BUILD_TYPE MATCHES Release OR CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
   endif()
 
   check_c_compiler_flag(-Wformat-security HAS_FORMAT_SECURITY)
-  if (HAS_FORMAT)
+  if (HAS_FORMAT_SECURITY)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat-security")
   endif()
 

@@ -36,6 +36,7 @@
 
 /* system */
 #include <ev.h>
+#include <execinfo.h>
 #include <pwd.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -688,3 +689,27 @@ error:
 
    return 1;
 }
+
+#ifdef DEBUG
+
+int
+pgagroal_backtrace(void)
+{
+   void* array[100];
+   size_t size;
+   char** strings;
+
+   size = backtrace(array, 100);
+   strings = backtrace_symbols(array, size);
+
+   for (size_t i = 0; i < size; i++)
+   {
+      printf("%s\n", strings[i]);
+   }
+
+   free(strings);
+
+   return 0;
+}
+
+#endif
