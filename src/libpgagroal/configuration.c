@@ -1890,7 +1890,7 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    if (offset == -1)
       return;
 
-   if (as_int(value, min_size))
+   if (value != NULL && strcmp("", value) != 0 && as_int(value, min_size))
    {
       printf("Invalid min_size value: %s\n", value);
       return;
