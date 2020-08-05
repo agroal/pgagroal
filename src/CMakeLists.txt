@@ -47,7 +47,7 @@ if (CMAKE_BUILD_TYPE MATCHES Release OR CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
   endif()
 
   check_c_compiler_flag(-Wformat-security HAS_FORMAT_SECURITY)
-  if (HAS_FORMAT)
+  if (HAS_FORMAT_SECURITY)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat-security")
   endif()
 
