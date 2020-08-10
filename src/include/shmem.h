@@ -38,10 +38,12 @@ extern "C" {
 /**
  * Create a shared memory segment
  * @param size The size of the segment
- * @return The pointer to the segment
+ * @param hp Huge page value
+ * @parma shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
  */
-void*
-pgagroal_create_shared_memory(size_t size);
+int
+pgagroal_create_shared_memory(size_t size, unsigned char hp, void** shmem);
 
 /**
  * Resize a shared memory segment
@@ -49,8 +51,9 @@ pgagroal_create_shared_memory(size_t size);
  * @param shmem The pointer to the segment
  * @param new_size The size of the new segment
  * @param new_shmem The pointer to the new segment
+ * @return 0 upon success, otherwise 1
  */
-void
+int
 pgagroal_resize_shared_memory(size_t size, void* shmem, size_t* new_size, void** new_shmem);
 
 /**

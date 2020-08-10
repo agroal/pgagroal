@@ -89,10 +89,16 @@ session_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_si
 
    config = (struct configuration*)shmem;
 
+   *pipeline_shmem = NULL;
+   *pipeline_shmem_size = 0;
+
    if (config->disconnect_client > 0)
    {
       session_shmem_size = config->max_connections * sizeof(struct client_session);
-      session_shmem = pgagroal_create_shared_memory(session_shmem_size);
+      if (pgagroal_create_shared_memory(session_shmem_size, config->hugepage, &session_shmem))
+      {
+         return 1;
+      }
       memset(session_shmem, 0, session_shmem_size);
 
       for (int i = 0; i < config->max_connections; i++)

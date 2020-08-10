@@ -31,19 +31,51 @@
 #include <shmem.h>
 
 /* system */
+#include <errno.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 
-void*
-pgagroal_create_shared_memory(size_t size)
+int
+pgagroal_create_shared_memory(size_t size, unsigned char hp, void** shmem)
 {
+   void* s = NULL;
    int protection = PROT_READ | PROT_WRITE;
    int visibility = MAP_ANONYMOUS | MAP_SHARED;
 
-   return mmap(NULL, size, protection, visibility, 0, 0);
+   *shmem = NULL;
+
+   if (hp == HUGEPAGE_TRY || hp == HUGEPAGE_ON)
+   {
+      visibility = visibility | MAP_HUGETLB;
+   }
+
+   s = mmap(NULL, size, protection, visibility, 0, 0);
+
+   if (s == (void *)-1)
+   {
+      errno = 0;
+
+      if (hp == HUGEPAGE_OFF || hp == HUGEPAGE_ON)
+      {
+         return 1;
+      }
+   }
+
+   visibility = MAP_ANONYMOUS | MAP_SHARED;
+   s = mmap(NULL, size, protection, visibility, 0, 0);
+
+   if (s == (void *)-1)
+   {
+      errno = 0;
+      return 1;
+   }
+
+   *shmem = s;
+
+   return 0;
 }
 
-void
+int
 pgagroal_resize_shared_memory(size_t size, void* shmem, size_t* new_size, void** new_shmem)
 {
    struct configuration* config;
@@ -51,10 +83,15 @@ pgagroal_resize_shared_memory(size_t size, void* shmem, size_t* new_size, void**
    config = (struct configuration*)shmem;
 
    *new_size = size + (config->max_connections * sizeof(struct connection));
-   *new_shmem = pgagroal_create_shared_memory(*new_size);
+   if (pgagroal_create_shared_memory(*new_size, config->hugepage, new_shmem))
+   {
+      return 1;
+   }
 
    memset(*new_shmem, 0, *new_size);
    memcpy(*new_shmem, shmem, size);
+
+   return 0;
 }
 
 int

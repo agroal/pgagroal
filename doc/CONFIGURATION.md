@@ -54,6 +54,7 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | nodelay | on | Bool | No | Have `TCP_NODELAY` on sockets |
 | non_blocking | on | Bool | No | Have `O_NONBLOCK` on sockets |
 | backlog | `max_connections` / 4 | Int | No | The backlog for `listen()`. Minimum `16` |
+| hugepage | `try` | String | No | Huge page support (`off`, `try`, `on`) |
 
 __Danger zone__
 

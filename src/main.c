@@ -341,7 +341,12 @@ main(int argc, char **argv)
    }
 
    shmem_size = sizeof(struct configuration);
-   shmem = pgagroal_create_shared_memory(shmem_size);
+   if (pgagroal_create_shared_memory(shmem_size, HUGEPAGE_OFF, &shmem))
+   {
+      printf("pgagroal: Error in creating shared memory\n");
+      sd_notifyf(0, "STATUS=Error in creating shared memory");
+      exit(1);
+   }
    pgagroal_init_configuration(shmem, shmem_size);
 
    memset(&known_fds, 0, sizeof(known_fds));
@@ -546,8 +551,18 @@ main(int argc, char **argv)
       exit(1);
    }
 
-   pgagroal_resize_shared_memory(shmem_size, shmem, &tmp_size, &tmp_shmem);
-   pgagroal_destroy_shared_memory(shmem, shmem_size);
+   if (pgagroal_resize_shared_memory(shmem_size, shmem, &tmp_size, &tmp_shmem))
+   {
+      printf("pgagroal: Error in creating shared memory\n");
+      sd_notifyf(0, "STATUS=Error in creating shared memory");
+      exit(1);
+   }
+   if (pgagroal_destroy_shared_memory(shmem, shmem_size) == -1)
+   {
+      printf("pgagroal: Error in destroying shared memory\n");
+      sd_notifyf(0, "STATUS=Error in destroying shared memory");
+      exit(1);
+   }
    shmem_size = tmp_size;
    shmem = tmp_shmem;
 

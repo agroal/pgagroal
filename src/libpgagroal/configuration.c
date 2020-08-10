@@ -56,6 +56,7 @@ static int as_logging_type(char* str);
 static int as_logging_level(char* str);
 static int as_validation(char* str);
 static int as_pipeline(char* str);
+static int as_hugepage(char* str);
 static int extract_value(char* str, int offset, char** value);
 static void extract_hba(char* str, char** type, char** database, char** user, char** address, char** method);
 static void extract_limit(char* str, int server_max, char** database, char** user, int* max_size, int* initial_size, int* min_size);
@@ -97,6 +98,7 @@ pgagroal_init_configuration(void* shmem, size_t size)
    config->nodelay = true;
    config->non_blocking = true;
    config->backlog = -1;
+   config->hugepage = HUGEPAGE_TRY;
 
    config->log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;
@@ -700,6 +702,18 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      {
                         unknown = true;
                      }
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "hugepage"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->hugepage = as_hugepage(value);
+
                   }
                   else
                   {
@@ -1802,6 +1816,21 @@ as_pipeline(char* str)
       return PIPELINE_SESSION;
 
    return PIPELINE_AUTO;
+}
+
+static int
+as_hugepage(char* str)
+{
+   if (!strcasecmp(str, "off"))
+      return HUGEPAGE_OFF;
+
+   if (!strcasecmp(str, "try"))
+      return HUGEPAGE_TRY;
+
+   if (!strcasecmp(str, "on"))
+      return HUGEPAGE_ON;
+
+   return HUGEPAGE_OFF;
 }
 
 static void

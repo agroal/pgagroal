@@ -209,7 +209,11 @@ main(int argc, char **argv)
    if (configuration_path != NULL)
    {
       size = sizeof(struct configuration);
-      shmem = pgagroal_create_shared_memory(size);
+      if (pgagroal_create_shared_memory(size, HUGEPAGE_OFF, &shmem))
+      {
+         printf("pgagroal-cli: Error creating shared memory\n");
+         exit(1);
+      }
       pgagroal_init_configuration(shmem, size);
 
       ret = pgagroal_read_configuration(configuration_path, shmem);

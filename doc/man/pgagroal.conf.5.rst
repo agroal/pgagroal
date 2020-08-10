@@ -123,6 +123,9 @@ non_blocking
 backlog
   The backlog for listen(). Minimum 16. Default is max_connections / 4
 
+hugepage
+  Huge page support. Default is try
+
 Danger zone
 
 disconnect_client
