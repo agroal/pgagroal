@@ -7,7 +7,7 @@ kramdown:
   hard_wrap: false
   highlighter: rouge
 ###
-copyright: © 2020 <a href="https://www.redhat.com">RedHat Inc.</a>
+copyright: © 2020 <a href="https://www.redhat.com">Red Hat</a>
 about: <a href="https://agroal.github.io/pgagroal/performance.html">High performance</a> connection pool for <a href="https://www.postgresql.org">PostgreSQL</a>
 root: https://agroal.github.io/pgagroal
 headers:
