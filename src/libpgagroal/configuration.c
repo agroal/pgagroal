@@ -1083,6 +1083,7 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
    int max_size;
    int initial_size;
    int min_size;
+   int server_max;
    struct configuration* config;
 
    file = fopen(filename, "r");
@@ -1092,6 +1093,8 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
 
    index = 0;
    config = (struct configuration*)shmem;
+
+   server_max = config->max_connections;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1106,7 +1109,7 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
             initial_size = 0;
             min_size = 0;
 
-            extract_limit(line, config->max_connections, &database, &username, &max_size, &initial_size, &min_size);
+            extract_limit(line, server_max, &database, &username, &max_size, &initial_size, &min_size);
 
             if (database && username && max_size > 0)
             {
@@ -1137,6 +1140,8 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
                   config->limits[index].initial_size = initial_size;
                   config->limits[index].min_size = min_size;
                   atomic_init(&config->limits[index].active_connections, 0);
+
+                  server_max -= max_size;
 
                   index++;
 
@@ -1869,6 +1874,10 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    int length = strlen(str);
    char* value = NULL;
 
+   *max_size = 0;
+   *initial_size = 0;
+   *min_size = 0;
+
    offset = extract_value(str, offset, database);
 
    if (offset == -1 || offset >= length)
@@ -1905,7 +1914,7 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    if (offset == -1)
       return;
 
-   if (as_int(value, initial_size))
+   if (value != NULL && strcmp("", value) != 0 && as_int(value, initial_size))
    {
       printf("Invalid initial_size value: %s\n", value);
       return;

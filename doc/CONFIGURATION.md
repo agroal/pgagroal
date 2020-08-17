@@ -116,8 +116,8 @@ all        all   all
 | DATABASE | Yes | Specifies the database for the rule. Either specific name or `all` for all databases |
 | USER | Yes | Specifies the user for the rule. Either specific name or `all` for all users |
 | MAX_SIZE | Yes | Specifies the maximum pool size for the entry. `all` for all connections |
-| INITIAL_SIZE | No | Specifies the initial pool size for the entry, e.g. `all` isn't supported |
-| MIN_SIZE | No | Specifies the minimum pool size for the entry, e.g. `all` isn't supported |
+| INITIAL_SIZE | No | Specifies the initial pool size for the entry, e.g. `all` isn't supported. Default is 0 |
+| MIN_SIZE | No | Specifies the minimum pool size for the entry, e.g. `all` isn't supported. Default is 0 |
 
 # pgagroal_users configuration
 
