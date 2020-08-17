@@ -736,17 +736,12 @@ pgagroal_management_read_details(SSL* ssl, int socket)
          goto error;
       }
 
-      printf("---------------------\n");
       printf("Database:            %s\n", pgagroal_read_string(&(limit[16])));
       printf("Username:            %s\n", pgagroal_read_string(&(limit[16 + MAX_DATABASE_LENGTH])));
       printf("Active connections:  %d\n", pgagroal_read_int32(&(limit)));
       printf("Max connections:     %d\n", pgagroal_read_int32(&(limit[4])));
       printf("Initial connections: %d\n", pgagroal_read_int32(&(limit[8])));
       printf("Min connections:     %d\n", pgagroal_read_int32(&(limit[12])));
-   }
-
-   if (limits > 0)
-   {
       printf("---------------------\n");
    }
 

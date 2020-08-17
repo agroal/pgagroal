@@ -26,10 +26,10 @@ MAX_SIZE
   Specifies the maximum pool size for the entry. all for all connections
 
 INITIAL_SIZE
-  Specifies the initial pool size for the entry. Requires a pgagroal_users.conf configuration
+  Specifies the initial pool size for the entry. Default is 0. Requires a pgagroal_users.conf configuration
 
 MIN_SIZE
-  Specifies the minimum pool size for the entry. Requires a pgagroal_users.conf configuration
+  Specifies the minimum pool size for the entry. Default is 0. Requires a pgagroal_users.conf configuration
 
 EXAMPLE
 =======
