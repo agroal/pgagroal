@@ -151,6 +151,13 @@ pgagroal_prometheus_auth_user_error(void* shmem);
 void
 pgagroal_prometheus_reset(void* shmem);
 
+/**
+ * Count failed servers
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_failed_servers(void* shmem);
+
 #ifdef __cplusplus
 }
 #endif

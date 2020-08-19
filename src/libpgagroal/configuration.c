@@ -131,6 +131,8 @@ pgagroal_init_configuration(void* shmem, size_t size)
    atomic_init(&config->prometheus.auth_user_bad_password, 0);
    atomic_init(&config->prometheus.auth_user_error, 0);
 
+   atomic_init(&config->prometheus.failed_servers, 0);
+
    return 0;
 }
 

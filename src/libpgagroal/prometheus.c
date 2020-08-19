@@ -387,6 +387,28 @@ pgagroal_prometheus_reset(void* shmem)
    atomic_store(&config->prometheus.auth_user_error, 0);
 }
 
+void
+pgagroal_prometheus_failed_servers(void* shmem)
+{
+   int count;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   count = 0;
+
+   for (int i = 0; i < config->number_of_servers; i++)
+   {
+      signed char state = atomic_load(&config->servers[i].state);
+      if (state == SERVER_FAILED)
+      {
+         count++;
+      }
+   }
+
+   atomic_store(&config->prometheus.failed_servers, count);
+}
+
 static int
 resolve_page(struct message* msg)
 {
@@ -518,6 +540,9 @@ home_page(int client_fd)
    data = append(data, "      </tr>\n");
    data = append(data, "    </tbody>\n");
    data = append(data, "  </table>\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_failed_servers</h2>\n");
+   data = append(data, "  The number of failed servers. Only set if failover is enabled\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_active_connections</h2>\n");
    data = append(data, "  The number of active connections\n");
@@ -679,7 +704,7 @@ metrics_page(int client_fd, void* shmem, void* pipeline_shmem)
    time_buf[strlen(time_buf) - 1] = 0;
    
    data = append(data, "HTTP/1.1 200 OK\r\n");
-   data = append(data, "Content-Type: text/plain; version=0.0.2; charset=utf-8\r\n");
+   data = append(data, "Content-Type: text/plain; version=0.0.3; charset=utf-8\r\n");
    data = append(data, "Date: ");
    data = append(data, &time_buf[0]);
    data = append(data, "\r\n");
@@ -749,6 +774,12 @@ general_information(int client_fd, void* shmem)
    {
       data = append(data, "1");
    }
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_failed_servers The number of failed servers\n");
+   data = append(data, "#TYPE pgagroal_failed_servers gauge\n");
+   data = append(data, "pgagroal_failed_servers ");
+   data = append_ulong(data, atomic_load(&config->prometheus.failed_servers));
    data = append(data, "\n\n");
 
    if (data != NULL)

@@ -1102,6 +1102,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       case MANAGEMENT_RESET_SERVER:
          ZF_LOGD("pgagroal: Management reset server");
          pgagroal_server_reset(ai->shmem, payload_s);
+         pgagroal_prometheus_failed_servers(ai->shmem);
          break;
       default:
          ZF_LOGD("pgagroal: Unknown management id: %d", id);
