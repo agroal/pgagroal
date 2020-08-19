@@ -166,6 +166,8 @@ start:
             ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
             atomic_store(&config->states[*slot], STATE_NOTINIT);
 
+            pgagroal_prometheus_server_error(server, shmem);
+
             if (!fork())
             {
                pgagroal_flush(shmem, FLUSH_GRACEFULLY);

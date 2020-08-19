@@ -152,6 +152,14 @@ void
 pgagroal_prometheus_reset(void* shmem);
 
 /**
+ * Increase SERVER_ERROR for a server
+ * @param server The server
+ * @param shmem The shared memory segment
+ */
+void
+pgagroal_prometheus_server_error(int server, void* shmem);
+
+/**
  * Count failed servers
  * @param shmem The shared memory segment
  */

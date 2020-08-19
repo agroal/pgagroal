@@ -385,6 +385,21 @@ pgagroal_prometheus_reset(void* shmem)
    atomic_store(&config->prometheus.auth_user_success, 0);
    atomic_store(&config->prometheus.auth_user_bad_password, 0);
    atomic_store(&config->prometheus.auth_user_error, 0);
+
+   for (int i = 0; i < NUMBER_OF_SERVERS; i++)
+   {
+      atomic_store(&config->prometheus.server_error[i], 0);
+   }
+}
+
+void
+pgagroal_prometheus_server_error(int server, void* shmem)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   atomic_fetch_add(&config->prometheus.server_error[server], 1);
 }
 
 void
@@ -536,6 +551,29 @@ home_page(int client_fd)
    data = append(data, "            <li>Running</li>\n");
    data = append(data, "            <li>Graceful shutdown</li>\n");
    data = append(data, "          </ol>\n");
+   data = append(data, "        </td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "    </tbody>\n");
+   data = append(data, "  </table>\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_server_error</h2>\n");
+   data = append(data, "  Errors for servers\n");
+   data = append(data, "  <table border=\"1\">\n");
+   data = append(data, "    <tbody>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>name</td>\n");
+   data = append(data, "        <td>The name of the server</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>state</td>\n");
+   data = append(data, "        <td>The server state\n");
+   data = append(data, "          <ul>\n");
+   data = append(data, "            <li>not_init</li>\n");
+   data = append(data, "            <li>primary</li>\n");
+   data = append(data, "            <li>replica</li>\n");
+   data = append(data, "            <li>failover</li>\n");
+   data = append(data, "            <li>failed</li>\n");
+   data = append(data, "          </ul>\n");
    data = append(data, "        </td>\n");
    data = append(data, "      </tr>\n");
    data = append(data, "    </tbody>\n");
@@ -775,6 +813,49 @@ general_information(int client_fd, void* shmem)
       data = append(data, "1");
    }
    data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_server_error The number of errors for servers\n");
+   data = append(data, "#TYPE pgagroal_server_error counter\n");
+   for (int i = 0; i < config->number_of_servers; i++)
+   {
+      int state = atomic_load(&config->servers[i].state);
+
+      data = append(data, "pgagroal_server_error{");
+
+      data = append(data, "name=\"");
+      data = append(data, config->servers[i].name);
+      data = append(data, "\",");
+
+      data = append(data, "state=\"");
+
+      switch (state)
+      {
+         case SERVER_NOTINIT:
+         case SERVER_NOTINIT_PRIMARY:
+            data = append(data, "not_init");
+            break;
+         case SERVER_PRIMARY:
+            data = append(data, "primary");
+            break;
+         case SERVER_REPLICA:
+            data = append(data, "replica");
+            break;
+         case SERVER_FAILOVER:
+            data = append(data, "failover");
+            break;
+         case SERVER_FAILED:
+            data = append(data, "failed");
+            break;
+         default:
+            break;
+      }
+
+      data = append(data, "\"} ");
+
+      data = append_ulong(data, atomic_load(&config->prometheus.server_error[i]));
+      data = append(data, "\n");
+   }
+   data = append(data, "\n");
 
    data = append(data, "#HELP pgagroal_failed_servers The number of failed servers\n");
    data = append(data, "#TYPE pgagroal_failed_servers gauge\n");
