@@ -30,6 +30,7 @@
 #include <pgagroal.h>
 #include <message.h>
 #include <pipeline.h>
+#include <prometheus.h>
 #include <server.h>
 #include <shmem.h>
 #include <worker.h>
@@ -222,6 +223,7 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
             {
                pgagroal_server_failover(config, wi->slot);
                pgagroal_write_client_failover(wi->client_ssl, wi->client_fd);
+               pgagroal_prometheus_failed_servers(config);
 
                goto failover;
             }

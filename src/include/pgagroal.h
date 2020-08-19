@@ -222,6 +222,8 @@ struct prometheus
    atomic_ulong auth_user_bad_password; /**< The number of AUTH_BAD_PASSWORD calls */
    atomic_ulong auth_user_error;        /**< The number of AUTH_ERROR calls */
 
+   atomic_ulong failed_servers;         /**< The number of failed servers */
+
 } __attribute__ ((aligned (64)));
 
 /** @struct

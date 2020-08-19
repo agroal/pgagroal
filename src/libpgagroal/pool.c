@@ -174,6 +174,7 @@ start:
             if (config->failover)
             {
                pgagroal_server_force_failover(config, server);
+               pgagroal_prometheus_failed_servers(shmem);
                goto retry;
             }
 
