@@ -995,9 +995,8 @@ pgagroal_log_message(struct message* msg)
    }
    else
    {
-      ZF_LOGI("Size: %zd", msg->length);
       ZF_LOGI_MEM(msg->data, msg->length,
-                  "Message %p:", (const void *)msg->data);
+                  "Message (%zd) %p:", msg->length, (const void *)msg->data);
    }
 }
 
