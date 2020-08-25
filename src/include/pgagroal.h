@@ -41,7 +41,7 @@ extern "C" {
 #include <sys/types.h>
 #include <openssl/ssl.h>
 
-#define VERSION "0.8.1"
+#define VERSION "0.8.2"
 
 #define PGAGROAL_HOMEPAGE "https://agroal.github.io/pgagroal/"
 #define PGAGROAL_ISSUES "https://github.com/agroal/pgagroal/issues"
