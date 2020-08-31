@@ -196,22 +196,13 @@ int
 pgagroal_write_no_hba_entry(SSL* ssl, int socket, char* username, char* database, char* address);
 
 /**
- * Write a deallocate all message
+ * Write a discard all message
  * @param ssl The SSL struct
  * @param socket The socket descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_write_deallocate_all(SSL* ssl, int socket);
-
-/**
- * Write a reset all message
- * @param ssl The SSL struct
- * @param socket The socket descriptor
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_write_reset_all(SSL* ssl, int socket);
+pgagroal_write_discard_all(SSL* ssl, int socket);
 
 /**
  * Write TLS response

@@ -441,25 +441,25 @@ pgagroal_write_no_hba_entry(SSL* ssl, int socket, char* username, char* database
 }
 
 int
-pgagroal_write_deallocate_all(SSL* ssl, int socket)
+pgagroal_write_discard_all(SSL* ssl, int socket)
 {
    int status;
-   int size = 21;
+   int size = 18;
 
-   char deallocate[size];
+   char discard[size];
    struct message msg;
    struct message* reply = NULL;
 
    memset(&msg, 0, sizeof(struct message));
-   memset(&deallocate, 0, sizeof(deallocate));
+   memset(&discard, 0, sizeof(discard));
 
-   pgagroal_write_byte(&deallocate, 'Q');
-   pgagroal_write_int32(&(deallocate[1]), size - 1);
-   pgagroal_write_string(&(deallocate[5]), "DEALLOCATE ALL;");
+   pgagroal_write_byte(&discard, 'Q');
+   pgagroal_write_int32(&(discard[1]), size - 1);
+   pgagroal_write_string(&(discard[5]), "DISCARD ALL;");
 
    msg.kind = 'Q';
    msg.length = size;
-   msg.data = &deallocate;
+   msg.data = &discard;
 
    if (ssl == NULL)
    {
@@ -488,63 +488,6 @@ pgagroal_write_deallocate_all(SSL* ssl, int socket)
    }
    pgagroal_free_message(reply);
    
-   return 0;
-
-error:
-   if (reply)
-      pgagroal_free_message(reply);
-
-   return 1;
-}
-
-int
-pgagroal_write_reset_all(SSL* ssl, int socket)
-{
-   int status;
-   int size = 16;
-
-   char reset[size];
-   struct message msg;
-   struct message* reply = NULL;
-
-   memset(&msg, 0, sizeof(struct message));
-   memset(&reset, 0, sizeof(reset));
-
-   pgagroal_write_byte(&reset, 'Q');
-   pgagroal_write_int32(&(reset[1]), size - 1);
-   pgagroal_write_string(&(reset[5]), "RESET ALL;");
-
-   msg.kind = 'Q';
-   msg.length = size;
-   msg.data = &reset;
-
-   if (ssl == NULL)
-   {
-      status = write_message(socket, &msg);
-   }
-   else
-   {
-      status = ssl_write_message(ssl, &msg);
-   }
-   if (status != MESSAGE_STATUS_OK)
-   {
-      goto error;
-   }
-
-   if (ssl == NULL)
-   {
-      status = read_message(socket, true, 0, &reply);
-   }
-   else
-   {
-      status = ssl_read_message(ssl, 0, &reply);
-   }
-   if (status != MESSAGE_STATUS_OK)
-   {
-      goto error;
-   }
-   pgagroal_free_message(reply);
-
    return 0;
 
 error:
