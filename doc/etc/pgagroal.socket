@@ -6,7 +6,7 @@
 Description=Sockets for pgagroal
 
 [Socket]
-ListenStream=/tmp/.s.pgagroal
+ListenStream=/tmp/
 #ListenStream=2345
 
 [Install]

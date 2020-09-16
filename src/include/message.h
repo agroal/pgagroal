@@ -241,6 +241,15 @@ int
 pgagroal_write_auth_password(SSL* ssl, int socket);
 
 /**
+ * Write a rollback message
+ * @param ssl The SSL struct
+ * @param socket The socket descriptor
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_write_rollback(SSL* ssl, int socket);
+
+/**
  * Create an auth password response message
  * @param password The password
  * @param msg The resulting message

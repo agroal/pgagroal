@@ -55,6 +55,7 @@
 
 #define MANAGEMENT_HEADER_SIZE 5
 
+
 static int read_complete(SSL* ssl, int socket, void* buf, size_t size);
 static int write_complete(SSL* ssl, int socket, void* buf, size_t size);
 static int write_socket(int socket, void* buf, size_t size);
@@ -104,6 +105,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
    switch (id)
    {
       case MANAGEMENT_TRANSFER_CONNECTION:
+      case MANAGEMENT_CLIENT_FD:
          status = -1;
          newfd = -1;
 
@@ -156,6 +158,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          break;
       case MANAGEMENT_FLUSH:
       case MANAGEMENT_KILL_CONNECTION:
+      case MANAGEMENT_CLIENT_DONE:
          if (read_complete(NULL, socket, &buf4[0], sizeof(buf4)))
          {
             goto error;
@@ -222,7 +225,7 @@ pgagroal_management_transfer_connection(void* shmem, int32_t slot)
 
    config = (struct configuration*)shmem;
 
-   if (pgagroal_connect_unix_socket(config->unix_socket_dir, &fd))
+   if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &fd))
    {
       ZF_LOGW("pgagroal_management_transfer_connection: connect: %d", fd);
       errno = 0;
@@ -280,7 +283,7 @@ pgagroal_management_return_connection(void* shmem, int32_t slot)
 
    config = (struct configuration*)shmem;
 
-   if (pgagroal_connect_unix_socket(config->unix_socket_dir, &fd))
+   if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &fd))
    {
       ZF_LOGW("pgagroal_management_return_connection: connect: %d", fd);
       errno = 0;
@@ -313,7 +316,7 @@ pgagroal_management_kill_connection(void* shmem, int32_t slot, int socket)
 
    config = (struct configuration*)shmem;
 
-   if (pgagroal_connect_unix_socket(config->unix_socket_dir, &fd))
+   if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &fd))
    {
       ZF_LOGW("pgagroal_management_kill_connection: connect: %d", fd);
       errno = 0;
@@ -997,6 +1000,121 @@ pgagroal_management_reset_server(SSL* ssl, int fd, char* server)
    return 0;
 
 error:
+
+   return 1;
+}
+
+int
+pgagroal_management_client_done(void* shmem, pid_t pid)
+{
+   char buf[4];
+   int fd;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &fd))
+   {
+      ZF_LOGW("pgagroal_management_client_done: connect: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   if (write_header(NULL, fd, MANAGEMENT_CLIENT_DONE, -1))
+   {
+      ZF_LOGW("pgagroal_management_client_done: write: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   memset(&buf, 0, sizeof(buf));
+   pgagroal_write_int32(buf, pid);
+
+   if (write_complete(NULL, fd, &buf, sizeof(buf)))
+   {
+      ZF_LOGW("pgagroal_management_client_done: write: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   pgagroal_disconnect(fd);
+
+   return 0;
+
+error:
+   pgagroal_disconnect(fd);
+
+   return 1;
+}
+
+int
+pgagroal_management_client_fd(void* shmem, int32_t slot, pid_t pid)
+{
+   char p[MISC_LENGTH];
+   int fd;
+   struct configuration* config;
+   struct cmsghdr *cmptr = NULL;
+   struct iovec iov[1];
+   struct msghdr msg;
+   char buf[2]; /* send_fd()/recv_fd() 2-byte protocol */
+
+   config = (struct configuration*)shmem;
+
+   memset(&p, 0, sizeof(p));
+   snprintf(&p[0], sizeof(p), ".s.%d", pid);
+
+   if (pgagroal_connect_unix_socket(config->unix_socket_dir, &p[0], &fd))
+   {
+      ZF_LOGD("pgagroal_management_client_fd: connect: %d", fd);
+      errno = 0;
+      goto unavailable;
+   }
+
+   if (write_header(NULL, fd, MANAGEMENT_CLIENT_FD, slot))
+   {
+      ZF_LOGW("pgagroal_management_client_fd: write: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   /* Write file descriptor */
+   iov[0].iov_base = buf;
+   iov[0].iov_len  = 2;
+   msg.msg_iov     = iov;
+   msg.msg_iovlen  = 1;
+   msg.msg_name    = NULL;
+   msg.msg_namelen = 0;
+
+   cmptr = malloc(CMSG_LEN(sizeof(int)));
+   cmptr->cmsg_level  = SOL_SOCKET;
+   cmptr->cmsg_type   = SCM_RIGHTS;
+   cmptr->cmsg_len    = CMSG_LEN(sizeof(int));
+   msg.msg_control    = cmptr;
+   msg.msg_controllen = CMSG_LEN(sizeof(int));
+   *(int *)CMSG_DATA(cmptr) = config->connections[slot].fd;
+   buf[1] = 0; /* zero status means OK */
+   buf[0] = 0; /* null byte flag to recv_fd() */
+
+   if (sendmsg(fd, &msg, 0) != 2)
+   {
+      goto error;
+   }
+
+   free(cmptr);
+   pgagroal_disconnect(fd);
+
+   return 0;
+
+unavailable:
+   free(cmptr);
+   pgagroal_disconnect(fd);
+
+   return 1;
+
+error:
+   free(cmptr);
+   pgagroal_disconnect(fd);
+   pgagroal_kill_connection(shmem, slot);
 
    return 1;
 }

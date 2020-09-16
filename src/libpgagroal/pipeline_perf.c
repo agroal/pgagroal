@@ -41,10 +41,10 @@
 #include <stdlib.h>
 
 static int  performance_initialize(void*, void**, size_t*);
-static void performance_start(struct worker_io*);
+static void performance_start(struct ev_loop *loop, struct worker_io*);
 static void performance_client(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void performance_server(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void performance_stop(struct worker_io*);
+static void performance_stop(struct ev_loop *loop, struct worker_io*);
 static void performance_destroy(void*, size_t);
 static void performance_periodic(void*, void*);
 
@@ -70,12 +70,12 @@ performance_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shme
 }
 
 static void
-performance_start(struct worker_io* w)
+performance_start(struct ev_loop *loop, struct worker_io* w)
 {
 }
 
 static void
-performance_stop(struct worker_io* w)
+performance_stop(struct ev_loop *loop, struct worker_io* w)
 {
 }
 

@@ -44,10 +44,10 @@
 #include <stdlib.h>
 
 static int  session_initialize(void*, void**, size_t*);
-static void session_start(struct worker_io*);
+static void session_start(struct ev_loop *loop, struct worker_io*);
 static void session_client(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void session_server(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void session_stop(struct worker_io*);
+static void session_stop(struct ev_loop *loop, struct worker_io*);
 static void session_destroy(void*, size_t);
 static void session_periodic(void*, void*);
 
@@ -118,7 +118,7 @@ session_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_si
 }
 
 static void
-session_start(struct worker_io* w)
+session_start(struct ev_loop *loop, struct worker_io* w)
 {
    struct client_session* client;
 
@@ -132,7 +132,7 @@ session_start(struct worker_io* w)
 }
 
 static void
-session_stop(struct worker_io* w)
+session_stop(struct ev_loop *loop, struct worker_io* w)
 {
    struct client_session* client;
 

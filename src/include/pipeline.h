@@ -41,11 +41,12 @@ extern "C" {
 #define PIPELINE_AUTO        -1
 #define PIPELINE_PERFORMANCE  0
 #define PIPELINE_SESSION      1
+#define PIPELINE_TRANSACTION  2
 
 typedef int  (*initialize)(void*, void**, size_t*);
-typedef void (*start)(struct worker_io*);
+typedef void (*start)(struct ev_loop *, struct worker_io*);
 typedef void (*callback)(struct ev_loop *, struct ev_io *, int);
-typedef void (*stop)(struct worker_io*);
+typedef void (*stop)(struct ev_loop *, struct worker_io*);
 typedef void (*destroy)(void*, size_t);
 typedef void (*periodic)(void*, void*);
 
@@ -74,6 +75,12 @@ struct pipeline performance_pipeline();
  * @return The structure
  */
 struct pipeline session_pipeline();
+
+/**
+ * Get the transaction pipeline
+ * @return The structure
+ */
+struct pipeline transaction_pipeline();
 
 #ifdef __cplusplus
 }

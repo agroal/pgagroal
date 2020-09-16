@@ -82,7 +82,7 @@ authentication_timeout
   The number of seconds the process will wait for valid credentials. Default is 5
 
 pipeline
-  The pipeline type. Valid options are auto, performance and session. Default is auto
+  The pipeline type. Valid options are auto, performance, session and transaction. Default is auto
 
 auth_query
   Enable authentication query. Default is false

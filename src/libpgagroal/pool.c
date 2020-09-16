@@ -37,6 +37,7 @@
 #include <prometheus.h>
 #include <security.h>
 #include <server.h>
+#include <utils.h>
 
 #define ZF_LOG_TAG "pool"
 #include <zf_log.h>
@@ -50,6 +51,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 
 static int find_best_rule(void* shmem, char* username, char* database);
 static bool remove_connection(void* shmem, char* username, char* database);
@@ -57,7 +59,7 @@ static void connection_details(void* shmem, int slot);
 static bool do_prefill(void* shmem, char* username, char* database, int size);
 
 int
-pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse, int* slot)
+pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse, bool transaction_mode, int* slot)
 {
    bool prefill;
    bool do_init;
@@ -127,7 +129,7 @@ start:
       }
    }
 
-   if (*slot == -1)
+   if (*slot == -1 && !transaction_mode)
    {
       /* Ok, try and create a new connection */
       for (int i = 0; *slot == -1 && i < config->max_connections; i++)
@@ -205,14 +207,18 @@ start:
       {
          bool kill = false;
 
-         config->connections[*slot].limit_rule = best_rule;
-         config->connections[*slot].pid = getpid();
-         config->connections[*slot].timestamp = time(NULL);
-
          /* Verify the socket for the slot */
          if (!pgagroal_socket_isvalid(config->connections[*slot].fd))
          {
-            kill = true;
+            if (!transaction_mode)
+            {
+               kill = true;
+            }
+            else
+            {
+               atomic_store(&config->states[*slot], STATE_FREE);
+               goto retry;
+            }
          }
 
          if (!kill && config->validation == VALIDATION_FOREGROUND)
@@ -245,6 +251,10 @@ start:
             pgagroal_prefill(shmem, false);
          }
       }
+
+      config->connections[*slot].limit_rule = best_rule;
+      config->connections[*slot].pid = getpid();
+      config->connections[*slot].timestamp = time(NULL);
 
       pgagroal_prometheus_connection_success(shmem);
 
@@ -281,13 +291,26 @@ retry2:
       }
       else
       {
-         if (remove_connection(shmem, username, database))
+         if (!transaction_mode)
          {
-            if (retries < config->max_retries)
+            if (remove_connection(shmem, username, database))
             {
-               retries++;
-               goto start;
+               if (retries < config->max_retries)
+               {
+                  retries++;
+                  goto start;
+               }
             }
+         }
+         else
+         {
+            /* Sleep for 1000 nanos */
+            struct timespec ts;
+            ts.tv_sec = 0;
+            ts.tv_nsec = 1000L;
+            nanosleep(&ts, NULL);
+
+            goto start;
          }
       }
    }
@@ -311,7 +334,7 @@ error:
 }
 
 int
-pgagroal_return_connection(void* shmem, int slot)
+pgagroal_return_connection(void* shmem, int slot, bool transaction_mode)
 {
    int state;
    struct configuration* config;
@@ -319,7 +342,7 @@ pgagroal_return_connection(void* shmem, int slot)
    config = (struct configuration*)shmem;
 
    /* Verify the socket for the slot */
-   if (!pgagroal_socket_isvalid(config->connections[slot].fd))
+   if (!transaction_mode && !pgagroal_socket_isvalid(config->connections[slot].fd))
    {
       ZF_LOGD("pgagroal_return_connection: Slot %d FD %d - Error", slot, config->connections[slot].fd);
       config->connections[slot].has_security = SECURITY_INVALID;
@@ -338,7 +361,10 @@ pgagroal_return_connection(void* shmem, int slot)
       {
          ZF_LOGD("pgagroal_return_connection: Slot %d FD %d", slot, config->connections[slot].fd);
 
-         pgagroal_write_discard_all(NULL, config->connections[slot].fd);
+         if (!transaction_mode)
+         {
+            pgagroal_write_discard_all(NULL, config->connections[slot].fd);
+         }
 
          config->connections[slot].timestamp = time(NULL);
 
@@ -356,6 +382,7 @@ pgagroal_return_connection(void* shmem, int slot)
 
          config->connections[slot].new = false;
          config->connections[slot].pid = -1;
+         config->connections[slot].tx_mode = transaction_mode;
          memset(&config->connections[slot].appname, 0, sizeof(config->connections[slot].appname));
          atomic_store(&config->states[slot], STATE_FREE);
          atomic_fetch_sub(&config->active_connections, 1);
@@ -413,6 +440,7 @@ pgagroal_kill_connection(void* shmem, int slot)
 
    config->connections[slot].new = true;
    config->connections[slot].server = -1;
+   config->connections[slot].tx_mode = false;
 
    config->connections[slot].has_security = SECURITY_INVALID;
    for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
@@ -460,7 +488,7 @@ pgagroal_idle_timeout(void* shmem)
       if (atomic_compare_exchange_strong(&config->states[i], &free, idle_check))
       {
          double diff = difftime(now, config->connections[i].timestamp);
-         if (diff >= (double)config->idle_timeout)
+         if (diff >= (double)config->idle_timeout && !config->connections[i].tx_mode)
          {
             pgagroal_prometheus_connection_idletimeout(shmem);
             pgagroal_kill_connection(shmem, i);
@@ -753,7 +781,7 @@ pgagroal_prefill(void* shmem, bool initial)
                   {
                      if (config->connections[slot].has_security != SECURITY_INVALID)
                      {
-                        pgagroal_return_connection(shmem, slot);
+                        pgagroal_return_connection(shmem, slot, false);
                      }
                      else
                      {
@@ -807,6 +835,7 @@ pgagroal_pool_init(void* shmem)
    for (int i = 0; i < config->max_connections; i++)
    {
       config->connections[i].new = true;
+      config->connections[i].tx_mode = false;
       config->connections[i].server = -1;
       config->connections[i].has_security = SECURITY_INVALID;
       config->connections[i].limit_rule = -1;

@@ -577,6 +577,63 @@ pgagroal_write_auth_password(SSL* ssl, int socket)
 }
 
 int
+pgagroal_write_rollback(SSL* ssl, int socket)
+{
+   int status;
+   int size = 15;
+
+   char rollback[size];
+   struct message msg;
+   struct message* reply = NULL;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&rollback, 0, sizeof(rollback));
+
+   pgagroal_write_byte(&rollback, 'Q');
+   pgagroal_write_int32(&(rollback[1]), size - 1);
+   pgagroal_write_string(&(rollback[5]), "ROLLBACK;");
+
+   msg.kind = 'Q';
+   msg.length = size;
+   msg.data = &rollback;
+
+   if (ssl == NULL)
+   {
+      status = write_message(socket, &msg);
+   }
+   else
+   {
+      status = ssl_write_message(ssl, &msg);
+   }
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (ssl == NULL)
+   {
+      status = read_message(socket, true, 0, &reply);
+   }
+   else
+   {
+      status = ssl_read_message(ssl, 0, &reply);
+   }
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+   pgagroal_free_message(reply);
+   
+   return 0;
+
+error:
+   if (reply)
+      pgagroal_free_message(reply);
+
+   return 1;
+}
+
+int
 pgagroal_create_auth_password_response(char* password, struct message** msg)
 {
    struct message* m = NULL;

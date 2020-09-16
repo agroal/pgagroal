@@ -77,6 +77,8 @@ static void idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents);
 static void validation_cb(struct ev_loop *loop, ev_periodic *w, int revents);
 static void disconnect_client_cb(struct ev_loop *loop, ev_periodic *w, int revents);
 static bool accept_fatal(int error);
+static void add_client(pid_t pid);
+static void remove_client(pid_t pid);
 
 struct accept_io
 {
@@ -91,6 +93,12 @@ struct periodic_info
    struct ev_periodic periodic;
    void* shmem;
    void* pipeline_shmem;
+};
+
+struct client
+{
+   pid_t pid;
+   struct client* next;
 };
 
 static volatile int keep_running = 1;
@@ -110,6 +118,7 @@ static struct pipeline main_pipeline;
 static void* shmem = NULL;
 static void* pipeline_shmem = NULL;
 static int known_fds[MAX_NUMBER_OF_CONNECTIONS];
+static struct client* clients = NULL;
 
 static void
 start_mgt()
@@ -132,7 +141,7 @@ shutdown_mgt()
    ev_io_stop(main_loop, (struct ev_io*)&io_mgt);
    pgagroal_disconnect(unix_socket);
    errno = 0;
-   pgagroal_remove_unix_socket(config->unix_socket_dir);
+   pgagroal_remove_unix_socket(config->unix_socket_dir, MAIN_UDS);
    errno = 0;
 }
 
@@ -624,7 +633,7 @@ main(int argc, char **argv)
    /* Bind Unix Domain Socket for file descriptor transfers */
    if (!has_unix_socket)
    {
-      if (pgagroal_bind_unix_socket(config->unix_socket_dir, shmem, &unix_socket))
+      if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, shmem, &unix_socket))
       {
          ZF_LOGF("pgagroal: Could not bind to %s\n", config->unix_socket_dir);
          sd_notifyf(0, "STATUS=Could not bind to %s", config->unix_socket_dir);
@@ -688,6 +697,17 @@ main(int argc, char **argv)
       }
 
       main_pipeline = session_pipeline();
+   }
+   else if (config->pipeline == PIPELINE_TRANSACTION)
+   {
+      if (pgagroal_tls_valid(shmem))
+      {
+         ZF_LOGF("pgagroal: Invalid TLS configuration");
+         sd_notify(0, "STATUS=Invalid TLS configuration");
+         exit(1);
+      }
+
+      main_pipeline = transaction_pipeline();
    }
    else
    {
@@ -858,6 +878,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    socklen_t client_addr_length;
    int client_fd;
    char address[INET6_ADDRSTRLEN];
+   pid_t pid;
    struct accept_io* ai;
    struct configuration* config;
 
@@ -925,7 +946,20 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
    ZF_LOGV("accept_main_cb: client address: %s", address);
 
-   if (!fork())
+   pid = fork();
+   if (pid == -1)
+   {
+      /* No process */
+      ZF_LOGE("Cannot create process");
+   }
+   else if (pid > 0)
+   {
+      if (config->pipeline == PIPELINE_TRANSACTION)
+      {
+         add_client(pid);
+      }
+   }
+   else
    {
       char* addr = malloc(sizeof(address));
       memcpy(addr, address, sizeof(address));
@@ -972,7 +1006,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          shutdown_mgt();
 
-         if (pgagroal_bind_unix_socket(config->unix_socket_dir, shmem, &unix_socket))
+         if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, shmem, &unix_socket))
          {
             ZF_LOGF("pgagroal: Could not bind to %s\n", config->unix_socket_dir);
             exit(1);
@@ -1000,6 +1034,17 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          ZF_LOGD("pgagroal: Management transfer connection: Slot %d FD %d", slot, payload_i);
          config->connections[slot].fd = payload_i;
          known_fds[slot] = config->connections[slot].fd;
+
+         if (config->pipeline == PIPELINE_TRANSACTION)
+         {
+            struct client* c = clients;
+            while (c != NULL)
+            {
+               pgagroal_management_client_fd(config, slot, c->pid);
+               c = c->next;
+            }
+         }
+
          break;
       case MANAGEMENT_RETURN_CONNECTION:
          ZF_LOGD("pgagroal: Management return connection: Slot %d", slot);
@@ -1103,6 +1148,14 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          ZF_LOGD("pgagroal: Management reset server");
          pgagroal_server_reset(ai->shmem, payload_s);
          pgagroal_prometheus_failed_servers(ai->shmem);
+         break;
+      case MANAGEMENT_CLIENT_DONE:
+         ZF_LOGD("pgagroal: Management client done");
+         if (config->pipeline == PIPELINE_TRANSACTION)
+         {
+            pid_t p = (pid_t)payload_i;
+            remove_client(p);
+         }
          break;
       default:
          ZF_LOGD("pgagroal: Unknown management id: %d", id);
@@ -1408,4 +1461,67 @@ accept_fatal(int error)
    }
 
    return true;
+}
+
+static void
+add_client(pid_t pid)
+{
+   struct client* c = NULL;
+
+   c = (struct client*)malloc(sizeof(struct client));
+   c->pid = pid;
+   c->next = NULL;
+
+   if (clients == NULL)
+   {
+      clients = c;
+   }
+   else
+   {
+      struct client* last = NULL;
+
+      last = clients;
+
+      while (last->next != NULL)
+      {
+         last = last->next;
+      }
+
+      last->next = c;
+   }
+}
+
+static void
+remove_client(pid_t pid)
+{
+   struct client* c = NULL;
+   struct client* p = NULL;
+
+   c = clients;
+   p = NULL;
+
+   if (c != NULL)
+   {
+      while (c->pid != pid)
+      {
+         p = c;
+         c = c->next;
+
+         if (c == NULL)
+         {
+            return;
+         }
+      }
+
+      if (c == clients)
+      {
+         clients = c->next;
+      }
+      else
+      {
+         p->next = c->next;
+      }
+
+      free(c);
+   }
 }

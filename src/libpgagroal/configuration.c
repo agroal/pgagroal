@@ -905,6 +905,39 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets, voi
          config->pipeline = PIPELINE_PERFORMANCE;
       }
    }
+   else if (config->pipeline == PIPELINE_TRANSACTION)
+   {
+      if (config->disconnect_client > 0)
+      {
+         ZF_LOGF("pgagroal: Transaction pipeline does not support disconnect_client");
+         return 1;
+      }
+
+      if (config->blocking_timeout > 0)
+      {
+         ZF_LOGW("pgagroal: Using blocking_timeout for the transaction pipeline is not recommended");
+      }
+
+      if (config->idle_timeout > 0)
+      {
+         ZF_LOGW("pgagroal: Using idle_timeout for the transaction pipeline is not recommended");
+      }
+
+      if (config->validation == VALIDATION_FOREGROUND)
+      {
+         ZF_LOGW("pgagroal: Using foreground validation for the transaction pipeline is not recommended");
+      }
+
+      if (config->number_of_users == 0)
+      {
+         ZF_LOGI("pgagroal: Defining users for the transaction pipeline is recommended");
+      }
+
+      if (config->number_of_limits == 0)
+      {
+         ZF_LOGI("pgagroal: Defining limits for the transaction pipeline is recommended");
+      }
+   }
    else if (config->pipeline == PIPELINE_PERFORMANCE)
    {
       if (config->tls && (strlen(config->tls_cert_file) > 0 || strlen(config->tls_key_file) > 0))
@@ -1825,6 +1858,9 @@ as_pipeline(char* str)
 
    if (!strcasecmp(str, "session"))
       return PIPELINE_SESSION;
+
+   if (!strcasecmp(str, "transaction"))
+      return PIPELINE_TRANSACTION;
 
    return PIPELINE_AUTO;
 }

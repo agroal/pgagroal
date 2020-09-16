@@ -79,7 +79,7 @@ pgagroal_remote_management(int client_fd, char* address, void* shmem, void* pipe
 
       type = pgagroal_read_byte(msg->data);
 
-      if (pgagroal_connect_unix_socket(config->unix_socket_dir, &server_fd))
+      if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &server_fd))
       {
          goto done;
       }

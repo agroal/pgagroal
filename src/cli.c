@@ -318,7 +318,7 @@ main(int argc, char **argv)
          if (configuration_path != NULL)
          {
             /* Local connection */
-            if (pgagroal_connect_unix_socket(config->unix_socket_dir, &socket))
+            if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &socket))
             {
                exit_code = 1;
                goto done;

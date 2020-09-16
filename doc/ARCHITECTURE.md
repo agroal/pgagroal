@@ -193,6 +193,29 @@ The pipeline is defined in [pipeline_session.c](../src/libpgagroal/pipeline_sess
 | `session_destroy` | Destroys memory segment if initialized |
 | `session_periodic` | Checks if clients should be disconnected |
 
+### Transaction pipeline
+
+The transaction pipeline will return the connection to the server after each transaction. The pipeline supports
+Transport Layer Security (TLS).
+
+The pipeline uses the [ReadyForQuery](https://www.postgresql.org/docs/current/protocol-message-formats.html) message
+to check the status of the transaction, and therefore needs to maintain track of the message headers.
+
+The pipeline has a management interface in order to receive the socket descriptors from the parent process when a new
+connection is added to the pool. The pool will retry if the client in question doesn't consider the socket descriptor valid.
+
+The pipeline is defined in [pipeline_transaction.c](../src/libpgagroal/pipeline_transaction.c) in the functions
+
+| Function | Description |
+|----------|-------------|
+| `transaction_initialize` | Nothing |
+| `transaction_start` | Setup process variables and returns the connection to the pool |
+| `transaction_client` | Client to `pgagroal` communication. Obtain connection if needed |
+| `transaction_server` | [PostgreSQL](https://www.postgresql.org) to `pgagroal` communication. Keep track of message headers |
+| `transaction_stop` | Return connection to the pool if needed. Possible rollback of active transaction |
+| `transaction_destroy` | Nothing |
+| `transaction_periodic` | Nothing |
+
 ## Signals
 
 The main process of `pgagroal` supports the following signals `SIGTERM`, `SIGHUP`, `SIGINT` and `SIGALRM`

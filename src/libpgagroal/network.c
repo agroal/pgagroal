@@ -135,8 +135,11 @@ pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* lengt
  *
  */
 int
-pgagroal_bind_unix_socket(const char* directory, void* shmem, int *fd)
+pgagroal_bind_unix_socket(const char* directory, const char* file, void* shmem, int *fd)
 {
+   int status;
+   char buf[MISC_LENGTH];
+   struct stat st = {0};
    struct sockaddr_un addr;
    struct configuration* config;
 
@@ -154,22 +157,39 @@ pgagroal_bind_unix_socket(const char* directory, void* shmem, int *fd)
 
    if (!directory)
    {
-      directory = "/tmp/.s.pgagroal";
+      directory = "/tmp/";
    }
 
-   strncpy(addr.sun_path, directory, sizeof(addr.sun_path) - 1);
-   unlink(directory);
+   memset(&buf, 0, sizeof(buf));
+   snprintf(&buf[0], sizeof(buf), "%s", directory);
+
+   if (stat(&buf[0], &st) == -1)
+   {
+      status = mkdir(&buf[0], S_IRWXU);
+      if (status == -1)
+      {
+         ZF_LOGE("pgagroal_bind_unix_socket: permission defined for %s (%s)", directory, strerror(errno));
+         errno = 0;
+         goto error;
+      }
+   }
+
+   memset(&buf, 0, sizeof(buf));
+   snprintf(&buf[0], sizeof(buf), "%s/%s", directory, file);
+
+   strncpy(addr.sun_path, &buf[0], sizeof(addr.sun_path) - 1);
+   unlink(&buf[0]);
 
    if (bind(*fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
    {
-      ZF_LOGE("pgagroal_bind_unix_socket: bind: %s %s", directory, strerror(errno));
+      ZF_LOGE("pgagroal_bind_unix_socket: bind: %s/%s %s", directory, file, strerror(errno));
       errno = 0;
       goto error;
    }
 
    if (listen(*fd, config->backlog) == -1)
    {
-      ZF_LOGE("pgagroal_bind_unix_socket: listen: %s %s", directory, strerror(errno));
+      ZF_LOGE("pgagroal_bind_unix_socket: listen: %s/%s %s", directory, file, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -185,9 +205,14 @@ error:
  *
  */
 int
-pgagroal_remove_unix_socket(const char* directory)
+pgagroal_remove_unix_socket(const char* directory, const char* file)
 {
-   unlink(directory);
+   char buf[MISC_LENGTH];
+
+   memset(&buf, 0, sizeof(buf));
+   snprintf(&buf[0], sizeof(buf), "%s/%s", directory, file);
+
+   unlink(&buf[0]);
 
    return 0;
 }
@@ -316,8 +341,9 @@ error:
  *
  */
 int
-pgagroal_connect_unix_socket(const char* directory, int* fd)
+pgagroal_connect_unix_socket(const char* directory, const char* file, int* fd)
 {
+   char buf[MISC_LENGTH];
    struct sockaddr_un addr;
 
    if ((*fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
@@ -330,11 +356,14 @@ pgagroal_connect_unix_socket(const char* directory, int* fd)
    memset(&addr, 0, sizeof(addr));
    addr.sun_family = AF_UNIX;
 
-   strncpy(addr.sun_path, directory, sizeof(addr.sun_path) - 1);
+   memset(&buf, 0, sizeof(buf));
+   snprintf(&buf[0], sizeof(buf), "%s/%s", directory, file);
+
+   strncpy(addr.sun_path, &buf[0], sizeof(addr.sun_path) - 1);
 
    if (connect(*fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
    {
-      ZF_LOGW("pgagroal_connect_unix_socket: connect: %s %s", directory, strerror(errno));
+      ZF_LOGV("pgagroal_connect_unix_socket: connect: %s/%s %s", directory, file, strerror(errno));
       errno = 0;
       return 1;
    }

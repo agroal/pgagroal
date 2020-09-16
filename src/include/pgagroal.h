@@ -53,6 +53,8 @@ extern "C" {
 #define ZF_LOG_LEVEL ZF_LOG_DEBUG
 #endif
 
+#define MAIN_UDS ".s.pgagroal"
+
 #define MAX_BUFFER_SIZE      65535
 #define DEFAULT_BUFFER_SIZE  65535
 #define SECURITY_BUFFER_SIZE   512
@@ -158,6 +160,7 @@ struct connection
 
    bool new;           /**< Is the connection new */
    signed char server; /**< The server identifier */
+   bool tx_mode;       /**< Connection in transaction mode */
 
    signed char has_security;                                                  /**< The security identifier */
    ssize_t security_lengths[NUMBER_OF_SECURITY_MESSAGES];                     /**< The lengths of the security messages */

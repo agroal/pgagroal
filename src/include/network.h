@@ -51,20 +51,22 @@ pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* lengt
 /**
  * Bind a Unix Domain Socket
  * @param directory The directory
+ * @param file The file
  * @param shmem The shared memory segment
  * @param fd The resulting descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_bind_unix_socket(const char* directory, void* shmem, int* fd);
+pgagroal_bind_unix_socket(const char* directory, const char* file, void* shmem, int* fd);
 
 /**
  * Remove Unix Domain Socket directory
  * @param directory The directory
+ * @param file The file
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_remove_unix_socket(const char* directory);
+pgagroal_remove_unix_socket(const char* directory, const char* file);
 
 /**
  * Connect to a host
@@ -80,11 +82,12 @@ pgagroal_connect(void* shmem, const char* hostname, int port, int* fd);
 /**
  * Connect to a Unix Domain Socket
  * @param directory The directory
+ * @param file The file
  * @param fd The resulting descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_connect_unix_socket(const char* directory, int* fd);
+pgagroal_connect_unix_socket(const char* directory, const char* file, int* fd);
 
 /**
  * Is the socket valid

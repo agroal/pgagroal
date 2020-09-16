@@ -40,7 +40,7 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | max_connections | 100 | Int | No | The maximum number of connections (max 10000) |
 | allow_unknown_users | `true` | Bool | No | Allow unknown users to connect |
 | authentication_timeout | 5 | Int | No | The number of seconds the process will wait for valid credentials |
-| pipeline | `auto` | String | No | The pipeline type (`auto`, `performance`, `session`) |
+| pipeline | `auto` | String | No | The pipeline type (`auto`, `performance`, `session`, `transaction`) |
 | auth_query | `off` | Bool | No | Enable authentication query |
 | failover | `off` | Bool | No | Enable failover support |
 | failover_script | | String | No | The failover script to execute |

@@ -67,6 +67,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    int auth_status;
    struct configuration* config;
    struct pipeline p;
+   bool tx_pool = false;
    int32_t slot = -1;
    SSL* client_ssl = NULL;
 
@@ -77,6 +78,9 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
 
    memset(&client_io, 0, sizeof(struct worker_io));
    memset(&server_io, 0, sizeof(struct worker_io));
+
+   client_io.slot = -1;
+   server_io.slot = -1;
 
    start_time = time(NULL);
 
@@ -102,6 +106,11 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
       {
          p = session_pipeline();
       }
+      else if (config->pipeline == PIPELINE_TRANSACTION)
+      {
+         p = transaction_pipeline();
+         tx_pool = true;
+      }
       else
       {
          ZF_LOGE("pgagroal_worker: Unknown pipeline %d", config->pipeline);
@@ -116,13 +125,16 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
       client_io.shmem = shmem;
       client_io.pipeline_shmem = pipeline_shmem;
       
-      ev_io_init((struct ev_io*)&server_io, p.server, config->connections[slot].fd, EV_READ);
-      server_io.client_fd = client_fd;
-      server_io.server_fd = config->connections[slot].fd;
-      server_io.slot = slot;
-      server_io.client_ssl = client_ssl;
-      server_io.shmem = shmem;
-      server_io.pipeline_shmem = pipeline_shmem;
+      if (config->pipeline != PIPELINE_TRANSACTION)
+      {
+         ev_io_init((struct ev_io*)&server_io, p.server, config->connections[slot].fd, EV_READ);
+         server_io.client_fd = client_fd;
+         server_io.server_fd = config->connections[slot].fd;
+         server_io.slot = slot;
+         server_io.client_ssl = client_ssl;
+         server_io.shmem = shmem;
+         server_io.pipeline_shmem = pipeline_shmem;
+      }
       
       loop = ev_loop_new(pgagroal_libev(config->libev));
 
@@ -131,15 +143,24 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
       signal_watcher.slot = slot;
       ev_signal_start(loop, (struct ev_signal*)&signal_watcher);
 
-      p.start(&client_io);
+      p.start(loop, &client_io);
       started = true;
 
       ev_io_start(loop, (struct ev_io*)&client_io);
-      ev_io_start(loop, (struct ev_io*)&server_io);
+      if (config->pipeline != PIPELINE_TRANSACTION)
+      {
+         ev_io_start(loop, (struct ev_io*)&server_io);
+      }
 
       while (running)
       {
          ev_loop(loop, 0);
+      }
+
+      if (config->pipeline == PIPELINE_TRANSACTION)
+      {
+         /* The slot may have been updated */
+         slot = client_io.slot;
       }
    }
    else
@@ -168,7 +189,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    {
       if (started)
       {
-         p.stop(&client_io);
+         p.stop(loop, &client_io);
 
          pgagroal_prometheus_session_time(difftime(time(NULL), start_time), shmem);
       }
@@ -177,7 +198,10 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
           (exit_code == WORKER_SUCCESS || exit_code == WORKER_CLIENT_FAILURE ||
            (exit_code == WORKER_FAILURE && config->connections[slot].has_security != SECURITY_INVALID)))
       {
-         pgagroal_return_connection(shmem, slot);
+         if (config->pipeline != PIPELINE_TRANSACTION)
+         {
+            pgagroal_return_connection(shmem, slot, tx_pool);
+         }
       }
       else if (exit_code == WORKER_SERVER_FAILURE || exit_code == WORKER_SERVER_FATAL || exit_code == WORKER_SHUTDOWN || exit_code == WORKER_FAILOVER ||
                (exit_code == WORKER_FAILURE && config->connections[slot].has_security == SECURITY_INVALID))
@@ -190,7 +214,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
              pgagroal_connection_isvalid(config->connections[slot].fd) &&
              config->connections[slot].has_security != SECURITY_INVALID)
          {
-            pgagroal_return_connection(shmem, slot);
+            pgagroal_return_connection(shmem, slot, tx_pool);
          }
          else
          {
@@ -198,6 +222,8 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
          }
       }
    }
+
+   pgagroal_management_client_done(shmem, getpid());
 
    if (client_ssl != NULL)
    {
@@ -221,7 +247,10 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    if (loop)
    {
       ev_io_stop(loop, (struct ev_io*)&client_io);
-      ev_io_stop(loop, (struct ev_io*)&server_io);
+      if (config->pipeline != PIPELINE_TRANSACTION)
+      {
+         ev_io_stop(loop, (struct ev_io*)&server_io);
+      }
 
       ev_signal_stop(loop, (struct ev_signal*)&signal_watcher);
 

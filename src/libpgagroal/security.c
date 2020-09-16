@@ -333,7 +333,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
       }
 
       /* Get connection */
-      ret = pgagroal_get_connection(shmem, username, database, true, slot);
+      ret = pgagroal_get_connection(shmem, username, database, true, false, slot);
       if (ret != 0)
       {
          if (ret == 1)
@@ -459,7 +459,7 @@ pgagroal_prefill_auth(char* username, char* password, char* database, void* shme
    config = (struct configuration*)shmem;
 
    /* Get connection */
-   ret = pgagroal_get_connection(shmem, username, database, false, slot);
+   ret = pgagroal_get_connection(shmem, username, database, false, false, slot);
    if (ret != 0)
    {
       goto error;

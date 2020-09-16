@@ -54,6 +54,8 @@ extern "C" {
 #define MANAGEMENT_DISABLEDB          12
 #define MANAGEMENT_RESET              13
 #define MANAGEMENT_RESET_SERVER       14
+#define MANAGEMENT_CLIENT_DONE        15
+#define MANAGEMENT_CLIENT_FD          16
 
 /**
  * Read the management header
@@ -260,6 +262,25 @@ pgagroal_management_reset(SSL* ssl, int socket);
  */
 int
 pgagroal_management_reset_server(SSL* ssl, int socket, char* server);
+
+/**
+ * Management operation: Client done
+ * @param shmem The shared memory segment
+ * @param pid The pid
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_client_done(void* shmem, pid_t pid);
+
+/**
+ * Management operation: Client file descriptor
+ * @param shmem The shared memory segment
+ * @param slot The slot
+ * @param pid The pid
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_client_fd(void* shmem, int32_t slot, pid_t pid);
 
 #ifdef __cplusplus
 }

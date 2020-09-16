@@ -44,20 +44,22 @@ extern "C" {
  * @param username The user name
  * @param database The database
  * @param reuse Should a slot be reused
+ * @param transaction_mode Obtain a connection in transaction mode
  * @param slot The resulting slot
  * @return 0 upon success, 1 if pool is full, otherwise 2
  */
 int
-pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse, int* slot);
+pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse, bool transaction_mode, int* slot);
 
 /**
  * Return a connection
  * @param shmem The shared memory segment
  * @param slot The slot
+ * @param transaction_mode Is the connection returned in transaction mode
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_return_connection(void* shmem, int slot);
+pgagroal_return_connection(void* shmem, int slot, bool transaction_mode);
 
 /**
  * Kill a connection
