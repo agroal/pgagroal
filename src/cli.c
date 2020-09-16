@@ -206,16 +206,16 @@ main(int argc, char **argv)
       exit(1);
    }
 
+   size = sizeof(struct configuration);
+   if (pgagroal_create_shared_memory(size, HUGEPAGE_OFF, &shmem))
+   {
+      printf("pgagroal-cli: Error creating shared memory\n");
+      exit(1);
+   }
+   pgagroal_init_configuration(shmem, size);
+
    if (configuration_path != NULL)
    {
-      size = sizeof(struct configuration);
-      if (pgagroal_create_shared_memory(size, HUGEPAGE_OFF, &shmem))
-      {
-         printf("pgagroal-cli: Error creating shared memory\n");
-         exit(1);
-      }
-      pgagroal_init_configuration(shmem, size);
-
       ret = pgagroal_read_configuration(configuration_path, shmem);
       if (ret)
       {
@@ -228,10 +228,20 @@ main(int argc, char **argv)
    }
    else
    {
-      if (host == NULL || port == NULL)
+      ret = pgagroal_read_configuration("/etc/pgagroal/pgagroal.conf", shmem);
+      if (ret)
       {
-         printf("pgagroal-cli: Host and port must be specified\n");
-         exit(1);
+         if (host == NULL || port == NULL)
+         {
+            printf("pgagroal-cli: Host and port must be specified\n");
+            exit(1);
+         }
+      }
+      else
+      {
+         configuration_path = "/etc/pgagroal/pgagroal.conf";
+         pgagroal_start_logging(shmem);
+         config = (struct configuration*)shmem;
       }
    }
 
@@ -463,11 +473,8 @@ done:
       }
    }
 
-   if (shmem != NULL)
-   {
-      pgagroal_stop_logging(shmem);
-      munmap(shmem, size);
-   }
+   pgagroal_stop_logging(shmem);
+   munmap(shmem, size);
 
    if (do_free)
    {
