@@ -105,9 +105,11 @@ static volatile int keep_running = 1;
 static struct ev_loop* main_loop = NULL;
 static struct accept_io io_main[MAX_FDS];
 static struct accept_io io_mgt;
+static struct accept_io io_uds;
 static int* main_fds = NULL;
 static int main_fds_length = -1;
-static int unix_socket = -1;
+static int unix_management_socket = -1;
+static int unix_pgsql_socket = -1;
 static struct accept_io io_metrics[MAX_FDS];
 static int* metrics_fds = NULL;
 static int metrics_fds_length = -1;
@@ -124,8 +126,8 @@ static void
 start_mgt()
 {
    memset(&io_mgt, 0, sizeof(struct accept_io));
-   ev_io_init((struct ev_io*)&io_mgt, accept_mgt_cb, unix_socket, EV_READ);
-   io_mgt.socket = unix_socket;
+   ev_io_init((struct ev_io*)&io_mgt, accept_mgt_cb, unix_management_socket, EV_READ);
+   io_mgt.socket = unix_management_socket;
    io_mgt.shmem = shmem;
    io_mgt.pipeline_shmem = pipeline_shmem;
    ev_io_start(main_loop, (struct ev_io*)&io_mgt);
@@ -139,9 +141,38 @@ shutdown_mgt()
    config = (struct configuration*)shmem;
 
    ev_io_stop(main_loop, (struct ev_io*)&io_mgt);
-   pgagroal_disconnect(unix_socket);
+   pgagroal_disconnect(unix_management_socket);
    errno = 0;
    pgagroal_remove_unix_socket(config->unix_socket_dir, MAIN_UDS);
+   errno = 0;
+}
+
+static void
+start_uds()
+{
+   memset(&io_uds, 0, sizeof(struct accept_io));
+   ev_io_init((struct ev_io*)&io_uds, accept_main_cb, unix_pgsql_socket, EV_READ);
+   io_uds.socket = unix_pgsql_socket;
+   io_uds.shmem = shmem;
+   io_uds.pipeline_shmem = pipeline_shmem;
+   ev_io_start(main_loop, (struct ev_io*)&io_uds);
+}
+
+static void
+shutdown_uds()
+{
+   char pgsql[MISC_LENGTH];
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   memset(&pgsql, 0, sizeof(pgsql));
+   snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->port);
+
+   ev_io_stop(main_loop, (struct ev_io*)&io_uds);
+   pgagroal_disconnect(unix_pgsql_socket);
+   errno = 0;
+   pgagroal_remove_unix_socket(config->unix_socket_dir, &pgsql[0]);
    errno = 0;
 }
 
@@ -522,7 +553,7 @@ main(int argc, char **argv)
 
          if (sd_is_socket(fd, AF_UNIX, 0, -1))
          {
-            unix_socket = fd;
+            unix_pgsql_socket = fd;
             has_unix_socket = true;
          }
          else if (sd_is_socket(fd, AF_INET, 0, -1) || sd_is_socket(fd, AF_INET6, 0, -1))
@@ -631,12 +662,24 @@ main(int argc, char **argv)
    pgagroal_pool_init(shmem);
 
    /* Bind Unix Domain Socket for file descriptor transfers */
+   if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, shmem, &unix_management_socket))
+   {
+      ZF_LOGF("pgagroal: Could not bind to %s/%s\n", config->unix_socket_dir, MAIN_UDS);
+      sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, MAIN_UDS);
+      exit(1);
+   }
+
    if (!has_unix_socket)
    {
-      if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, shmem, &unix_socket))
+      char pgsql[MISC_LENGTH];
+
+      memset(&pgsql, 0, sizeof(pgsql));
+      snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->port);
+
+      if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], shmem, &unix_pgsql_socket))
       {
-         ZF_LOGF("pgagroal: Could not bind to %s\n", config->unix_socket_dir);
-         sd_notifyf(0, "STATUS=Could not bind to %s", config->unix_socket_dir);
+         ZF_LOGF("pgagroal: Could not bind to %s/%s\n", config->unix_socket_dir, &pgsql[0]);
+         sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, &pgsql[0]);
          exit(1);
       }
    }
@@ -724,6 +767,7 @@ main(int argc, char **argv)
    }
 
    start_mgt();
+   start_uds();
    start_io();
 
    if (config->idle_timeout > 0)
@@ -798,7 +842,8 @@ main(int argc, char **argv)
    {
       ZF_LOGD("Socket: %d", *(main_fds + i));
    }
-   ZF_LOGD("Management: %d", unix_socket);
+   ZF_LOGD("Unix Domain Socket: %d", unix_pgsql_socket);
+   ZF_LOGD("Management: %d", unix_management_socket);
    for (int i = 0; i < metrics_fds_length; i++)
    {
       ZF_LOGD("Metrics: %d", *(metrics_fds + i));
@@ -853,6 +898,7 @@ main(int argc, char **argv)
    shutdown_metrics();
    shutdown_mgt();
    shutdown_io();
+   shutdown_uds();
 
    for (int i = 0; i < 6; i++)
    {
@@ -902,9 +948,21 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    {
       if (accept_fatal(errno) && keep_running)
       {
+         char pgsql[MISC_LENGTH];
+
          ZF_LOGW("Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
 
          shutdown_io();
+         shutdown_uds();
+
+         memset(&pgsql, 0, sizeof(pgsql));
+         snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->port);
+
+         if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], shmem, &unix_pgsql_socket))
+         {
+            ZF_LOGF("pgagroal: Could not bind to %s/%s\n", config->unix_socket_dir, &pgsql[0]);
+            exit(1);
+         }
 
          free(main_fds);
          main_fds = NULL;
@@ -928,11 +986,13 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          }
 
          start_io();
+         start_uds();
 
          for (int i = 0; i < main_fds_length; i++)
          {
             ZF_LOGD("Socket: %d", *(main_fds + i));
          }
+         ZF_LOGD("Unix Domain Socket: %d", unix_pgsql_socket);
       }
       else
       {
@@ -985,7 +1045,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    struct accept_io* ai;
    struct configuration* config;
 
-   ZF_LOGV("pgagroal: unix_socket ready (%d)", revents);
+   ZF_LOGV("pgagroal: unix_management_socket ready (%d)", revents);
 
    if (EV_ERROR & revents)
    {
@@ -1006,7 +1066,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          shutdown_mgt();
 
-         if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, shmem, &unix_socket))
+         if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, shmem, &unix_management_socket))
          {
             ZF_LOGF("pgagroal: Could not bind to %s\n", config->unix_socket_dir);
             exit(1);
@@ -1014,7 +1074,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          start_mgt();
 
-         ZF_LOGD("Management: %d", unix_socket);
+         ZF_LOGD("Management: %d", unix_management_socket);
       }
       else
       {
