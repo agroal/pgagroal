@@ -281,7 +281,7 @@ master_key(char* password)
       }
       else
       {
-         printf("Wrong permissions for .pgagroal\n");
+         printf("Wrong permissions for ~/.pgagroal (must be 0700)\n");
          goto error;
       }
    }
@@ -301,7 +301,7 @@ master_key(char* password)
       }
       else
       {
-         printf("Wrong permissions for master.key\n");
+         printf("Wrong permissions for ~/.pgagroal/master.key (must be 0600)\n");
          goto error;
       }
    }
