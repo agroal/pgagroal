@@ -10,8 +10,9 @@ Once a connection is obtained pgagroal will replay the previous communication se
 the new client. This only works for connections using `trust`, `password` or `md5` authentication
 methods, so `scram-sha-256` based connections are not cached.
 
-Note, that this can lead to replay attacks based on the network setup, so consider using either
-a user vault or authentication query instead.
+Note, that this can lead to replay attacks against the `md5` based connections since the hash
+doesn't change. Make sure that pgagroal is deployed on a private trusted network, but consider
+using either a user vault or authentication query instead.
 
 ## User vault
 
