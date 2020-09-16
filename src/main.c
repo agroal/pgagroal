@@ -618,9 +618,9 @@ main(int argc, char **argv)
    /* We are "reserving" 30 file descriptors for pgagroal main */
    if (config->max_connections > (flimit.rlim_cur - 30))
    {
-      printf("pgagroal: max_connections is larger than the number of available file descriptors for connections (%ld)\n", flimit.rlim_cur - 30);
+      printf("pgagroal: max_connections is larger than the file descriptor limit (%ld available)\n", flimit.rlim_cur - 30);
       sd_notifyf(0,
-                 "STATUS=max_connections is larger than the number of available file descriptors for connections (%ld)",
+                 "STATUS=max_connections is larger than the file descriptor limit (%ld available)",
                  flimit.rlim_cur - 30);
       exit(1);
    }
