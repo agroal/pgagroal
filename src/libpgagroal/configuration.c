@@ -1150,7 +1150,7 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
 
             extract_limit(line, server_max, &database, &username, &max_size, &initial_size, &min_size);
 
-            if (database && username && max_size > 0)
+            if (database && username)
             {
                if (strlen(database) < MAX_DATABASE_LENGTH &&
                    strlen(username) < MAX_USERNAME_LENGTH)
@@ -1236,6 +1236,12 @@ pgagroal_validate_limit_configuration(void* shmem)
    {
       total_connections += config->limits[i].max_size;
 
+      if (config->limits[i].max_size <= 0)
+      {
+         ZF_LOGF("max_size must be greater than 0 for limit entry %d", i);
+         return 1;
+      }
+
       if (config->limits[i].initial_size > 0 || config->limits[i].min_size > 0)
       {
          bool user_found = false;
@@ -1250,7 +1256,8 @@ pgagroal_validate_limit_configuration(void* shmem)
 
          if (!user_found)
          {
-            ZF_LOGW("Unknown user (%s) for limit entry (%d)", config->limits[i].username, i);
+            ZF_LOGF("Unknown user '%s' for limit entry %d", config->limits[i].username, i);
+            return 1;
          }
 
          if (config->limits[i].initial_size < config->limits[i].min_size)
