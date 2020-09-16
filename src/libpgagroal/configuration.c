@@ -602,10 +602,6 @@ pgagroal_read_configuration(char* filename, void* shmem)
                      {
                         unknown = true;
                      }
-                     if (config->max_connections > MAX_NUMBER_OF_CONNECTIONS)
-                     {
-                        config->max_connections = MAX_NUMBER_OF_CONNECTIONS;
-                     }
                   }
                   else
                   {
@@ -824,6 +820,7 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets, voi
 
    if (config->max_connections > MAX_NUMBER_OF_CONNECTIONS)
    {
+      ZF_LOGW("pgagroal: max_connections (%d) is greater than allowed (%d)", config->max_connections, MAX_NUMBER_OF_CONNECTIONS);
       config->max_connections = MAX_NUMBER_OF_CONNECTIONS;
    }
 
