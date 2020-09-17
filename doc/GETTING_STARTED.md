@@ -149,6 +149,7 @@ Commands:
   cancel-shutdown          Cancel the graceful shutdown
   status                   Status of pgagroal
   details                  Detailed status of pgagroal
+  switch-to                Switch to another primary
   reset                    Reset the Prometheus statistics
   reset-server             Reset the state of a server
 ```

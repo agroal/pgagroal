@@ -113,6 +113,7 @@ pgagroal_remote_management(int client_fd, char* address, void* shmem, void* pipe
             break;
          case MANAGEMENT_FLUSH:
          case MANAGEMENT_RESET_SERVER:
+         case MANAGEMENT_SWITCH_TO:
             status = pgagroal_read_timeout_message(client_ssl, client_fd, config->authentication_timeout, &msg);
             if (status != MESSAGE_STATUS_OK)
             {

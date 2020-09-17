@@ -91,6 +91,15 @@ pgagroal_server_force_failover(void* shmem, int server);
 int
 pgagroal_server_reset(void* shmem, char* server);
 
+/**
+ * Switch server
+ * @param shmem The shared memory segment
+ * @param server The server
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_server_switch(void* shmem, char* server);
+
 #ifdef __cplusplus
 }
 #endif

@@ -83,6 +83,9 @@ status
 details
   Detailed status of pgagroal
 
+switch-to
+  Switch to another primary
+
 reset
   Reset the Prometheus statistics
 

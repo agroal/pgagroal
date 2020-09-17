@@ -63,6 +63,7 @@
 #define ACTION_DISABLEDB       9
 #define ACTION_RESET          10
 #define ACTION_RESET_SERVER   11
+#define ACTION_SWITCH_TO      12
 
 static int flush(SSL* ssl, int socket, int32_t mode);
 static int enabledb(SSL* ssl, int socket, char* database);
@@ -75,6 +76,7 @@ static int details(SSL* ssl, int socket);
 static int isalive(SSL* ssl, int socket);
 static int reset(SSL* ssl, int socket);
 static int reset_server(SSL* ssl, int socket, char* server);
+static int switch_to(SSL* ssl, int socket, char* server);
 
 
 static void
@@ -116,6 +118,7 @@ usage()
    printf("  cancel-shutdown          Cancel the graceful shutdown\n");
    printf("  status                   Status of pgagroal\n");
    printf("  details                  Detailed status of pgagroal\n");
+   printf("  switch-to                Switch to another primary\n");
    printf("  reset                    Reset the Prometheus statistics\n");
    printf("  reset-server             Reset the state of a server\n");
    printf("\n");
@@ -322,6 +325,14 @@ main(int argc, char **argv)
             server = argv[argc - 1];
          }
       }
+      else if (!strcmp("switch-to", argv[argc - 1]) || !strcmp("switch-to", argv[argc - 2]))
+      {
+         if (!strcmp("switch-to", argv[argc - 2]))
+         {
+            action = ACTION_SWITCH_TO;
+            server = argv[argc - 1];
+         }
+      }
 
       if (action != ACTION_UNKNOWN)
       {
@@ -439,6 +450,10 @@ password:
       else if (action == ACTION_RESET_SERVER)
       {
          exit_code = reset_server(s_ssl, socket, server);
+      }
+      else if (action == ACTION_SWITCH_TO)
+      {
+         exit_code = switch_to(s_ssl, socket, server);
       }
    }
 
@@ -633,6 +648,17 @@ static int
 reset_server(SSL* ssl, int socket, char* server)
 {
    if (pgagroal_management_reset_server(ssl, socket, server))
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+switch_to(SSL* ssl, int socket, char* server)
+{
+   if (pgagroal_management_switch_to(ssl, socket, server))
    {
       return 1;
    }

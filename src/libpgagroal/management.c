@@ -182,6 +182,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          *payload_s = s;
          break;
       case MANAGEMENT_RESET_SERVER:
+      case MANAGEMENT_SWITCH_TO:
          s = malloc(MISC_LENGTH);
          memset(s, 0, MISC_LENGTH);
          if (read_complete(NULL, socket, s, MISC_LENGTH))
@@ -1115,6 +1116,35 @@ error:
    free(cmptr);
    pgagroal_disconnect(fd);
    pgagroal_kill_connection(shmem, slot);
+
+   return 1;
+}
+
+int
+pgagroal_management_switch_to(SSL* ssl, int fd, char* server)
+{
+   char name[MISC_LENGTH];
+
+   if (write_header(ssl, fd, MANAGEMENT_SWITCH_TO, -1))
+   {
+      ZF_LOGW("pgagroal_management_switch_to: write: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   memset(&name[0], 0, MISC_LENGTH);
+   memcpy(&name[0], server, strlen(server));
+
+   if (write_complete(ssl, fd, &name[0], sizeof(name)))
+   {
+      ZF_LOGW("pgagroal_management_switch_to: write: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   return 0;
+
+error:
 
    return 1;
 }

@@ -1217,6 +1217,17 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
             remove_client(p);
          }
          break;
+      case MANAGEMENT_SWITCH_TO:
+         ZF_LOGD("pgagroal: Management switch to");
+         if (!pgagroal_server_switch(ai->shmem, payload_s))
+         {
+            if (!fork())
+            {
+               pgagroal_flush(ai->shmem, FLUSH_GRACEFULLY);
+            }
+            pgagroal_prometheus_failed_servers(ai->shmem);
+         }
+         break;
       default:
          ZF_LOGD("pgagroal: Unknown management id: %d", id);
          break;

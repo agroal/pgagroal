@@ -289,6 +289,43 @@ pgagroal_server_reset(void* shmem, char* server)
    return 1;
 }
 
+int
+pgagroal_server_switch(void* shmem, char* server)
+{
+   int old_primary;
+   int new_primary;
+   signed char state;
+   struct configuration* config = NULL;
+
+   config = (struct configuration*)shmem;
+
+   old_primary = -1;
+   new_primary = -1;
+
+   for (int i = 0; i < config->number_of_servers; i++)
+   {
+      state = atomic_load(&config->servers[i].state);
+
+      if (state == SERVER_PRIMARY)
+      {
+         old_primary = i;
+      }
+      else if (!strcmp(config->servers[i].name, server))
+      {
+         new_primary = i;
+      }
+   }
+
+   if (old_primary != -1 && new_primary != -1)
+   {
+      atomic_store(&config->servers[old_primary].state, SERVER_FAILED);
+      atomic_store(&config->servers[new_primary].state, SERVER_PRIMARY);
+      return 0;
+   }
+
+   return 1;
+}
+
 static int
 failover(void* shmem, int old_primary)
 {
