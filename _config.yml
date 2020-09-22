@@ -33,6 +33,9 @@ urls:
     - text: failover
       url: https://agroal.github.io/pgagroal/failover.html
       icon: https://agroal.github.io/pgagroal/images/icomoon/170-fire.png
+    - text: pipelines
+      url: https://agroal.github.io/pgagroal/pipelines.html
+      icon: https://agroal.github.io/pgagroal/images/icomoon/189-tree.png
 
 github:
     - text: github
