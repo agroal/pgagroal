@@ -143,7 +143,7 @@ layout: default
           <td>auto</td>
           <td>String</td>
           <td>No</td>
-          <td>The pipeline type (auto, performance, session)</td>
+          <td>The pipeline type (auto, performance, session, transaction)</td>
         </tr>
         <tr>
           <td>auth_query</td>
@@ -235,6 +235,13 @@ layout: default
           <td>Int</td>
           <td>No</td>
           <td>The backlog for listen(). Minimum 16</td>
+        </tr>
+        <tr>
+          <td>hugepage</td>
+          <td>try</td>
+          <td>String</td>
+          <td>No</td>
+          <td>Huge page support (off, try, on)</td>
         </tr>
       </tbody>
     </table>

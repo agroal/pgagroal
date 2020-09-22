@@ -28,7 +28,8 @@ layout: default
 
     <p/>
     
-    Note, that this can lead to replay attacks based on the network setup, so consider using either a user vault or
+    Note, that this can lead to replay attacks against the md5 based connections since the hash doesn't change.
+    Make sure that pgagroal is deployed on a private trusted network, but consider using either a user vault or
     authentication query instead.
 
     <h3>User vault</h3>

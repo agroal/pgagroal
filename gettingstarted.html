@@ -16,7 +16,7 @@ layout: default
     using "pgagroal -?". You should see
 
     <pre>
-pgagroal 0.8.2
+pgagroal 0.9.0
   High-performance connection pool for PostgreSQL
 
 Usage:
@@ -53,7 +53,7 @@ log_path = /tmp/pgagroal.log
 max_connections = 100
 idle_timeout = 600
 validation = off
-unix_socket_dir = /tmp/.s.pgagroal
+unix_socket_dir = /tmp/
 
 [primary]
 host = localhost
@@ -135,7 +135,7 @@ psql -h localhost -p 2345 -U test test
     You can see the commands it supports by using "pgagroal-cli -?" which will give
 
     <pre>
-pgagroal-cli 0.8.2
+pgagroal-cli 0.9.0
   Command line utility for pgagroal
 
 Usage:
@@ -163,6 +163,7 @@ Commands:
   cancel-shutdown          Cancel the graceful shutdown
   status                   Status of pgagroal
   details                  Detailed status of pgagroal
+  switch-to                Switch to another primary
   reset                    Reset the Prometheus statistics
   reset-server             Reset the state of a server
     </pre>
@@ -202,7 +203,7 @@ echo $?
     You can see the commands it supports by using "pgagroal-admin -?" which will give
 
     <pre>
-pgagroal-admin 0.8.2
+pgagroal-admin 0.9.0
   Administration utility for pgagroal
 
 Usage:

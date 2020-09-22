@@ -43,3 +43,6 @@
 - name: pgagroal 0.8.2
   date: 2020-09-01
   announce: release/announcement/2020/09/01/pgagroal-0.8.2.html
+- name: pgagroal 0.9.0
+  date: 2020-09-22
+  announce: release/announcement/2020/09/22/pgagroal-0.9.0.html
