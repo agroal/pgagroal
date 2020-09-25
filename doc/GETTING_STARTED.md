@@ -198,6 +198,7 @@ Options:
   -f, --file FILE         Set the path to a user file
   -U, --user USER         Set the user name
   -P, --password PASSWORD Set the password for the user
+  -g, --generate          Generate a password for the master key
   -V, --version           Display version information
   -?, --help              Display help
 
@@ -209,21 +210,13 @@ Commands:
   list-users              List all users
 ```
 
-In order to set the master key for all users use
+In order to set the master key for all users you can use
 
 ```
-pgagroal-admin master-key
+pgagroal-admin -g master-key
 ```
 
-The master key must have the following properties
-
-* At least 8 characters long
-* Use at least 1 upper case letter (`A`, `B`, `C`, ...)
-* Use at least 1 lower case letter (`a`, `b`, `c`, ...)
-* Use at least 1 number  (`1`, `2`, `3`, ...)
-* Use at least 1 special character (`!`, `@`, `#`, ...)
-
-in order to be considered valid.
+The master key must be at least 8 characters.
 
 Then use the other commands to add, update, remove or list the current user names, f.ex.
 

@@ -52,7 +52,13 @@
 #define ACTION_REMOVE_USER 4
 #define ACTION_LIST_USERS  5
 
-static int master_key(char* password);
+static char CHARS[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+                       'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+                       '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                       '!', '@', '#', '$', '%', '^', '&',  '*', '(', ')', '-', '_', '=', '+', '[', '{', ']', '}', '\\', '|', ';', ':',
+                       '\'', '\"', ',', '<', '.',  '>', '/', '?'};
+
+static int master_key(char* password, bool generate_pwd);
 static bool is_valid_key(char* key);
 static int add_user(char* users_path, char* username, char* password);
 static int update_user(char* users_path, char* username, char* password);
@@ -80,6 +86,7 @@ usage()
    printf("  -f, --file FILE         Set the path to a user file\n");
    printf("  -U, --user USER         Set the user name\n");
    printf("  -P, --password PASSWORD Set the password for the user\n");
+   printf("  -g, --generate          Generate a password for the master key\n");
    printf("  -V, --version           Display version information\n");
    printf("  -?, --help              Display help\n");
    printf("\n");
@@ -102,6 +109,7 @@ main(int argc, char **argv)
    char* username = NULL;
    char* password = NULL;
    char* file_path = NULL;
+   bool generate_pwd = false;
    int option_index = 0;
    int32_t action = ACTION_UNKNOWN;
 
@@ -112,11 +120,12 @@ main(int argc, char **argv)
          {"user",  required_argument, 0, 'U'},
          {"password",  required_argument, 0, 'P'},
          {"file",  required_argument, 0, 'f'},
+         {"generate",  no_argument, 0, 'g'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
 
-      c = getopt_long(argc, argv, "V?f:U:P:",
+      c = getopt_long(argc, argv, "gV?f:U:P:",
                       long_options, &option_index);
 
       if (c == -1)
@@ -132,6 +141,9 @@ main(int argc, char **argv)
             break;
          case 'f':
             file_path = optarg;
+            break;
+         case 'g':
+            generate_pwd = true;
             break;
          case 'V':
             version();
@@ -176,7 +188,7 @@ main(int argc, char **argv)
 
       if (action == ACTION_MASTER_KEY)
       {
-         if (master_key(password))
+         if (master_key(password, generate_pwd))
          {
             printf("Error for master key\n");
             exit_code = 1;
@@ -258,7 +270,7 @@ main(int argc, char **argv)
 }
 
 static int
-master_key(char* password)
+master_key(char* password, bool generate_pwd)
 {
    FILE* file = NULL;
    char buf[MISC_LENGTH];
@@ -311,17 +323,38 @@ master_key(char* password)
 
    if (password == NULL)
    {
-      while (!is_valid_key(password))
+      if (!generate_pwd)
       {
-         if (password != NULL)
+         while (!is_valid_key(password))
          {
-            free(password);
-            password = NULL;
-         }
+            if (password != NULL)
+            {
+               free(password);
+               password = NULL;
+            }
 
-         printf("Master key: ");
-         password = pgagroal_get_password();
-         printf("\n");
+            printf("Master key: ");
+            password = pgagroal_get_password();
+            printf("\n");
+         }
+      }
+      else
+      {
+         char pwd[65];
+         time_t t;
+
+         memset(&pwd[0], 0, sizeof(pwd));
+
+         srand((unsigned)time(&t));
+
+         for (int i = 0; i < 65; i++)
+         {
+            pwd[i] = CHARS[rand() % sizeof(CHARS)];
+         }
+         pwd[64] = '\0';
+
+         password = &pwd[0];
+         do_free = false;
       }
    }
    else
@@ -369,10 +402,6 @@ error:
 static bool
 is_valid_key(char* key)
 {
-   bool alpha_lower = false;
-   bool alpha_upper = false;
-   bool digit = false;
-   bool special = false;
    int index;
    char c;
    
@@ -395,44 +424,9 @@ is_valid_key(char* key)
       {
          return false;
       }
-
-      if (isalpha(c))
-      {
-         if (islower(c))
-         {
-            alpha_lower = true;
-         }
-         else
-         {
-            alpha_upper = true;
-         }
-      }
-      else if (isdigit(c))
-      {
-         digit = true;
-      }
-      else
-      {
-         if ((c == '!') || (c == '@') || (c == '#') || (c == '$') || (c == '%') ||
-             (c == '^') || (c == '&') || (c == '*') || (c == '(') || (c == ')') ||
-             (c == '-') || (c == '_') || (c == '=') || (c == '+') ||
-             (c == '[') || (c == '{') || (c == ']') || (c == '}') ||
-             (c == '\\') || (c == '|') || (c == ';') || (c == ':') ||
-             (c == '\'') || (c == '\"') || (c == ',') || (c == '<') ||
-             (c == '.') || (c == '>') || (c == '/') || (c == '?'))
-         {
-            special = true;
-         }
-         else
-         {
-            return false;
-         }
-      }
-      
-      index++;
    }
 
-   return alpha_lower && alpha_upper && digit && special;
+   return true;
 }
 
 static int

@@ -30,6 +30,9 @@ OPTIONS
 -P, --password PASSWORD
   Set the password for the user
 
+-g, --generate
+  Generate a password for the master key
+
 -V, --version
   Display version information
 
