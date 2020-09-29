@@ -363,7 +363,10 @@ pgagroal_return_connection(void* shmem, int slot, bool transaction_mode)
 
          if (!transaction_mode)
          {
-            pgagroal_write_discard_all(NULL, config->connections[slot].fd);
+            if (pgagroal_write_discard_all(NULL, config->connections[slot].fd))
+            {
+               goto kill_connection;
+            }
          }
 
          config->connections[slot].timestamp = time(NULL);
@@ -396,6 +399,8 @@ pgagroal_return_connection(void* shmem, int slot, bool transaction_mode)
          pgagroal_write_terminate(NULL, config->connections[slot].fd);
       }
    }
+
+kill_connection:
 
    return pgagroal_kill_connection(shmem, slot);
 }
