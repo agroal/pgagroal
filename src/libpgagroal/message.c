@@ -486,6 +486,12 @@ pgagroal_write_discard_all(SSL* ssl, int socket)
    {
       goto error;
    }
+
+   if (reply->kind == 'E')
+   {
+      goto error;
+   }
+
    pgagroal_free_message(reply);
    
    return 0;
