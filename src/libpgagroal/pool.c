@@ -286,14 +286,29 @@ retry2:
             goto timeout;
          }
 
-         remove_connection(shmem, username, database);
+         if (best_rule == -1)
+         {
+            remove_connection(shmem, username, database);
+         }
+
          goto start;
       }
       else
       {
          if (!transaction_mode)
          {
-            if (remove_connection(shmem, username, database))
+            if (best_rule == -1)
+            {
+               if (remove_connection(shmem, username, database))
+               {
+                  if (retries < config->max_retries)
+                  {
+                     retries++;
+                     goto start;
+                  }
+               }
+            }
+            else
             {
                if (retries < config->max_retries)
                {
