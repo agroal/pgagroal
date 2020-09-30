@@ -205,7 +205,13 @@ main(int argc, char **argv)
 
    if (getuid() == 0)
    {
-      printf("pgagroal: Using the root account is not allowed\n");
+      printf("pgagroal-cli: Using the root account is not allowed\n");
+      exit(1);
+   }
+
+   if (configuration_path != NULL && (host != NULL || port != NULL))
+   {
+      printf("pgagroal-cli: Use either -c or -h/-p to define endpoint\n");
       exit(1);
    }
 
@@ -350,7 +356,7 @@ main(int argc, char **argv)
             /* Remote connection */
             if (pgagroal_connect(NULL, host, atoi(port), &socket))
             {
-               printf("pgagroal - No route to host: %s:%s\n", host, port);
+               printf("pgagroal-cli: No route to host: %s:%s\n", host, port);
                goto done;
             }
 
@@ -401,7 +407,7 @@ password:
             /* Authenticate */
             if (pgagroal_remote_management_scram_sha256(username, password, socket, &s_ssl) != AUTH_SUCCESS)
             {
-               printf("pgagroal - Bad credentials for %s\n", username);
+               printf("pgagroal-cli: Bad credentials for %s\n", username);
                goto done;
             }
          }
