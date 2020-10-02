@@ -600,10 +600,10 @@ pgagroal_management_write_status(int socket, bool graceful, void* shmem)
       switch (state)
       {
          case STATE_IN_USE:
+         case STATE_GRACEFULLY:
             active++;
          case STATE_INIT:
          case STATE_FREE:
-         case STATE_GRACEFULLY:
          case STATE_FLUSH:
          case STATE_IDLE_CHECK:
          case STATE_VALIDATION:
