@@ -875,42 +875,46 @@ static void
 connection_information(int client_fd, void* shmem)
 {
    char* data = NULL;
-   int gauge;
+   int active;
+   int total;
    struct configuration* config;
 
    config = (struct configuration*)shmem;
 
-   data = append(data, "#HELP pgagroal_active_connections The number of active connections\n");
-   data = append(data, "#TYPE pgagroal_active_connections gauge\n");
-   data = append(data, "pgagroal_active_connections ");
-   data = append_int(data, atomic_load(&config->active_connections));
-   data = append(data, "\n\n");
+   active = 0;
+   total = 0;
 
-   gauge = 0;
    for (int i = 0; i < config->max_connections; i++)
    {
       int state = atomic_load(&config->states[i]);
       switch (state)
       {
          case STATE_IN_USE:
+         case STATE_GRACEFULLY:
+            active++;
          case STATE_INIT:
          case STATE_FREE:
-         case STATE_GRACEFULLY:
          case STATE_FLUSH:
          case STATE_IDLE_CHECK:
          case STATE_VALIDATION:
          case STATE_REMOVE:
-            gauge++;
+            total++;
             break;
          default:
             break;
       }
    }
 
+   data = append(data, "#HELP pgagroal_active_connections The number of active connections\n");
+   data = append(data, "#TYPE pgagroal_active_connections gauge\n");
+   data = append(data, "pgagroal_active_connections ");
+   data = append_int(data, active);
+   data = append(data, "\n\n");
+
    data = append(data, "#HELP pgagroal_total_connections The total number of connections\n");
    data = append(data, "#TYPE pgagroal_total_connections gauge\n");
    data = append(data, "pgagroal_total_connections ");
-   data = append_int(data, gauge);
+   data = append_int(data, total);
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_max_connections The maximum number of connections\n");
