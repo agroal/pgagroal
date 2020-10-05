@@ -43,6 +43,7 @@
 #include <zf_log.h>
 
 /* system */
+#include <assert.h>
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -914,6 +915,10 @@ pgagroal_pool_status(void* shmem)
    {
       connection_details(shmem, i);
    }
+
+#ifdef DEBUG
+   assert(atomic_load(&config->active_connections) <= config->max_connections);
+#endif
 
    return 0;
 }
