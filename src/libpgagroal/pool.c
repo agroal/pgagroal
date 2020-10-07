@@ -37,6 +37,7 @@
 #include <prometheus.h>
 #include <security.h>
 #include <server.h>
+#include <tracker.h>
 #include <utils.h>
 
 #define ZF_LOG_TAG "pool"
@@ -232,6 +233,7 @@ start:
             int status;
 
             ZF_LOGD("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
+            pgagroal_tracking_event_slot(TRACKER_BAD_CONNECTION, *slot, shmem);
             status = pgagroal_kill_connection(shmem, *slot);
             prefill = true;
             if (status == 0)
@@ -258,6 +260,7 @@ start:
       config->connections[*slot].timestamp = time(NULL);
 
       pgagroal_prometheus_connection_success(shmem);
+      pgagroal_tracking_event_slot(TRACKER_GET_CONNECTION_SUCCESS, *slot, shmem);
 
       return 0;
    }
@@ -334,6 +337,7 @@ retry2:
 timeout:
 
    pgagroal_prometheus_connection_timeout(shmem);
+   pgagroal_tracking_event_basic(TRACKER_GET_CONNECTION_TIMEOUT, username, database, shmem);
 
    return 1;
 
@@ -345,6 +349,7 @@ error:
    atomic_fetch_sub(&config->active_connections, 1);
 
    pgagroal_prometheus_connection_error(shmem);
+   pgagroal_tracking_event_basic(TRACKER_GET_CONNECTION_ERROR, username, database, shmem);
 
    return 2;
 }
@@ -385,6 +390,8 @@ pgagroal_return_connection(void* shmem, int slot, bool transaction_mode)
             }
          }
 
+         pgagroal_tracking_event_slot(TRACKER_RETURN_CONNECTION_SUCCESS, slot, shmem);
+
          config->connections[slot].timestamp = time(NULL);
 
          if (config->connections[slot].new)
@@ -418,6 +425,8 @@ pgagroal_return_connection(void* shmem, int slot, bool transaction_mode)
 
 kill_connection:
 
+   pgagroal_tracking_event_slot(TRACKER_RETURN_CONNECTION_KILL, slot, shmem);
+
    return pgagroal_kill_connection(shmem, slot);
 }
 
@@ -433,6 +442,8 @@ pgagroal_kill_connection(void* shmem, int slot)
    ZF_LOGD("pgagroal_kill_connection: Slot %d FD %d State %d PID %d",
            slot, config->connections[slot].fd, atomic_load(&config->states[slot]),
            config->connections[slot].pid);
+
+   pgagroal_tracking_event_slot(TRACKER_KILL_CONNECTION, slot, shmem);
 
    fd = config->connections[slot].fd;
    if (fd != -1)
@@ -512,6 +523,7 @@ pgagroal_idle_timeout(void* shmem)
          if (diff >= (double)config->idle_timeout && !config->connections[i].tx_mode)
          {
             pgagroal_prometheus_connection_idletimeout(shmem);
+            pgagroal_tracking_event_slot(TRACKER_IDLE_TIMEOUT, i, shmem);
             pgagroal_kill_connection(shmem, i);
             prefill = true;
          }
@@ -520,6 +532,7 @@ pgagroal_idle_timeout(void* shmem)
             if (!atomic_compare_exchange_strong(&config->states[i], &idle_check, STATE_FREE))
             {
                pgagroal_prometheus_connection_idletimeout(shmem);
+               pgagroal_tracking_event_slot(TRACKER_IDLE_TIMEOUT, i, shmem);
                pgagroal_kill_connection(shmem, i);
                prefill = true;
             }
@@ -595,6 +608,7 @@ pgagroal_validation(void* shmem)
          if (kill)
          {
             pgagroal_prometheus_connection_invalid(shmem);
+            pgagroal_tracking_event_slot(TRACKER_INVALID_CONNECTION, i, shmem);
             pgagroal_kill_connection(shmem, i);
             prefill = true;
          }
@@ -603,6 +617,7 @@ pgagroal_validation(void* shmem)
             if (!atomic_compare_exchange_strong(&config->states[i], &validation, STATE_FREE))
             {
                pgagroal_prometheus_connection_invalid(shmem);
+               pgagroal_tracking_event_slot(TRACKER_INVALID_CONNECTION, i, shmem);
                pgagroal_kill_connection(shmem, i);
                prefill = true;
             }
@@ -667,6 +682,7 @@ pgagroal_flush(void* shmem, int mode)
                pgagroal_write_terminate(NULL, config->connections[i].fd);
             }
             pgagroal_prometheus_connection_flush(shmem);
+            pgagroal_tracking_event_slot(TRACKER_FLUSH, i, shmem);
             pgagroal_kill_connection(shmem, i);
             prefill = true;
          }
@@ -678,6 +694,7 @@ pgagroal_flush(void* shmem, int mode)
                {
                   kill(config->connections[i].pid, SIGQUIT);
                   pgagroal_prometheus_connection_flush(shmem);
+                  pgagroal_tracking_event_slot(TRACKER_FLUSH, i, shmem);
                   pgagroal_kill_connection(shmem, i);
                   prefill = true;
                }
@@ -699,6 +716,7 @@ pgagroal_flush(void* shmem, int mode)
             case STATE_FREE:
                atomic_store(&config->states[i], STATE_GRACEFULLY);
                pgagroal_prometheus_connection_flush(shmem);
+               pgagroal_tracking_event_slot(TRACKER_FLUSH, i, shmem);
                pgagroal_kill_connection(shmem, i);
                prefill = true;
                break;
@@ -792,6 +810,7 @@ pgagroal_prefill(void* shmem, bool initial)
                               pgagroal_write_terminate(NULL, config->connections[slot].fd);
                            }
                         }
+                        pgagroal_tracking_event_slot(TRACKER_PREFILL_KILL, slot, shmem);
                         pgagroal_kill_connection(shmem, slot);
                      }
 
@@ -802,6 +821,7 @@ pgagroal_prefill(void* shmem, bool initial)
                   {
                      if (config->connections[slot].has_security != SECURITY_INVALID)
                      {
+                        pgagroal_tracking_event_slot(TRACKER_PREFILL_RETURN, slot, shmem);
                         pgagroal_return_connection(shmem, slot, false);
                      }
                      else
@@ -814,6 +834,7 @@ pgagroal_prefill(void* shmem, bool initial)
                               pgagroal_write_terminate(NULL, config->connections[slot].fd);
                            }
                         }
+                        pgagroal_tracking_event_slot(TRACKER_PREFILL_KILL, slot, shmem);
                         pgagroal_kill_connection(shmem, slot);
                         break;
                      }
@@ -997,12 +1018,14 @@ remove_connection(void* shmem, char* username, char* database)
             if (!atomic_compare_exchange_strong(&config->states[i], &remove, STATE_FREE))
             {
                pgagroal_prometheus_connection_remove(shmem);
+               pgagroal_tracking_event_slot(TRACKER_REMOVE_CONNECTION, i, shmem);
                pgagroal_kill_connection(shmem, i);
             }
          }
          else
          {
             pgagroal_prometheus_connection_remove(shmem);
+            pgagroal_tracking_event_slot(TRACKER_REMOVE_CONNECTION, i, shmem);
             pgagroal_kill_connection(shmem, i);
          }
 

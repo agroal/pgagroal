@@ -36,6 +36,7 @@
 #include <prometheus.h>
 #include <server.h>
 #include <shmem.h>
+#include <tracker.h>
 #include <worker.h>
 #include <utils.h>
 
@@ -119,6 +120,8 @@ transaction_start(struct ev_loop *loop, struct worker_io* w)
 
    start_mgt(loop);
 
+   pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION_START, w->slot, w->shmem);
+
    is_new = config->connections[w->slot].new;
    pgagroal_return_connection(w->shmem, w->slot, true);
 
@@ -161,6 +164,7 @@ transaction_stop(struct ev_loop *loop, struct worker_io* w)
       }
 
       ev_io_stop(loop, (struct ev_io*)&server_io);
+      pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION_STOP, w->slot, w->shmem);
       pgagroal_return_connection(w->shmem, slot, true);
       slot = -1;
    }
@@ -192,6 +196,7 @@ transaction_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
    /* We can't use the information from wi except from client_fd/client_ssl */
    if (slot == -1)
    {
+      pgagroal_tracking_event_basic(TRACKER_TX_GET_CONNECTION, &username[0], &database[0], wi->shmem);
       if (pgagroal_get_connection(wi->shmem, &username[0], &database[0], true, true, &slot))
       {
          pgagroal_write_pool_full(wi->client_ssl, wi->client_fd);
@@ -374,6 +379,7 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
          {
             ev_io_stop(loop, (struct ev_io*)&server_io);
 
+            pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION, slot, wi->shmem);
             if (pgagroal_return_connection(wi->shmem, slot, true))
             {
                goto return_error;

@@ -37,6 +37,7 @@
 #include <pool.h>
 #include <prometheus.h>
 #include <security.h>
+#include <tracker.h>
 #include <worker.h>
 #include <utils.h>
 
@@ -83,6 +84,8 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    server_io.slot = -1;
 
    start_time = time(NULL);
+
+   pgagroal_tracking_event_basic(TRACKER_CLIENT_START, NULL, NULL, shmem);
 
    /* Authentication */
    auth_status = pgagroal_authenticate(client_fd, address, shmem, &slot, &client_ssl);
@@ -200,12 +203,14 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
       {
          if (config->pipeline != PIPELINE_TRANSACTION)
          {
+            pgagroal_tracking_event_slot(TRACKER_WORKER_RETURN1, slot, shmem);
             pgagroal_return_connection(shmem, slot, tx_pool);
          }
       }
       else if (exit_code == WORKER_SERVER_FAILURE || exit_code == WORKER_SERVER_FATAL || exit_code == WORKER_SHUTDOWN || exit_code == WORKER_FAILOVER ||
                (exit_code == WORKER_FAILURE && config->connections[slot].has_security == SECURITY_INVALID))
       {
+         pgagroal_tracking_event_slot(TRACKER_WORKER_KILL1, slot, shmem);
          pgagroal_kill_connection(shmem, slot);
       }
       else
@@ -214,10 +219,12 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
              pgagroal_connection_isvalid(config->connections[slot].fd) &&
              config->connections[slot].has_security != SECURITY_INVALID)
          {
+            pgagroal_tracking_event_slot(TRACKER_WORKER_RETURN2, slot, shmem);
             pgagroal_return_connection(shmem, slot, tx_pool);
          }
          else
          {
+            pgagroal_tracking_event_slot(TRACKER_WORKER_KILL2, slot, shmem);
             pgagroal_kill_connection(shmem, slot);
          }
       }
@@ -258,6 +265,8 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
    }
 
    free(address);
+
+   pgagroal_tracking_event_basic(TRACKER_CLIENT_STOP, NULL, NULL, shmem);
 
    pgagroal_memory_destroy();
    pgagroal_stop_logging(shmem);

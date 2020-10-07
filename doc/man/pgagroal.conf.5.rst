@@ -126,6 +126,9 @@ backlog
 hugepage
   Huge page support. Default is try
 
+tracker
+  Track connection lifecycle. Default is off
+
 Danger zone
 
 disconnect_client

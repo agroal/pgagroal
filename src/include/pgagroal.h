@@ -284,6 +284,7 @@ struct configuration
    bool non_blocking;       /**< Use non blocking */
    int backlog;             /**< The backlog for listen */
    unsigned char hugepage;  /**< Huge page support */
+   bool tracker;            /**< Tracker support */
 
    char unix_socket_dir[MISC_LENGTH]; /**< The directory for the Unix Domain Socket */
 

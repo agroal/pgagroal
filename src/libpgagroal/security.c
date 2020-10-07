@@ -36,6 +36,7 @@
 #include <prometheus.h>
 #include <security.h>
 #include <server.h>
+#include <tracker.h>
 #include <utils.h>
 
 #define ZF_LOG_TAG "security"
@@ -333,6 +334,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
       }
 
       /* Get connection */
+      pgagroal_tracking_event_basic(TRACKER_AUTHENTICATE, username, database, shmem);
       ret = pgagroal_get_connection(shmem, username, database, true, false, slot);
       if (ret != 0)
       {
@@ -459,6 +461,7 @@ pgagroal_prefill_auth(char* username, char* password, char* database, void* shme
    config = (struct configuration*)shmem;
 
    /* Get connection */
+   pgagroal_tracking_event_basic(TRACKER_PREFILL, username, database, shmem);
    ret = pgagroal_get_connection(shmem, username, database, false, false, slot);
    if (ret != 0)
    {
@@ -524,10 +527,11 @@ pgagroal_prefill_auth(char* username, char* password, char* database, void* shme
 
 error:
 
-   ZF_LOGD("authenticate: ERROR");
+   ZF_LOGD("prefill_auth: ERROR");
 
    if (*slot != -1)
    {
+      pgagroal_tracking_event_slot(TRACKER_PREFILL_KILL, *slot, shmem);
       pgagroal_kill_connection(shmem, *slot);
    }
 

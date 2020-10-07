@@ -99,6 +99,7 @@ pgagroal_init_configuration(void* shmem, size_t size)
    config->non_blocking = true;
    config->backlog = -1;
    config->hugepage = HUGEPAGE_TRY;
+   config->tracker = false;
 
    config->log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;
@@ -716,6 +717,20 @@ pgagroal_read_configuration(char* filename, void* shmem)
                   {
                      config->hugepage = as_hugepage(value);
 
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "tracker"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     if (as_bool(value, &config->tracker))
+                     {
+                        unknown = true;
+                     }
                   }
                   else
                   {
