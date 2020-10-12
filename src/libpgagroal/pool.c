@@ -63,7 +63,6 @@ static bool do_prefill(void* shmem, char* username, char* database, int size);
 int
 pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse, bool transaction_mode, int* slot)
 {
-   bool prefill;
    bool do_init;
    bool has_lock;
    int connections;
@@ -77,8 +76,6 @@ pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse,
    struct configuration* config;
 
    config = (struct configuration*)shmem;
-
-   prefill = false;
 
    pgagroal_prometheus_connection_get(shmem);
 
@@ -148,11 +145,16 @@ start:
 
    if (*slot != -1)
    {
+      config->connections[*slot].limit_rule = best_rule;
+      config->connections[*slot].pid = getpid();
+
       if (do_init)
       {
          /* We need to find the server for the connection */
          if (pgagroal_get_primary(shmem, &server))
          {
+            config->connections[*slot].limit_rule = -1;
+            config->connections[*slot].pid = -1;
             atomic_store(&config->states[*slot], STATE_NOTINIT);
 
             if (!fork())
@@ -168,6 +170,8 @@ start:
          if (pgagroal_connect(shmem, config->servers[server].host, config->servers[server].port, &fd))
          {
             ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
+            config->connections[*slot].limit_rule = -1;
+            config->connections[*slot].pid = -1;
             atomic_store(&config->states[*slot], STATE_NOTINIT);
 
             pgagroal_prometheus_server_error(server, shmem);
@@ -197,10 +201,7 @@ start:
          memset(&config->connections[*slot].database, 0, MAX_DATABASE_LENGTH);
          memcpy(&config->connections[*slot].database, database, MIN(strlen(database), MAX_DATABASE_LENGTH - 1));
 
-         config->connections[*slot].limit_rule = best_rule;
          config->connections[*slot].has_security = SECURITY_INVALID;
-         config->connections[*slot].timestamp = time(NULL);
-         config->connections[*slot].pid = getpid();
          config->connections[*slot].fd = fd;
 
          atomic_store(&config->states[*slot], STATE_IN_USE);
@@ -235,7 +236,12 @@ start:
             ZF_LOGD("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
             pgagroal_tracking_event_slot(TRACKER_BAD_CONNECTION, *slot, shmem);
             status = pgagroal_kill_connection(shmem, *slot);
-            prefill = true;
+
+            if (!fork())
+            {
+               pgagroal_prefill(shmem, false);
+            }
+
             if (status == 0)
             {
                goto retry2;
@@ -247,16 +253,6 @@ start:
          }
       }
 
-      if (prefill)
-      {
-         if (!fork())
-         {
-            pgagroal_prefill(shmem, false);
-         }
-      }
-
-      config->connections[*slot].limit_rule = best_rule;
-      config->connections[*slot].pid = getpid();
       config->connections[*slot].timestamp = time(NULL);
 
       pgagroal_prometheus_connection_success(shmem);
