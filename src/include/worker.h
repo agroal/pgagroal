@@ -69,9 +69,10 @@ extern volatile int exit_code;
  * @param address The client address
  * @param shmem The shared memory segment
  * @param pipeline_shmem The shared memory segment for the pipeline
+ * @param argv The argv
  */
 void
-pgagroal_worker(int fd, char* address, void* shmem, void* pipeline_shmem);
+pgagroal_worker(int fd, char* address, void* shmem, void* pipeline_shmem, char** argv);
 
 #ifdef __cplusplus
 }

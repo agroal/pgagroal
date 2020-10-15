@@ -690,6 +690,25 @@ error:
    return 1;
 }
 
+void
+pgagroal_set_proc_title(char** argv, char* s1, char *s2)
+{
+   char title[256];
+
+   memset(&title, 0, sizeof(title));
+
+   if (s1 != NULL && s2 != NULL)
+   {
+      snprintf(title, sizeof(title) - 1, "pgagroal: %s/%s", s1, s2);
+   }
+   else
+   {
+      snprintf(title, sizeof(title) - 1, "pgagroal: %s", s1);
+   }
+
+   memcpy(*argv, title, 256);
+}
+
 #ifdef DEBUG
 
 int

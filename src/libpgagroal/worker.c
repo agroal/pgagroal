@@ -57,7 +57,7 @@ volatile int exit_code = WORKER_FAILURE;
 static void signal_cb(struct ev_loop *loop, ev_signal *w, int revents);
 
 void
-pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
+pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem, char** argv)
 {
    struct ev_loop *loop = NULL;
    struct signal_info signal_watcher;
@@ -100,6 +100,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem)
       }
 
       pgagroal_pool_status(shmem);
+      pgagroal_set_proc_title(argv, config->connections[slot].username, config->connections[slot].database);
 
       if (config->pipeline == PIPELINE_PERFORMANCE)
       {

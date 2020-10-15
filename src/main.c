@@ -86,6 +86,7 @@ struct accept_io
    int socket;
    void* shmem;
    void* pipeline_shmem;
+   char** argv;
 };
 
 struct periodic_info
@@ -102,6 +103,7 @@ struct client
 };
 
 static volatile int keep_running = 1;
+static char** argv_ptr;
 static struct ev_loop* main_loop = NULL;
 static struct accept_io io_main[MAX_FDS];
 static struct accept_io io_mgt;
@@ -130,6 +132,7 @@ start_mgt()
    io_mgt.socket = unix_management_socket;
    io_mgt.shmem = shmem;
    io_mgt.pipeline_shmem = pipeline_shmem;
+   io_mgt.argv = argv_ptr;
    ev_io_start(main_loop, (struct ev_io*)&io_mgt);
 }
 
@@ -155,6 +158,7 @@ start_uds()
    io_uds.socket = unix_pgsql_socket;
    io_uds.shmem = shmem;
    io_uds.pipeline_shmem = pipeline_shmem;
+   io_uds.argv = argv_ptr;
    ev_io_start(main_loop, (struct ev_io*)&io_uds);
 }
 
@@ -188,6 +192,7 @@ start_io()
       io_main[i].socket = sockfd;
       io_main[i].shmem = shmem;
       io_main[i].pipeline_shmem = pipeline_shmem;
+      io_main[i].argv = argv_ptr;
       ev_io_start(main_loop, (struct ev_io*)&io_main[i]);
    }
 }
@@ -215,6 +220,7 @@ start_metrics()
       io_metrics[i].socket = sockfd;
       io_metrics[i].shmem = shmem;
       io_metrics[i].pipeline_shmem = pipeline_shmem;
+      io_metrics[i].argv = argv_ptr;
       ev_io_start(main_loop, (struct ev_io*)&io_metrics[i]);
    }
 }
@@ -242,6 +248,7 @@ start_management()
       io_management[i].socket = sockfd;
       io_management[i].shmem = shmem;
       io_management[i].pipeline_shmem = pipeline_shmem;
+      io_management[i].argv = argv_ptr;
       ev_io_start(main_loop, (struct ev_io*)&io_management[i]);
    }
 }
@@ -315,6 +322,8 @@ main(int argc, char **argv)
    struct configuration* config = NULL;
    int ret;
    int c;
+
+   argv_ptr = argv;
 
    while (1)
    {
@@ -660,6 +669,8 @@ main(int argc, char **argv)
 
    pgagroal_start_logging(shmem);
    pgagroal_pool_init(shmem);
+
+   pgagroal_set_proc_title(argv, "main", NULL);
 
    /* Bind Unix Domain Socket for file descriptor transfers */
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, shmem, &unix_management_socket))
@@ -1026,7 +1037,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
       ev_loop_fork(loop);
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
-      pgagroal_worker(client_fd, addr, ai->shmem, ai->pipeline_shmem);
+      pgagroal_worker(client_fd, addr, ai->shmem, ai->pipeline_shmem, ai->argv);
    }
 
    pgagroal_disconnect(client_fd);
