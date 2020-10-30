@@ -86,6 +86,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem,
    start_time = time(NULL);
 
    pgagroal_tracking_event_basic(TRACKER_CLIENT_START, NULL, NULL, shmem);
+   pgagroal_set_proc_title(argv, "authenticating", NULL);
 
    /* Authentication */
    auth_status = pgagroal_authenticate(client_fd, address, shmem, &slot, &client_ssl);
