@@ -157,6 +157,14 @@ pgagroal_socket_nonblocking(int fd, bool value);
 bool
 pgagroal_socket_is_nonblocking(int fd);
 
+/**
+ * Does the socket have an error associated
+ * @param fd The descriptor
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_socket_has_error(int fd);
+
 #ifdef __cplusplus
 }
 #endif

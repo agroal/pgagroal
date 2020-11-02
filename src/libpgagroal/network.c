@@ -464,6 +464,33 @@ pgagroal_socket_is_nonblocking(int fd)
 }
 
 int
+pgagroal_socket_has_error(int fd)
+{
+   int error = 0;
+   socklen_t length = sizeof(int);
+
+   if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &length) == -1)
+   {
+      ZF_LOGV("error getting socket error code: %s (%d)", strerror(errno), fd);
+      errno = 0;
+      goto error;
+   }
+
+   if (error != 0)
+   {
+      ZF_LOGV("socket error: %s (%d)", strerror(error), fd);
+      errno = 0;
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+int
 pgagroal_tcp_nodelay(int fd, void* shmem)
 {
    struct configuration* config;
