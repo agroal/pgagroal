@@ -445,7 +445,10 @@ pgagroal_kill_connection(void* shmem, int slot)
    if (fd != -1)
    {
       pgagroal_management_kill_connection(shmem, slot, fd);
-      pgagroal_disconnect(fd);
+      if (!pgagroal_socket_has_error(fd))
+      {
+         pgagroal_disconnect(fd);
+      }
    }
    else
    {
