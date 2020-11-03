@@ -234,9 +234,12 @@ start:
             ZF_LOGD("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
             status = pgagroal_kill_connection(shmem, *slot);
 
-            if (!fork())
+            if (config->number_of_users > 0 && config->number_of_limits > 0)
             {
-               pgagroal_prefill(shmem, false);
+               if (!fork())
+               {
+                  pgagroal_prefill(shmem, false);
+               }
             }
 
             if (status == 0)
@@ -525,7 +528,7 @@ pgagroal_idle_timeout(void* shmem)
       }
    }
    
-   if (prefill)
+   if (prefill && config->number_of_users > 0 && config->number_of_limits > 0)
    {
       if (!fork())
       {
@@ -608,7 +611,7 @@ pgagroal_validation(void* shmem)
       }
    }
 
-   if (prefill)
+   if (prefill && config->number_of_users > 0 && config->number_of_limits > 0)
    {
       if (!fork())
       {
@@ -716,7 +719,7 @@ pgagroal_flush(void* shmem, int mode)
       }
    }
    
-   if (prefill)
+   if (prefill && config->number_of_users > 0 && config->number_of_limits > 0)
    {
       if (!fork())
       {
