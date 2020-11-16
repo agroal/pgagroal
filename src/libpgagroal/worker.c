@@ -57,7 +57,7 @@ volatile int exit_code = WORKER_FAILURE;
 static void signal_cb(struct ev_loop *loop, ev_signal *w, int revents);
 
 void
-pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem, char** argv)
+pgagroal_worker(int client_fd, char* address, char** argv)
 {
    struct ev_loop *loop = NULL;
    struct signal_info signal_watcher;
@@ -72,8 +72,8 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem,
    int32_t slot = -1;
    SSL* client_ssl = NULL;
 
-   pgagroal_start_logging(shmem);
-   pgagroal_memory_init(shmem);
+   pgagroal_start_logging();
+   pgagroal_memory_init();
 
    config = (struct configuration*)shmem;
 
@@ -85,11 +85,11 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem,
 
    start_time = time(NULL);
 
-   pgagroal_tracking_event_basic(TRACKER_CLIENT_START, NULL, NULL, shmem);
+   pgagroal_tracking_event_basic(TRACKER_CLIENT_START, NULL, NULL);
    pgagroal_set_proc_title(argv, "authenticating", NULL);
 
    /* Authentication */
-   auth_status = pgagroal_authenticate(client_fd, address, shmem, &slot, &client_ssl);
+   auth_status = pgagroal_authenticate(client_fd, address, &slot, &client_ssl);
    if (auth_status == AUTH_SUCCESS)
    {
       ZF_LOGD("pgagroal_worker: Slot %d (%d -> %d)", slot, client_fd, config->connections[slot].fd);
@@ -100,7 +100,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem,
                  config->connections[slot].database, address);
       }
 
-      pgagroal_pool_status(shmem);
+      pgagroal_pool_status();
       pgagroal_set_proc_title(argv, config->connections[slot].username, config->connections[slot].database);
 
       if (config->pipeline == PIPELINE_PERFORMANCE)
@@ -127,8 +127,6 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem,
       client_io.server_fd = config->connections[slot].fd;
       client_io.slot = slot;
       client_io.client_ssl = client_ssl;
-      client_io.shmem = shmem;
-      client_io.pipeline_shmem = pipeline_shmem;
       
       if (config->pipeline != PIPELINE_TRANSACTION)
       {
@@ -137,14 +135,11 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem,
          server_io.server_fd = config->connections[slot].fd;
          server_io.slot = slot;
          server_io.client_ssl = client_ssl;
-         server_io.shmem = shmem;
-         server_io.pipeline_shmem = pipeline_shmem;
       }
       
       loop = ev_loop_new(pgagroal_libev(config->libev));
 
       ev_signal_init((struct ev_signal*)&signal_watcher, signal_cb, SIGQUIT);
-      signal_watcher.shmem = shmem;
       signal_watcher.slot = slot;
       ev_signal_start(loop, (struct ev_signal*)&signal_watcher);
 
@@ -196,7 +191,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem,
       {
          p.stop(loop, &client_io);
 
-         pgagroal_prometheus_session_time(difftime(time(NULL), start_time), shmem);
+         pgagroal_prometheus_session_time(difftime(time(NULL), start_time));
       }
 
       if ((auth_status == AUTH_SUCCESS || auth_status == AUTH_BAD_PASSWORD) &&
@@ -205,15 +200,15 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem,
       {
          if (config->pipeline != PIPELINE_TRANSACTION)
          {
-            pgagroal_tracking_event_slot(TRACKER_WORKER_RETURN1, slot, shmem);
-            pgagroal_return_connection(shmem, slot, tx_pool);
+            pgagroal_tracking_event_slot(TRACKER_WORKER_RETURN1, slot);
+            pgagroal_return_connection(slot, tx_pool);
          }
       }
       else if (exit_code == WORKER_SERVER_FAILURE || exit_code == WORKER_SERVER_FATAL || exit_code == WORKER_SHUTDOWN || exit_code == WORKER_FAILOVER ||
                (exit_code == WORKER_FAILURE && config->connections[slot].has_security == SECURITY_INVALID))
       {
-         pgagroal_tracking_event_slot(TRACKER_WORKER_KILL1, slot, shmem);
-         pgagroal_kill_connection(shmem, slot);
+         pgagroal_tracking_event_slot(TRACKER_WORKER_KILL1, slot);
+         pgagroal_kill_connection(slot);
       }
       else
       {
@@ -221,18 +216,18 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem,
              pgagroal_connection_isvalid(config->connections[slot].fd) &&
              config->connections[slot].has_security != SECURITY_INVALID)
          {
-            pgagroal_tracking_event_slot(TRACKER_WORKER_RETURN2, slot, shmem);
-            pgagroal_return_connection(shmem, slot, tx_pool);
+            pgagroal_tracking_event_slot(TRACKER_WORKER_RETURN2, slot);
+            pgagroal_return_connection(slot, tx_pool);
          }
          else
          {
-            pgagroal_tracking_event_slot(TRACKER_WORKER_KILL2, slot, shmem);
-            pgagroal_kill_connection(shmem, slot);
+            pgagroal_tracking_event_slot(TRACKER_WORKER_KILL2, slot);
+            pgagroal_kill_connection(slot);
          }
       }
    }
 
-   pgagroal_management_client_done(shmem, getpid());
+   pgagroal_management_client_done(getpid());
 
    if (client_ssl != NULL)
    {
@@ -250,7 +245,7 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem,
    ZF_LOGD("client disconnect: %d", client_fd);
    pgagroal_disconnect(client_fd);
 
-   pgagroal_pool_status(shmem);
+   pgagroal_pool_status();
    ZF_LOGD("After client: PID %d Slot %d (%d)", getpid(), slot, exit_code);
 
    if (loop)
@@ -268,10 +263,10 @@ pgagroal_worker(int client_fd, char* address, void* shmem, void* pipeline_shmem,
 
    free(address);
 
-   pgagroal_tracking_event_basic(TRACKER_CLIENT_STOP, NULL, NULL, shmem);
+   pgagroal_tracking_event_basic(TRACKER_CLIENT_STOP, NULL, NULL);
 
    pgagroal_memory_destroy();
-   pgagroal_stop_logging(shmem);
+   pgagroal_stop_logging();
 
    exit(exit_code);
 }

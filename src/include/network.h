@@ -40,24 +40,22 @@ extern "C" {
  * Bind sockets for a host
  * @param hostname The host name
  * @param port The port number
- * @param shmem The shared memory segment
  * @param fds The resulting descriptors
  * @param length The resulting length of descriptors
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* length);
+pgagroal_bind(const char* hostname, int port, int** fds, int* length);
 
 /**
  * Bind a Unix Domain Socket
  * @param directory The directory
  * @param file The file
- * @param shmem The shared memory segment
  * @param fd The resulting descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_bind_unix_socket(const char* directory, const char* file, void* shmem, int* fd);
+pgagroal_bind_unix_socket(const char* directory, const char* file, int* fd);
 
 /**
  * Remove Unix Domain Socket directory
@@ -70,14 +68,13 @@ pgagroal_remove_unix_socket(const char* directory, const char* file);
 
 /**
  * Connect to a host
- * @param shmem The shared memory segment
  * @param hostname The host name
  * @param port The port number
  * @param fd The resulting descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_connect(void* shmem, const char* hostname, int port, int* fd);
+pgagroal_connect(const char* hostname, int port, int* fd);
 
 /**
  * Connect to a Unix Domain Socket
@@ -125,20 +122,18 @@ pgagroal_get_address(struct sockaddr *sa, char* address, size_t length);
 /**
  * Apply TCP/NODELAY to a descriptor
  * @param fd The descriptor
- * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_tcp_nodelay(int fd, void* shmem);
+pgagroal_tcp_nodelay(int fd);
 
 /**
  * Set the configured socket buffer size to a descriptor
  * @param fd The descriptor
- * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_socket_buffers(int fd, void* shmem);
+pgagroal_socket_buffers(int fd);
 
 /**
  * Apply O_NONBLOCK to a descriptor

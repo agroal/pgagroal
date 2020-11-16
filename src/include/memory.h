@@ -39,10 +39,9 @@ extern "C" {
 
 /**
  * Initialize a memory segment for the process local message structure
- * @param shmem The shared memory segment
  */
 void
-pgagroal_memory_init(void* shmem);
+pgagroal_memory_init();
 
 /**
  * Set the size of the local message structure

@@ -44,10 +44,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-static int failover(void* shmem, int old_primary);
+static int failover(int old_primary);
 
 int
-pgagroal_get_primary(void* shmem, int* server)
+pgagroal_get_primary(int* server)
 {
    int primary;
    signed char server_state;
@@ -106,7 +106,7 @@ error:
 }
 
 int
-pgagroal_update_server_state(void* shmem, int slot, int socket)
+pgagroal_update_server_state(int slot, int socket)
 {
    int status;
    int server;
@@ -170,7 +170,7 @@ error:
 }
 
 int
-pgagroal_server_status(void* shmem)
+pgagroal_server_status()
 {
    struct configuration* config;
 
@@ -215,7 +215,7 @@ pgagroal_server_status(void* shmem)
 }
 
 int
-pgagroal_server_failover(void* shmem, int slot)
+pgagroal_server_failover(int slot)
 {
    signed char primary;
    int old_primary;
@@ -229,14 +229,14 @@ pgagroal_server_failover(void* shmem, int slot)
 
    if (atomic_compare_exchange_strong(&config->servers[old_primary].state, &primary, SERVER_FAILOVER))
    {
-      return failover(shmem, config->connections[slot].server);
+      return failover(config->connections[slot].server);
    }
 
    return 1;
 }
 
 int
-pgagroal_server_force_failover(void* shmem, int server)
+pgagroal_server_force_failover(int server)
 {
    signed char cur_state;
    signed char prev_state;
@@ -252,7 +252,7 @@ pgagroal_server_force_failover(void* shmem, int server)
 
       if (prev_state == SERVER_NOTINIT || prev_state == SERVER_NOTINIT_PRIMARY || prev_state == SERVER_PRIMARY  || prev_state == SERVER_REPLICA)
       {
-         return failover(shmem, server);
+         return failover(server);
       }
       else if (prev_state == SERVER_FAILED)
       {
@@ -264,7 +264,7 @@ pgagroal_server_force_failover(void* shmem, int server)
 }
 
 int
-pgagroal_server_reset(void* shmem, char* server)
+pgagroal_server_reset(char* server)
 {
    signed char state;
    struct configuration* config = NULL;
@@ -290,7 +290,7 @@ pgagroal_server_reset(void* shmem, char* server)
 }
 
 int
-pgagroal_server_switch(void* shmem, char* server)
+pgagroal_server_switch(char* server)
 {
    int old_primary;
    int new_primary;
@@ -327,7 +327,7 @@ pgagroal_server_switch(void* shmem, char* server)
 }
 
 static int
-failover(void* shmem, int old_primary)
+failover(int old_primary)
 {
    signed char state;
    char old_primary_port[6];

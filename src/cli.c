@@ -78,6 +78,8 @@ static int reset(SSL* ssl, int socket);
 static int reset_server(SSL* ssl, int socket, char* server);
 static int switch_to(SSL* ssl, int socket, char* server);
 
+void* shmem = NULL;
+void* pipeline_shmem = NULL;
 
 static void
 version()
@@ -142,7 +144,6 @@ main(int argc, char **argv)
    bool do_free = true;
    int c;
    int option_index = 0;
-   void* shmem = NULL;
    size_t size;
    int32_t action = ACTION_UNKNOWN;
    int32_t mode = FLUSH_IDLE;
@@ -221,23 +222,23 @@ main(int argc, char **argv)
       printf("pgagroal-cli: Error creating shared memory\n");
       exit(1);
    }
-   pgagroal_init_configuration(shmem, size);
+   pgagroal_init_configuration();
 
    if (configuration_path != NULL)
    {
-      ret = pgagroal_read_configuration(configuration_path, shmem);
+      ret = pgagroal_read_configuration(configuration_path);
       if (ret)
       {
          printf("pgagroal-cli: Configuration not found: %s\n", configuration_path);
          exit(1);
       }
 
-      pgagroal_start_logging(shmem);
+      pgagroal_start_logging();
       config = (struct configuration*)shmem;
    }
    else
    {
-      ret = pgagroal_read_configuration("/etc/pgagroal/pgagroal.conf", shmem);
+      ret = pgagroal_read_configuration("/etc/pgagroal/pgagroal.conf");
       if (ret)
       {
          if (host == NULL || port == NULL)
@@ -249,7 +250,7 @@ main(int argc, char **argv)
       else
       {
          configuration_path = "/etc/pgagroal/pgagroal.conf";
-         pgagroal_start_logging(shmem);
+         pgagroal_start_logging();
          config = (struct configuration*)shmem;
       }
    }
@@ -354,7 +355,7 @@ main(int argc, char **argv)
          else
          {
             /* Remote connection */
-            if (pgagroal_connect(NULL, host, atoi(port), &socket))
+            if (pgagroal_connect(host, atoi(port), &socket))
             {
                printf("pgagroal-cli: No route to host: %s:%s\n", host, port);
                goto done;
@@ -494,8 +495,8 @@ done:
       }
    }
 
-   pgagroal_stop_logging(shmem);
-   munmap(shmem, size);
+   pgagroal_stop_logging();
+   pgagroal_destroy_shared_memory(shmem, size);
 
    if (do_free)
    {

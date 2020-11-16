@@ -48,7 +48,7 @@
 #include <sys/types.h>
 
 void
-pgagroal_remote_management(int client_fd, char* address, void* shmem, void* pipeline_shmem)
+pgagroal_remote_management(int client_fd, char* address)
 {
    int server_fd = -1;
    int status;
@@ -59,8 +59,8 @@ pgagroal_remote_management(int client_fd, char* address, void* shmem, void* pipe
    struct message* msg = NULL;
    struct configuration* config;
 
-   pgagroal_start_logging(shmem);
-   pgagroal_memory_init(shmem);
+   pgagroal_start_logging();
+   pgagroal_memory_init();
 
    exit_code = 0;
 
@@ -68,7 +68,7 @@ pgagroal_remote_management(int client_fd, char* address, void* shmem, void* pipe
 
    ZF_LOGD("pgagroal_remote_management: connect %d", client_fd);
 
-   auth_status = pgagroal_remote_management_auth(client_fd, address, shmem, &client_ssl);
+   auth_status = pgagroal_remote_management_auth(client_fd, address, &client_ssl);
    if (auth_status == AUTH_SUCCESS)
    {
       status = pgagroal_read_timeout_message(client_ssl, client_fd, config->authentication_timeout, &msg);
@@ -187,7 +187,7 @@ done:
    free(address);
 
    pgagroal_memory_destroy();
-   pgagroal_stop_logging(shmem);
+   pgagroal_stop_logging();
 
    exit(exit_code);
 }

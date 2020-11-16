@@ -62,31 +62,31 @@
 static int get_auth_type(struct message* msg, int* auth_type);
 static int compare_auth_response(struct message* orig, struct message* response, int auth_type);
 
-static int use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, void* shmem);
+static int use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method);
 static int use_unpooled_connection(struct message* msg, SSL* c_ssl, int client_fd, int slot,
-                                   char* username, int hba_method, void* shmem);
-static int client_trust(SSL* c_ssl, int client_fd, char* username, char* password, int slot, void* shmem);
-static int client_password(SSL* c_ssl, int client_fd, char* username, char* password, int slot, void* shmem);
-static int client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot, void* shmem);
-static int client_scram256(SSL* c_ssl, int client_fd, char* username, char* password, int slot, void* shmem);
-static int client_ok(SSL* c_ssl, int client_fd, int slot, void* shmem);
-static int server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd, int slot, void* shmem);
+                                   char* username, int hba_method);
+static int client_trust(SSL* c_ssl, int client_fd, char* username, char* password, int slot);
+static int client_password(SSL* c_ssl, int client_fd, char* username, char* password, int slot);
+static int client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot);
+static int client_scram256(SSL* c_ssl, int client_fd, char* username, char* password, int slot);
+static int client_ok(SSL* c_ssl, int client_fd, int slot);
+static int server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd, int slot);
 static int server_authenticate(struct message* msg, int auth_type, char* username, char* password,
-                               int slot, void* shmem);
-static int server_trust(int slot, void* shmem);
-static int server_password(char* username, char* password, int slot, void* shmem);
-static int server_md5(char* username, char* password, int slot, void* shmem);
-static int server_scram256(char* username, char* password, int slot, void* shmem);
+                               int slot);
+static int server_trust(int slot);
+static int server_password(char* username, char* password, int slot);
+static int server_md5(char* username, char* password, int slot);
+static int server_scram256(char* username, char* password, int slot);
 
-static bool is_allowed(char* username, char* database, char* address, void* shmem, int* hba_method);
+static bool is_allowed(char* username, char* database, char* address, int* hba_method);
 static bool is_allowed_username(char* username, char* entry);
 static bool is_allowed_database(char* database, char* entry);
 static bool is_allowed_address(char* address, char* entry);
-static bool is_disabled(char* database, void* shmem);
+static bool is_disabled(char* database);
 
-static int   get_hba_method(int index, void* shmem);
-static char* get_password(char* username, void* shmem);
-static char* get_admin_password(char* username, void* shmem);
+static int   get_hba_method(int index);
+static char* get_password(char* username);
+static char* get_admin_password(char* username);
 static int   get_salt(void* data, char** salt);
 
 static int derive_key_iv(char* password, unsigned char* key, unsigned char* iv);
@@ -119,21 +119,21 @@ static int  server_signature(char* password, char* salt, int salt_length, int it
                              char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length,
                              unsigned char** result, int* result_length);
 
-static bool is_tls_user(char* username, char* database, void* shmem);
+static bool is_tls_user(char* username, char* database);
 static int  create_ssl_ctx(bool client, SSL_CTX** ctx);
 static int  create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, SSL** ssl);
-static int  create_ssl_server(SSL_CTX* ctx, int socket, void* shmem, SSL** ssl);
+static int  create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl);
 
-static int auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, void* shmem);
-static int auth_query_get_connection(char* username, char* password, char* database, void* shmem, int* server_fd);
+static int auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method);
+static int auth_query_get_connection(char* username, char* password, char* database, int* server_fd);
 static int auth_query_server_md5(struct message* startup_response_msg, char* username, char* password, int socket);
 static int auth_query_server_scram256(char* username, char* password, int socket);
 static int auth_query_get_password(int socket, char* username, char* database, char** password);
-static int auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int slot, void* shmem);
-static int auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username, char* shadow, int slot, void* shmem);
+static int auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int slot);
+static int auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username, char* shadow, int slot);
 
 int
-pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL** client_ssl)
+pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
 {
    int status = MESSAGE_STATUS_ERROR;
    int ret;
@@ -169,7 +169,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
       ZF_LOGD("Cancel request from client: %d", client_fd);
 
       /* We need to find the server for the connection */
-      if (pgagroal_get_primary(shmem, &server))
+      if (pgagroal_get_primary(&server))
       {
          ZF_LOGE("pgagroal: No valid server available");
          pgagroal_write_connection_refused(NULL, client_fd);
@@ -177,7 +177,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
          goto error;
       }
 
-      if (pgagroal_connect(shmem, config->servers[server].host, config->servers[server].port, &server_fd))
+      if (pgagroal_connect(config->servers[server].host, config->servers[server].port, &server_fd))
       {
          ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
          goto error;
@@ -231,7 +231,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
             goto error;
          }
 
-         if (create_ssl_server(ctx, client_fd, shmem, &c_ssl))
+         if (create_ssl_server(ctx, client_fd, &c_ssl))
          {
             goto error;
          }
@@ -288,7 +288,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
       pgagroal_extract_username_database(request_msg, &username, &database, &appname);
 
       /* TLS scenario */
-      if (is_tls_user(username, database, shmem) && c_ssl == NULL)
+      if (is_tls_user(username, database) && c_ssl == NULL)
       {
          ZF_LOGD("authenticate: tls: %s / %s / %s", username, database, address);
          pgagroal_write_connection_refused(c_ssl, client_fd);
@@ -297,7 +297,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
       }
 
       /* Verify client against pgagroal_hba.conf */
-      if (!is_allowed(username, database, address, shmem, &hba_method))
+      if (!is_allowed(username, database, address, &hba_method))
       {
          /* User not allowed */
          ZF_LOGD("authenticate: not allowed: %s / %s / %s", username, database, address);
@@ -325,7 +325,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
       }
 
       /* Disabled scenario */
-      if (is_disabled(database, shmem))
+      if (is_disabled(database))
       {
          ZF_LOGD("authenticate: disabled: %s / %s / %s", username, database, address);
          pgagroal_write_connection_refused(c_ssl, client_fd);
@@ -334,8 +334,8 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
       }
 
       /* Get connection */
-      pgagroal_tracking_event_basic(TRACKER_AUTHENTICATE, username, database, shmem);
-      ret = pgagroal_get_connection(shmem, username, database, true, false, slot);
+      pgagroal_tracking_event_basic(TRACKER_AUTHENTICATE, username, database);
+      ret = pgagroal_get_connection(username, database, true, false, slot);
       if (ret != 0)
       {
          if (ret == 1)
@@ -368,7 +368,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
          ZF_LOGD("authenticate: getting pooled connection");
          pgagroal_free_message(msg);
 
-         ret = use_pooled_connection(c_ssl, client_fd, *slot, username, database, hba_method, shmem);
+         ret = use_pooled_connection(c_ssl, client_fd, *slot, username, database, hba_method);
          if (ret == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
@@ -384,7 +384,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
       {
          ZF_LOGD("authenticate: creating pooled connection");
 
-         ret = use_unpooled_connection(request_msg, c_ssl, client_fd, *slot, username, hba_method, shmem);
+         ret = use_unpooled_connection(request_msg, c_ssl, client_fd, *slot, username, hba_method);
          if (ret == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
@@ -402,7 +402,7 @@ pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL*
       free(database);
       free(appname);
       
-      pgagroal_prometheus_auth_user_success(shmem);
+      pgagroal_prometheus_auth_user_success();
 
       ZF_LOGD("authenticate: SUCCESS");
       return AUTH_SUCCESS;
@@ -427,7 +427,7 @@ bad_password:
    free(database);
    free(appname);
 
-   pgagroal_prometheus_auth_user_bad_password(shmem);
+   pgagroal_prometheus_auth_user_bad_password();
 
    ZF_LOGD("authenticate: BAD_PASSWORD");
    return AUTH_BAD_PASSWORD;
@@ -440,14 +440,14 @@ error:
    free(database);
    free(appname);
 
-   pgagroal_prometheus_auth_user_error(shmem);
+   pgagroal_prometheus_auth_user_error();
 
    ZF_LOGD("authenticate: ERROR");
    return AUTH_ERROR;
 }
 
 int
-pgagroal_prefill_auth(char* username, char* password, char* database, void* shmem, int* slot)
+pgagroal_prefill_auth(char* username, char* password, char* database, int* slot)
 {
    int server_fd = -1;
    int auth_type = -1;
@@ -461,8 +461,8 @@ pgagroal_prefill_auth(char* username, char* password, char* database, void* shme
    config = (struct configuration*)shmem;
 
    /* Get connection */
-   pgagroal_tracking_event_basic(TRACKER_PREFILL, username, database, shmem);
-   ret = pgagroal_get_connection(shmem, username, database, false, false, slot);
+   pgagroal_tracking_event_basic(TRACKER_PREFILL, username, database);
+   ret = pgagroal_get_connection(username, database, false, false, slot);
    if (ret != 0)
    {
       goto error;
@@ -504,7 +504,7 @@ pgagroal_prefill_auth(char* username, char* password, char* database, void* shme
       goto error;
    }
 
-   if (server_authenticate(msg, auth_type, username, password, *slot, shmem))
+   if (server_authenticate(msg, auth_type, username, password, *slot))
    {
       goto error;
    }
@@ -513,8 +513,8 @@ pgagroal_prefill_auth(char* username, char* password, char* database, void* shme
    if (server_state == SERVER_NOTINIT || server_state == SERVER_NOTINIT_PRIMARY)
    {
       ZF_LOGD("Verify server mode: %d", config->connections[*slot].server);
-      pgagroal_update_server_state(shmem, *slot, server_fd);
-      pgagroal_server_status(shmem);
+      pgagroal_update_server_state(*slot, server_fd);
+      pgagroal_server_status();
    }
 
    ZF_LOGV("prefill_auth: has_security %d", config->connections[*slot].has_security);
@@ -531,8 +531,8 @@ error:
 
    if (*slot != -1)
    {
-      pgagroal_tracking_event_slot(TRACKER_PREFILL_KILL, *slot, shmem);
-      pgagroal_kill_connection(shmem, *slot);
+      pgagroal_tracking_event_slot(TRACKER_PREFILL_KILL, *slot);
+      pgagroal_kill_connection(*slot);
    }
 
    *slot = -1;
@@ -544,7 +544,7 @@ error:
 }
 
 int
-pgagroal_remote_management_auth(int client_fd, char* address, void* shmem, SSL** client_ssl)
+pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
 {
    int status = MESSAGE_STATUS_ERROR;
    int hba_method;
@@ -586,7 +586,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, void* shmem, SSL**
             goto error;
          }
 
-         if (create_ssl_server(ctx, client_fd, shmem, &c_ssl))
+         if (create_ssl_server(ctx, client_fd, &c_ssl))
          {
             goto error;
          }
@@ -652,7 +652,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, void* shmem, SSL**
       }
 
       /* TLS scenario */
-      if (is_tls_user(username, "admin", shmem) && c_ssl == NULL)
+      if (is_tls_user(username, "admin") && c_ssl == NULL)
       {
          ZF_LOGD("remote_management_auth: tls: %s / admin / %s", username, address);
          pgagroal_write_connection_refused(c_ssl, client_fd);
@@ -661,7 +661,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, void* shmem, SSL**
       }
 
       /* Verify client against pgagroal_hba.conf */
-      if (!is_allowed(username, "admin", address, shmem, &hba_method))
+      if (!is_allowed(username, "admin", address, &hba_method))
       {
          /* User not allowed */
          ZF_LOGD("remote_management_auth: not allowed: %s / admin / %s", username, address);
@@ -679,7 +679,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, void* shmem, SSL**
          goto bad_password;
       }
 
-      password = get_admin_password(username, shmem);
+      password = get_admin_password(username);
       if (password == NULL)
       {
          ZF_LOGD("remote_management_auth: password: %s / admin / %s", username, address);
@@ -688,7 +688,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, void* shmem, SSL**
          goto bad_password;
       }
 
-      status = client_scram256(c_ssl, client_fd, username, password, -1, shmem);
+      status = client_scram256(c_ssl, client_fd, username, password, -1);
       if (status == AUTH_BAD_PASSWORD)
       {
          pgagroal_write_connection_refused(c_ssl, client_fd);
@@ -1221,7 +1221,7 @@ compare_auth_response(struct message* orig, struct message* response, int auth_t
 }
 
 static int
-use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, void* shmem)
+use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method)
 {
    int status = MESSAGE_STATUS_ERROR;
    struct configuration* config = NULL;
@@ -1231,7 +1231,7 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char*
 
    config = (struct configuration*)shmem;
 
-   password = get_password(username, shmem);
+   password = get_password(username);
 
    if (hba_method == SECURITY_ALL)
    {
@@ -1240,7 +1240,7 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char*
 
    if (config->authquery)
    {
-      status = auth_query(c_ssl, client_fd, slot, username, database, hba_method, shmem);
+      status = auth_query(c_ssl, client_fd, slot, username, database, hba_method);
       if (status == AUTH_BAD_PASSWORD)
       {
          goto bad_password;
@@ -1309,12 +1309,12 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char*
       if (hba_method == SECURITY_TRUST)
       {
          /* R/0 */
-         client_trust(c_ssl, client_fd, username, password, slot, shmem);
+         client_trust(c_ssl, client_fd, username, password, slot);
       }
       else if (hba_method == SECURITY_PASSWORD)
       {
          /* R/3 */
-         status = client_password(c_ssl, client_fd, username, password, slot, shmem);
+         status = client_password(c_ssl, client_fd, username, password, slot);
          if (status == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
@@ -1327,7 +1327,7 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char*
       else if (hba_method == SECURITY_MD5)
       {
          /* R/5 */
-         status = client_md5(c_ssl, client_fd, username, password, slot, shmem);
+         status = client_md5(c_ssl, client_fd, username, password, slot);
          if (status == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
@@ -1340,7 +1340,7 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char*
       else if (hba_method == SECURITY_SCRAM256)
       {
          /* R/10 */
-         status = client_scram256(c_ssl, client_fd, username, password, slot, shmem);
+         status = client_scram256(c_ssl, client_fd, username, password, slot);
          if (status == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
@@ -1355,7 +1355,7 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char*
          goto error;
       }
 
-      if (client_ok(c_ssl, client_fd, slot, shmem))
+      if (client_ok(c_ssl, client_fd, slot))
       {
          goto error;
       }
@@ -1378,7 +1378,7 @@ error:
 
 static int
 use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, int slot,
-                        char* username, int hba_method, void* shmem)
+                        char* username, int hba_method)
 {
    int status = MESSAGE_STATUS_ERROR;
    int server_fd;
@@ -1392,7 +1392,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    config = (struct configuration*)shmem;
    server_fd = config->connections[slot].fd;
 
-   password = get_password(username, shmem);
+   password = get_password(username);
 
    /* Disallow unknown users */
    if (password == NULL && !config->allow_unknown_users)
@@ -1444,7 +1444,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
 
    if (password == NULL)
    {
-      if (server_passthrough(msg, auth_type, c_ssl, client_fd, slot, shmem))
+      if (server_passthrough(msg, auth_type, c_ssl, client_fd, slot))
       {
          goto error;
       }
@@ -1461,12 +1461,12 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
       if (hba_method == SECURITY_TRUST)
       {
          /* R/0 */
-         client_trust(c_ssl, client_fd, username, password, slot, shmem);
+         client_trust(c_ssl, client_fd, username, password, slot);
       }
       else if (hba_method == SECURITY_PASSWORD)
       {
          /* R/3 */
-         status = client_password(c_ssl, client_fd, username, password, slot, shmem);
+         status = client_password(c_ssl, client_fd, username, password, slot);
          if (status == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
@@ -1479,7 +1479,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
       else if (hba_method == SECURITY_MD5)
       {
          /* R/5 */
-         status = client_md5(c_ssl, client_fd, username, password, slot, shmem);
+         status = client_md5(c_ssl, client_fd, username, password, slot);
          if (status == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
@@ -1492,7 +1492,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
       else if (hba_method == SECURITY_SCRAM256)
       {
          /* R/10 */
-         status = client_scram256(c_ssl, client_fd, username, password, slot, shmem);
+         status = client_scram256(c_ssl, client_fd, username, password, slot);
          if (status == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
@@ -1510,7 +1510,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
          goto error;
       }
 
-      if (server_authenticate(auth_msg, auth_type, username, password, slot, shmem))
+      if (server_authenticate(auth_msg, auth_type, username, password, slot))
       {
          if (pgagroal_socket_isvalid(client_fd))
          {
@@ -1521,7 +1521,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
          goto error;
       }
 
-      if (client_ok(c_ssl, client_fd, slot, shmem))
+      if (client_ok(c_ssl, client_fd, slot))
       {
          goto error;
       }
@@ -1531,8 +1531,8 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    if (server_state == SERVER_NOTINIT || server_state == SERVER_NOTINIT_PRIMARY)
    {
       ZF_LOGD("Verify server mode: %d", config->connections[slot].server);
-      pgagroal_update_server_state(shmem, slot, server_fd);
-      pgagroal_server_status(shmem);
+      pgagroal_update_server_state(slot, server_fd);
+      pgagroal_server_status();
    }
 
    ZF_LOGV("authenticate: has_security %d", config->connections[slot].has_security);
@@ -1564,7 +1564,7 @@ error:
 }
 
 static int
-client_trust(SSL* c_ssl, int client_fd, char* username, char* password, int slot, void* shmem)
+client_trust(SSL* c_ssl, int client_fd, char* username, char* password, int slot)
 {
    ZF_LOGD("client_trust %d %d", client_fd, slot);
 
@@ -1572,7 +1572,7 @@ client_trust(SSL* c_ssl, int client_fd, char* username, char* password, int slot
 }
 
 static int
-client_password(SSL* c_ssl, int client_fd, char* username, char* password, int slot, void* shmem)
+client_password(SSL* c_ssl, int client_fd, char* username, char* password, int slot)
 {
    int status;
    time_t start_time;
@@ -1650,7 +1650,7 @@ error:
 }
 
 static int
-client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot, void* shmem)
+client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot)
 {
    int status;
    char salt[4];
@@ -1775,7 +1775,7 @@ error:
 }
 
 static int
-client_scram256(SSL* c_ssl, int client_fd, char* username, char* password, int slot, void* shmem)
+client_scram256(SSL* c_ssl, int client_fd, char* username, char* password, int slot)
 {
    int status;
    time_t start_time;
@@ -1994,7 +1994,7 @@ error:
 }
 
 static int
-client_ok(SSL* c_ssl, int client_fd, int slot, void* shmem)
+client_ok(SSL* c_ssl, int client_fd, int slot)
 {
    int status;
    size_t size;
@@ -2052,7 +2052,7 @@ error:
 }
 
 static int
-server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd, int slot, void* shmem)
+server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd, int slot)
 {
    int status = MESSAGE_STATUS_ERROR;
    int server_fd;
@@ -2213,7 +2213,7 @@ error:
 }
 
 static int
-server_authenticate(struct message* msg, int auth_type, char* username, char* password, int slot, void* shmem)
+server_authenticate(struct message* msg, int auth_type, char* username, char* password, int slot)
 {
    struct configuration* config = NULL;
 
@@ -2235,19 +2235,19 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
 
    if (auth_type == SECURITY_TRUST)
    {
-      return server_trust(slot, shmem);
+      return server_trust(slot);
    }
    else if (auth_type == SECURITY_PASSWORD)
    {
-      return server_password(username, password, slot, shmem);
+      return server_password(username, password, slot);
    }
    else if (auth_type == SECURITY_MD5)
    {
-      return server_md5(username, password, slot, shmem);
+      return server_md5(username, password, slot);
    }
    else if (auth_type == SECURITY_SCRAM256)
    {
-      return server_scram256(username, password, slot, shmem);
+      return server_scram256(username, password, slot);
    }
 
 error:
@@ -2258,7 +2258,7 @@ error:
 }
 
 static int
-server_trust(int slot, void* shmem)
+server_trust(int slot)
 {
    struct configuration* config = NULL;
 
@@ -2272,7 +2272,7 @@ server_trust(int slot, void* shmem)
 }
 
 static int
-server_password(char* username, char* password, int slot, void* shmem)
+server_password(char* username, char* password, int slot)
 {
    int status = MESSAGE_STATUS_ERROR;
    int auth_index = 1;
@@ -2354,7 +2354,7 @@ error:
 }
 
 static int
-server_md5(char* username, char* password, int slot, void* shmem)
+server_md5(char* username, char* password, int slot)
 {
    int status = MESSAGE_STATUS_ERROR;
    int auth_index = 1;
@@ -2490,7 +2490,7 @@ error:
 }
 
 static int
-server_scram256(char* username, char* password, int slot, void* shmem)
+server_scram256(char* username, char* password, int slot)
 {
    int status = MESSAGE_STATUS_ERROR;
    int auth_index = 1;
@@ -2719,7 +2719,7 @@ error:
 }
 
 static bool
-is_allowed(char* username, char* database, char* address, void* shmem, int* hba_method)
+is_allowed(char* username, char* database, char* address, int* hba_method)
 {
    struct configuration* config;
 
@@ -2731,7 +2731,7 @@ is_allowed(char* username, char* database, char* address, void* shmem, int* hba_
           is_allowed_database(database, config->hbas[i].database) &&
           is_allowed_username(username, config->hbas[i].username))
       {
-         *hba_method = get_hba_method(i, shmem);
+         *hba_method = get_hba_method(i);
 
          return true;
       }
@@ -2899,7 +2899,7 @@ is_allowed_address(char* address, char* entry)
 }
 
 static bool
-is_disabled(char* database, void* shmem)
+is_disabled(char* database)
 {
    struct configuration* config;
 
@@ -2918,7 +2918,7 @@ is_disabled(char* database, void* shmem)
 }
 
 static int
-get_hba_method(int index, void* shmem)
+get_hba_method(int index)
 {
    struct configuration* config;
 
@@ -2946,7 +2946,7 @@ get_hba_method(int index, void* shmem)
 }
 
 static char*
-get_password(char* username, void* shmem)
+get_password(char* username)
 {
    struct configuration* config;
 
@@ -2964,7 +2964,7 @@ get_password(char* username, void* shmem)
 }
 
 static char*
-get_admin_password(char* username, void* shmem)
+get_admin_password(char* username)
 {
    struct configuration* config;
 
@@ -3133,7 +3133,7 @@ pgagroal_md5(char* str, int length, char** md5)
 }
 
 bool
-pgagroal_user_known(char* user, void* shmem)
+pgagroal_user_known(char* user)
 {
    struct configuration* config;
 
@@ -3151,7 +3151,7 @@ pgagroal_user_known(char* user, void* shmem)
 }
 
 int
-pgagroal_tls_valid(void* shmem)
+pgagroal_tls_valid()
 {
    struct configuration* config;
    struct stat st = {0};
@@ -4170,7 +4170,7 @@ error:
 }
 
 static bool
-is_tls_user(char* username, char* database, void* shmem)
+is_tls_user(char* username, char* database)
 {
    struct configuration* config;
 
@@ -4332,7 +4332,7 @@ error:
 }
 
 static int
-create_ssl_server(SSL_CTX* ctx, int socket, void* shmem, SSL** ssl)
+create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl)
 {
    SSL* s = NULL;
    STACK_OF(X509_NAME) *root_cert_list = NULL;
@@ -4418,7 +4418,7 @@ error:
 }
 
 static int
-auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, void* shmem)
+auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method)
 {
    int su_socket;
    char* shadow = NULL;
@@ -4428,7 +4428,7 @@ auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, 
    config = (struct configuration*)shmem;
    
    /* Get connection to server using the superuser */
-   ret = auth_query_get_connection(config->superuser.username, config->superuser.password, database, shmem, &su_socket);
+   ret = auth_query_get_connection(config->superuser.username, config->superuser.password, database, &su_socket);
    if (ret == AUTH_BAD_PASSWORD)
    {
       pgagroal_write_connection_refused(c_ssl, client_fd);
@@ -4467,7 +4467,7 @@ auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, 
    /* Client security */
    if (config->connections[slot].has_security == SECURITY_MD5)
    {
-      ret = auth_query_client_md5(c_ssl, client_fd, username, shadow, slot, shmem);
+      ret = auth_query_client_md5(c_ssl, client_fd, username, shadow, slot);
       if (ret == AUTH_BAD_PASSWORD)
       {
          pgagroal_write_bad_password(c_ssl, client_fd, username);
@@ -4481,7 +4481,7 @@ auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, 
    }
    else if (config->connections[slot].has_security == SECURITY_SCRAM256)
    {
-      ret = auth_query_client_scram256(c_ssl, client_fd, username, shadow, slot, shmem);
+      ret = auth_query_client_scram256(c_ssl, client_fd, username, shadow, slot);
       if (ret == AUTH_BAD_PASSWORD)
       {
          pgagroal_write_bad_password(c_ssl, client_fd, username);
@@ -4502,7 +4502,7 @@ auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, 
    }
 
    /* Client ok */
-   if (client_ok(c_ssl, client_fd, slot, shmem))
+   if (client_ok(c_ssl, client_fd, slot))
    {
       pgagroal_write_connection_refused(c_ssl, client_fd);
       pgagroal_write_empty(c_ssl, client_fd);
@@ -4527,7 +4527,7 @@ error:
 }
 
 static int
-auth_query_get_connection(char* username, char* password, char* database, void* shmem, int* server_fd)
+auth_query_get_connection(char* username, char* password, char* database, int* server_fd)
 {
    int auth_type = -1;
    int server;
@@ -4546,7 +4546,7 @@ auth_query_get_connection(char* username, char* password, char* database, void* 
    *server_fd = -1;
 
    /* We need to find the server for the connection */
-   if (pgagroal_get_primary(shmem, &server))
+   if (pgagroal_get_primary(&server))
    {
       ZF_LOGE("pgagroal: No valid server available");
       goto error;
@@ -4561,7 +4561,7 @@ retry:
 
    if (atomic_compare_exchange_strong(&config->su_connection, &isfree, STATE_IN_USE))
    {
-      if (pgagroal_connect(shmem, config->servers[server].host, config->servers[server].port, server_fd))
+      if (pgagroal_connect(config->servers[server].host, config->servers[server].port, server_fd))
       {
          ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
          atomic_store(&config->su_connection, STATE_FREE);
@@ -5143,7 +5143,7 @@ error:
 
 
 static int
-auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int slot, void* shmem)
+auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int slot)
 {
    int status;
    char salt[4];
@@ -5246,7 +5246,7 @@ error:
 }
 
 static int
-auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username, char* shadow, int slot, void* shmem)
+auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username, char* shadow, int slot)
 {
    int status;
    time_t start_time;

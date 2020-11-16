@@ -90,7 +90,7 @@ syslog_callback(const zf_log_message *msg, void *arg)
  *
  */
 int
-pgagroal_start_logging(void* shmem)
+pgagroal_start_logging()
 {
    struct configuration* config;
 
@@ -134,7 +134,7 @@ pgagroal_start_logging(void* shmem)
  *
  */
 int
-pgagroal_stop_logging(void* shmem)
+pgagroal_stop_logging()
 {
    struct configuration* config;
 

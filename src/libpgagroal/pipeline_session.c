@@ -49,7 +49,7 @@ static void session_client(struct ev_loop *loop, struct ev_io *watcher, int reve
 static void session_server(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void session_stop(struct ev_loop *loop, struct worker_io*);
 static void session_destroy(void*, size_t);
-static void session_periodic(void*, void*);
+static void session_periodic(void);
 
 #define CLIENT_INIT   0
 #define CLIENT_IDLE   1
@@ -62,8 +62,8 @@ struct client_session
    time_t timestamp;   /**< The last used timestamp */
 };
 
-static void client_active(int, void*);
-static void client_inactive(int, void*);
+static void client_active(int);
+static void client_inactive(int);
 
 struct pipeline session_pipeline()
 {
@@ -122,9 +122,9 @@ session_start(struct ev_loop *loop, struct worker_io* w)
 {
    struct client_session* client;
 
-   if (w->pipeline_shmem != NULL)
+   if (pipeline_shmem != NULL)
    {
-      client = w->pipeline_shmem + (w->slot * sizeof(struct client_session));
+      client = pipeline_shmem + (w->slot * sizeof(struct client_session));
 
       atomic_store(&client->state, CLIENT_IDLE);
       client->timestamp = time(NULL);
@@ -136,9 +136,9 @@ session_stop(struct ev_loop *loop, struct worker_io* w)
 {
    struct client_session* client;
 
-   if (w->pipeline_shmem != NULL)
+   if (pipeline_shmem != NULL)
    {
-      client = w->pipeline_shmem + (w->slot * sizeof(struct client_session));
+      client = pipeline_shmem + (w->slot * sizeof(struct client_session));
 
       atomic_store(&client->state, CLIENT_INIT);
       client->timestamp = time(NULL);
@@ -155,7 +155,7 @@ session_destroy(void* pipeline_shmem, size_t pipeline_shmem_size)
 }
 
 static void
-session_periodic(void* shmem, void* pipeline_shmem)
+session_periodic(void)
 {
    signed char idle;
    time_t now;
@@ -206,9 +206,9 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
    struct configuration* config = NULL;
 
    wi = (struct worker_io*)watcher;
-   config = (struct configuration*)wi->shmem;
+   config = (struct configuration*)shmem;
 
-   client_active(wi->slot, wi->pipeline_shmem);
+   client_active(wi->slot);
 
    if (wi->client_ssl == NULL)
    {
@@ -227,9 +227,9 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
          {
             if (config->failover)
             {
-               pgagroal_server_failover(config, wi->slot);
+               pgagroal_server_failover(wi->slot);
                pgagroal_write_client_failover(wi->client_ssl, wi->client_fd);
-               pgagroal_prometheus_failed_servers(config);
+               pgagroal_prometheus_failed_servers();
 
                goto failover;
             }
@@ -250,7 +250,7 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
       goto client_error;
    }
 
-   client_inactive(wi->slot, wi->pipeline_shmem);
+   client_inactive(wi->slot);
 
    ev_break(loop, EVBREAK_ONE);
    return;
@@ -260,7 +260,7 @@ client_error:
    pgagroal_log_message(msg);
    errno = 0;
 
-   client_inactive(wi->slot, wi->pipeline_shmem);
+   client_inactive(wi->slot);
 
    exit_code = WORKER_CLIENT_FAILURE;
    running = 0;
@@ -272,7 +272,7 @@ server_error:
    pgagroal_log_message(msg);
    errno = 0;
 
-   client_inactive(wi->slot, wi->pipeline_shmem);
+   client_inactive(wi->slot);
 
    exit_code = WORKER_SERVER_FAILURE;
    running = 0;
@@ -281,7 +281,7 @@ server_error:
 
 failover:
 
-   client_inactive(wi->slot, wi->pipeline_shmem);
+   client_inactive(wi->slot);
 
    exit_code = WORKER_FAILOVER;
    running = 0;
@@ -299,7 +299,7 @@ session_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
    wi = (struct worker_io*)watcher;
 
-   client_active(wi->slot, wi->pipeline_shmem);
+   client_active(wi->slot);
 
    status = pgagroal_read_socket_message(wi->server_fd, &msg);
    if (likely(status == MESSAGE_STATUS_OK))
@@ -336,7 +336,7 @@ session_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
       goto server_error;
    }
 
-   client_inactive(wi->slot, wi->pipeline_shmem);
+   client_inactive(wi->slot);
 
    ev_break(loop, EVBREAK_ONE);
    return;
@@ -346,7 +346,7 @@ client_error:
    pgagroal_log_message(msg);
    errno = 0;
 
-   client_inactive(wi->slot, wi->pipeline_shmem);
+   client_inactive(wi->slot);
 
    exit_code = WORKER_CLIENT_FAILURE;
    running = 0;
@@ -358,7 +358,7 @@ server_error:
    pgagroal_log_message(msg);
    errno = 0;
 
-   client_inactive(wi->slot, wi->pipeline_shmem);
+   client_inactive(wi->slot);
 
    exit_code = WORKER_SERVER_FAILURE;
    running = 0;
@@ -367,7 +367,7 @@ server_error:
 }
 
 static void
-client_active(int slot , void* pipeline_shmem)
+client_active(int slot)
 {
    struct client_session* client;
 
@@ -380,7 +380,7 @@ client_active(int slot , void* pipeline_shmem)
 }
 
 static void
-client_inactive(int slot, void* pipeline_shmem)
+client_inactive(int slot)
 {
    struct client_session* client;
 

@@ -55,13 +55,13 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-static int find_best_rule(void* shmem, char* username, char* database);
-static bool remove_connection(void* shmem, char* username, char* database);
-static void connection_details(void* shmem, int slot);
-static bool do_prefill(void* shmem, char* username, char* database, int size);
+static int find_best_rule(char* username, char* database);
+static bool remove_connection(char* username, char* database);
+static void connection_details(int slot);
+static bool do_prefill(char* username, char* database, int size);
 
 int
-pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse, bool transaction_mode, int* slot)
+pgagroal_get_connection(char* username, char* database, bool reuse, bool transaction_mode, int* slot)
 {
    bool do_init;
    bool has_lock;
@@ -77,9 +77,9 @@ pgagroal_get_connection(void* shmem, char* username, char* database, bool reuse,
 
    config = (struct configuration*)shmem;
 
-   pgagroal_prometheus_connection_get(shmem);
+   pgagroal_prometheus_connection_get();
 
-   best_rule = find_best_rule(shmem, username, database);
+   best_rule = find_best_rule(username, database);
    retries = 0;
    start_time = time(NULL);
 
@@ -151,7 +151,7 @@ start:
       if (do_init)
       {
          /* We need to find the server for the connection */
-         if (pgagroal_get_primary(shmem, &server))
+         if (pgagroal_get_primary(&server))
          {
             config->connections[*slot].limit_rule = -1;
             config->connections[*slot].pid = -1;
@@ -159,7 +159,7 @@ start:
 
             if (!fork())
             {
-               pgagroal_flush(shmem, FLUSH_GRACEFULLY);
+               pgagroal_flush(FLUSH_GRACEFULLY);
             }
 
             goto error;
@@ -167,24 +167,24 @@ start:
 
          ZF_LOGD("connect: server %d", server);
          
-         if (pgagroal_connect(shmem, config->servers[server].host, config->servers[server].port, &fd))
+         if (pgagroal_connect(config->servers[server].host, config->servers[server].port, &fd))
          {
             ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
             config->connections[*slot].limit_rule = -1;
             config->connections[*slot].pid = -1;
             atomic_store(&config->states[*slot], STATE_NOTINIT);
 
-            pgagroal_prometheus_server_error(server, shmem);
+            pgagroal_prometheus_server_error(server);
 
             if (!fork())
             {
-               pgagroal_flush(shmem, FLUSH_GRACEFULLY);
+               pgagroal_flush(FLUSH_GRACEFULLY);
             }
 
             if (config->failover)
             {
-               pgagroal_server_force_failover(config, server);
-               pgagroal_prometheus_failed_servers(shmem);
+               pgagroal_server_force_failover(server);
+               pgagroal_prometheus_failed_servers();
                goto retry;
             }
 
@@ -234,14 +234,14 @@ start:
             int status;
 
             ZF_LOGD("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
-            pgagroal_tracking_event_slot(TRACKER_BAD_CONNECTION, *slot, shmem);
-            status = pgagroal_kill_connection(shmem, *slot);
+            pgagroal_tracking_event_slot(TRACKER_BAD_CONNECTION, *slot);
+            status = pgagroal_kill_connection(*slot);
 
             if (config->number_of_users > 0 && config->number_of_limits > 0)
             {
                if (!fork())
                {
-                  pgagroal_prefill(shmem, false);
+                  pgagroal_prefill(false);
                }
             }
 
@@ -258,8 +258,8 @@ start:
 
       config->connections[*slot].timestamp = time(NULL);
 
-      pgagroal_prometheus_connection_success(shmem);
-      pgagroal_tracking_event_slot(TRACKER_GET_CONNECTION_SUCCESS, *slot, shmem);
+      pgagroal_prometheus_connection_success();
+      pgagroal_tracking_event_slot(TRACKER_GET_CONNECTION_SUCCESS, *slot);
 
       return 0;
    }
@@ -291,7 +291,7 @@ retry2:
 
          if (best_rule == -1)
          {
-            remove_connection(shmem, username, database);
+            remove_connection(username, database);
          }
 
          goto start;
@@ -302,7 +302,7 @@ retry2:
          {
             if (best_rule == -1)
             {
-               if (remove_connection(shmem, username, database))
+               if (remove_connection(username, database))
                {
                   if (retries < config->max_retries)
                   {
@@ -335,8 +335,8 @@ retry2:
 
 timeout:
 
-   pgagroal_prometheus_connection_timeout(shmem);
-   pgagroal_tracking_event_basic(TRACKER_GET_CONNECTION_TIMEOUT, username, database, shmem);
+   pgagroal_prometheus_connection_timeout();
+   pgagroal_tracking_event_basic(TRACKER_GET_CONNECTION_TIMEOUT, username, database);
 
    return 1;
 
@@ -347,14 +347,14 @@ error:
    }
    atomic_fetch_sub(&config->active_connections, 1);
 
-   pgagroal_prometheus_connection_error(shmem);
-   pgagroal_tracking_event_basic(TRACKER_GET_CONNECTION_ERROR, username, database, shmem);
+   pgagroal_prometheus_connection_error();
+   pgagroal_tracking_event_basic(TRACKER_GET_CONNECTION_ERROR, username, database);
 
    return 2;
 }
 
 int
-pgagroal_return_connection(void* shmem, int slot, bool transaction_mode)
+pgagroal_return_connection(int slot, bool transaction_mode)
 {
    int state;
    struct configuration* config;
@@ -372,7 +372,7 @@ pgagroal_return_connection(void* shmem, int slot, bool transaction_mode)
    if (config->connections[slot].has_security != SECURITY_INVALID &&
        (config->connections[slot].has_security != SECURITY_SCRAM256 ||
         (config->connections[slot].has_security == SECURITY_SCRAM256 &&
-         (config->authquery || pgagroal_user_known(config->connections[slot].username, shmem)))))
+         (config->authquery || pgagroal_user_known(config->connections[slot].username)))))
    {
       state = atomic_load(&config->states[slot]);
 
@@ -389,16 +389,16 @@ pgagroal_return_connection(void* shmem, int slot, bool transaction_mode)
             }
          }
 
-         pgagroal_tracking_event_slot(TRACKER_RETURN_CONNECTION_SUCCESS, slot, shmem);
+         pgagroal_tracking_event_slot(TRACKER_RETURN_CONNECTION_SUCCESS, slot);
 
          config->connections[slot].timestamp = time(NULL);
 
          if (config->connections[slot].new)
          {
-            pgagroal_management_transfer_connection(shmem, slot);
+            pgagroal_management_transfer_connection(slot);
          }
 
-         pgagroal_management_return_connection(shmem, slot);
+         pgagroal_management_return_connection(slot);
 
          if (config->connections[slot].limit_rule >= 0)
          {
@@ -412,7 +412,7 @@ pgagroal_return_connection(void* shmem, int slot, bool transaction_mode)
          atomic_store(&config->states[slot], STATE_FREE);
          atomic_fetch_sub(&config->active_connections, 1);
 
-         pgagroal_prometheus_connection_return(shmem);
+         pgagroal_prometheus_connection_return();
 
          return 0;
       }
@@ -424,13 +424,13 @@ pgagroal_return_connection(void* shmem, int slot, bool transaction_mode)
 
 kill_connection:
 
-   pgagroal_tracking_event_slot(TRACKER_RETURN_CONNECTION_KILL, slot, shmem);
+   pgagroal_tracking_event_slot(TRACKER_RETURN_CONNECTION_KILL, slot);
 
-   return pgagroal_kill_connection(shmem, slot);
+   return pgagroal_kill_connection(slot);
 }
 
 int
-pgagroal_kill_connection(void* shmem, int slot)
+pgagroal_kill_connection(int slot)
 {
    int result = 0;
    int fd;
@@ -442,12 +442,12 @@ pgagroal_kill_connection(void* shmem, int slot)
            slot, config->connections[slot].fd, atomic_load(&config->states[slot]),
            config->connections[slot].pid);
 
-   pgagroal_tracking_event_slot(TRACKER_KILL_CONNECTION, slot, shmem);
+   pgagroal_tracking_event_slot(TRACKER_KILL_CONNECTION, slot);
 
    fd = config->connections[slot].fd;
    if (fd != -1)
    {
-      pgagroal_management_kill_connection(shmem, slot, fd);
+      pgagroal_management_kill_connection(slot, fd);
       if (!pgagroal_socket_has_error(fd))
       {
          pgagroal_disconnect(fd);
@@ -490,13 +490,13 @@ pgagroal_kill_connection(void* shmem, int slot)
 
    atomic_store(&config->states[slot], STATE_NOTINIT);
 
-   pgagroal_prometheus_connection_kill(shmem);
+   pgagroal_prometheus_connection_kill();
 
    return result;
 }
 
 void
-pgagroal_idle_timeout(void* shmem)
+pgagroal_idle_timeout()
 {
    bool prefill;
    time_t now;
@@ -504,8 +504,8 @@ pgagroal_idle_timeout(void* shmem)
    signed char idle_check;
    struct configuration* config;
 
-   pgagroal_start_logging(shmem);
-   pgagroal_memory_init(shmem);
+   pgagroal_start_logging();
+   pgagroal_memory_init();
 
    config = (struct configuration*)shmem;
    now = time(NULL);
@@ -524,18 +524,18 @@ pgagroal_idle_timeout(void* shmem)
          double diff = difftime(now, config->connections[i].timestamp);
          if (diff >= (double)config->idle_timeout && !config->connections[i].tx_mode)
          {
-            pgagroal_prometheus_connection_idletimeout(shmem);
-            pgagroal_tracking_event_slot(TRACKER_IDLE_TIMEOUT, i, shmem);
-            pgagroal_kill_connection(shmem, i);
+            pgagroal_prometheus_connection_idletimeout();
+            pgagroal_tracking_event_slot(TRACKER_IDLE_TIMEOUT, i);
+            pgagroal_kill_connection(i);
             prefill = true;
          }
          else
          {
             if (!atomic_compare_exchange_strong(&config->states[i], &idle_check, STATE_FREE))
             {
-               pgagroal_prometheus_connection_idletimeout(shmem);
-               pgagroal_tracking_event_slot(TRACKER_IDLE_TIMEOUT, i, shmem);
-               pgagroal_kill_connection(shmem, i);
+               pgagroal_prometheus_connection_idletimeout();
+               pgagroal_tracking_event_slot(TRACKER_IDLE_TIMEOUT, i);
+               pgagroal_kill_connection(i);
                prefill = true;
             }
          }
@@ -546,19 +546,19 @@ pgagroal_idle_timeout(void* shmem)
    {
       if (!fork())
       {
-         pgagroal_prefill(shmem, false);
+         pgagroal_prefill(false);
       }
    }
 
-   pgagroal_pool_status(shmem);
+   pgagroal_pool_status();
    pgagroal_memory_destroy();
-   pgagroal_stop_logging(shmem);
+   pgagroal_stop_logging();
 
    exit(0);
 }
 
 void
-pgagroal_validation(void* shmem)
+pgagroal_validation()
 {
    bool prefill = true;
    time_t now;
@@ -566,8 +566,8 @@ pgagroal_validation(void* shmem)
    signed char validation;
    struct configuration* config;
 
-   pgagroal_start_logging(shmem);
-   pgagroal_memory_init(shmem);
+   pgagroal_start_logging();
+   pgagroal_memory_init();
 
    config = (struct configuration*)shmem;
    now = time(NULL);
@@ -609,18 +609,18 @@ pgagroal_validation(void* shmem)
 
          if (kill)
          {
-            pgagroal_prometheus_connection_invalid(shmem);
-            pgagroal_tracking_event_slot(TRACKER_INVALID_CONNECTION, i, shmem);
-            pgagroal_kill_connection(shmem, i);
+            pgagroal_prometheus_connection_invalid();
+            pgagroal_tracking_event_slot(TRACKER_INVALID_CONNECTION, i);
+            pgagroal_kill_connection(i);
             prefill = true;
          }
          else
          {
             if (!atomic_compare_exchange_strong(&config->states[i], &validation, STATE_FREE))
             {
-               pgagroal_prometheus_connection_invalid(shmem);
-               pgagroal_tracking_event_slot(TRACKER_INVALID_CONNECTION, i, shmem);
-               pgagroal_kill_connection(shmem, i);
+               pgagroal_prometheus_connection_invalid();
+               pgagroal_tracking_event_slot(TRACKER_INVALID_CONNECTION, i);
+               pgagroal_kill_connection(i);
                prefill = true;
             }
          }
@@ -631,19 +631,19 @@ pgagroal_validation(void* shmem)
    {
       if (!fork())
       {
-         pgagroal_prefill(shmem, false);
+         pgagroal_prefill(false);
       }
    }
 
-   pgagroal_pool_status(shmem);
+   pgagroal_pool_status();
    pgagroal_memory_destroy();
-   pgagroal_stop_logging(shmem);
+   pgagroal_stop_logging();
 
    exit(0);
 }
 
 void
-pgagroal_flush(void* shmem, int mode)
+pgagroal_flush(int mode)
 {
    bool prefill;
    signed char free;
@@ -652,8 +652,8 @@ pgagroal_flush(void* shmem, int mode)
    signed char server_state;
    struct configuration* config;
 
-   pgagroal_start_logging(shmem);
-   pgagroal_memory_init(shmem);
+   pgagroal_start_logging();
+   pgagroal_memory_init();
 
    config = (struct configuration*)shmem;
 
@@ -683,9 +683,9 @@ pgagroal_flush(void* shmem, int mode)
             {
                pgagroal_write_terminate(NULL, config->connections[i].fd);
             }
-            pgagroal_prometheus_connection_flush(shmem);
-            pgagroal_tracking_event_slot(TRACKER_FLUSH, i, shmem);
-            pgagroal_kill_connection(shmem, i);
+            pgagroal_prometheus_connection_flush();
+            pgagroal_tracking_event_slot(TRACKER_FLUSH, i);
+            pgagroal_kill_connection(i);
             prefill = true;
          }
          else if (mode == FLUSH_ALL || mode == FLUSH_GRACEFULLY)
@@ -695,9 +695,9 @@ pgagroal_flush(void* shmem, int mode)
                if (mode == FLUSH_ALL)
                {
                   kill(config->connections[i].pid, SIGQUIT);
-                  pgagroal_prometheus_connection_flush(shmem);
-                  pgagroal_tracking_event_slot(TRACKER_FLUSH, i, shmem);
-                  pgagroal_kill_connection(shmem, i);
+                  pgagroal_prometheus_connection_flush();
+                  pgagroal_tracking_event_slot(TRACKER_FLUSH, i);
+                  pgagroal_kill_connection(i);
                   prefill = true;
                }
                else if (mode == FLUSH_GRACEFULLY)
@@ -717,9 +717,9 @@ pgagroal_flush(void* shmem, int mode)
                break;
             case STATE_FREE:
                atomic_store(&config->states[i], STATE_GRACEFULLY);
-               pgagroal_prometheus_connection_flush(shmem);
-               pgagroal_tracking_event_slot(TRACKER_FLUSH, i, shmem);
-               pgagroal_kill_connection(shmem, i);
+               pgagroal_prometheus_connection_flush();
+               pgagroal_tracking_event_slot(TRACKER_FLUSH, i);
+               pgagroal_kill_connection(i);
                prefill = true;
                break;
             case STATE_IN_USE:
@@ -742,24 +742,24 @@ pgagroal_flush(void* shmem, int mode)
    {
       if (!fork())
       {
-         pgagroal_prefill(shmem, false);
+         pgagroal_prefill(false);
       }
    }
 
-   pgagroal_pool_status(shmem);
+   pgagroal_pool_status();
    pgagroal_memory_destroy();
-   pgagroal_stop_logging(shmem);
+   pgagroal_stop_logging();
 
    exit(0);
 }
 
 void
-pgagroal_prefill(void* shmem, bool initial)
+pgagroal_prefill(bool initial)
 {
    struct configuration* config;
 
-   pgagroal_start_logging(shmem);
-   pgagroal_memory_init(shmem);
+   pgagroal_start_logging();
+   pgagroal_memory_init();
 
    config = (struct configuration*)shmem;
 
@@ -794,12 +794,12 @@ pgagroal_prefill(void* shmem, bool initial)
 
             if (user != -1)
             {
-               while (do_prefill(shmem, config->users[user].username, config->limits[i].database, size))
+               while (do_prefill(config->users[user].username, config->limits[i].database, size))
                {
                   int32_t slot = -1;
 
                   if (pgagroal_prefill_auth(config->users[user].username, config->users[user].password,
-                                            config->limits[i].database, shmem, &slot) != AUTH_SUCCESS)
+                                            config->limits[i].database, &slot) != AUTH_SUCCESS)
                   {
                      ZF_LOGW("Invalid data for user '%s' using limit entry (%d)", config->limits[i].username, i);
 
@@ -812,8 +812,8 @@ pgagroal_prefill(void* shmem, bool initial)
                               pgagroal_write_terminate(NULL, config->connections[slot].fd);
                            }
                         }
-                        pgagroal_tracking_event_slot(TRACKER_PREFILL_KILL, slot, shmem);
-                        pgagroal_kill_connection(shmem, slot);
+                        pgagroal_tracking_event_slot(TRACKER_PREFILL_KILL, slot);
+                        pgagroal_kill_connection(slot);
                      }
 
                      break;
@@ -823,8 +823,8 @@ pgagroal_prefill(void* shmem, bool initial)
                   {
                      if (config->connections[slot].has_security != SECURITY_INVALID)
                      {
-                        pgagroal_tracking_event_slot(TRACKER_PREFILL_RETURN, slot, shmem);
-                        pgagroal_return_connection(shmem, slot, false);
+                        pgagroal_tracking_event_slot(TRACKER_PREFILL_RETURN, slot);
+                        pgagroal_return_connection(slot, false);
                      }
                      else
                      {
@@ -836,8 +836,8 @@ pgagroal_prefill(void* shmem, bool initial)
                               pgagroal_write_terminate(NULL, config->connections[slot].fd);
                            }
                         }
-                        pgagroal_tracking_event_slot(TRACKER_PREFILL_KILL, slot, shmem);
-                        pgagroal_kill_connection(shmem, slot);
+                        pgagroal_tracking_event_slot(TRACKER_PREFILL_KILL, slot);
+                        pgagroal_kill_connection(slot);
                         break;
                      }
                   }
@@ -855,15 +855,15 @@ pgagroal_prefill(void* shmem, bool initial)
       }
    }
 
-   pgagroal_pool_status(shmem);
+   pgagroal_pool_status();
    pgagroal_memory_destroy();
-   pgagroal_stop_logging(shmem);
+   pgagroal_stop_logging();
 
    exit(0);
 }
 
 int
-pgagroal_pool_init(void* shmem)
+pgagroal_pool_init()
 {
    struct configuration* config;
 
@@ -892,7 +892,7 @@ pgagroal_pool_init(void* shmem)
 }
 
 int
-pgagroal_pool_shutdown(void* shmem)
+pgagroal_pool_shutdown()
 {
    struct configuration* config;
 
@@ -926,7 +926,7 @@ pgagroal_pool_shutdown(void* shmem)
 }
 
 int
-pgagroal_pool_status(void* shmem)
+pgagroal_pool_status()
 {
    struct configuration* config;
 
@@ -936,7 +936,7 @@ pgagroal_pool_status(void* shmem)
 
    for (int i = 0; i < config->max_connections; i++)
    {
-      connection_details(shmem, i);
+      connection_details(i);
    }
 
 #ifdef DEBUG
@@ -947,7 +947,7 @@ pgagroal_pool_status(void* shmem)
 }
 
 static int
-find_best_rule(void* shmem, char* username, char* database)
+find_best_rule(char* username, char* database)
 {
    int best_rule;
    struct configuration* config;
@@ -999,7 +999,7 @@ find_best_rule(void* shmem, char* username, char* database)
 }
 
 static bool
-remove_connection(void* shmem, char* username, char* database)
+remove_connection(char* username, char* database)
 {
    signed char free;
    signed char remove;
@@ -1019,16 +1019,16 @@ remove_connection(void* shmem, char* username, char* database)
          {
             if (!atomic_compare_exchange_strong(&config->states[i], &remove, STATE_FREE))
             {
-               pgagroal_prometheus_connection_remove(shmem);
-               pgagroal_tracking_event_slot(TRACKER_REMOVE_CONNECTION, i, shmem);
-               pgagroal_kill_connection(shmem, i);
+               pgagroal_prometheus_connection_remove();
+               pgagroal_tracking_event_slot(TRACKER_REMOVE_CONNECTION, i);
+               pgagroal_kill_connection(i);
             }
          }
          else
          {
-            pgagroal_prometheus_connection_remove(shmem);
-            pgagroal_tracking_event_slot(TRACKER_REMOVE_CONNECTION, i, shmem);
-            pgagroal_kill_connection(shmem, i);
+            pgagroal_prometheus_connection_remove();
+            pgagroal_tracking_event_slot(TRACKER_REMOVE_CONNECTION, i);
+            pgagroal_kill_connection(i);
          }
 
          return true;
@@ -1039,7 +1039,7 @@ remove_connection(void* shmem, char* username, char* database)
 }
 
 static void
-connection_details(void* shmem, int slot)
+connection_details(int slot)
 {
    int state;
    char time_buf[32];
@@ -1207,7 +1207,7 @@ connection_details(void* shmem, int slot)
 }
 
 static bool
-do_prefill(void* shmem, char* username, char* database, int size)
+do_prefill(char* username, char* database, int size)
 {
    signed char state;
    int free = 0;

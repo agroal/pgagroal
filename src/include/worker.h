@@ -56,8 +56,6 @@ struct worker_io
    int server_fd;        /**< The server descriptor */
    int slot;             /**< The slot */
    SSL* client_ssl;      /**< The client SSL context */
-   void* shmem;          /**< The shared memory segment */
-   void* pipeline_shmem; /**< The shared memory segment for the pipeline */
 };
 
 extern volatile int running;
@@ -67,12 +65,10 @@ extern volatile int exit_code;
  * Create a worker instance
  * @param fd The client descriptor
  * @param address The client address
- * @param shmem The shared memory segment
- * @param pipeline_shmem The shared memory segment for the pipeline
  * @param argv The argv
  */
 void
-pgagroal_worker(int fd, char* address, void* shmem, void* pipeline_shmem, char** argv);
+pgagroal_worker(int fd, char* address, char** argv);
 
 #ifdef __cplusplus
 }

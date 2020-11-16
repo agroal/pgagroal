@@ -46,7 +46,7 @@ static void performance_client(struct ev_loop *loop, struct ev_io *watcher, int 
 static void performance_server(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void performance_stop(struct ev_loop *loop, struct worker_io*);
 static void performance_destroy(void*, size_t);
-static void performance_periodic(void*, void*);
+static void performance_periodic(void);
 
 struct pipeline performance_pipeline()
 {
@@ -85,7 +85,7 @@ performance_destroy(void* pipeline_shmem, size_t pipeline_shmem_size)
 }
 
 static void
-performance_periodic(void* shmem, void* pipeline_shmem)
+performance_periodic(void)
 {
 }
 

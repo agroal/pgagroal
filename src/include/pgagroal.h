@@ -138,6 +138,16 @@ extern "C" {
       __typeof__ (b) _b = (b);  \
       _a < _b ? _a : _b; })
 
+/**
+ * The shared memory segment
+ */
+extern void* shmem;
+
+/**
+ * The shared memory segment for a pipeline
+ */
+extern void* pipeline_shmem;
+
 /** @struct
  * Defines a server
  */

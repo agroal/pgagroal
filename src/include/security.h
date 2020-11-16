@@ -43,36 +43,33 @@ extern "C" {
  * Authenticate a user
  * @param client_fd The descriptor
  * @param address The client address
- * @param shmem The shared memory segment
  * @param slot The resulting slot
  * @param client_ssl The client SSL context
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_authenticate(int client_fd, char* address, void* shmem, int* slot, SSL** client_ssl);
+pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl);
 
 /**
  * Authenticate a prefill connection
  * @param username The user name
  * @param password The password
  * @param database The database
- * @param shmem The shared memory segment
  * @param slot The resulting slot
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_prefill_auth(char* username, char* password, char* database, void* shmem, int* slot);
+pgagroal_prefill_auth(char* username, char* password, char* database, int* slot);
 
 /**
  * Authenticate a remote management user
  * @param client_fd The descriptor
  * @param address The client address
- * @param shmem The shared memory segment
  * @param client_ssl The client SSL context
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_remote_management_auth(int client_fd, char* address, void* shmem, SSL** client_ssl);
+pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl);
 
 /**
  * Connect using SCRAM-SHA256
@@ -127,19 +124,17 @@ pgagroal_md5(char* str, int length, char** md5);
 /**
  * Is the user known to the system
  * @param user The user name
- * @param shmem The shared memory segment
  * @return True if known, otherwise false
  */
 bool
-pgagroal_user_known(char* user, void* shmem);
+pgagroal_user_known(char* user);
 
 /**
  * Is the TLS configuration valid
- * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_tls_valid(void* shmem);
+pgagroal_tls_valid();
 
 #ifdef __cplusplus
 }

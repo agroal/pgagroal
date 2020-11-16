@@ -50,10 +50,10 @@ pgagroal_create_shared_memory(size_t size, unsigned char hp, void** shmem)
    }
 
    s = mmap(NULL, size, protection, visibility, 0, 0);
-
    if (s == (void *)-1)
    {
       errno = 0;
+      s = NULL;
 
       if (hp == HUGEPAGE_OFF || hp == HUGEPAGE_ON)
       {
@@ -61,14 +61,19 @@ pgagroal_create_shared_memory(size_t size, unsigned char hp, void** shmem)
       }
    }
 
-   visibility = MAP_ANONYMOUS | MAP_SHARED;
-   s = mmap(NULL, size, protection, visibility, 0, 0);
-
-   if (s == (void *)-1)
+   if (s == NULL)
    {
-      errno = 0;
-      return 1;
+      visibility = MAP_ANONYMOUS | MAP_SHARED;
+      s = mmap(NULL, size, protection, visibility, 0, 0);
+
+      if (s == (void *)-1)
+      {
+         errno = 0;
+         return 1;
+      }
    }
+
+   memset(s, 0, size);
 
    *shmem = s;
 

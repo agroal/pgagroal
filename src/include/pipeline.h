@@ -48,7 +48,7 @@ typedef void (*start)(struct ev_loop *, struct worker_io*);
 typedef void (*callback)(struct ev_loop *, struct ev_io *, int);
 typedef void (*stop)(struct ev_loop *, struct worker_io*);
 typedef void (*destroy)(void*, size_t);
-typedef void (*periodic)(void*, void*);
+typedef void (*periodic)(void);
 
 /** @struct
  * Define the structure for a pipeline

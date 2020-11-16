@@ -40,11 +40,9 @@ extern "C" {
  * Create a remote management instance
  * @param fd The client descriptor
  * @param address The client address
- * @param shmem The shared memory segment
- * @param pipeline_shmem The shared memory segment for the pipeline
  */
 void
-pgagroal_remote_management(int fd, char* address, void* shmem, void* pipeline_shmem);
+pgagroal_remote_management(int fd, char* address);
 
 #ifdef __cplusplus
 }

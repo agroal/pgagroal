@@ -81,31 +81,28 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
 
 /**
  * Management operation: Transfer a connection
- * @param shmem The shared memory segment
  * @param slot The slot
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_transfer_connection(void* shmem, int32_t slot);
+pgagroal_management_transfer_connection(int32_t slot);
 
 /**
  * Management operation: Return a connection
- * @param shmem The shared memory segment
  * @param slot The slot
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_return_connection(void* shmem, int32_t slot);
+pgagroal_management_return_connection(int32_t slot);
 
 /**
  * Management operation: Kill a connection
- * @param shmem The shared memory segment
  * @param slot The slot
  * @param socket The socket
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_kill_connection(void* shmem, int32_t slot, int socket);
+pgagroal_management_kill_connection(int32_t slot, int socket);
 
 /**
  * Management operation: Flush the pool
@@ -141,7 +138,6 @@ pgagroal_management_disabledb(SSL* ssl, int socket, char* database);
  * Management operation: Gracefully
  * @param ssl The SSL connection
  * @param socket The socket descriptor
- * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
@@ -186,11 +182,10 @@ pgagroal_management_read_status(SSL* ssl, int socket);
  * Management: Write status
  * @param socket The socket
  * @param graceful Is pgagroal in graceful shutdown
- * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_write_status(int socket, bool graceful, void* shmem);
+pgagroal_management_write_status(int socket, bool graceful);
 
 /**
  * Management operation: Details
@@ -212,11 +207,10 @@ pgagroal_management_read_details(SSL* ssl, int socket);
 /**
  * Management: Write details
  * @param socket The socket
- * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_write_details(int socket, void* shmem);
+pgagroal_management_write_details(int socket);
 
 /**
  * Management operation: isalive
@@ -239,11 +233,10 @@ pgagroal_management_read_isalive(SSL* ssl, int socket, int* status);
  * Management: Write isalive
  * @param socket The socket
  * @param gracefully Is the server shutting down gracefully
- * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_write_isalive(int socket, bool gracefully, void* shmem);
+pgagroal_management_write_isalive(int socket, bool gracefully);
 
 /**
  * Management operation: Reset
@@ -266,22 +259,20 @@ pgagroal_management_reset_server(SSL* ssl, int socket, char* server);
 
 /**
  * Management operation: Client done
- * @param shmem The shared memory segment
  * @param pid The pid
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_client_done(void* shmem, pid_t pid);
+pgagroal_management_client_done(pid_t pid);
 
 /**
  * Management operation: Client file descriptor
- * @param shmem The shared memory segment
  * @param slot The slot
  * @param pid The pid
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_client_fd(void* shmem, int32_t slot, pid_t pid);
+pgagroal_management_client_fd(int32_t slot, pid_t pid);
 
 /**
  * Management operation: Switch to

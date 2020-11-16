@@ -39,66 +39,59 @@ extern "C" {
 
 /**
  * Get the primary server
- * @param shmem The shared memory segment
  * @param server The resulting server identifier
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_get_primary(void* shmem, int* server);
+pgagroal_get_primary(int* server);
 
 /**
  * Update the server state
- * @param shmem The shared memory segment
  * @param slot The slot
  * @param socket The descriptor
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_update_server_state(void* shmem, int slot, int socket);
+pgagroal_update_server_state(int slot, int socket);
 
 /**
  * Print the state of the servers
- * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_server_status(void* shmem);
+pgagroal_server_status();
 
 /**
  * Failover
- * @param shmem The shared memory segment
  * @param slot The slot
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_server_failover(void* shmem, int slot);
+pgagroal_server_failover(int slot);
 
 /**
  * Force failover
- * @param shmem The shared memory segment
  * @param server The server
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_server_force_failover(void* shmem, int server);
+pgagroal_server_force_failover(int server);
 
 /**
  * Reset server
- * @param shmem The shared memory segment
  * @param server The server
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_server_reset(void* shmem, char* server);
+pgagroal_server_reset(char* server);
 
 /**
  * Switch server
- * @param shmem The shared memory segment
  * @param server The server
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_server_switch(void* shmem, char* server);
+pgagroal_server_switch(char* server);
 
 #ifdef __cplusplus
 }

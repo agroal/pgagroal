@@ -48,7 +48,7 @@ static void* data = NULL;
  *
  */
 void
-pgagroal_memory_init(void* shmem)
+pgagroal_memory_init()
 {
    struct configuration* config;
 

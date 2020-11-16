@@ -84,16 +84,7 @@ struct accept_io
 {
    struct ev_io io;
    int socket;
-   void* shmem;
-   void* pipeline_shmem;
    char** argv;
-};
-
-struct periodic_info
-{
-   struct ev_periodic periodic;
-   void* shmem;
-   void* pipeline_shmem;
 };
 
 struct client
@@ -101,6 +92,9 @@ struct client
    pid_t pid;
    struct client* next;
 };
+
+void* shmem = NULL;
+void* pipeline_shmem = NULL;
 
 static volatile int keep_running = 1;
 static char** argv_ptr;
@@ -119,8 +113,6 @@ static struct accept_io io_management[MAX_FDS];
 static int* management_fds = NULL;
 static int management_fds_length = -1;
 static struct pipeline main_pipeline;
-static void* shmem = NULL;
-static void* pipeline_shmem = NULL;
 static int known_fds[MAX_NUMBER_OF_CONNECTIONS];
 static struct client* clients = NULL;
 
@@ -130,8 +122,6 @@ start_mgt()
    memset(&io_mgt, 0, sizeof(struct accept_io));
    ev_io_init((struct ev_io*)&io_mgt, accept_mgt_cb, unix_management_socket, EV_READ);
    io_mgt.socket = unix_management_socket;
-   io_mgt.shmem = shmem;
-   io_mgt.pipeline_shmem = pipeline_shmem;
    io_mgt.argv = argv_ptr;
    ev_io_start(main_loop, (struct ev_io*)&io_mgt);
 }
@@ -156,8 +146,6 @@ start_uds()
    memset(&io_uds, 0, sizeof(struct accept_io));
    ev_io_init((struct ev_io*)&io_uds, accept_main_cb, unix_pgsql_socket, EV_READ);
    io_uds.socket = unix_pgsql_socket;
-   io_uds.shmem = shmem;
-   io_uds.pipeline_shmem = pipeline_shmem;
    io_uds.argv = argv_ptr;
    ev_io_start(main_loop, (struct ev_io*)&io_uds);
 }
@@ -190,8 +178,6 @@ start_io()
       memset(&io_main[i], 0, sizeof(struct accept_io));
       ev_io_init((struct ev_io*)&io_main[i], accept_main_cb, sockfd, EV_READ);
       io_main[i].socket = sockfd;
-      io_main[i].shmem = shmem;
-      io_main[i].pipeline_shmem = pipeline_shmem;
       io_main[i].argv = argv_ptr;
       ev_io_start(main_loop, (struct ev_io*)&io_main[i]);
    }
@@ -218,8 +204,6 @@ start_metrics()
       memset(&io_metrics[i], 0, sizeof(struct accept_io));
       ev_io_init((struct ev_io*)&io_metrics[i], accept_metrics_cb, sockfd, EV_READ);
       io_metrics[i].socket = sockfd;
-      io_metrics[i].shmem = shmem;
-      io_metrics[i].pipeline_shmem = pipeline_shmem;
       io_metrics[i].argv = argv_ptr;
       ev_io_start(main_loop, (struct ev_io*)&io_metrics[i]);
    }
@@ -246,8 +230,6 @@ start_management()
       memset(&io_management[i], 0, sizeof(struct accept_io));
       ev_io_init((struct ev_io*)&io_management[i], accept_management_cb, sockfd, EV_READ);
       io_management[i].socket = sockfd;
-      io_management[i].shmem = shmem;
-      io_management[i].pipeline_shmem = pipeline_shmem;
       io_management[i].argv = argv_ptr;
       ev_io_start(main_loop, (struct ev_io*)&io_management[i]);
    }
@@ -312,9 +294,9 @@ main(int argc, char **argv)
    bool has_main_sockets = false;
    void* tmp_shmem = NULL;
    struct signal_info signal_watcher[6];
-   struct periodic_info idle_timeout;
-   struct periodic_info validation;
-   struct periodic_info disconnect_client;
+   struct ev_periodic idle_timeout;
+   struct ev_periodic validation;
+   struct ev_periodic disconnect_client;
    struct rlimit flimit;
    size_t shmem_size;
    size_t pipeline_shmem_size = 0;
@@ -396,13 +378,14 @@ main(int argc, char **argv)
       sd_notifyf(0, "STATUS=Error in creating shared memory");
       exit(1);
    }
-   pgagroal_init_configuration(shmem, shmem_size);
+
+   pgagroal_init_configuration();
 
    memset(&known_fds, 0, sizeof(known_fds));
 
    if (configuration_path != NULL)
    {
-      if (pgagroal_read_configuration(configuration_path, shmem))
+      if (pgagroal_read_configuration(configuration_path))
       {
          printf("pgagroal: Configuration not found: %s\n", configuration_path);
          sd_notifyf(0, "STATUS=Configuration not found: %s", configuration_path);
@@ -411,7 +394,7 @@ main(int argc, char **argv)
    }
    else
    {
-      if (pgagroal_read_configuration("/etc/pgagroal/pgagroal.conf", shmem))
+      if (pgagroal_read_configuration("/etc/pgagroal/pgagroal.conf"))
       {
          printf("pgagroal: Configuration not found: /etc/pgagroal/pgagroal.conf\n");
          sd_notify(0, "STATUS=Configuration not found: /etc/pgagroal/pgagroal.conf");
@@ -421,7 +404,7 @@ main(int argc, char **argv)
 
    if (hba_path != NULL)
    {
-      if (pgagroal_read_hba_configuration(hba_path, shmem))
+      if (pgagroal_read_hba_configuration(hba_path))
       {
          printf("pgagroal: HBA configuration not found: %s\n", hba_path);
          sd_notifyf(0, "STATUS=HBA configuration not found: %s", hba_path);
@@ -430,7 +413,7 @@ main(int argc, char **argv)
    }
    else
    {
-      if (pgagroal_read_hba_configuration("/etc/pgagroal/pgagroal_hba.conf", shmem))
+      if (pgagroal_read_hba_configuration("/etc/pgagroal/pgagroal_hba.conf"))
       {
          printf("pgagroal: HBA configuration not found: /etc/pgagroal/pgagroal_hba.conf\n");
          sd_notify(0, "STATUS=HBA configuration not found: /etc/pgagroal/pgagroal_hba.conf");
@@ -440,7 +423,7 @@ main(int argc, char **argv)
 
    if (limit_path != NULL)
    {
-      if (pgagroal_read_limit_configuration(limit_path, shmem))
+      if (pgagroal_read_limit_configuration(limit_path))
       {
          printf("pgagroal: LIMIT configuration not found: %s\n", limit_path);
          sd_notifyf(0, "STATUS=LIMIT configuration not found: %s", limit_path);
@@ -449,12 +432,12 @@ main(int argc, char **argv)
    }
    else
    {
-      pgagroal_read_limit_configuration("/etc/pgagroal/pgagroal_databases.conf", shmem);
+      pgagroal_read_limit_configuration("/etc/pgagroal/pgagroal_databases.conf");
    }
 
    if (users_path != NULL)
    {
-      ret = pgagroal_read_users_configuration(users_path, shmem);
+      ret = pgagroal_read_users_configuration(users_path);
       if (ret == 1)
       {
          printf("pgagroal: USERS configuration not found: %s\n", users_path);
@@ -476,12 +459,12 @@ main(int argc, char **argv)
    }
    else
    {
-      pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_users.conf", shmem);
+      pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_users.conf");
    }
 
    if (admins_path != NULL)
    {
-      ret = pgagroal_read_admins_configuration(admins_path, shmem);
+      ret = pgagroal_read_admins_configuration(admins_path);
       if (ret == 1)
       {
          printf("pgagroal: ADMINS configuration not found: %s\n", admins_path);
@@ -503,12 +486,12 @@ main(int argc, char **argv)
    }
    else
    {
-      pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_admins.conf", shmem);
+      pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_admins.conf");
    }
 
    if (superuser_path != NULL)
    {
-      ret = pgagroal_read_superuser_configuration(superuser_path, shmem);
+      ret = pgagroal_read_superuser_configuration(superuser_path);
       if (ret == 1)
       {
          printf("pgagroal: SUPERUSER configuration not found: %s\n", superuser_path);
@@ -530,7 +513,7 @@ main(int argc, char **argv)
    }
    else
    {
-      pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_superuser.conf", shmem);
+      pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_superuser.conf");
    }
 
    /* systemd sockets */
@@ -574,27 +557,27 @@ main(int argc, char **argv)
       }
    }
 
-   if (pgagroal_validate_configuration(has_unix_socket, has_main_sockets, shmem))
+   if (pgagroal_validate_configuration(has_unix_socket, has_main_sockets))
    {
       sd_notify(0, "STATUS=Invalid configuration");
       exit(1);
    }
-   if (pgagroal_validate_hba_configuration(shmem))
+   if (pgagroal_validate_hba_configuration())
    {
       sd_notify(0, "STATUS=Invalid HBA configuration");
       exit(1);
    }
-   if (pgagroal_validate_limit_configuration(shmem))
+   if (pgagroal_validate_limit_configuration())
    {
       sd_notify(0, "STATUS=Invalid LIMIT configuration");
       exit(1);
    }
-   if (pgagroal_validate_users_configuration(shmem))
+   if (pgagroal_validate_users_configuration())
    {
       sd_notify(0, "STATUS=Invalid USERS configuration");
       exit(1);
    }
-   if (pgagroal_validate_admins_configuration(shmem))
+   if (pgagroal_validate_admins_configuration())
    {
       sd_notify(0, "STATUS=Invalid ADMINS configuration");
       exit(1);
@@ -667,13 +650,13 @@ main(int argc, char **argv)
       }
    }
 
-   pgagroal_start_logging(shmem);
-   pgagroal_pool_init(shmem);
+   pgagroal_start_logging();
+   pgagroal_pool_init();
 
    pgagroal_set_proc_title(argv, "main", NULL);
 
    /* Bind Unix Domain Socket for file descriptor transfers */
-   if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, shmem, &unix_management_socket))
+   if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, &unix_management_socket))
    {
       ZF_LOGF("pgagroal: Could not bind to %s/%s\n", config->unix_socket_dir, MAIN_UDS);
       sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, MAIN_UDS);
@@ -687,7 +670,7 @@ main(int argc, char **argv)
       memset(&pgsql, 0, sizeof(pgsql));
       snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->port);
 
-      if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], shmem, &unix_pgsql_socket))
+      if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], &unix_pgsql_socket))
       {
          ZF_LOGF("pgagroal: Could not bind to %s/%s\n", config->unix_socket_dir, &pgsql[0]);
          sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, &pgsql[0]);
@@ -698,7 +681,7 @@ main(int argc, char **argv)
    /* Bind main socket */
    if (!has_main_sockets)
    {
-      if (pgagroal_bind(config->host, config->port, shmem, &main_fds, &main_fds_length))
+      if (pgagroal_bind(config->host, config->port, &main_fds, &main_fds_length))
       {
          ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->port);
@@ -732,7 +715,6 @@ main(int argc, char **argv)
 
    for (int i = 0; i < 6; i++)
    {
-      signal_watcher[i].shmem = shmem;
       signal_watcher[i].slot = -1;
       ev_signal_start(main_loop, (struct ev_signal*)&signal_watcher[i]);
    }
@@ -743,7 +725,7 @@ main(int argc, char **argv)
    }
    else if (config->pipeline == PIPELINE_SESSION)
    {
-      if (pgagroal_tls_valid(shmem))
+      if (pgagroal_tls_valid())
       {
          ZF_LOGF("pgagroal: Invalid TLS configuration");
          sd_notify(0, "STATUS=Invalid TLS configuration");
@@ -754,7 +736,7 @@ main(int argc, char **argv)
    }
    else if (config->pipeline == PIPELINE_TRANSACTION)
    {
-      if (pgagroal_tls_valid(shmem))
+      if (pgagroal_tls_valid())
       {
          ZF_LOGF("pgagroal: Invalid TLS configuration");
          sd_notify(0, "STATUS=Invalid TLS configuration");
@@ -783,35 +765,29 @@ main(int argc, char **argv)
 
    if (config->idle_timeout > 0)
    {
-      ev_periodic_init ((struct ev_periodic*)&idle_timeout, idle_timeout_cb, 0.,
+      ev_periodic_init (&idle_timeout, idle_timeout_cb, 0.,
                         MAX(1. * config->idle_timeout / 2., 5.), 0);
-      idle_timeout.shmem = shmem;
-      idle_timeout.pipeline_shmem = pipeline_shmem;
-      ev_periodic_start (main_loop, (struct ev_periodic*)&idle_timeout);
+      ev_periodic_start (main_loop, &idle_timeout);
    }
 
    if (config->validation == VALIDATION_BACKGROUND)
    {
-      ev_periodic_init ((struct ev_periodic*)&validation, validation_cb, 0.,
+      ev_periodic_init (&validation, validation_cb, 0.,
                         MAX(1. * config->background_interval, 5.), 0);
-      validation.shmem = shmem;
-      validation.pipeline_shmem = pipeline_shmem;
-      ev_periodic_start (main_loop, (struct ev_periodic*)&validation);
+      ev_periodic_start (main_loop, &validation);
    }
 
    if (config->disconnect_client > 0)
    {
-      ev_periodic_init ((struct ev_periodic*)&disconnect_client, disconnect_client_cb, 0.,
+      ev_periodic_init (&disconnect_client, disconnect_client_cb, 0.,
                         MAX(1. * config->disconnect_client / 2., 1.), 0);
-      disconnect_client.shmem = shmem;
-      disconnect_client.pipeline_shmem = pipeline_shmem;
-      ev_periodic_start (main_loop, (struct ev_periodic*)&disconnect_client);
+      ev_periodic_start (main_loop, &disconnect_client);
    }
 
    if (config->metrics > 0)
    {
       /* Bind metrics socket */
-      if (pgagroal_bind(config->host, config->metrics, shmem, &metrics_fds, &metrics_fds_length))
+      if (pgagroal_bind(config->host, config->metrics, &metrics_fds, &metrics_fds_length))
       {
          ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->metrics);
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->metrics);
@@ -831,7 +807,7 @@ main(int argc, char **argv)
    if (config->management > 0)
    {
       /* Bind management socket */
-      if (pgagroal_bind(config->host, config->management, shmem, &management_fds, &management_fds_length))
+      if (pgagroal_bind(config->host, config->management, &management_fds, &management_fds_length))
       {
          ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->management);
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->management);
@@ -887,7 +863,7 @@ main(int argc, char **argv)
    {
       if (!fork())
       {
-         pgagroal_prefill(shmem, true);
+         pgagroal_prefill(true);
       }
    }
 
@@ -903,7 +879,7 @@ main(int argc, char **argv)
 
    ZF_LOGI("pgagroal: shutdown");
    sd_notify(0, "STOPPING=1");
-   pgagroal_pool_shutdown(shmem);
+   pgagroal_pool_shutdown();
 
    shutdown_management();
    shutdown_metrics();
@@ -922,7 +898,7 @@ main(int argc, char **argv)
 
    main_pipeline.destroy(pipeline_shmem, pipeline_shmem_size);
 
-   pgagroal_stop_logging(shmem);
+   pgagroal_stop_logging();
    pgagroal_destroy_shared_memory(shmem, shmem_size);
 
    return 0;
@@ -949,7 +925,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    }
 
    ai = (struct accept_io*)watcher;
-   config = (struct configuration*)ai->shmem;
+   config = (struct configuration*)shmem;
 
    memset(&address, 0, sizeof(address));
 
@@ -969,7 +945,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          memset(&pgsql, 0, sizeof(pgsql));
          snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->port);
 
-         if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], shmem, &unix_pgsql_socket))
+         if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], &unix_pgsql_socket))
          {
             ZF_LOGF("pgagroal: Could not bind to %s/%s\n", config->unix_socket_dir, &pgsql[0]);
             exit(1);
@@ -979,7 +955,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          main_fds = NULL;
          main_fds_length = 0;
 
-         if (pgagroal_bind(config->host, config->port, ai->shmem, &main_fds, &main_fds_length))
+         if (pgagroal_bind(config->host, config->port, &main_fds, &main_fds_length))
          {
             ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
             exit(1);
@@ -993,7 +969,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          if (!fork())
          {
-            pgagroal_flush(ai->shmem, FLUSH_GRACEFULLY);
+            pgagroal_flush(FLUSH_GRACEFULLY);
          }
 
          start_io();
@@ -1037,7 +1013,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
       ev_loop_fork(loop);
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
-      pgagroal_worker(client_fd, addr, ai->shmem, ai->pipeline_shmem, ai->argv);
+      pgagroal_worker(client_fd, addr, ai->argv);
    }
 
    pgagroal_disconnect(client_fd);
@@ -1053,7 +1029,6 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    int32_t slot;
    int payload_i;
    char* payload_s = NULL;
-   struct accept_io* ai;
    struct configuration* config;
 
    ZF_LOGV("pgagroal: unix_management_socket ready (%d)", revents);
@@ -1064,8 +1039,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       return;
    }
 
-   ai = (struct accept_io*)watcher;
-   config = (struct configuration*)ai->shmem;
+   config = (struct configuration*)shmem;
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
@@ -1077,7 +1051,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          shutdown_mgt();
 
-         if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, shmem, &unix_management_socket))
+         if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, &unix_management_socket))
          {
             ZF_LOGF("pgagroal: Could not bind to %s\n", config->unix_socket_dir);
             exit(1);
@@ -1111,7 +1085,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
             struct client* c = clients;
             while (c != NULL)
             {
-               pgagroal_management_client_fd(config, slot, c->pid);
+               pgagroal_management_client_fd(slot, c->pid);
                c = c->next;
             }
          }
@@ -1132,12 +1106,12 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          ZF_LOGD("pgagroal: Management flush (%d)", payload_i);
          if (!fork())
          {
-            pgagroal_flush(ai->shmem, payload_i);
+            pgagroal_flush(payload_i);
          }
          break;
       case MANAGEMENT_ENABLEDB:
          ZF_LOGD("pgagroal: Management enabledb: %s", payload_s);
-         pgagroal_pool_status(ai->shmem);
+         pgagroal_pool_status();
 
          for (int i = 0; i < NUMBER_OF_DISABLED; i++)
          {
@@ -1155,7 +1129,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          break;
       case MANAGEMENT_DISABLEDB:
          ZF_LOGD("pgagroal: Management disabledb: %s", payload_s);
-         pgagroal_pool_status(ai->shmem);
+         pgagroal_pool_status();
 
          if (!strcmp("*", payload_s))
          {
@@ -1182,43 +1156,43 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          break;
       case MANAGEMENT_GRACEFULLY:
          ZF_LOGD("pgagroal: Management gracefully");
-         pgagroal_pool_status(ai->shmem);
+         pgagroal_pool_status();
          config->gracefully = true;
          break;
       case MANAGEMENT_STOP:
          ZF_LOGD("pgagroal: Management stop");
-         pgagroal_pool_status(ai->shmem);
+         pgagroal_pool_status();
          ev_break(loop, EVBREAK_ALL);
          keep_running = 0;
          break;
       case MANAGEMENT_CANCEL_SHUTDOWN:
          ZF_LOGD("pgagroal: Management cancel shutdown");
-         pgagroal_pool_status(ai->shmem);
+         pgagroal_pool_status();
          config->gracefully = false;
          break;
       case MANAGEMENT_STATUS:
          ZF_LOGD("pgagroal: Management status");
-         pgagroal_pool_status(ai->shmem);
-         pgagroal_management_write_status(client_fd, config->gracefully, ai->shmem);
+         pgagroal_pool_status();
+         pgagroal_management_write_status(client_fd, config->gracefully);
          break;
       case MANAGEMENT_DETAILS:
          ZF_LOGD("pgagroal: Management details");
-         pgagroal_pool_status(ai->shmem);
-         pgagroal_management_write_status(client_fd, config->gracefully, ai->shmem);
-         pgagroal_management_write_details(client_fd, ai->shmem);
+         pgagroal_pool_status();
+         pgagroal_management_write_status(client_fd, config->gracefully);
+         pgagroal_management_write_details(client_fd);
          break;
       case MANAGEMENT_ISALIVE:
          ZF_LOGD("pgagroal: Management isalive");
-         pgagroal_management_write_isalive(client_fd, config->gracefully, ai->shmem);
+         pgagroal_management_write_isalive(client_fd, config->gracefully);
          break;
       case MANAGEMENT_RESET:
          ZF_LOGD("pgagroal: Management reset");
-         pgagroal_prometheus_reset(ai->shmem);
+         pgagroal_prometheus_reset();
          break;
       case MANAGEMENT_RESET_SERVER:
          ZF_LOGD("pgagroal: Management reset server");
-         pgagroal_server_reset(ai->shmem, payload_s);
-         pgagroal_prometheus_failed_servers(ai->shmem);
+         pgagroal_server_reset(payload_s);
+         pgagroal_prometheus_failed_servers();
          break;
       case MANAGEMENT_CLIENT_DONE:
          ZF_LOGD("pgagroal: Management client done");
@@ -1230,13 +1204,13 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          break;
       case MANAGEMENT_SWITCH_TO:
          ZF_LOGD("pgagroal: Management switch to");
-         if (!pgagroal_server_switch(ai->shmem, payload_s))
+         if (!pgagroal_server_switch(payload_s))
          {
             if (!fork())
             {
-               pgagroal_flush(ai->shmem, FLUSH_GRACEFULLY);
+               pgagroal_flush(FLUSH_GRACEFULLY);
             }
-            pgagroal_prometheus_failed_servers(ai->shmem);
+            pgagroal_prometheus_failed_servers();
          }
          break;
       default:
@@ -1248,7 +1222,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    {
       if (atomic_load(&config->active_connections) == 0)
       {
-         pgagroal_pool_status(ai->shmem);
+         pgagroal_pool_status();
          keep_running = 0;
          ev_break(loop, EVBREAK_ALL);
       }
@@ -1263,7 +1237,6 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    struct sockaddr_in client_addr;
    socklen_t client_addr_length;
    int client_fd;
-   struct accept_io* ai;
    struct configuration* config;
 
    ZF_LOGV("accept_metrics_cb: sockfd ready (%d)", revents);
@@ -1275,8 +1248,7 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       return;
    }
 
-   ai = (struct accept_io*)watcher;
-   config = (struct configuration*)ai->shmem;
+   config = (struct configuration*)shmem;
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
@@ -1292,7 +1264,7 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          metrics_fds = NULL;
          metrics_fds_length = 0;
 
-         if (pgagroal_bind(config->host, config->port, ai->shmem, &metrics_fds, &metrics_fds_length))
+         if (pgagroal_bind(config->host, config->port, &metrics_fds, &metrics_fds_length))
          {
             ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
             exit(1);
@@ -1323,7 +1295,7 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    {
       ev_loop_fork(loop);
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
-      pgagroal_prometheus(client_fd, ai->shmem, ai->pipeline_shmem);
+      pgagroal_prometheus(client_fd);
    }
 
    pgagroal_disconnect(client_fd);
@@ -1336,7 +1308,6 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    socklen_t client_addr_length;
    int client_fd;
    char address[INET6_ADDRSTRLEN];
-   struct accept_io* ai;
    struct configuration* config;
 
    ZF_LOGV("accept_management_cb: sockfd ready (%d)", revents);
@@ -1350,8 +1321,7 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
    memset(&address, 0, sizeof(address));
 
-   ai = (struct accept_io*)watcher;
-   config = (struct configuration*)ai->shmem;
+   config = (struct configuration*)shmem;
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
@@ -1367,7 +1337,7 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          management_fds = NULL;
          management_fds_length = 0;
 
-         if (pgagroal_bind(config->host, config->port, ai->shmem, &management_fds, &management_fds_length))
+         if (pgagroal_bind(config->host, config->port, &management_fds, &management_fds_length))
          {
             ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
             exit(1);
@@ -1403,7 +1373,7 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
       ev_loop_fork(loop);
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
-      pgagroal_remote_management(client_fd, addr, ai->shmem, ai->pipeline_shmem);
+      pgagroal_remote_management(client_fd, addr);
    }
 
    pgagroal_disconnect(client_fd);
@@ -1412,13 +1382,9 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 static void
 shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents)
 {
-   struct signal_info* si;
-
-   si = (struct signal_info*)w;
-
    ZF_LOGD("pgagroal: shutdown requested");
 
-   pgagroal_pool_status(si->shmem);
+   pgagroal_pool_status();
    ev_break(loop, EVBREAK_ALL);
    keep_running = 0;
 }
@@ -1426,20 +1392,18 @@ shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents)
 static void
 graceful_cb(struct ev_loop *loop, ev_signal *w, int revents)
 {
-   struct signal_info* si;
    struct configuration* config;
 
-   si = (struct signal_info*)w;
-   config = (struct configuration*)si->shmem;
+   config = (struct configuration*)shmem;
 
    ZF_LOGD("pgagroal: gracefully requested");
 
-   pgagroal_pool_status(si->shmem);
+   pgagroal_pool_status();
    config->gracefully = true;
 
    if (atomic_load(&config->active_connections) == 0)
    {
-      pgagroal_pool_status(si->shmem);
+      pgagroal_pool_status();
       keep_running = 0;
       ev_break(loop, EVBREAK_ALL);
    }
@@ -1448,21 +1412,15 @@ graceful_cb(struct ev_loop *loop, ev_signal *w, int revents)
 static void
 coredump_cb(struct ev_loop *loop, ev_signal *w, int revents)
 {
-   struct signal_info* si;
-
-   si = (struct signal_info*)w;
-
    ZF_LOGI("pgagroal: core dump requested");
 
-   pgagroal_pool_status(si->shmem);
+   pgagroal_pool_status();
    abort();
 }
 
 static void
 idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 {
-   struct periodic_info* pi;
-
    ZF_LOGV("pgagroal: idle_timeout_cb (%d)", revents);
 
    if (EV_ERROR & revents)
@@ -1471,20 +1429,16 @@ idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents)
       return;
    }
 
-   pi = (struct periodic_info*)w;
-
    /* pgagroal_idle_timeout() is always in a fork() */
    if (!fork())
    {
-      pgagroal_idle_timeout(pi->shmem);
+      pgagroal_idle_timeout();
    }
 }
 
 static void
 validation_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 {
-   struct periodic_info* pi;
-
    ZF_LOGV("pgagroal: validation_cb (%d)", revents);
 
    if (EV_ERROR & revents)
@@ -1493,20 +1447,16 @@ validation_cb(struct ev_loop *loop, ev_periodic *w, int revents)
       return;
    }
 
-   pi = (struct periodic_info*)w;
-
    /* pgagroal_validation() is always in a fork() */
    if (!fork())
    {
-      pgagroal_validation(pi->shmem);
+      pgagroal_validation();
    }
 }
 
 static void
 disconnect_client_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 {
-   struct periodic_info* pi;
-
    ZF_LOGV("pgagroal: disconnect_client_cb (%d)", revents);
 
    if (EV_ERROR & revents)
@@ -1515,12 +1465,10 @@ disconnect_client_cb(struct ev_loop *loop, ev_periodic *w, int revents)
       return;
    }
 
-   pi = (struct periodic_info*)w;
-
    /* main_pipeline.periodic is always in a fork() */
    if (!fork())
    {
-      main_pipeline.periodic(pi->shmem, pi->pipeline_shmem);
+      main_pipeline.periodic();
    }
 }
 

@@ -58,10 +58,10 @@ static void transaction_client(struct ev_loop *loop, struct ev_io *watcher, int 
 static void transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void transaction_stop(struct ev_loop *loop, struct worker_io*);
 static void transaction_destroy(void*, size_t);
-static void transaction_periodic(void*, void*);
+static void transaction_periodic(void);
 
 static void start_mgt(struct ev_loop *loop);
-static void shutdown_mgt(struct ev_loop *loop, void* shmem);
+static void shutdown_mgt(struct ev_loop *loop);
 static void accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 
 static int slot;
@@ -95,13 +95,13 @@ transaction_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shme
 }
 
 static void
-transaction_start(struct ev_loop *loop, struct worker_io* w)
+transaction_start(struct ev_loop* loop, struct worker_io* w)
 {
    char p[MISC_LENGTH];
    bool is_new;
    struct configuration* config = NULL;
 
-   config = (struct configuration*)w->shmem;
+   config = (struct configuration*)shmem;
 
    slot = -1;
    memcpy(&username[0], config->connections[w->slot].username, MAX_USERNAME_LENGTH);
@@ -112,7 +112,7 @@ transaction_start(struct ev_loop *loop, struct worker_io* w)
    memset(&p, 0, sizeof(p));
    snprintf(&p[0], sizeof(p), ".s.%d", getpid());
 
-   if (pgagroal_bind_unix_socket(config->unix_socket_dir, &p[0], w->shmem, &unix_socket))
+   if (pgagroal_bind_unix_socket(config->unix_socket_dir, &p[0], &unix_socket))
    {
       ZF_LOGF("pgagroal: Could not bind to %s/%s\n", config->unix_socket_dir, &p[0]);
       goto error;
@@ -120,10 +120,10 @@ transaction_start(struct ev_loop *loop, struct worker_io* w)
 
    start_mgt(loop);
 
-   pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION_START, w->slot, w->shmem);
+   pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION_START, w->slot);
 
    is_new = config->connections[w->slot].new;
-   pgagroal_return_connection(w->shmem, w->slot, true);
+   pgagroal_return_connection(w->slot, true);
 
    w->server_fd = -1;
    w->slot = -1;
@@ -148,13 +148,13 @@ error:
 }
 
 static void
-transaction_stop(struct ev_loop *loop, struct worker_io* w)
+transaction_stop(struct ev_loop* loop, struct worker_io* w)
 {
    if (slot != -1)
    {
       struct configuration* config = NULL;
 
-      config = (struct configuration*)w->shmem;
+      config = (struct configuration*)shmem;
 
       /* We are either in 'X' or the client terminated (consider cancel query) */
       if (in_tx)
@@ -164,12 +164,12 @@ transaction_stop(struct ev_loop *loop, struct worker_io* w)
       }
 
       ev_io_stop(loop, (struct ev_io*)&server_io);
-      pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION_STOP, w->slot, w->shmem);
-      pgagroal_return_connection(w->shmem, slot, true);
+      pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION_STOP, w->slot);
+      pgagroal_return_connection(slot, true);
       slot = -1;
    }
 
-   shutdown_mgt(loop, w->shmem);
+   shutdown_mgt(loop);
 }
 
 static void
@@ -178,12 +178,12 @@ transaction_destroy(void* pipeline_shmem, size_t pipeline_shmem_size)
 }
 
 static void
-transaction_periodic(void* shmem, void* pipeline_shmem)
+transaction_periodic(void)
 {
 }
 
 static void
-transaction_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
+transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
@@ -191,13 +191,13 @@ transaction_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
    struct configuration* config = NULL;
 
    wi = (struct worker_io*)watcher;
-   config = (struct configuration*)wi->shmem;
+   config = (struct configuration*)shmem;
 
    /* We can't use the information from wi except from client_fd/client_ssl */
    if (slot == -1)
    {
-      pgagroal_tracking_event_basic(TRACKER_TX_GET_CONNECTION, &username[0], &database[0], wi->shmem);
-      if (pgagroal_get_connection(wi->shmem, &username[0], &database[0], true, true, &slot))
+      pgagroal_tracking_event_basic(TRACKER_TX_GET_CONNECTION, &username[0], &database[0]);
+      if (pgagroal_get_connection(&username[0], &database[0], true, true, &slot))
       {
          pgagroal_write_pool_full(wi->client_ssl, wi->client_fd);
          goto get_error;
@@ -211,8 +211,6 @@ transaction_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
       server_io.server_fd = config->connections[slot].fd;
       server_io.slot = slot;
       server_io.client_ssl = wi->client_ssl;
-      server_io.shmem = wi->shmem;
-      server_io.pipeline_shmem = wi->pipeline_shmem;
 
       ev_io_start(loop, (struct ev_io*)&server_io);
    }
@@ -234,9 +232,9 @@ transaction_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
          {
             if (config->failover)
             {
-               pgagroal_server_failover(config, slot);
+               pgagroal_server_failover(slot);
                pgagroal_write_client_failover(wi->client_ssl, wi->client_fd);
-               pgagroal_prometheus_failed_servers(config);
+               pgagroal_prometheus_failed_servers();
 
                goto failover;
             }
@@ -304,7 +302,7 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    struct configuration* config = NULL;
 
    wi = (struct worker_io*)watcher;
-   config = (struct configuration*)wi->shmem;
+   config = (struct configuration*)shmem;
 
    /* We can't use the information from wi except from client_fd/client_ssl */
    wi->server_fd = config->connections[slot].fd;
@@ -379,8 +377,8 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
          {
             ev_io_stop(loop, (struct ev_io*)&server_io);
 
-            pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION, slot, wi->shmem);
-            if (pgagroal_return_connection(wi->shmem, slot, true))
+            pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION, slot);
+            if (pgagroal_return_connection(slot, true))
             {
                goto return_error;
             }
@@ -448,7 +446,7 @@ start_mgt(struct ev_loop *loop)
 }
 
 static void
-shutdown_mgt(struct ev_loop *loop, void* shmem)
+shutdown_mgt(struct ev_loop* loop)
 {
    char p[MISC_LENGTH];
    struct configuration* config = NULL;

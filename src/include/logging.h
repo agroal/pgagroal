@@ -51,19 +51,17 @@ extern "C" {
 
 /**
  * Start the logging system
- * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_start_logging(void* shmem);
+pgagroal_start_logging();
 
 /**
  * Stop the logging system
- * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_stop_logging(void* shmem);
+pgagroal_stop_logging();
 
 #ifdef __cplusplus
 }

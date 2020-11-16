@@ -39,132 +39,113 @@ extern "C" {
 /**
  * Create a prometheus instance
  * @param fd The client descriptor
- * @param shmem The shared memory segment
- * @param pipeline_shmem The shared memory segment for the pipeline
  */
 void
-pgagroal_prometheus(int fd, void* shmem, void* pipeline_shmem);
+pgagroal_prometheus(int fd);
 
 /**
  * Add session time information
  * @param time The time
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_session_time(double time, void* shmem);
+pgagroal_prometheus_session_time(double time);
 
 /**
  * Connection error
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_connection_error(void* shmem);
+pgagroal_prometheus_connection_error();
 
 /**
  * Connection kill
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_connection_kill(void* shmem);
+pgagroal_prometheus_connection_kill();
 
 /**
  * Connection remove
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_connection_remove(void* shmem);
+pgagroal_prometheus_connection_remove();
 
 /**
  * Connection timeout
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_connection_timeout(void* shmem);
+pgagroal_prometheus_connection_timeout();
 
 /**
  * Connection return
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_connection_return(void* shmem);
+pgagroal_prometheus_connection_return();
 
 /**
  * Connection invalid
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_connection_invalid(void* shmem);
+pgagroal_prometheus_connection_invalid();
 
 /**
  * Connection get
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_connection_get(void* shmem);
+pgagroal_prometheus_connection_get();
 
 /**
  * Connection idle timeout
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_connection_idletimeout(void* shmem);
+pgagroal_prometheus_connection_idletimeout();
 
 /**
  * Connection flush
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_connection_flush(void* shmem);
+pgagroal_prometheus_connection_flush();
 
 /**
  * Connection success
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_connection_success(void* shmem);
+pgagroal_prometheus_connection_success();
 
 /**
  * Increase AUTH_SUCCESS for a user
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_auth_user_success(void* shmem);
+pgagroal_prometheus_auth_user_success();
 
 /**
  * Increase AUTH_BAD_PASSWORD for a user
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_auth_user_bad_password(void* shmem);
+pgagroal_prometheus_auth_user_bad_password();
 
 /**
  * Increase AUTH_ERROR for a user
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_auth_user_error(void* shmem);
+pgagroal_prometheus_auth_user_error();
 
 /**
  * Reset the counters and histograms
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_reset(void* shmem);
+pgagroal_prometheus_reset();
 
 /**
  * Increase SERVER_ERROR for a server
  * @param server The server
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_server_error(int server, void* shmem);
+pgagroal_prometheus_server_error(int server);
 
 /**
  * Count failed servers
- * @param shmem The shared memory segment
  */
 void
-pgagroal_prometheus_failed_servers(void* shmem);
+pgagroal_prometheus_failed_servers();
 
 #ifdef __cplusplus
 }

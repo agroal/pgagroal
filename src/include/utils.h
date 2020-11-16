@@ -44,7 +44,6 @@ extern "C" {
 struct signal_info
 {
    struct ev_signal signal; /**< The libev base type */
-   void* shmem;             /**< The shared memory segment */
    int slot;                /**< The slot */
 };
 

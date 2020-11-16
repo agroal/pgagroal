@@ -52,13 +52,13 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-static int bind_host(const char* hostname, int port, void* shmem, int** fds, int* length);
+static int bind_host(const char* hostname, int port, int** fds, int* length);
 
 /**
  *
  */
 int
-pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* length)
+pgagroal_bind(const char* hostname, int port, int** fds, int* length)
 {
    struct ifaddrs *ifaddr, *ifa;
    struct sockaddr_in *sa4;
@@ -98,7 +98,7 @@ pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* lengt
                inet_ntop(AF_INET6, &sa6->sin6_addr, addr, sizeof(addr));
             }
 
-            if (bind_host(addr, port, shmem, &new_fds, &new_length))
+            if (bind_host(addr, port, &new_fds, &new_length))
             {
                free(new_fds);
                continue;
@@ -128,14 +128,14 @@ pgagroal_bind(const char* hostname, int port, void* shmem, int** fds, int* lengt
       return 0;
    }
 
-   return bind_host(hostname, port, shmem, fds, length);
+   return bind_host(hostname, port, fds, length);
 }
 
 /**
  *
  */
 int
-pgagroal_bind_unix_socket(const char* directory, const char* file, void* shmem, int *fd)
+pgagroal_bind_unix_socket(const char* directory, const char* file, int *fd)
 {
    int status;
    char buf[MISC_LENGTH];
@@ -221,7 +221,7 @@ pgagroal_remove_unix_socket(const char* directory, const char* file)
  *
  */
 int
-pgagroal_connect(void* shmem, const char* hostname, int port, int* fd)
+pgagroal_connect(const char* hostname, int port, int* fd)
 {
    struct addrinfo hints, *servinfo, *p;
    int yes = 1;
@@ -491,7 +491,7 @@ error:
 }
 
 int
-pgagroal_tcp_nodelay(int fd, void* shmem)
+pgagroal_tcp_nodelay(int fd)
 {
    struct configuration* config;
    int yes = 1;
@@ -513,7 +513,7 @@ pgagroal_tcp_nodelay(int fd, void* shmem)
 }
 
 int
-pgagroal_socket_buffers(int fd, void* shmem)
+pgagroal_socket_buffers(int fd)
 {
    struct configuration* config;
    socklen_t optlen = sizeof(int);
@@ -541,7 +541,7 @@ pgagroal_socket_buffers(int fd, void* shmem)
  *
  */
 static int
-bind_host(const char* hostname, int port, void* shmem, int** fds, int* length)
+bind_host(const char* hostname, int port, int** fds, int* length)
 {
    int *result = NULL;
    int index, size;
@@ -609,13 +609,13 @@ bind_host(const char* hostname, int port, void* shmem, int** fds, int* length)
          }
       }
 
-      if (pgagroal_socket_buffers(sockfd, shmem))
+      if (pgagroal_socket_buffers(sockfd))
       {
          pgagroal_disconnect(sockfd);
          continue;
       }
 
-      if (pgagroal_tcp_nodelay(sockfd, shmem))
+      if (pgagroal_tcp_nodelay(sockfd))
       {
          pgagroal_disconnect(sockfd);
          continue;

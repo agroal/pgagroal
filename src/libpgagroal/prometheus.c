@@ -72,14 +72,14 @@
 static int resolve_page(struct message* msg);
 static int unknown_page(int client_fd);
 static int home_page(int client_fd);
-static int metrics_page(int client_fd, void* shmem, void* pipeline_shmem);
+static int metrics_page(int client_fd);
 
-static void general_information(int client_fd, void* shmem);
-static void connection_information(int client_fd, void* shmem);
-static void limit_information(int client_fd, void* shmem);
-static void session_information(int client_fd, void* shmem);
-static void pool_information(int client_fd, void* shmem);
-static void auth_information(int client_fd, void* shmem);
+static void general_information(int client_fd);
+static void connection_information(int client_fd);
+static void limit_information(int client_fd);
+static void session_information(int client_fd);
+static void pool_information(int client_fd);
+static void auth_information(int client_fd);
 
 static int send_chunk(int client_fd, char* data);
 
@@ -88,15 +88,15 @@ static char* append_int(char* orig, int i);
 static char* append_ulong(char* orig, unsigned long i);
 
 void
-pgagroal_prometheus(int client_fd, void* shmem, void* pipeline_shmem)
+pgagroal_prometheus(int client_fd)
 {
    int status;
    int page;
    struct message* msg = NULL;
    struct configuration* config;
 
-   pgagroal_start_logging(shmem);
-   pgagroal_memory_init(shmem);
+   pgagroal_start_logging();
+   pgagroal_memory_init();
 
    config = (struct configuration*)shmem;
 
@@ -116,7 +116,7 @@ pgagroal_prometheus(int client_fd, void* shmem, void* pipeline_shmem)
    }
    else if (page == PAGE_METRICS)
    {
-      metrics_page(client_fd, shmem, pipeline_shmem);
+      metrics_page(client_fd);
    }
    else
    {
@@ -127,7 +127,7 @@ pgagroal_prometheus(int client_fd, void* shmem, void* pipeline_shmem)
    pgagroal_disconnect(client_fd);
 
    pgagroal_memory_destroy();
-   pgagroal_stop_logging(shmem);
+   pgagroal_stop_logging();
 
    exit(0);
 
@@ -137,13 +137,13 @@ error:
    pgagroal_disconnect(client_fd);
 
    pgagroal_memory_destroy();
-   pgagroal_stop_logging(shmem);
+   pgagroal_stop_logging();
 
    exit(1);
 }
 
 void
-pgagroal_prometheus_session_time(double time, void* shmem)
+pgagroal_prometheus_session_time(double time)
 {
    unsigned long t;
    struct configuration* config;
@@ -229,7 +229,7 @@ pgagroal_prometheus_session_time(double time, void* shmem)
 }
 
 void
-pgagroal_prometheus_connection_error(void* shmem)
+pgagroal_prometheus_connection_error()
 {
    struct configuration* config;
 
@@ -239,7 +239,7 @@ pgagroal_prometheus_connection_error(void* shmem)
 }
 
 void
-pgagroal_prometheus_connection_kill(void* shmem)
+pgagroal_prometheus_connection_kill()
 {
    struct configuration* config;
 
@@ -249,7 +249,7 @@ pgagroal_prometheus_connection_kill(void* shmem)
 }
 
 void
-pgagroal_prometheus_connection_remove(void* shmem)
+pgagroal_prometheus_connection_remove()
 {
    struct configuration* config;
 
@@ -259,7 +259,7 @@ pgagroal_prometheus_connection_remove(void* shmem)
 }
 
 void
-pgagroal_prometheus_connection_timeout(void* shmem)
+pgagroal_prometheus_connection_timeout()
 {
    struct configuration* config;
 
@@ -269,7 +269,7 @@ pgagroal_prometheus_connection_timeout(void* shmem)
 }
 
 void
-pgagroal_prometheus_connection_return(void* shmem)
+pgagroal_prometheus_connection_return()
 {
    struct configuration* config;
 
@@ -279,7 +279,7 @@ pgagroal_prometheus_connection_return(void* shmem)
 }
 
 void
-pgagroal_prometheus_connection_invalid(void* shmem)
+pgagroal_prometheus_connection_invalid()
 {
    struct configuration* config;
 
@@ -289,7 +289,7 @@ pgagroal_prometheus_connection_invalid(void* shmem)
 }
 
 void
-pgagroal_prometheus_connection_get(void* shmem)
+pgagroal_prometheus_connection_get()
 {
    struct configuration* config;
 
@@ -299,7 +299,7 @@ pgagroal_prometheus_connection_get(void* shmem)
 }
 
 void
-pgagroal_prometheus_connection_idletimeout(void* shmem)
+pgagroal_prometheus_connection_idletimeout()
 {
    struct configuration* config;
 
@@ -309,7 +309,7 @@ pgagroal_prometheus_connection_idletimeout(void* shmem)
 }
 
 void
-pgagroal_prometheus_connection_flush(void* shmem)
+pgagroal_prometheus_connection_flush()
 {
    struct configuration* config;
 
@@ -319,7 +319,7 @@ pgagroal_prometheus_connection_flush(void* shmem)
 }
 
 void
-pgagroal_prometheus_connection_success(void* shmem)
+pgagroal_prometheus_connection_success()
 {
    struct configuration* config;
 
@@ -329,7 +329,7 @@ pgagroal_prometheus_connection_success(void* shmem)
 }
 
 void
-pgagroal_prometheus_auth_user_success(void* shmem)
+pgagroal_prometheus_auth_user_success()
 {
    struct configuration* config;
 
@@ -339,7 +339,7 @@ pgagroal_prometheus_auth_user_success(void* shmem)
 }
 
 void
-pgagroal_prometheus_auth_user_bad_password(void* shmem)
+pgagroal_prometheus_auth_user_bad_password()
 {
    struct configuration* config;
 
@@ -349,7 +349,7 @@ pgagroal_prometheus_auth_user_bad_password(void* shmem)
 }
 
 void
-pgagroal_prometheus_auth_user_error(void* shmem)
+pgagroal_prometheus_auth_user_error()
 {
    struct configuration* config;
 
@@ -359,7 +359,7 @@ pgagroal_prometheus_auth_user_error(void* shmem)
 }
 
 void
-pgagroal_prometheus_reset(void* shmem)
+pgagroal_prometheus_reset()
 {
    struct configuration* config;
 
@@ -393,7 +393,7 @@ pgagroal_prometheus_reset(void* shmem)
 }
 
 void
-pgagroal_prometheus_server_error(int server, void* shmem)
+pgagroal_prometheus_server_error(int server)
 {
    struct configuration* config;
 
@@ -403,7 +403,7 @@ pgagroal_prometheus_server_error(int server, void* shmem)
 }
 
 void
-pgagroal_prometheus_failed_servers(void* shmem)
+pgagroal_prometheus_failed_servers()
 {
    int count;
    struct configuration* config;
@@ -725,7 +725,7 @@ done:
 }
 
 static int
-metrics_page(int client_fd, void* shmem, void* pipeline_shmem)
+metrics_page(int client_fd)
 {
    char* data = NULL;
    time_t now;
@@ -762,12 +762,12 @@ metrics_page(int client_fd, void* shmem, void* pipeline_shmem)
    free(data);
    data = NULL;
 
-   general_information(client_fd, shmem);
-   connection_information(client_fd, shmem);
-   limit_information(client_fd, shmem);
-   session_information(client_fd, shmem);
-   pool_information(client_fd, shmem);
-   auth_information(client_fd, shmem);
+   general_information(client_fd);
+   connection_information(client_fd);
+   limit_information(client_fd);
+   session_information(client_fd);
+   pool_information(client_fd);
+   auth_information(client_fd);
 
    /* Footer */
    data = append(data, "0\r\n\r\n");
@@ -794,7 +794,7 @@ error:
 }
 
 static void
-general_information(int client_fd, void* shmem)
+general_information(int client_fd)
 {
    char* data = NULL;
    struct configuration* config;
@@ -872,7 +872,7 @@ general_information(int client_fd, void* shmem)
 }
 
 static void
-connection_information(int client_fd, void* shmem)
+connection_information(int client_fd)
 {
    char* data = NULL;
    int active;
@@ -1024,7 +1024,7 @@ connection_information(int client_fd, void* shmem)
 }
 
 static void
-limit_information(int client_fd, void* shmem)
+limit_information(int client_fd)
 {
    char* data = NULL;
    struct configuration* config;
@@ -1113,7 +1113,7 @@ limit_information(int client_fd, void* shmem)
 }
 
 static void
-session_information(int client_fd, void* shmem)
+session_information(int client_fd)
 {
    char* data = NULL;
    unsigned long counter;
@@ -1230,7 +1230,7 @@ session_information(int client_fd, void* shmem)
 }
 
 static void
-pool_information(int client_fd, void* shmem)
+pool_information(int client_fd)
 {
    char* data = NULL;
    struct configuration* config;
@@ -1303,7 +1303,7 @@ pool_information(int client_fd, void* shmem)
 }
 
 static void
-auth_information(int client_fd, void* shmem)
+auth_information(int client_fd)
 {
    char* data = NULL;
    struct configuration* config;

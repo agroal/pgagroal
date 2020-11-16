@@ -65,12 +65,11 @@ static void extract_limit(char* str, int server_max, char** database, char** use
  *
  */
 int
-pgagroal_init_configuration(void* shmem, size_t size)
+pgagroal_init_configuration()
 {
    struct configuration* config;
 
    config = (struct configuration*)shmem;
-   memset(config, 0, size);
 
    atomic_init(&config->active_connections, 0);
    
@@ -145,7 +144,7 @@ pgagroal_init_configuration(void* shmem, size_t size)
  *
  */
 int
-pgagroal_read_configuration(char* filename, void* shmem)
+pgagroal_read_configuration(char* filename)
 {
    FILE* file;
    char section[LINE_LENGTH];
@@ -772,7 +771,7 @@ pgagroal_read_configuration(char* filename, void* shmem)
  *
  */
 int
-pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets, void* shmem)
+pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets)
 {
    bool tls;
    struct stat st;
@@ -983,7 +982,7 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets, voi
  *
  */
 int
-pgagroal_read_hba_configuration(char* filename, void* shmem)
+pgagroal_read_hba_configuration(char* filename)
 {
    FILE* file;
    char line[LINE_LENGTH];
@@ -1076,7 +1075,7 @@ pgagroal_read_hba_configuration(char* filename, void* shmem)
  *
  */
 int
-pgagroal_validate_hba_configuration(void* shmem)
+pgagroal_validate_hba_configuration()
 {
    struct configuration* config;
 
@@ -1124,7 +1123,7 @@ pgagroal_validate_hba_configuration(void* shmem)
  *
  */
 int
-pgagroal_read_limit_configuration(char* filename, void* shmem)
+pgagroal_read_limit_configuration(char* filename)
 {
    FILE* file;
    char line[LINE_LENGTH];
@@ -1236,7 +1235,7 @@ pgagroal_read_limit_configuration(char* filename, void* shmem)
  *
  */
 int
-pgagroal_validate_limit_configuration(void* shmem)
+pgagroal_validate_limit_configuration()
 {
    int total_connections;
    struct configuration* config;
@@ -1293,7 +1292,7 @@ pgagroal_validate_limit_configuration(void* shmem)
  *
  */
 int
-pgagroal_read_users_configuration(char* filename, void* shmem)
+pgagroal_read_users_configuration(char* filename)
 {
    FILE* file;
    char line[LINE_LENGTH];
@@ -1427,7 +1426,7 @@ above:
  *
  */
 int
-pgagroal_validate_users_configuration(void* shmem)
+pgagroal_validate_users_configuration()
 {
    return 0;
 }
@@ -1436,7 +1435,7 @@ pgagroal_validate_users_configuration(void* shmem)
  *
  */
 int
-pgagroal_read_admins_configuration(char* filename, void* shmem)
+pgagroal_read_admins_configuration(char* filename)
 {
    FILE* file;
    char line[LINE_LENGTH];
@@ -1570,7 +1569,7 @@ above:
  *
  */
 int
-pgagroal_validate_admins_configuration(void* shmem)
+pgagroal_validate_admins_configuration()
 {
    struct configuration* config;
 
@@ -1585,7 +1584,7 @@ pgagroal_validate_admins_configuration(void* shmem)
 }
 
 int
-pgagroal_read_superuser_configuration(char* filename, void* shmem)
+pgagroal_read_superuser_configuration(char* filename)
 {
    FILE* file;
    char line[LINE_LENGTH];

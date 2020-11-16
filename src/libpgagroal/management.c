@@ -215,7 +215,7 @@ error:
 }
 
 int
-pgagroal_management_transfer_connection(void* shmem, int32_t slot)
+pgagroal_management_transfer_connection(int32_t slot)
 {
    int fd;
    struct configuration* config;
@@ -271,13 +271,13 @@ pgagroal_management_transfer_connection(void* shmem, int32_t slot)
 error:
    free(cmptr);
    pgagroal_disconnect(fd);
-   pgagroal_kill_connection(shmem, slot);
+   pgagroal_kill_connection(slot);
 
    return 1;
 }
 
 int
-pgagroal_management_return_connection(void* shmem, int32_t slot)
+pgagroal_management_return_connection(int32_t slot)
 {
    int fd;
    struct configuration* config;
@@ -309,7 +309,7 @@ error:
 }
 
 int
-pgagroal_management_kill_connection(void* shmem, int32_t slot, int socket)
+pgagroal_management_kill_connection(int32_t slot, int socket)
 {
    int fd;
    char buf[4];
@@ -572,7 +572,7 @@ error:
 }
 
 int
-pgagroal_management_write_status(int socket, bool graceful, void* shmem)
+pgagroal_management_write_status(int socket, bool graceful)
 {
    char buf[16];
    int active;
@@ -795,7 +795,7 @@ error:
 }
 
 int
-pgagroal_management_write_details(int socket, void* shmem)
+pgagroal_management_write_details(int socket)
 {
    char header[12 + MAX_NUMBER_OF_CONNECTIONS];
    struct configuration* config;
@@ -930,7 +930,7 @@ error:
 }
 
 int
-pgagroal_management_write_isalive(int socket, bool gracefully, void* shmem)
+pgagroal_management_write_isalive(int socket, bool gracefully)
 {
    char buf[4];
 
@@ -1006,7 +1006,7 @@ error:
 }
 
 int
-pgagroal_management_client_done(void* shmem, pid_t pid)
+pgagroal_management_client_done(pid_t pid)
 {
    char buf[4];
    int fd;
@@ -1049,7 +1049,7 @@ error:
 }
 
 int
-pgagroal_management_client_fd(void* shmem, int32_t slot, pid_t pid)
+pgagroal_management_client_fd(int32_t slot, pid_t pid)
 {
    char p[MISC_LENGTH];
    int fd;
@@ -1115,7 +1115,7 @@ unavailable:
 error:
    free(cmptr);
    pgagroal_disconnect(fd);
-   pgagroal_kill_connection(shmem, slot);
+   pgagroal_kill_connection(slot);
 
    return 1;
 }

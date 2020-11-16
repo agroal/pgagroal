@@ -73,19 +73,17 @@ extern "C" {
  * @param id The event identifier
  * @param username The user name
  * @param database The database
- * @param shmem The shared memory segment
  */
 void
-pgagroal_tracking_event_basic(int id, char* username, char* database, void* shmem);
+pgagroal_tracking_event_basic(int id, char* username, char* database);
 
 /**
  * Tracking event: Slot
  * @param id The event identifier
  * @param slot The slot
- * @param shmem The shared memory segment
  */
 void
-pgagroal_tracking_event_slot(int id, int slot, void* shmem);
+pgagroal_tracking_event_slot(int id, int slot);
 
 #ifdef __cplusplus
 }

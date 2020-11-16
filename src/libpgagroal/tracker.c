@@ -43,10 +43,10 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-static int count_connections(void* shmem);
+static int count_connections();
 
 void
-pgagroal_tracking_event_basic(int id, char* username, char* database, void* shmem)
+pgagroal_tracking_event_basic(int id, char* username, char* database)
 {
    int primary;
    struct configuration* config;
@@ -71,7 +71,7 @@ pgagroal_tracking_event_basic(int id, char* username, char* database, void* shme
          database = "";
       }
 
-      pgagroal_get_primary(shmem, &primary);
+      pgagroal_get_primary(&primary);
 
       ZF_LOGI("PGAGROAL|%d|%d|%d|%lld|%d|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|",
               id,
@@ -89,12 +89,12 @@ pgagroal_tracking_event_basic(int id, char* username, char* database, void* shme
               -1,
               -1,
               atomic_load(&config->active_connections),
-              count_connections(shmem));
+              count_connections());
    }
 }
 
 void
-pgagroal_tracking_event_slot(int id, int slot, void* shmem)
+pgagroal_tracking_event_slot(int id, int slot)
 {
    struct configuration* config;
 
@@ -140,12 +140,12 @@ pgagroal_tracking_event_slot(int id, int slot, void* shmem)
               config->connections[slot].limit_rule,
               config->connections[slot].fd,
               atomic_load(&config->active_connections),
-              count_connections(shmem));
+              count_connections());
    }
 }
 
 static int
-count_connections(void* shmem)
+count_connections()
 {
    int active = 0;
    struct configuration* config;
