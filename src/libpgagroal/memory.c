@@ -48,7 +48,7 @@ static void* data = NULL;
  *
  */
 void
-pgagroal_memory_init()
+pgagroal_memory_init(void)
 {
    struct configuration* config;
 

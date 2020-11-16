@@ -54,14 +54,14 @@ extern "C" {
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_start_logging();
+pgagroal_start_logging(void);
 
 /**
  * Stop the logging system
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_stop_logging();
+pgagroal_stop_logging(void);
 
 #ifdef __cplusplus
 }

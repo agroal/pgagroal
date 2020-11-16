@@ -59,7 +59,7 @@ pgagroal_update_server_state(int slot, int socket);
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_server_status();
+pgagroal_server_status(void);
 
 /**
  * Failover

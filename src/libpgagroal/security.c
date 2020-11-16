@@ -3151,7 +3151,7 @@ pgagroal_user_known(char* user)
 }
 
 int
-pgagroal_tls_valid()
+pgagroal_tls_valid(void)
 {
    struct configuration* config;
    struct stat st = {0};

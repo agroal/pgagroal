@@ -43,7 +43,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-static int count_connections();
+static int count_connections(void);
 
 void
 pgagroal_tracking_event_basic(int id, char* username, char* database)
@@ -145,7 +145,7 @@ pgagroal_tracking_event_slot(int id, int slot)
 }
 
 static int
-count_connections()
+count_connections(void)
 {
    int active = 0;
    struct configuration* config;

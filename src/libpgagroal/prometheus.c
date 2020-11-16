@@ -229,7 +229,7 @@ pgagroal_prometheus_session_time(double time)
 }
 
 void
-pgagroal_prometheus_connection_error()
+pgagroal_prometheus_connection_error(void)
 {
    struct configuration* config;
 
@@ -239,7 +239,7 @@ pgagroal_prometheus_connection_error()
 }
 
 void
-pgagroal_prometheus_connection_kill()
+pgagroal_prometheus_connection_kill(void)
 {
    struct configuration* config;
 
@@ -249,7 +249,7 @@ pgagroal_prometheus_connection_kill()
 }
 
 void
-pgagroal_prometheus_connection_remove()
+pgagroal_prometheus_connection_remove(void)
 {
    struct configuration* config;
 
@@ -259,7 +259,7 @@ pgagroal_prometheus_connection_remove()
 }
 
 void
-pgagroal_prometheus_connection_timeout()
+pgagroal_prometheus_connection_timeout(void)
 {
    struct configuration* config;
 
@@ -269,7 +269,7 @@ pgagroal_prometheus_connection_timeout()
 }
 
 void
-pgagroal_prometheus_connection_return()
+pgagroal_prometheus_connection_return(void)
 {
    struct configuration* config;
 
@@ -279,7 +279,7 @@ pgagroal_prometheus_connection_return()
 }
 
 void
-pgagroal_prometheus_connection_invalid()
+pgagroal_prometheus_connection_invalid(void)
 {
    struct configuration* config;
 
@@ -289,7 +289,7 @@ pgagroal_prometheus_connection_invalid()
 }
 
 void
-pgagroal_prometheus_connection_get()
+pgagroal_prometheus_connection_get(void)
 {
    struct configuration* config;
 
@@ -299,7 +299,7 @@ pgagroal_prometheus_connection_get()
 }
 
 void
-pgagroal_prometheus_connection_idletimeout()
+pgagroal_prometheus_connection_idletimeout(void)
 {
    struct configuration* config;
 
@@ -309,7 +309,7 @@ pgagroal_prometheus_connection_idletimeout()
 }
 
 void
-pgagroal_prometheus_connection_flush()
+pgagroal_prometheus_connection_flush(void)
 {
    struct configuration* config;
 
@@ -319,7 +319,7 @@ pgagroal_prometheus_connection_flush()
 }
 
 void
-pgagroal_prometheus_connection_success()
+pgagroal_prometheus_connection_success(void)
 {
    struct configuration* config;
 
@@ -329,7 +329,7 @@ pgagroal_prometheus_connection_success()
 }
 
 void
-pgagroal_prometheus_auth_user_success()
+pgagroal_prometheus_auth_user_success(void)
 {
    struct configuration* config;
 
@@ -339,7 +339,7 @@ pgagroal_prometheus_auth_user_success()
 }
 
 void
-pgagroal_prometheus_auth_user_bad_password()
+pgagroal_prometheus_auth_user_bad_password(void)
 {
    struct configuration* config;
 
@@ -349,7 +349,7 @@ pgagroal_prometheus_auth_user_bad_password()
 }
 
 void
-pgagroal_prometheus_auth_user_error()
+pgagroal_prometheus_auth_user_error(void)
 {
    struct configuration* config;
 
@@ -359,7 +359,7 @@ pgagroal_prometheus_auth_user_error()
 }
 
 void
-pgagroal_prometheus_reset()
+pgagroal_prometheus_reset(void)
 {
    struct configuration* config;
 
@@ -403,7 +403,7 @@ pgagroal_prometheus_server_error(int server)
 }
 
 void
-pgagroal_prometheus_failed_servers()
+pgagroal_prometheus_failed_servers(void)
 {
    int count;
    struct configuration* config;

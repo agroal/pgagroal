@@ -170,7 +170,7 @@ error:
 }
 
 int
-pgagroal_server_status()
+pgagroal_server_status(void)
 {
    struct configuration* config;
 

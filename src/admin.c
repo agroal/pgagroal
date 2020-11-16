@@ -69,14 +69,14 @@ void* shmem = NULL;
 void* pipeline_shmem = NULL;
 
 static void
-version()
+version(void)
 {
    printf("pgagroal-admin %s\n", VERSION);
    exit(1);
 }
 
 static void
-usage()
+usage(void)
 {
    printf("pgagroal-admin %s\n", VERSION);
    printf("  Administration utility for pgagroal\n");

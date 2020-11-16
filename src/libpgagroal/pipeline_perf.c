@@ -48,7 +48,7 @@ static void performance_stop(struct ev_loop *loop, struct worker_io*);
 static void performance_destroy(void*, size_t);
 static void performance_periodic(void);
 
-struct pipeline performance_pipeline()
+struct pipeline performance_pipeline(void)
 {
    struct pipeline pipeline;
 

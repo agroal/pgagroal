@@ -73,7 +73,7 @@ static int unix_socket = -1;
 static struct ev_io io_mgt;
 static struct worker_io server_io;
 
-struct pipeline transaction_pipeline()
+struct pipeline transaction_pipeline(void)
 {
    struct pipeline pipeline;
 

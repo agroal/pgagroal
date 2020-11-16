@@ -41,7 +41,7 @@ extern "C" {
  * Initialize a memory segment for the process local message structure
  */
 void
-pgagroal_memory_init();
+pgagroal_memory_init(void);
 
 /**
  * Set the size of the local message structure

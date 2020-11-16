@@ -40,7 +40,7 @@ extern "C" {
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_init_configuration();
+pgagroal_init_configuration(void);
 
 /**
  * Read the configuration from a file
@@ -72,7 +72,7 @@ pgagroal_read_hba_configuration(char* filename);
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_validate_hba_configuration();
+pgagroal_validate_hba_configuration(void);
 
 /**
  * Read the LIMIT configuration from a file
@@ -87,7 +87,7 @@ pgagroal_read_limit_configuration(char* filename);
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_validate_limit_configuration();
+pgagroal_validate_limit_configuration(void);
 
 /**
  * Read the USERS configuration from a file
@@ -102,7 +102,7 @@ pgagroal_read_users_configuration(char* filename);
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_validate_users_configuration();
+pgagroal_validate_users_configuration(void);
 
 /**
  * Read the ADMINS configuration from a file
@@ -117,7 +117,7 @@ pgagroal_read_admins_configuration(char* filename);
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_validate_admins_configuration();
+pgagroal_validate_admins_configuration(void);
 
 /**
  * Read the superuser from a file

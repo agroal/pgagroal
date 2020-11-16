@@ -54,85 +54,85 @@ pgagroal_prometheus_session_time(double time);
  * Connection error
  */
 void
-pgagroal_prometheus_connection_error();
+pgagroal_prometheus_connection_error(void);
 
 /**
  * Connection kill
  */
 void
-pgagroal_prometheus_connection_kill();
+pgagroal_prometheus_connection_kill(void);
 
 /**
  * Connection remove
  */
 void
-pgagroal_prometheus_connection_remove();
+pgagroal_prometheus_connection_remove(void);
 
 /**
  * Connection timeout
  */
 void
-pgagroal_prometheus_connection_timeout();
+pgagroal_prometheus_connection_timeout(void);
 
 /**
  * Connection return
  */
 void
-pgagroal_prometheus_connection_return();
+pgagroal_prometheus_connection_return(void);
 
 /**
  * Connection invalid
  */
 void
-pgagroal_prometheus_connection_invalid();
+pgagroal_prometheus_connection_invalid(void);
 
 /**
  * Connection get
  */
 void
-pgagroal_prometheus_connection_get();
+pgagroal_prometheus_connection_get(void);
 
 /**
  * Connection idle timeout
  */
 void
-pgagroal_prometheus_connection_idletimeout();
+pgagroal_prometheus_connection_idletimeout(void);
 
 /**
  * Connection flush
  */
 void
-pgagroal_prometheus_connection_flush();
+pgagroal_prometheus_connection_flush(void);
 
 /**
  * Connection success
  */
 void
-pgagroal_prometheus_connection_success();
+pgagroal_prometheus_connection_success(void);
 
 /**
  * Increase AUTH_SUCCESS for a user
  */
 void
-pgagroal_prometheus_auth_user_success();
+pgagroal_prometheus_auth_user_success(void);
 
 /**
  * Increase AUTH_BAD_PASSWORD for a user
  */
 void
-pgagroal_prometheus_auth_user_bad_password();
+pgagroal_prometheus_auth_user_bad_password(void);
 
 /**
  * Increase AUTH_ERROR for a user
  */
 void
-pgagroal_prometheus_auth_user_error();
+pgagroal_prometheus_auth_user_error(void);
 
 /**
  * Reset the counters and histograms
  */
 void
-pgagroal_prometheus_reset();
+pgagroal_prometheus_reset(void);
 
 /**
  * Increase SERVER_ERROR for a server
@@ -145,7 +145,7 @@ pgagroal_prometheus_server_error(int server);
  * Count failed servers
  */
 void
-pgagroal_prometheus_failed_servers();
+pgagroal_prometheus_failed_servers(void);
 
 #ifdef __cplusplus
 }

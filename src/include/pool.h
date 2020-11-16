@@ -71,13 +71,13 @@ pgagroal_kill_connection(int slot);
  * Perform idle timeout
  */
 void
-pgagroal_idle_timeout();
+pgagroal_idle_timeout(void);
 
 /**
  * Perform connection validation
  */
 void
-pgagroal_validation();
+pgagroal_validation(void);
 
 /**
  * Flush the pool
@@ -98,21 +98,21 @@ pgagroal_prefill(bool initial);
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_pool_init();
+pgagroal_pool_init(void);
 
 /**
  * Shutdown the pool
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_pool_shutdown();
+pgagroal_pool_shutdown(void);
 
 /**
  * Print the status of the pool
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_pool_status();
+pgagroal_pool_status(void);
 
 #ifdef __cplusplus
 }

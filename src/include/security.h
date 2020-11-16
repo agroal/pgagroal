@@ -134,7 +134,7 @@ pgagroal_user_known(char* user);
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_tls_valid();
+pgagroal_tls_valid(void);
 
 #ifdef __cplusplus
 }

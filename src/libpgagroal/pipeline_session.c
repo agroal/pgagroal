@@ -65,7 +65,7 @@ struct client_session
 static void client_active(int);
 static void client_inactive(int);
 
-struct pipeline session_pipeline()
+struct pipeline session_pipeline(void)
 {
    struct pipeline pipeline;
 

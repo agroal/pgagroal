@@ -496,7 +496,7 @@ pgagroal_kill_connection(int slot)
 }
 
 void
-pgagroal_idle_timeout()
+pgagroal_idle_timeout(void)
 {
    bool prefill;
    time_t now;
@@ -558,7 +558,7 @@ pgagroal_idle_timeout()
 }
 
 void
-pgagroal_validation()
+pgagroal_validation(void)
 {
    bool prefill = true;
    time_t now;
@@ -863,7 +863,7 @@ pgagroal_prefill(bool initial)
 }
 
 int
-pgagroal_pool_init()
+pgagroal_pool_init(void)
 {
    struct configuration* config;
 
@@ -892,7 +892,7 @@ pgagroal_pool_init()
 }
 
 int
-pgagroal_pool_shutdown()
+pgagroal_pool_shutdown(void)
 {
    struct configuration* config;
 
@@ -926,7 +926,7 @@ pgagroal_pool_shutdown()
 }
 
 int
-pgagroal_pool_status()
+pgagroal_pool_status(void)
 {
    struct configuration* config;
 

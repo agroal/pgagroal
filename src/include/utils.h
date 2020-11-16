@@ -170,7 +170,7 @@ pgagroal_write_string(void* data, char* s);
  * @return True if big, otherwise false for little
  */
 bool
-pgagroal_bigendian();
+pgagroal_bigendian(void);
 
 /**
  * Swap
@@ -184,7 +184,7 @@ pgagroal_swap(unsigned int i);
  * Print the available libev engines
  */
 void
-pgagroal_libev_engines();
+pgagroal_libev_engines(void);
 
 /**
  * Get the constant for a libev engine
@@ -207,14 +207,14 @@ pgagroal_libev_engine(unsigned int val);
  * @return The directory
  */
 char*
-pgagroal_get_home_directory();
+pgagroal_get_home_directory(void);
 
 /**
  * Get a password from stdin
  * @return The password
  */
 char*
-pgagroal_get_password();
+pgagroal_get_password(void);
 
 /**
  * BASE64 encode a string

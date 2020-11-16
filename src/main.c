@@ -117,7 +117,7 @@ static int known_fds[MAX_NUMBER_OF_CONNECTIONS];
 static struct client* clients = NULL;
 
 static void
-start_mgt()
+start_mgt(void)
 {
    memset(&io_mgt, 0, sizeof(struct accept_io));
    ev_io_init((struct ev_io*)&io_mgt, accept_mgt_cb, unix_management_socket, EV_READ);
@@ -127,7 +127,7 @@ start_mgt()
 }
 
 static void
-shutdown_mgt()
+shutdown_mgt(void)
 {
    struct configuration* config;
 
@@ -141,7 +141,7 @@ shutdown_mgt()
 }
 
 static void
-start_uds()
+start_uds(void)
 {
    memset(&io_uds, 0, sizeof(struct accept_io));
    ev_io_init((struct ev_io*)&io_uds, accept_main_cb, unix_pgsql_socket, EV_READ);
@@ -151,7 +151,7 @@ start_uds()
 }
 
 static void
-shutdown_uds()
+shutdown_uds(void)
 {
    char pgsql[MISC_LENGTH];
    struct configuration* config;
@@ -169,7 +169,7 @@ shutdown_uds()
 }
 
 static void
-start_io()
+start_io(void)
 {
    for (int i = 0; i < main_fds_length; i++)
    {
@@ -184,7 +184,7 @@ start_io()
 }
 
 static void
-shutdown_io()
+shutdown_io(void)
 {
    for (int i = 0; i < main_fds_length; i++)
    {
@@ -195,7 +195,7 @@ shutdown_io()
 }
 
 static void
-start_metrics()
+start_metrics(void)
 {
    for (int i = 0; i < metrics_fds_length; i++)
    {
@@ -210,7 +210,7 @@ start_metrics()
 }
 
 static void
-shutdown_metrics()
+shutdown_metrics(void)
 {
    for (int i = 0; i < metrics_fds_length; i++)
    {
@@ -221,7 +221,7 @@ shutdown_metrics()
 }
 
 static void
-start_management()
+start_management(void)
 {
    for (int i = 0; i < management_fds_length; i++)
    {
@@ -236,7 +236,7 @@ start_management()
 }
 
 static void
-shutdown_management()
+shutdown_management(void)
 {
    for (int i = 0; i < management_fds_length; i++)
    {
@@ -247,14 +247,14 @@ shutdown_management()
 }
 
 static void
-version()
+version(void)
 {
    printf("pgagroal %s\n", VERSION);
    exit(1);
 }
 
 static void
-usage()
+usage(void)
 {
    printf("pgagroal %s\n", VERSION);
    printf("  High-performance connection pool for PostgreSQL\n");

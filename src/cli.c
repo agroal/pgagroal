@@ -82,14 +82,14 @@ void* shmem = NULL;
 void* pipeline_shmem = NULL;
 
 static void
-version()
+version(void)
 {
    printf("pgagroal-cli %s\n", VERSION);
    exit(1);
 }
 
 static void
-usage()
+usage(void)
 {
    printf("pgagroal-cli %s\n", VERSION);
    printf("  Command line utility for pgagroal\n");

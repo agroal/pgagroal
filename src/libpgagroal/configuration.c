@@ -65,7 +65,7 @@ static void extract_limit(char* str, int server_max, char** database, char** use
  *
  */
 int
-pgagroal_init_configuration()
+pgagroal_init_configuration(void)
 {
    struct configuration* config;
 
@@ -1075,7 +1075,7 @@ pgagroal_read_hba_configuration(char* filename)
  *
  */
 int
-pgagroal_validate_hba_configuration()
+pgagroal_validate_hba_configuration(void)
 {
    struct configuration* config;
 
@@ -1235,7 +1235,7 @@ pgagroal_read_limit_configuration(char* filename)
  *
  */
 int
-pgagroal_validate_limit_configuration()
+pgagroal_validate_limit_configuration(void)
 {
    int total_connections;
    struct configuration* config;
@@ -1426,7 +1426,7 @@ above:
  *
  */
 int
-pgagroal_validate_users_configuration()
+pgagroal_validate_users_configuration(void)
 {
    return 0;
 }
@@ -1569,7 +1569,7 @@ above:
  *
  */
 int
-pgagroal_validate_admins_configuration()
+pgagroal_validate_admins_configuration(void)
 {
    struct configuration* config;
 

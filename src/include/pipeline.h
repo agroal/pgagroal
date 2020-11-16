@@ -68,19 +68,19 @@ struct pipeline
  * Get the performance pipeline
  * @return The structure
  */
-struct pipeline performance_pipeline();
+struct pipeline performance_pipeline(void);
 
 /**
  * Get the session pipeline
  * @return The structure
  */
-struct pipeline session_pipeline();
+struct pipeline session_pipeline(void);
 
 /**
  * Get the transaction pipeline
  * @return The structure
  */
-struct pipeline transaction_pipeline();
+struct pipeline transaction_pipeline(void);
 
 #ifdef __cplusplus
 }

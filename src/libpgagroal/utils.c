@@ -385,7 +385,7 @@ pgagroal_write_string(void* data, char* s)
 }
 
 bool
-pgagroal_bigendian()
+pgagroal_bigendian(void)
 {
    short int word = 0x0001;
    char *b = (char *)&word;
@@ -402,7 +402,7 @@ pgagroal_swap(unsigned int i)
 }
 
 void
-pgagroal_libev_engines()
+pgagroal_libev_engines(void)
 {
    unsigned int engines = ev_supported_backends();
 
@@ -557,7 +557,7 @@ pgagroal_libev_engine(unsigned int val)
 }
 
 char*
-pgagroal_get_home_directory()
+pgagroal_get_home_directory(void)
 {
    struct passwd *pw = getpwuid(getuid());
 
@@ -565,7 +565,7 @@ pgagroal_get_home_directory()
 }
 
 char*
-pgagroal_get_password()
+pgagroal_get_password(void)
 {
    char p[MAX_PASSWORD_LENGTH];
    struct termios oldt, newt;

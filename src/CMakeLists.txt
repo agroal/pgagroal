@@ -35,6 +35,10 @@ add_compile_options(-D_POSIX_C_SOURCE=200809L)
 add_compile_options(-D__USE_ISOC11)
 add_compile_options(-D_GNU_SOURCE)
 
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+  add_compile_options(-Wstrict-prototypes)
+endif()
+
 if (CMAKE_BUILD_TYPE MATCHES Debug)
   add_compile_options(-O0)
   add_compile_options(-DDEBUG)
