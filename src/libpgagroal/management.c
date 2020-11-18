@@ -35,9 +35,6 @@
 #include <pool.h>
 #include <utils.h>
 
-#define ZF_LOG_TAG "management"
-#include <zf_log.h>
-
 /* system */
 #include <errno.h>
 #include <stdio.h>
@@ -69,7 +66,7 @@ pgagroal_management_read_header(int socket, signed char* id, int32_t* slot)
 
    if (read_complete(NULL, socket, &header[0], sizeof(header)))
    {
-      ZF_LOGW("pgagroal_management_read_header: %d %s", socket, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_read_header: %d %s", socket, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -228,14 +225,14 @@ pgagroal_management_transfer_connection(int32_t slot)
 
    if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &fd))
    {
-      ZF_LOGW("pgagroal_management_transfer_connection: connect: %d", fd);
+      pgagroal_log_warn("pgagroal_management_transfer_connection: connect: %d", fd);
       errno = 0;
       goto error;
    }
 
    if (write_header(NULL, fd, MANAGEMENT_TRANSFER_CONNECTION, slot))
    {
-      ZF_LOGW("pgagroal_management_transfer_connection: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_transfer_connection: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -286,14 +283,14 @@ pgagroal_management_return_connection(int32_t slot)
 
    if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &fd))
    {
-      ZF_LOGW("pgagroal_management_return_connection: connect: %d", fd);
+      pgagroal_log_warn("pgagroal_management_return_connection: connect: %d", fd);
       errno = 0;
       goto error;
    }
 
    if (write_header(NULL, fd, MANAGEMENT_RETURN_CONNECTION, slot))
    {
-      ZF_LOGW("pgagroal_management_return_connection: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_return_connection: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -319,14 +316,14 @@ pgagroal_management_kill_connection(int32_t slot, int socket)
 
    if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &fd))
    {
-      ZF_LOGW("pgagroal_management_kill_connection: connect: %d", fd);
+      pgagroal_log_warn("pgagroal_management_kill_connection: connect: %d", fd);
       errno = 0;
       goto error;
    }
 
    if (write_header(NULL, fd, MANAGEMENT_KILL_CONNECTION, slot))
    {
-      ZF_LOGW("pgagroal_management_kill_connection: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_kill_connection: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -334,7 +331,7 @@ pgagroal_management_kill_connection(int32_t slot, int socket)
    pgagroal_write_int32(&buf, socket);
    if (write_complete(NULL, fd, &buf, sizeof(buf)))
    {
-      ZF_LOGW("pgagroal_management_kill_connection: write: %d %s", fd, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_kill_connection: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -356,7 +353,7 @@ pgagroal_management_flush(SSL* ssl, int fd, int32_t mode)
 
    if (write_header(ssl, fd, MANAGEMENT_FLUSH, -1))
    {
-      ZF_LOGW("pgagroal_management_flush: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_flush: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -364,7 +361,7 @@ pgagroal_management_flush(SSL* ssl, int fd, int32_t mode)
    pgagroal_write_int32(&buf, mode);
    if (write_complete(ssl, fd, &buf, sizeof(buf)))
    {
-      ZF_LOGW("pgagroal_management_flush: write: %d %s", fd, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_flush: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -383,7 +380,7 @@ pgagroal_management_enabledb(SSL* ssl, int fd, char* database)
 
    if (write_header(ssl, fd, MANAGEMENT_ENABLEDB, -1))
    {
-      ZF_LOGW("pgagroal_management_enabledb: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_enabledb: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -391,14 +388,14 @@ pgagroal_management_enabledb(SSL* ssl, int fd, char* database)
    pgagroal_write_int32(&buf, strlen(database));
    if (write_complete(ssl, fd, &buf, sizeof(buf)))
    {
-      ZF_LOGW("pgagroal_management_enabledb: write: %d %s", fd, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_enabledb: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }
 
    if (write_complete(ssl, fd, database, strlen(database)))
    {
-      ZF_LOGW("pgagroal_management_enabledb: write: %d %s", fd, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_enabledb: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -417,7 +414,7 @@ pgagroal_management_disabledb(SSL* ssl, int fd, char* database)
 
    if (write_header(ssl, fd, MANAGEMENT_DISABLEDB, -1))
    {
-      ZF_LOGW("pgagroal_management_disabledb: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_disabledb: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -425,14 +422,14 @@ pgagroal_management_disabledb(SSL* ssl, int fd, char* database)
    pgagroal_write_int32(&buf, strlen(database));
    if (write_complete(ssl, fd, &buf, sizeof(buf)))
    {
-      ZF_LOGW("pgagroal_management_disabledb: write: %d %s", fd, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_disabledb: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }
 
    if (write_complete(ssl, fd, database, strlen(database)))
    {
-      ZF_LOGW("pgagroal_management_disabledb: write: %d %s", fd, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_disabledb: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -449,7 +446,7 @@ pgagroal_management_gracefully(SSL* ssl, int fd)
 {
    if (write_header(ssl, fd, MANAGEMENT_GRACEFULLY, -1))
    {
-      ZF_LOGW("pgagroal_management_gracefully: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_gracefully: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -466,7 +463,7 @@ pgagroal_management_stop(SSL* ssl, int fd)
 {
    if (write_header(ssl, fd, MANAGEMENT_STOP, -1))
    {
-      ZF_LOGW("pgagroal_management_stop: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_stop: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -483,7 +480,7 @@ pgagroal_management_cancel_shutdown(SSL* ssl, int fd)
 {
    if (write_header(ssl, fd, MANAGEMENT_CANCEL_SHUTDOWN, -1))
    {
-      ZF_LOGW("pgagroal_management_cancel_shutdown: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_cancel_shutdown: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -500,7 +497,7 @@ pgagroal_management_status(SSL* ssl, int fd)
 {
    if (write_header(ssl, fd, MANAGEMENT_STATUS, -1))
    {
-      ZF_LOGW("pgagroal_management_status: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_status: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -527,14 +524,14 @@ pgagroal_management_read_status(SSL* ssl, int socket)
 
    if (read_complete(ssl, socket, &buf[0], sizeof(buf)))
    {
-      ZF_LOGW("pgagroal_management_read_status: read: %d %s", socket, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_read_status: read: %d %s", socket, strerror(errno));
       errno = 0;
       goto error;
    }
 
    if (read_complete(ssl, socket, &disabled[0], sizeof(disabled)))
    {
-      ZF_LOGW("pgagroal_management_read_status: read: %d %s", socket, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_read_status: read: %d %s", socket, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -621,14 +618,14 @@ pgagroal_management_write_status(int socket, bool graceful)
 
    if (write_complete(NULL, socket, &buf, sizeof(buf)))
    {
-      ZF_LOGW("pgagroal_management_write_status: write: %d %s", socket, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_write_status: write: %d %s", socket, strerror(errno));
       errno = 0;
       goto error;
    }
 
    if (write_complete(NULL, socket, &config->disabled, sizeof(config->disabled)))
    {
-      ZF_LOGW("pgagroal_management_write_status: write: %d %s", socket, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_write_status: write: %d %s", socket, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -645,7 +642,7 @@ pgagroal_management_details(SSL* ssl, int fd)
 {
    if (write_header(ssl, fd, MANAGEMENT_DETAILS, -1))
    {
-      ZF_LOGW("pgagroal_management_details: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_details: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -669,7 +666,7 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
    if (read_complete(ssl, socket, &header[0], sizeof(header)))
    {
-      ZF_LOGW("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -687,7 +684,7 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
       if (read_complete(ssl, socket, &server[0], sizeof(server)))
       {
-         ZF_LOGW("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
+         pgagroal_log_warn("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
          errno = 0;
          goto error;
       }
@@ -735,7 +732,7 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
       if (read_complete(ssl, socket, &limit[0], sizeof(limit)))
       {
-         ZF_LOGW("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
+         pgagroal_log_warn("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
          errno = 0;
          goto error;
       }
@@ -763,7 +760,7 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
       if (read_complete(ssl, socket, &details[0], sizeof(details)))
       {
-         ZF_LOGW("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
+         pgagroal_log_warn("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
          errno = 0;
          goto error;
       }
@@ -816,7 +813,7 @@ pgagroal_management_write_details(int socket)
 
    if (write_complete(NULL, socket, header, sizeof(header)))
    {
-      ZF_LOGW("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -834,7 +831,7 @@ pgagroal_management_write_details(int socket)
 
       if (write_complete(NULL, socket, server, sizeof(server)))
       {
-         ZF_LOGW("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
+         pgagroal_log_warn("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
          errno = 0;
          goto error;
       }
@@ -855,7 +852,7 @@ pgagroal_management_write_details(int socket)
 
       if (write_complete(NULL, socket, &limit, sizeof(limit)))
       {
-         ZF_LOGW("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
+         pgagroal_log_warn("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
          errno = 0;
          goto error;
       }
@@ -876,7 +873,7 @@ pgagroal_management_write_details(int socket)
 
       if (write_complete(NULL, socket, &details, sizeof(details)))
       {
-         ZF_LOGW("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
+         pgagroal_log_warn("pgagroal_management_write_details: write: %d %s", socket, strerror(errno));
          errno = 0;
          goto error;
       }
@@ -894,7 +891,7 @@ pgagroal_management_isalive(SSL* ssl, int fd)
 {
    if (write_header(ssl, fd, MANAGEMENT_ISALIVE, -1))
    {
-      ZF_LOGW("pgagroal_management_isalive: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_isalive: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -915,7 +912,7 @@ pgagroal_management_read_isalive(SSL* ssl, int socket, int* status)
 
    if (read_complete(ssl, socket, &buf[0], sizeof(buf)))
    {
-      ZF_LOGW("pgagroal_management_read_isalive: read: %d %s", socket, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_read_isalive: read: %d %s", socket, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -947,7 +944,7 @@ pgagroal_management_write_isalive(int socket, bool gracefully)
 
    if (write_complete(NULL, socket, &buf, sizeof(buf)))
    {
-      ZF_LOGW("pgagroal_management_write_isalive: write: %d %s", socket, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_write_isalive: write: %d %s", socket, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -964,7 +961,7 @@ pgagroal_management_reset(SSL* ssl, int fd)
 {
    if (write_header(ssl, fd, MANAGEMENT_RESET, -1))
    {
-      ZF_LOGW("pgagroal_management_reset: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_reset: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -983,7 +980,7 @@ pgagroal_management_reset_server(SSL* ssl, int fd, char* server)
 
    if (write_header(ssl, fd, MANAGEMENT_RESET_SERVER, -1))
    {
-      ZF_LOGW("pgagroal_management_reset_server: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_reset_server: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -993,7 +990,7 @@ pgagroal_management_reset_server(SSL* ssl, int fd, char* server)
 
    if (write_complete(ssl, fd, &name[0], sizeof(name)))
    {
-      ZF_LOGW("pgagroal_management_reset_server_: write: %d %s", fd, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_reset_server_: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -1016,14 +1013,14 @@ pgagroal_management_client_done(pid_t pid)
 
    if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &fd))
    {
-      ZF_LOGW("pgagroal_management_client_done: connect: %d", fd);
+      pgagroal_log_warn("pgagroal_management_client_done: connect: %d", fd);
       errno = 0;
       goto error;
    }
 
    if (write_header(NULL, fd, MANAGEMENT_CLIENT_DONE, -1))
    {
-      ZF_LOGW("pgagroal_management_client_done: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_client_done: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -1033,7 +1030,7 @@ pgagroal_management_client_done(pid_t pid)
 
    if (write_complete(NULL, fd, &buf, sizeof(buf)))
    {
-      ZF_LOGW("pgagroal_management_client_done: write: %d %s", fd, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_client_done: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -1066,14 +1063,14 @@ pgagroal_management_client_fd(int32_t slot, pid_t pid)
 
    if (pgagroal_connect_unix_socket(config->unix_socket_dir, &p[0], &fd))
    {
-      ZF_LOGD("pgagroal_management_client_fd: connect: %d", fd);
+      pgagroal_log_debug("pgagroal_management_client_fd: connect: %d", fd);
       errno = 0;
       goto unavailable;
    }
 
    if (write_header(NULL, fd, MANAGEMENT_CLIENT_FD, slot))
    {
-      ZF_LOGW("pgagroal_management_client_fd: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_client_fd: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -1127,7 +1124,7 @@ pgagroal_management_switch_to(SSL* ssl, int fd, char* server)
 
    if (write_header(ssl, fd, MANAGEMENT_SWITCH_TO, -1))
    {
-      ZF_LOGW("pgagroal_management_switch_to: write: %d", fd);
+      pgagroal_log_warn("pgagroal_management_switch_to: write: %d", fd);
       errno = 0;
       goto error;
    }
@@ -1137,7 +1134,7 @@ pgagroal_management_switch_to(SSL* ssl, int fd, char* server)
 
    if (write_complete(ssl, fd, &name[0], sizeof(name)))
    {
-      ZF_LOGW("pgagroal_management_switch_to: write: %d %s", fd, strerror(errno));
+      pgagroal_log_warn("pgagroal_management_switch_to: write: %d %s", fd, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -1183,7 +1180,7 @@ read:
       ts.tv_nsec = 10000000L;
       nanosleep(&ts, NULL);
 
-      ZF_LOGV("Got: %ld, needs: %ld", r, needs);
+      pgagroal_log_trace("Got: %ld, needs: %ld", r, needs);
 
       if (retries < 100)
       {
@@ -1250,7 +1247,7 @@ write_socket(int socket, void* buf, size_t size)
             return 0;
          }
 
-         ZF_LOGD("Write %d - %zd/%zd vs %zd", socket, numbytes, totalbytes, size);
+         pgagroal_log_debug("Write %d - %zd/%zd vs %zd", socket, numbytes, totalbytes, size);
          keep_write = true;
          errno = 0;
       }
@@ -1305,7 +1302,7 @@ write_ssl(SSL* ssl, void* buf, size_t size)
             return 0;
          }
 
-         ZF_LOGD("SSL/Write %d - %zd/%zd vs %zd", SSL_get_fd(ssl), numbytes, totalbytes, size);
+         pgagroal_log_debug("SSL/Write %d - %zd/%zd vs %zd", SSL_get_fd(ssl), numbytes, totalbytes, size);
          keep_write = true;
          errno = 0;
       }
@@ -1332,12 +1329,12 @@ write_ssl(SSL* ssl, void* buf, size_t size)
                keep_write = true;
                break;
             case SSL_ERROR_SYSCALL:
-               ZF_LOGE("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               pgagroal_log_error("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
                errno = 0;
                keep_write = false;
                break;
             case SSL_ERROR_SSL:
-               ZF_LOGE("SSL_ERROR_SSL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               pgagroal_log_error("SSL_ERROR_SSL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
                errno = 0;
                keep_write = false;
                break;

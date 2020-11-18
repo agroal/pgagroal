@@ -29,7 +29,6 @@
 /* pgagroal */
 #include <pgagroal.h>
 #include <logging.h>
-#include <zf_log.h>
 
 /* system */
 #include <errno.h>
@@ -38,53 +37,29 @@
 #include <string.h>
 #include <syslog.h>
 
+#define LINE_LENGTH 32
+
 FILE *log_file;
 
-void
-file_callback(const zf_log_message *msg, void *arg)
+static const char* levels[] =
 {
-   (void)arg;
-   *msg->p = '\n';
-   fwrite(msg->buf, msg->p - msg->buf + 1, 1, log_file);
-   fflush(log_file);
-}
+  "TRACE",
+  "DEBUG",
+  "INFO",
+  "WARN",
+  "ERROR",
+  "FATAL"
+};
 
-int
-syslog_level(const int lvl)
+static const char* colors[] =
 {
-   switch (lvl)
-   {
-      /* case PGAGROAL_LOGGING_LEVEL_DEBUG5: */
-      /* case PGAGROAL_LOGGING_LEVEL_DEBUG4: */
-      /* case PGAGROAL_LOGGING_LEVEL_DEBUG3: */
-      case PGAGROAL_LOGGING_LEVEL_DEBUG2:
-      case PGAGROAL_LOGGING_LEVEL_DEBUG1:
-         return LOG_DEBUG;
-      case PGAGROAL_LOGGING_LEVEL_INFO:
-         return LOG_INFO;
-      case PGAGROAL_LOGGING_LEVEL_WARN:
-         return LOG_WARNING;
-      case PGAGROAL_LOGGING_LEVEL_ERROR:
-         return LOG_ERR;
-      case PGAGROAL_LOGGING_LEVEL_FATAL:
-         return LOG_EMERG;
-      default:
-         return PGAGROAL_LOGGING_LEVEL_FATAL;
-   }
-}
-
-void
-syslog_callback(const zf_log_message *msg, void *arg)
-{
-   (void)arg;
-   /* p points to the log message end. By default, message is not terminated
-    * with 0, but it has some space allocated for EOL area, so there is always
-    * some place for terminating zero in the end (see ZF_LOG_EOL_SZ define in
-    * zf_log.c).
-    */
-   *msg->p = 0;
-   syslog(syslog_level(msg->lvl), "%s", msg->tag_b);
-}
+  "\x1b[37m",
+  "\x1b[36m",
+  "\x1b[32m",
+  "\x1b[91m",
+  "\x1b[31m",
+  "\x1b[35m"
+};
 
 /**
  *
@@ -95,9 +70,6 @@ pgagroal_start_logging(void)
    struct configuration* config;
 
    config = (struct configuration*)shmem;
-
-   zf_log_set_tag_prefix("pgagroal");
-   zf_log_set_output_level(config->log_level);
 
    if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
    {
@@ -112,19 +84,14 @@ pgagroal_start_logging(void)
 
       if (!log_file)
       {
-         ZF_LOGW("Failed to open log file %s due to %s", strlen(config->log_path) > 0 ? config->log_path : "pgagroal.log", strerror(errno));
+         pgagroal_log_warn("Failed to open log file %s due to %s", strlen(config->log_path) > 0 ? config->log_path : "pgagroal.log", strerror(errno));
          errno = 0;
          return 1;
       }
-
-      zf_log_set_output_v(ZF_LOG_PUT_STD, 0, file_callback);
    }
    else if (config->log_type == PGAGROAL_LOGGING_TYPE_SYSLOG)
    {
       openlog("pgagroal", LOG_CONS | LOG_PERROR | LOG_PID, LOG_USER);
-
-      const unsigned put_mask = ZF_LOG_PUT_STD;
-      zf_log_set_output_v(put_mask, 0, syslog_callback);
    }
 
    return 0;
@@ -157,4 +124,199 @@ pgagroal_stop_logging(void)
    }
    
    return 0;
+}
+
+void
+pgagroal_log_line(int level, char *file, int line, char *fmt, ...)
+{
+   signed char isfree;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (config == NULL)
+      return;
+
+   if (level >= config->log_level)
+   {
+retry:
+      isfree = STATE_FREE;
+
+      if (atomic_compare_exchange_strong(&config->log_lock, &isfree, STATE_IN_USE))
+      {
+         char buf[256];
+         va_list vl;
+         struct tm* tm;
+         time_t t;
+         char* filename;
+
+         t = time(NULL);
+         tm = localtime(&t);
+
+         filename = strrchr(file, '/');
+         if (filename != NULL)
+         {
+            filename = filename + 1;
+         }
+         else
+         {
+            filename = file;
+         }
+
+         va_start(vl, fmt);
+
+         if (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
+         {
+            buf[strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm)] = '\0';
+            fprintf(stdout, "%s %s%-5s\x1b[0m \x1b[90m%s:%d\x1b[0m ",
+                    buf, colors[level - 1], levels[level - 1],
+                    filename, line);
+            vfprintf(stdout, fmt, vl);
+            fprintf(stdout, "\n");
+            fflush(stdout);
+         }
+         else if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
+         {
+            buf[strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm)] = '\0';
+            fprintf(log_file, "%s %-5s %s:%d ",
+                    buf, levels[level - 1], filename, line);
+            vfprintf(log_file, fmt, vl);
+            fprintf(log_file, "\n");
+            fflush(log_file);
+         }
+         else if (config->log_type == PGAGROAL_LOGGING_TYPE_SYSLOG)
+         {
+            switch (level)
+            {
+               case PGAGROAL_LOGGING_LEVEL_DEBUG5:
+                  syslog(LOG_DEBUG, fmt, vl);
+                  break;
+               case PGAGROAL_LOGGING_LEVEL_DEBUG1:
+                  syslog(LOG_DEBUG, fmt, vl);
+                  break;
+               case PGAGROAL_LOGGING_LEVEL_INFO:
+                  syslog(LOG_INFO, fmt, vl);
+                  break;
+               case PGAGROAL_LOGGING_LEVEL_WARN:
+                  syslog(LOG_WARNING, fmt, vl);
+                  break;
+               case PGAGROAL_LOGGING_LEVEL_ERROR:
+                  syslog(LOG_ERR, fmt, vl);
+                  break;
+               case PGAGROAL_LOGGING_LEVEL_FATAL:
+                  syslog(LOG_CRIT, fmt, vl);
+                  break;
+               default:
+                  syslog(LOG_INFO, fmt, vl);
+                  break;
+            }
+         }
+
+         va_end(vl);
+
+         atomic_store(&config->log_lock, STATE_FREE);
+      }
+      else
+      {
+         /* Sleep for 1ms */
+         struct timespec ts;
+         ts.tv_sec = 0;
+         ts.tv_nsec = 1000000L;
+         nanosleep(&ts, NULL);
+
+         goto retry;
+      }
+   }
+}
+
+void
+pgagroal_log_mem(void* data, size_t size)
+{
+   signed char isfree;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (config == NULL)
+      return;
+
+   if (config->log_level == PGAGROAL_LOGGING_LEVEL_DEBUG5 &&
+       size > 0 &&
+       (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE || config->log_type == PGAGROAL_LOGGING_TYPE_FILE))
+   {
+retry:
+      isfree = STATE_FREE;
+
+      if (atomic_compare_exchange_strong(&config->log_lock, &isfree, STATE_IN_USE))
+      {
+         char buf[4096];
+         int j = 0;
+         int k = 0;
+
+         memset(&buf, 0, sizeof(buf));
+
+         for (int i = 0; i < size; i++)
+         {
+            if (k == LINE_LENGTH)
+            {
+               buf[j] = '\n';
+               j++;
+               k = 0;
+            }
+            sprintf(&buf[j], "%02X", (signed char) *((char*)data + i));
+            j += 2;
+            k++;
+         }
+
+         buf[j] = '\n';
+         j++;
+         k = 0;
+
+         for (int i = 0; i < size; i++)
+         {
+            signed char c = (signed char) *((char*)data + i);
+            if (k == LINE_LENGTH)
+            {
+               buf[j] = '\n';
+               j++;
+               k = 0;
+            }
+            if (c >= 32 && c <= 127)
+            {
+               buf[j] = c;
+            }
+            else
+            {
+               buf[j] = '?';
+            }
+            j++;
+            k++;
+         }
+
+         if (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
+         {
+            fprintf(stdout, "%s", buf);
+            fprintf(stdout, "\n");
+            fflush(stdout);
+         }
+         else if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
+         {
+            fprintf(log_file, "%s", buf);
+            fprintf(log_file, "\n");
+            fflush(log_file);
+         }
+
+         atomic_store(&config->log_lock, STATE_FREE);
+      }
+      else
+      {
+         /* Sleep for 1ms */
+         struct timespec ts;
+         ts.tv_sec = 0;
+         ts.tv_nsec = 1000000L;
+         nanosleep(&ts, NULL);
+
+         goto retry;
+      }
+   }
 }

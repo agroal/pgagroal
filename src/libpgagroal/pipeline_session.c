@@ -28,15 +28,13 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <logging.h>
 #include <message.h>
 #include <pipeline.h>
 #include <prometheus.h>
 #include <server.h>
 #include <shmem.h>
 #include <worker.h>
-
-#define ZF_LOG_TAG "pipeline_session"
-#include <zf_log.h>
 
 /* system */
 #include <errno.h>
@@ -180,9 +178,9 @@ session_periodic(void)
             {
                if (config->connections[i].pid != 0)
                {
-                  ZF_LOGI("Disconnect client %s/%s using slot %d (%d)",
-                          config->connections[i].database, config->connections[i].username,
-                          i, config->connections[i].pid);
+                  pgagroal_log_info("Disconnect client %s/%s using slot %d (%d)",
+                                    config->connections[i].database, config->connections[i].username,
+                                    i, config->connections[i].pid);
                   kill(config->connections[i].pid, SIGQUIT);
                }
             }
@@ -256,7 +254,7 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
    return;
 
 client_error:
-   ZF_LOGW("[C] Client error: %s (socket %d status %d)", strerror(errno), wi->client_fd, status);
+   pgagroal_log_warn("[C] Client error: %s (socket %d status %d)", strerror(errno), wi->client_fd, status);
    pgagroal_log_message(msg);
    errno = 0;
 
@@ -268,7 +266,7 @@ client_error:
    return;
 
 server_error:
-   ZF_LOGW("[C] Server error: %s (socket %d status %d)", strerror(errno), wi->server_fd, status);
+   pgagroal_log_warn("[C] Server error: %s (socket %d status %d)", strerror(errno), wi->server_fd, status);
    pgagroal_log_message(msg);
    errno = 0;
 
@@ -342,7 +340,7 @@ session_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    return;
 
 client_error:
-   ZF_LOGW("[S] Client error: %s (socket %d status %d)", strerror(errno), wi->client_fd, status);
+   pgagroal_log_warn("[S] Client error: %s (socket %d status %d)", strerror(errno), wi->client_fd, status);
    pgagroal_log_message(msg);
    errno = 0;
 
@@ -354,7 +352,7 @@ client_error:
    return;
 
 server_error:
-   ZF_LOGW("[S] Server error: %s (socket %d status %d)", strerror(errno), wi->server_fd, status);
+   pgagroal_log_warn("[S] Server error: %s (socket %d status %d)", strerror(errno), wi->server_fd, status);
    pgagroal_log_message(msg);
    errno = 0;
 

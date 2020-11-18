@@ -35,9 +35,6 @@
 #include <worker.h>
 #include <utils.h>
 
-#define ZF_LOG_TAG "message"
-#include <zf_log.h>
-
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
@@ -993,16 +990,15 @@ pgagroal_log_message(struct message* msg)
 {
    if (msg == NULL)
    {
-      ZF_LOGI("Message is NULL");
+      pgagroal_log_info("Message is NULL");
    }
    else if (msg->data == NULL)
    {
-      ZF_LOGI("Message DATA is NULL");
+      pgagroal_log_info("Message DATA is NULL");
    }
    else
    {
-      ZF_LOGI_MEM(msg->data, msg->length,
-                  "Message (%zd) %p:", msg->length, (const void *)msg->data);
+      pgagroal_log_mem(msg->data, msg->length);
    }
 }
 
@@ -1128,7 +1124,7 @@ write_message(int socket, struct message* msg)
             return MESSAGE_STATUS_OK;
          }
 
-         ZF_LOGD("Write %d - %zd/%zd vs %zd", socket, numbytes, totalbytes, msg->length);
+         pgagroal_log_debug("Write %d - %zd/%zd vs %zd", socket, numbytes, totalbytes, msg->length);
          keep_write = true;
          errno = 0;
       }
@@ -1216,12 +1212,12 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
                keep_read = true;
                break;
             case SSL_ERROR_SYSCALL:
-               ZF_LOGE("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               pgagroal_log_error("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
                errno = 0;
                keep_read = false;
                break;
             case SSL_ERROR_SSL:
-               ZF_LOGE("SSL_ERROR_SSL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               pgagroal_log_error("SSL_ERROR_SSL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
                keep_read = false;
                break;
          }
@@ -1269,7 +1265,7 @@ ssl_write_message(SSL* ssl, struct message* msg)
             return MESSAGE_STATUS_OK;
          }
 
-         ZF_LOGD("SSL/Write %d - %zd/%zd vs %zd", SSL_get_fd(ssl), numbytes, totalbytes, msg->length);
+         pgagroal_log_debug("SSL/Write %d - %zd/%zd vs %zd", SSL_get_fd(ssl), numbytes, totalbytes, msg->length);
          keep_write = true;
          errno = 0;
       }
@@ -1296,12 +1292,12 @@ ssl_write_message(SSL* ssl, struct message* msg)
                keep_write = true;
                break;
             case SSL_ERROR_SYSCALL:
-               ZF_LOGE("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               pgagroal_log_error("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
                errno = 0;
                keep_write = false;
                break;
             case SSL_ERROR_SSL:
-               ZF_LOGE("SSL_ERROR_SSL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               pgagroal_log_error("SSL_ERROR_SSL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
                errno = 0;
                keep_write = false;
                break;

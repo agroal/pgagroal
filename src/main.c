@@ -42,9 +42,6 @@
 #include <utils.h>
 #include <worker.h>
 
-#define ZF_LOG_TAG "main"
-#include <zf_log.h>
-
 /* system */
 #include <errno.h>
 #include <ev.h>
@@ -658,7 +655,7 @@ main(int argc, char **argv)
    /* Bind Unix Domain Socket for file descriptor transfers */
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, &unix_management_socket))
    {
-      ZF_LOGF("pgagroal: Could not bind to %s/%s\n", config->unix_socket_dir, MAIN_UDS);
+      pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, MAIN_UDS);
       sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, MAIN_UDS);
       exit(1);
    }
@@ -672,7 +669,7 @@ main(int argc, char **argv)
 
       if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], &unix_pgsql_socket))
       {
-         ZF_LOGF("pgagroal: Could not bind to %s/%s\n", config->unix_socket_dir, &pgsql[0]);
+         pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, &pgsql[0]);
          sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, &pgsql[0]);
          exit(1);
       }
@@ -683,7 +680,7 @@ main(int argc, char **argv)
    {
       if (pgagroal_bind(config->host, config->port, &main_fds, &main_fds_length))
       {
-         ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->port);
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->port);
          exit(1);
       }
@@ -691,7 +688,7 @@ main(int argc, char **argv)
 
    if (main_fds_length > MAX_FDS)
    {
-      ZF_LOGF("pgagroal: Too many descriptors %d\n", main_fds_length);
+      pgagroal_log_fatal("pgagroal: Too many descriptors %d", main_fds_length);
       sd_notifyf(0, "STATUS=Too many descriptors %d", main_fds_length);
       exit(1);
    }
@@ -700,7 +697,7 @@ main(int argc, char **argv)
    main_loop = ev_default_loop(pgagroal_libev(config->libev));
    if (!main_loop)
    {
-      ZF_LOGF("pgagroal: No loop implementation (%x) (%x)\n",
+      pgagroal_log_fatal("pgagroal: No loop implementation (%x) (%x)",
               pgagroal_libev(config->libev), ev_supported_backends());
       sd_notifyf(0, "STATUS=No loop implementation (%x) (%x)", pgagroal_libev(config->libev), ev_supported_backends());
       exit(1);
@@ -727,7 +724,7 @@ main(int argc, char **argv)
    {
       if (pgagroal_tls_valid())
       {
-         ZF_LOGF("pgagroal: Invalid TLS configuration");
+         pgagroal_log_fatal("pgagroal: Invalid TLS configuration");
          sd_notify(0, "STATUS=Invalid TLS configuration");
          exit(1);
       }
@@ -738,7 +735,7 @@ main(int argc, char **argv)
    {
       if (pgagroal_tls_valid())
       {
-         ZF_LOGF("pgagroal: Invalid TLS configuration");
+         pgagroal_log_fatal("pgagroal: Invalid TLS configuration");
          sd_notify(0, "STATUS=Invalid TLS configuration");
          exit(1);
       }
@@ -747,14 +744,14 @@ main(int argc, char **argv)
    }
    else
    {
-      ZF_LOGF("pgagroal: Unknown pipeline identifier (%d)", config->pipeline);
+      pgagroal_log_fatal("pgagroal: Unknown pipeline identifier (%d)", config->pipeline);
       sd_notifyf(0, "STATUS=Unknown pipeline identifier (%d)", config->pipeline);
       exit(1);
    }
 
    if (main_pipeline.initialize(shmem, &pipeline_shmem, &pipeline_shmem_size))
    {
-      ZF_LOGF("pgagroal: Pipeline initialize error (%d)", config->pipeline);
+      pgagroal_log_fatal("pgagroal: Pipeline initialize error (%d)", config->pipeline);
       sd_notifyf(0, "STATUS=Pipeline initialize error (%d)", config->pipeline);
       exit(1);
    }
@@ -789,14 +786,14 @@ main(int argc, char **argv)
       /* Bind metrics socket */
       if (pgagroal_bind(config->host, config->metrics, &metrics_fds, &metrics_fds_length))
       {
-         ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->metrics);
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->metrics);
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->metrics);
          exit(1);
       }
 
       if (metrics_fds_length > MAX_FDS)
       {
-         ZF_LOGF("pgagroal: Too many descriptors %d\n", metrics_fds_length);
+         pgagroal_log_fatal("pgagroal: Too many descriptors %d", metrics_fds_length);
          sd_notifyf(0, "STATUS=Too many descriptors %d", metrics_fds_length);
          exit(1);
       }
@@ -809,14 +806,14 @@ main(int argc, char **argv)
       /* Bind management socket */
       if (pgagroal_bind(config->host, config->management, &management_fds, &management_fds_length))
       {
-         ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->management);
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->management);
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->management);
          exit(1);
       }
 
       if (management_fds_length > MAX_FDS)
       {
-         ZF_LOGF("pgagroal: Too many descriptors %d\n", management_fds_length);
+         pgagroal_log_fatal("pgagroal: Too many descriptors %d", management_fds_length);
          sd_notifyf(0, "STATUS=Too many descriptors %d", management_fds_length);
          exit(1);
       }
@@ -824,39 +821,39 @@ main(int argc, char **argv)
       start_management();
    }
 
-   ZF_LOGI("pgagroal: started on %s:%d", config->host, config->port);
+   pgagroal_log_info("pgagroal: started on %s:%d", config->host, config->port);
    for (int i = 0; i < main_fds_length; i++)
    {
-      ZF_LOGD("Socket: %d", *(main_fds + i));
+      pgagroal_log_debug("Socket: %d", *(main_fds + i));
    }
-   ZF_LOGD("Unix Domain Socket: %d", unix_pgsql_socket);
-   ZF_LOGD("Management: %d", unix_management_socket);
+   pgagroal_log_debug("Unix Domain Socket: %d", unix_pgsql_socket);
+   pgagroal_log_debug("Management: %d", unix_management_socket);
    for (int i = 0; i < metrics_fds_length; i++)
    {
-      ZF_LOGD("Metrics: %d", *(metrics_fds + i));
+      pgagroal_log_debug("Metrics: %d", *(metrics_fds + i));
    }
    for (int i = 0; i < management_fds_length; i++)
    {
-      ZF_LOGD("Remote management: %d", *(management_fds + i));
+      pgagroal_log_debug("Remote management: %d", *(management_fds + i));
    }
    pgagroal_libev_engines();
-   ZF_LOGD("libev engine: %s", pgagroal_libev_engine(ev_backend(main_loop)));
-   ZF_LOGD("Pipeline: %d", config->pipeline);
-   ZF_LOGD("Pipeline size: %lu", pipeline_shmem_size);
+   pgagroal_log_debug("libev engine: %s", pgagroal_libev_engine(ev_backend(main_loop)));
+   pgagroal_log_debug("Pipeline: %d", config->pipeline);
+   pgagroal_log_debug("Pipeline size: %lu", pipeline_shmem_size);
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L)
-   ZF_LOGD("%s", SSLeay_version(SSLEAY_VERSION));
+   pgagroal_log_debug("%s", SSLeay_version(SSLEAY_VERSION));
 #else
-   ZF_LOGD("%s", OpenSSL_version(OPENSSL_VERSION));
+   pgagroal_log_debug("%s", OpenSSL_version(OPENSSL_VERSION));
 #endif
-   ZF_LOGD("Configuration size: %lu", shmem_size);
-   ZF_LOGD("Max connections: %d", config->max_connections);
-   ZF_LOGD("Known users: %d", config->number_of_users);
-   ZF_LOGD("Known admins: %d", config->number_of_admins);
-   ZF_LOGD("Known superuser: %s", strlen(config->superuser.username) > 0 ? "Yes" : "No");
+   pgagroal_log_debug("Configuration size: %lu", shmem_size);
+   pgagroal_log_debug("Max connections: %d", config->max_connections);
+   pgagroal_log_debug("Known users: %d", config->number_of_users);
+   pgagroal_log_debug("Known admins: %d", config->number_of_admins);
+   pgagroal_log_debug("Known superuser: %s", strlen(config->superuser.username) > 0 ? "Yes" : "No");
 
    if (!config->allow_unknown_users && config->number_of_users == 0)
    {
-      ZF_LOGW("No users allowed");
+      pgagroal_log_warn("No users allowed");
    }
 
    if (config->number_of_users > 0)
@@ -877,7 +874,7 @@ main(int argc, char **argv)
       ev_loop(main_loop, 0);
    }
 
-   ZF_LOGI("pgagroal: shutdown");
+   pgagroal_log_info("pgagroal: shutdown");
    sd_notify(0, "STOPPING=1");
    pgagroal_pool_shutdown();
 
@@ -915,11 +912,11 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    struct accept_io* ai;
    struct configuration* config;
 
-   ZF_LOGV("accept_main_cb: sockfd ready (%d)", revents);
+   pgagroal_log_trace("accept_main_cb: sockfd ready (%d)", revents);
 
    if (EV_ERROR & revents)
    {
-      ZF_LOGD("accept_main_cb: invalid event: %s", strerror(errno));
+      pgagroal_log_debug("accept_main_cb: invalid event: %s", strerror(errno));
       errno = 0;
       return;
    }
@@ -937,7 +934,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       {
          char pgsql[MISC_LENGTH];
 
-         ZF_LOGW("Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
+         pgagroal_log_warn("Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
 
          shutdown_io();
          shutdown_uds();
@@ -947,7 +944,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], &unix_pgsql_socket))
          {
-            ZF_LOGF("pgagroal: Could not bind to %s/%s\n", config->unix_socket_dir, &pgsql[0]);
+            pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, &pgsql[0]);
             exit(1);
          }
 
@@ -957,13 +954,13 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          if (pgagroal_bind(config->host, config->port, &main_fds, &main_fds_length))
          {
-            ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
+            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->port);
             exit(1);
          }
 
          if (main_fds_length > MAX_FDS)
          {
-            ZF_LOGF("pgagroal: Too many descriptors %d\n", main_fds_length);
+            pgagroal_log_fatal("pgagroal: Too many descriptors %d", main_fds_length);
             exit(1);
          }
 
@@ -977,13 +974,13 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          for (int i = 0; i < main_fds_length; i++)
          {
-            ZF_LOGD("Socket: %d", *(main_fds + i));
+            pgagroal_log_debug("Socket: %d", *(main_fds + i));
          }
-         ZF_LOGD("Unix Domain Socket: %d", unix_pgsql_socket);
+         pgagroal_log_debug("Unix Domain Socket: %d", unix_pgsql_socket);
       }
       else
       {
-         ZF_LOGD("accept: %s (%d)", strerror(errno), watcher->fd);
+         pgagroal_log_debug("accept: %s (%d)", strerror(errno), watcher->fd);
       }
       errno = 0;
       return;
@@ -991,13 +988,13 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
    pgagroal_get_address((struct sockaddr *)&client_addr, (char*)&address, sizeof(address));
 
-   ZF_LOGV("accept_main_cb: client address: %s", address);
+   pgagroal_log_trace("accept_main_cb: client address: %s", address);
 
    pid = fork();
    if (pid == -1)
    {
       /* No process */
-      ZF_LOGE("Cannot create process");
+      pgagroal_log_error("Cannot create process");
    }
    else if (pid > 0)
    {
@@ -1031,11 +1028,11 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    char* payload_s = NULL;
    struct configuration* config;
 
-   ZF_LOGV("pgagroal: unix_management_socket ready (%d)", revents);
+   pgagroal_log_trace("pgagroal: unix_management_socket ready (%d)", revents);
 
    if (EV_ERROR & revents)
    {
-      ZF_LOGV("accept_mgt_cb: got invalid event: %s", strerror(errno));
+      pgagroal_log_trace("accept_mgt_cb: got invalid event: %s", strerror(errno));
       return;
    }
 
@@ -1047,23 +1044,23 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    {
       if (accept_fatal(errno) && keep_running)
       {
-         ZF_LOGW("Restarting management due to: %s (%d)", strerror(errno), watcher->fd);
+         pgagroal_log_warn("Restarting management due to: %s (%d)", strerror(errno), watcher->fd);
 
          shutdown_mgt();
 
          if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, &unix_management_socket))
          {
-            ZF_LOGF("pgagroal: Could not bind to %s\n", config->unix_socket_dir);
+            pgagroal_log_fatal("pgagroal: Could not bind to %s", config->unix_socket_dir);
             exit(1);
          }
 
          start_mgt();
 
-         ZF_LOGD("Management: %d", unix_management_socket);
+         pgagroal_log_debug("Management: %d", unix_management_socket);
       }
       else
       {
-         ZF_LOGD("accept: %s (%d)", strerror(errno), watcher->fd);
+         pgagroal_log_debug("accept: %s (%d)", strerror(errno), watcher->fd);
       }
       errno = 0;
       return;
@@ -1076,7 +1073,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    switch (id)
    {
       case MANAGEMENT_TRANSFER_CONNECTION:
-         ZF_LOGD("pgagroal: Management transfer connection: Slot %d FD %d", slot, payload_i);
+         pgagroal_log_debug("pgagroal: Management transfer connection: Slot %d FD %d", slot, payload_i);
          config->connections[slot].fd = payload_i;
          known_fds[slot] = config->connections[slot].fd;
 
@@ -1092,10 +1089,10 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          break;
       case MANAGEMENT_RETURN_CONNECTION:
-         ZF_LOGD("pgagroal: Management return connection: Slot %d", slot);
+         pgagroal_log_debug("pgagroal: Management return connection: Slot %d", slot);
          break;
       case MANAGEMENT_KILL_CONNECTION:
-         ZF_LOGD("pgagroal: Management kill connection: Slot %d", slot);
+         pgagroal_log_debug("pgagroal: Management kill connection: Slot %d", slot);
          if (known_fds[slot] == payload_i)
          {
             pgagroal_disconnect(payload_i);
@@ -1103,14 +1100,14 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          }
          break;
       case MANAGEMENT_FLUSH:
-         ZF_LOGD("pgagroal: Management flush (%d)", payload_i);
+         pgagroal_log_debug("pgagroal: Management flush (%d)", payload_i);
          if (!fork())
          {
             pgagroal_flush(payload_i);
          }
          break;
       case MANAGEMENT_ENABLEDB:
-         ZF_LOGD("pgagroal: Management enabledb: %s", payload_s);
+         pgagroal_log_debug("pgagroal: Management enabledb: %s", payload_s);
          pgagroal_pool_status();
 
          for (int i = 0; i < NUMBER_OF_DISABLED; i++)
@@ -1128,7 +1125,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          free(payload_s);
          break;
       case MANAGEMENT_DISABLEDB:
-         ZF_LOGD("pgagroal: Management disabledb: %s", payload_s);
+         pgagroal_log_debug("pgagroal: Management disabledb: %s", payload_s);
          pgagroal_pool_status();
 
          if (!strcmp("*", payload_s))
@@ -1155,47 +1152,47 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          free(payload_s);
          break;
       case MANAGEMENT_GRACEFULLY:
-         ZF_LOGD("pgagroal: Management gracefully");
+         pgagroal_log_debug("pgagroal: Management gracefully");
          pgagroal_pool_status();
          config->gracefully = true;
          break;
       case MANAGEMENT_STOP:
-         ZF_LOGD("pgagroal: Management stop");
+         pgagroal_log_debug("pgagroal: Management stop");
          pgagroal_pool_status();
          ev_break(loop, EVBREAK_ALL);
          keep_running = 0;
          break;
       case MANAGEMENT_CANCEL_SHUTDOWN:
-         ZF_LOGD("pgagroal: Management cancel shutdown");
+         pgagroal_log_debug("pgagroal: Management cancel shutdown");
          pgagroal_pool_status();
          config->gracefully = false;
          break;
       case MANAGEMENT_STATUS:
-         ZF_LOGD("pgagroal: Management status");
+         pgagroal_log_debug("pgagroal: Management status");
          pgagroal_pool_status();
          pgagroal_management_write_status(client_fd, config->gracefully);
          break;
       case MANAGEMENT_DETAILS:
-         ZF_LOGD("pgagroal: Management details");
+         pgagroal_log_debug("pgagroal: Management details");
          pgagroal_pool_status();
          pgagroal_management_write_status(client_fd, config->gracefully);
          pgagroal_management_write_details(client_fd);
          break;
       case MANAGEMENT_ISALIVE:
-         ZF_LOGD("pgagroal: Management isalive");
+         pgagroal_log_debug("pgagroal: Management isalive");
          pgagroal_management_write_isalive(client_fd, config->gracefully);
          break;
       case MANAGEMENT_RESET:
-         ZF_LOGD("pgagroal: Management reset");
+         pgagroal_log_debug("pgagroal: Management reset");
          pgagroal_prometheus_reset();
          break;
       case MANAGEMENT_RESET_SERVER:
-         ZF_LOGD("pgagroal: Management reset server");
+         pgagroal_log_debug("pgagroal: Management reset server");
          pgagroal_server_reset(payload_s);
          pgagroal_prometheus_failed_servers();
          break;
       case MANAGEMENT_CLIENT_DONE:
-         ZF_LOGD("pgagroal: Management client done");
+         pgagroal_log_debug("pgagroal: Management client done");
          if (config->pipeline == PIPELINE_TRANSACTION)
          {
             pid_t p = (pid_t)payload_i;
@@ -1203,7 +1200,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          }
          break;
       case MANAGEMENT_SWITCH_TO:
-         ZF_LOGD("pgagroal: Management switch to");
+         pgagroal_log_debug("pgagroal: Management switch to");
          if (!pgagroal_server_switch(payload_s))
          {
             if (!fork())
@@ -1214,7 +1211,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          }
          break;
       default:
-         ZF_LOGD("pgagroal: Unknown management id: %d", id);
+         pgagroal_log_debug("pgagroal: Unknown management id: %d", id);
          break;
    }
 
@@ -1239,11 +1236,11 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    int client_fd;
    struct configuration* config;
 
-   ZF_LOGV("accept_metrics_cb: sockfd ready (%d)", revents);
+   pgagroal_log_trace("accept_metrics_cb: sockfd ready (%d)", revents);
 
    if (EV_ERROR & revents)
    {
-      ZF_LOGD("accept_metrics_cb: invalid event: %s", strerror(errno));
+      pgagroal_log_debug("accept_metrics_cb: invalid event: %s", strerror(errno));
       errno = 0;
       return;
    }
@@ -1256,7 +1253,7 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    {
       if (accept_fatal(errno) && keep_running)
       {
-         ZF_LOGW("Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
+         pgagroal_log_warn("Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
 
          shutdown_metrics();
 
@@ -1266,13 +1263,13 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          if (pgagroal_bind(config->host, config->port, &metrics_fds, &metrics_fds_length))
          {
-            ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
+            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->port);
             exit(1);
          }
 
          if (metrics_fds_length > MAX_FDS)
          {
-            ZF_LOGF("pgagroal: Too many descriptors %d\n", metrics_fds_length);
+            pgagroal_log_fatal("pgagroal: Too many descriptors %d", metrics_fds_length);
             exit(1);
          }
 
@@ -1280,12 +1277,12 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          for (int i = 0; i < metrics_fds_length; i++)
          {
-            ZF_LOGD("Metrics: %d", *(metrics_fds + i));
+            pgagroal_log_debug("Metrics: %d", *(metrics_fds + i));
          }
       }
       else
       {
-         ZF_LOGD("accept: %s (%d)", strerror(errno), watcher->fd);
+         pgagroal_log_debug("accept: %s (%d)", strerror(errno), watcher->fd);
       }
       errno = 0;
       return;
@@ -1310,11 +1307,11 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    char address[INET6_ADDRSTRLEN];
    struct configuration* config;
 
-   ZF_LOGV("accept_management_cb: sockfd ready (%d)", revents);
+   pgagroal_log_trace("accept_management_cb: sockfd ready (%d)", revents);
 
    if (EV_ERROR & revents)
    {
-      ZF_LOGD("accept_management_cb: invalid event: %s", strerror(errno));
+      pgagroal_log_debug("accept_management_cb: invalid event: %s", strerror(errno));
       errno = 0;
       return;
    }
@@ -1329,7 +1326,7 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    {
       if (accept_fatal(errno) && keep_running)
       {
-         ZF_LOGW("Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
+         pgagroal_log_warn("Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
 
          shutdown_management();
 
@@ -1339,13 +1336,13 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          if (pgagroal_bind(config->host, config->port, &management_fds, &management_fds_length))
          {
-            ZF_LOGF("pgagroal: Could not bind to %s:%d\n", config->host, config->port);
+            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->port);
             exit(1);
          }
 
          if (management_fds_length > MAX_FDS)
          {
-            ZF_LOGF("pgagroal: Too many descriptors %d\n", management_fds_length);
+            pgagroal_log_fatal("pgagroal: Too many descriptors %d", management_fds_length);
             exit(1);
          }
 
@@ -1353,12 +1350,12 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          for (int i = 0; i < management_fds_length; i++)
          {
-            ZF_LOGD("Remote management: %d", *(management_fds + i));
+            pgagroal_log_debug("Remote management: %d", *(management_fds + i));
          }
       }
       else
       {
-         ZF_LOGD("accept: %s (%d)", strerror(errno), watcher->fd);
+         pgagroal_log_debug("accept: %s (%d)", strerror(errno), watcher->fd);
       }
       errno = 0;
       return;
@@ -1382,8 +1379,7 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 static void
 shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents)
 {
-   ZF_LOGD("pgagroal: shutdown requested");
-
+   pgagroal_log_debug("pgagroal: shutdown requested");
    pgagroal_pool_status();
    ev_break(loop, EVBREAK_ALL);
    keep_running = 0;
@@ -1396,7 +1392,7 @@ graceful_cb(struct ev_loop *loop, ev_signal *w, int revents)
 
    config = (struct configuration*)shmem;
 
-   ZF_LOGD("pgagroal: gracefully requested");
+   pgagroal_log_debug("pgagroal: gracefully requested");
 
    pgagroal_pool_status();
    config->gracefully = true;
@@ -1412,8 +1408,7 @@ graceful_cb(struct ev_loop *loop, ev_signal *w, int revents)
 static void
 coredump_cb(struct ev_loop *loop, ev_signal *w, int revents)
 {
-   ZF_LOGI("pgagroal: core dump requested");
-
+   pgagroal_log_info("pgagroal: core dump requested");
    pgagroal_pool_status();
    abort();
 }
@@ -1421,11 +1416,11 @@ coredump_cb(struct ev_loop *loop, ev_signal *w, int revents)
 static void
 idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 {
-   ZF_LOGV("pgagroal: idle_timeout_cb (%d)", revents);
+   pgagroal_log_trace("pgagroal: idle_timeout_cb (%d)", revents);
 
    if (EV_ERROR & revents)
    {
-      ZF_LOGV("idle_timeout_cb: got invalid event: %s", strerror(errno));
+      pgagroal_log_trace("idle_timeout_cb: got invalid event: %s", strerror(errno));
       return;
    }
 
@@ -1439,11 +1434,11 @@ idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 static void
 validation_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 {
-   ZF_LOGV("pgagroal: validation_cb (%d)", revents);
+   pgagroal_log_trace("pgagroal: validation_cb (%d)", revents);
 
    if (EV_ERROR & revents)
    {
-      ZF_LOGV("validation_cb: got invalid event: %s", strerror(errno));
+      pgagroal_log_trace("validation_cb: got invalid event: %s", strerror(errno));
       return;
    }
 
@@ -1457,11 +1452,11 @@ validation_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 static void
 disconnect_client_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 {
-   ZF_LOGV("pgagroal: disconnect_client_cb (%d)", revents);
+   pgagroal_log_trace("pgagroal: disconnect_client_cb (%d)", revents);
 
    if (EV_ERROR & revents)
    {
-      ZF_LOGV("disconnect_client_cb: got invalid event: %s", strerror(errno));
+      pgagroal_log_trace("disconnect_client_cb: got invalid event: %s", strerror(errno));
       return;
    }
 

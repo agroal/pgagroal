@@ -36,9 +36,6 @@
 #include <shmem.h>
 #include <utils.h>
 
-#define ZF_LOG_TAG "cli"
-#include <zf_log.h>
-
 /* system */
 #include <getopt.h>
 #include <stdbool.h>

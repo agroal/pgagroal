@@ -254,9 +254,10 @@ The implementation is done in [server.h](../src/include/server.h) and
 
 ## Logging
 
-[zf_log](https://github.com/wonder-mice/zf_log) is used for the logging framework.
+Simple logging implementation based on a `atomic_schar` lock.
 
-`zf_log` is licensed under the [MIT](https://opensource.org/licenses/MIT) license.
+The implementation is done in [logging.h](../src/include/logging.h) and
+[logging.c](../src/libpgagroal/logging.c).
 
 ## Protocol
 

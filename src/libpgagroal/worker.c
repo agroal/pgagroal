@@ -41,9 +41,6 @@
 #include <worker.h>
 #include <utils.h>
 
-#define ZF_LOG_TAG "worker"
-#include <zf_log.h>
-
 /* system */
 #include <ev.h>
 #include <stdlib.h>
@@ -92,12 +89,12 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    auth_status = pgagroal_authenticate(client_fd, address, &slot, &client_ssl);
    if (auth_status == AUTH_SUCCESS)
    {
-      ZF_LOGD("pgagroal_worker: Slot %d (%d -> %d)", slot, client_fd, config->connections[slot].fd);
+      pgagroal_log_debug("pgagroal_worker: Slot %d (%d -> %d)", slot, client_fd, config->connections[slot].fd);
 
       if (config->log_connections)
       {
-         ZF_LOGI("connect: user=%s database=%s address=%s", config->connections[slot].username,
-                 config->connections[slot].database, address);
+         pgagroal_log_info("connect: user=%s database=%s address=%s", config->connections[slot].username,
+                           config->connections[slot].database, address);
       }
 
       pgagroal_pool_status();
@@ -118,7 +115,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       }
       else
       {
-         ZF_LOGE("pgagroal_worker: Unknown pipeline %d", config->pipeline);
+         pgagroal_log_error("pgagroal_worker: Unknown pipeline %d", config->pipeline);
          p = session_pipeline();
       }
 
@@ -167,7 +164,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    {
       if (config->log_connections)
       {
-         ZF_LOGI("connect: address=%s", address);
+         pgagroal_log_info("connect: address=%s", address);
       }
    }
 
@@ -175,12 +172,12 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    {
       if (auth_status == AUTH_SUCCESS)
       {
-         ZF_LOGI("disconnect: user=%s database=%s address=%s", config->connections[slot].username,
-                 config->connections[slot].database, address);
+         pgagroal_log_info("disconnect: user=%s database=%s address=%s", config->connections[slot].username,
+                           config->connections[slot].database, address);
       }
       else
       {
-         ZF_LOGI("disconnect: address=%s", address);
+         pgagroal_log_info("disconnect: address=%s", address);
       }
    }
 
@@ -242,11 +239,11 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       SSL_CTX_free(ctx);
    }
 
-   ZF_LOGD("client disconnect: %d", client_fd);
+   pgagroal_log_debug("client disconnect: %d", client_fd);
    pgagroal_disconnect(client_fd);
 
    pgagroal_pool_status();
-   ZF_LOGD("After client: PID %d Slot %d (%d)", getpid(), slot, exit_code);
+   pgagroal_log_debug("After client: PID %d Slot %d (%d)", getpid(), slot, exit_code);
 
    if (loop)
    {
@@ -278,7 +275,7 @@ signal_cb(struct ev_loop *loop, ev_signal *w, int revents)
 
    si = (struct signal_info*)w;
 
-   ZF_LOGD("pgagroal: signal for slot %d", si->slot);
+   pgagroal_log_debug("pgagroal: signal for slot %d", si->slot);
 
    exit_code = WORKER_SHUTDOWN;
    running = 0;

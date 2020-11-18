@@ -31,9 +31,6 @@
 #include <logging.h>
 #include <utils.h>
 
-#define ZF_LOG_TAG "utils"
-#include <zf_log.h>
-
 /* system */
 #include <ev.h>
 #include <execinfo.h>
@@ -113,7 +110,6 @@ pgagroal_extract_username_database(struct message* msg, char** username, char** 
          
    for (int i = 0; i < counter; i++)
    {
-      /* ZF_LOGV("Frontend: 0/Req Data: %s", array[i]); */
       if (!strcmp(array[i], "user"))
       {
          size = strlen(array[i + 1]) + 1;
@@ -146,8 +142,8 @@ pgagroal_extract_username_database(struct message* msg, char** username, char** 
    if (*database == NULL)
       *database = *username;
 
-   ZF_LOGV("Username: %s", *username);
-   ZF_LOGV("Database: %s", *database);
+   pgagroal_log_trace("Username: %s", *username);
+   pgagroal_log_trace("Database: %s", *database);
 
    for (int i = 0; i < counter; i++)
       free(array[i]);
@@ -408,35 +404,35 @@ pgagroal_libev_engines(void)
 
    if (engines & EVBACKEND_SELECT)
    {
-      ZF_LOGD("libev available: select");
+      pgagroal_log_debug("libev available: select");
    }
    if (engines & EVBACKEND_POLL)
    {
-      ZF_LOGD("libev available: poll");
+      pgagroal_log_debug("libev available: poll");
    }
    if (engines & EVBACKEND_EPOLL)
    {
-      ZF_LOGD("libev available: epoll");
+      pgagroal_log_debug("libev available: epoll");
    }
    if (engines & EVBACKEND_LINUXAIO)
    {
-      ZF_LOGD("libev available: linuxaio");
+      pgagroal_log_debug("libev available: linuxaio");
    }
    if (engines & EVBACKEND_IOURING)
    {
-      ZF_LOGD("libev available: iouring");
+      pgagroal_log_debug("libev available: iouring");
    }
    if (engines & EVBACKEND_KQUEUE)
    {
-      ZF_LOGD("libev available: kqueue");
+      pgagroal_log_debug("libev available: kqueue");
    }
    if (engines & EVBACKEND_DEVPOLL)
    {
-      ZF_LOGD("libev available: devpoll");
+      pgagroal_log_debug("libev available: devpoll");
    }
    if (engines & EVBACKEND_PORT)
    {
-      ZF_LOGD("libev available: port");
+      pgagroal_log_debug("libev available: port");
    }
 }
 
@@ -455,7 +451,7 @@ pgagroal_libev(char* engine)
          }
          else
          {
-            ZF_LOGW("libev not available: select");
+            pgagroal_log_warn("libev not available: select");
          }
       }
       else if (!strcmp("poll", engine))
@@ -466,7 +462,7 @@ pgagroal_libev(char* engine)
          }
          else
          {
-            ZF_LOGW("libev not available: poll");
+            pgagroal_log_warn("libev not available: poll");
          }
       }
       else if (!strcmp("epoll", engine))
@@ -477,7 +473,7 @@ pgagroal_libev(char* engine)
          }
          else
          {
-            ZF_LOGW("libev not available: epoll");
+            pgagroal_log_warn("libev not available: epoll");
          }
       }
       else if (!strcmp("linuxaio", engine))
@@ -492,7 +488,7 @@ pgagroal_libev(char* engine)
          }
          else
          {
-            ZF_LOGW("libev not available: iouring");
+            pgagroal_log_warn("libev not available: iouring");
          }
       }
       else if (!strcmp("devpoll", engine))
@@ -503,7 +499,7 @@ pgagroal_libev(char* engine)
          }
          else
          {
-            ZF_LOGW("libev not available: devpoll");
+            pgagroal_log_warn("libev not available: devpoll");
          }
       }
       else if (!strcmp("port", engine))
@@ -514,7 +510,7 @@ pgagroal_libev(char* engine)
          }
          else
          {
-            ZF_LOGW("libev not available: port");
+            pgagroal_log_warn("libev not available: port");
          }
       }
       else if (!strcmp("auto", engine) || !strcmp("", engine))
@@ -523,7 +519,7 @@ pgagroal_libev(char* engine)
       }
       else
       {
-         ZF_LOGW("libev unknown option: %s", engine);
+         pgagroal_log_warn("libev unknown option: %s", engine);
       }
    }
 

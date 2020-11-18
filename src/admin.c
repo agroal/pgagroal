@@ -28,11 +28,9 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <logging.h>
 #include <security.h>
 #include <utils.h>
-
-#define ZF_LOG_TAG "admin"
-#include <zf_log.h>
 
 /* system */
 #include <ctype.h>

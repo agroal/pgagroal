@@ -28,6 +28,7 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <logging.h>
 #include <management.h>
 #include <message.h>
 #include <network.h>
@@ -39,9 +40,6 @@
 #include <tracker.h>
 #include <worker.h>
 #include <utils.h>
-
-#define ZF_LOG_TAG "pipeline_transaction"
-#include <zf_log.h>
 
 /* system */
 #include <errno.h>
@@ -114,7 +112,7 @@ transaction_start(struct ev_loop* loop, struct worker_io* w)
 
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, &p[0], &unix_socket))
    {
-      ZF_LOGF("pgagroal: Could not bind to %s/%s\n", config->unix_socket_dir, &p[0]);
+      pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, &p[0]);
       goto error;
    }
 
@@ -259,7 +257,7 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    return;
 
 client_error:
-   ZF_LOGW("[C] Client error: %s (slot %d socket %d status %d)", strerror(errno), slot, wi->client_fd, status);
+   pgagroal_log_warn("[C] Client error: %s (slot %d socket %d status %d)", strerror(errno), slot, wi->client_fd, status);
    errno = 0;
 
    exit_code = WORKER_CLIENT_FAILURE;
@@ -268,7 +266,7 @@ client_error:
    return;
 
 server_error:
-   ZF_LOGW("[C] Server error: %s (slot %d socket %d status %d)", strerror(errno), slot, wi->server_fd, status);
+   pgagroal_log_warn("[C] Server error: %s (slot %d socket %d status %d)", strerror(errno), slot, wi->server_fd, status);
    errno = 0;
 
    exit_code = WORKER_SERVER_FAILURE;
@@ -284,7 +282,7 @@ failover:
    return;
 
 get_error:
-   ZF_LOGW("Failure during obtaining connection");
+   pgagroal_log_warn("Failure during obtaining connection");
 
    exit_code = WORKER_SERVER_FAILURE;
    running = 0;
@@ -411,7 +409,7 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    return;
 
 client_error:
-   ZF_LOGW("[S] Client error: %s (slot %d socket %d status %d)", strerror(errno), slot, wi->client_fd, status);
+   pgagroal_log_warn("[S] Client error: %s (slot %d socket %d status %d)", strerror(errno), slot, wi->client_fd, status);
    errno = 0;
 
    exit_code = WORKER_CLIENT_FAILURE;
@@ -420,7 +418,7 @@ client_error:
    return;
 
 server_error:
-   ZF_LOGW("[S] Server error: %s (slot %d socket %d status %d)", strerror(errno), slot, wi->server_fd, status);
+   pgagroal_log_warn("[S] Server error: %s (slot %d socket %d status %d)", strerror(errno), slot, wi->server_fd, status);
    errno = 0;
 
    exit_code = WORKER_SERVER_FAILURE;
@@ -429,7 +427,7 @@ server_error:
    return;
 
 return_error:
-   ZF_LOGW("Failure during connection return");
+   pgagroal_log_warn("Failure during connection return");
 
    exit_code = WORKER_SERVER_FAILURE;
    running = 0;
@@ -474,11 +472,11 @@ accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    int payload_i;
    char* payload_s = NULL;
 
-   ZF_LOGV("accept_cb: sockfd ready (%d)", revents);
+   pgagroal_log_trace("accept_cb: sockfd ready (%d)", revents);
 
    if (EV_ERROR & revents)
    {
-      ZF_LOGD("accept_cb: invalid event: %s", strerror(errno));
+      pgagroal_log_debug("accept_cb: invalid event: %s", strerror(errno));
       errno = 0;
       return;
    }
@@ -487,7 +485,7 @@ accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
    if (client_fd == -1)
    {
-      ZF_LOGD("accept: %s (%d)", strerror(errno), watcher->fd);
+      pgagroal_log_debug("accept: %s (%d)", strerror(errno), watcher->fd);
       errno = 0;
       return;
    }
@@ -499,10 +497,10 @@ accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    switch (id)
    {
       case MANAGEMENT_CLIENT_FD:
-         ZF_LOGD("pgagroal: Management client file descriptor: Slot %d FD %d", slot, payload_i);
+         pgagroal_log_debug("pgagroal: Management client file descriptor: Slot %d FD %d", slot, payload_i);
          break;
       default:
-         ZF_LOGD("pgagroal: Unsupported management id: %d", id);
+         pgagroal_log_debug("pgagroal: Unsupported management id: %d", id);
          break;
    }
 

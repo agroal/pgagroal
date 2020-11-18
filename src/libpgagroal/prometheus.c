@@ -35,9 +35,6 @@
 #include <prometheus.h>
 #include <utils.h>
 
-#define ZF_LOG_TAG "prometheus"
-#include <zf_log.h>
-
 /* system */
 #include <ev.h>
 #include <stdlib.h>
@@ -100,7 +97,7 @@ pgagroal_prometheus(int client_fd)
 
    config = (struct configuration*)shmem;
 
-   ZF_LOGD("pgagroal_prometheus: connect %d", client_fd);
+   pgagroal_log_debug("pgagroal_prometheus: connect %d", client_fd);
 
    status = pgagroal_read_timeout_message(NULL, client_fd, config->authentication_timeout, &msg);
    if (status != MESSAGE_STATUS_OK)
@@ -123,7 +120,7 @@ pgagroal_prometheus(int client_fd)
       unknown_page(client_fd);
    }
 
-   ZF_LOGD("pgagroal_prometheus: disconnect %d", client_fd);
+   pgagroal_log_debug("pgagroal_prometheus: disconnect %d", client_fd);
    pgagroal_disconnect(client_fd);
 
    pgagroal_memory_destroy();
@@ -133,7 +130,7 @@ pgagroal_prometheus(int client_fd)
 
 error:
 
-   ZF_LOGD("pgagroal_prometheus: disconnect %d", client_fd);
+   pgagroal_log_debug("pgagroal_prometheus: disconnect %d", client_fd);
    pgagroal_disconnect(client_fd);
 
    pgagroal_memory_destroy();
@@ -432,7 +429,7 @@ resolve_page(struct message* msg)
 
    if (strncmp((char*)msg->data, "GET", 3) != 0)
    {
-      ZF_LOGD("Promethus: Not a GET request");
+      pgagroal_log_debug("Promethus: Not a GET request");
       return PAGE_UNKNOWN;
    }
 

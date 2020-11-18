@@ -28,10 +28,8 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <logging.h>
 #include <network.h>
-
-#define ZF_LOG_TAG "network"
-#include <zf_log.h>
 
 /* system */
 #include <errno.h>
@@ -71,7 +69,7 @@ pgagroal_bind(const char* hostname, int port, int** fds, int* length)
    {
       if (getifaddrs(&ifaddr) == -1)
       {
-         ZF_LOGW("getifaddrs: %s", strerror(errno));
+         pgagroal_log_warn("getifaddrs: %s", strerror(errno));
          errno = 0;
          return 1;
       }
@@ -147,7 +145,7 @@ pgagroal_bind_unix_socket(const char* directory, const char* file, int *fd)
 
    if ((*fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
    {
-      ZF_LOGE("pgagroal_bind_unix_socket: socket: %s %s", directory, strerror(errno));
+      pgagroal_log_error("pgagroal_bind_unix_socket: socket: %s %s", directory, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -168,7 +166,7 @@ pgagroal_bind_unix_socket(const char* directory, const char* file, int *fd)
       status = mkdir(&buf[0], S_IRWXU);
       if (status == -1)
       {
-         ZF_LOGE("pgagroal_bind_unix_socket: permission defined for %s (%s)", directory, strerror(errno));
+         pgagroal_log_error("pgagroal_bind_unix_socket: permission defined for %s (%s)", directory, strerror(errno));
          errno = 0;
          goto error;
       }
@@ -182,14 +180,14 @@ pgagroal_bind_unix_socket(const char* directory, const char* file, int *fd)
 
    if (bind(*fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
    {
-      ZF_LOGE("pgagroal_bind_unix_socket: bind: %s/%s %s", directory, file, strerror(errno));
+      pgagroal_log_error("pgagroal_bind_unix_socket: bind: %s/%s %s", directory, file, strerror(errno));
       errno = 0;
       goto error;
    }
 
    if (listen(*fd, config->backlog) == -1)
    {
-      ZF_LOGE("pgagroal_bind_unix_socket: listen: %s/%s %s", directory, file, strerror(errno));
+      pgagroal_log_error("pgagroal_bind_unix_socket: listen: %s/%s %s", directory, file, strerror(errno));
       errno = 0;
       goto error;
    }
@@ -243,7 +241,7 @@ pgagroal_connect(const char* hostname, int port, int* fd)
 
    if ((rv = getaddrinfo(hostname, &sport[0], &hints, &servinfo)) != 0)
    {
-      ZF_LOGD("getaddrinfo: %s\n", gai_strerror(rv));
+      pgagroal_log_debug("getaddrinfo: %s", gai_strerror(rv));
       return 1;
    }
 
@@ -333,7 +331,7 @@ pgagroal_connect(const char* hostname, int port, int* fd)
 
 error:
 
-   ZF_LOGD("pgagroal_connect: %s", strerror(error));
+   pgagroal_log_debug("pgagroal_connect: %s", strerror(error));
    return 1;
 }
 
@@ -348,7 +346,7 @@ pgagroal_connect_unix_socket(const char* directory, const char* file, int* fd)
 
    if ((*fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
    {
-      ZF_LOGW("pgagroal_connect_unix_socket: socket: %s %s", directory, strerror(errno));
+      pgagroal_log_warn("pgagroal_connect_unix_socket: socket: %s %s", directory, strerror(errno));
       errno = 0;
       return 1;
    }
@@ -363,7 +361,7 @@ pgagroal_connect_unix_socket(const char* directory, const char* file, int* fd)
 
    if (connect(*fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
    {
-      ZF_LOGV("pgagroal_connect_unix_socket: connect: %s/%s %s", directory, file, strerror(errno));
+      pgagroal_log_trace("pgagroal_connect_unix_socket: connect: %s/%s %s", directory, file, strerror(errno));
       errno = 0;
       return 1;
    }
@@ -471,14 +469,14 @@ pgagroal_socket_has_error(int fd)
 
    if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &length) == -1)
    {
-      ZF_LOGV("error getting socket error code: %s (%d)", strerror(errno), fd);
+      pgagroal_log_trace("error getting socket error code: %s (%d)", strerror(errno), fd);
       errno = 0;
       goto error;
    }
 
    if (error != 0)
    {
-      ZF_LOGV("socket error: %s (%d)", strerror(error), fd);
+      pgagroal_log_trace("socket error: %s (%d)", strerror(error), fd);
       errno = 0;
       goto error;
    }
@@ -503,7 +501,7 @@ pgagroal_tcp_nodelay(int fd)
    {
       if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &yes, optlen) == -1)
       {
-         ZF_LOGW("tcp_nodelay: %d %s", fd, strerror(errno));
+         pgagroal_log_warn("tcp_nodelay: %d %s", fd, strerror(errno));
          errno = 0;
          return 1;
       }
@@ -522,14 +520,14 @@ pgagroal_socket_buffers(int fd)
 
    if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &config->buffer_size, optlen) == -1)
    {
-      ZF_LOGW("socket_buffers: SO_RCVBUF %d %s", fd, strerror(errno));
+      pgagroal_log_warn("socket_buffers: SO_RCVBUF %d %s", fd, strerror(errno));
       errno = 0;
       return 1;
    }
 
    if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &config->buffer_size, optlen) == -1)
    {
-      ZF_LOGW("socket_buffers: SO_SNDBUF %d %s", fd, strerror(errno));
+      pgagroal_log_warn("socket_buffers: SO_SNDBUF %d %s", fd, strerror(errno));
       errno = 0;
       return 1;
    }
@@ -570,7 +568,7 @@ bind_host(const char* hostname, int port, int** fds, int* length)
    if ((rv = getaddrinfo(hostname, sport, &hints, &servinfo)) != 0)
    {
       free(sport);
-      ZF_LOGE("getaddrinfo: %s:%d (%s)", hostname, port, gai_strerror(rv));
+      pgagroal_log_error("getaddrinfo: %s:%d (%s)", hostname, port, gai_strerror(rv));
       return 1;
    }
 
@@ -589,13 +587,13 @@ bind_host(const char* hostname, int port, int** fds, int* length)
    {
       if ((sockfd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol)) == -1)
       {
-         ZF_LOGD("server: socket: %s:%d (%s)", hostname, port, strerror(errno));
+         pgagroal_log_debug("server: socket: %s:%d (%s)", hostname, port, strerror(errno));
          continue;
       }
 
       if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
       {
-         ZF_LOGD("server: so_reuseaddr: %d %s", sockfd, strerror(errno));
+         pgagroal_log_debug("server: so_reuseaddr: %d %s", sockfd, strerror(errno));
          pgagroal_disconnect(sockfd);
          continue;
       }
@@ -624,14 +622,14 @@ bind_host(const char* hostname, int port, int** fds, int* length)
       if (bind(sockfd, addr->ai_addr, addr->ai_addrlen) == -1)
       {
          pgagroal_disconnect(sockfd);
-         ZF_LOGD("server: bind: %s:%d (%s)", hostname, port, strerror(errno));
+         pgagroal_log_debug("server: bind: %s:%d (%s)", hostname, port, strerror(errno));
          continue;
       }
 
       if (listen(sockfd, config->backlog) == -1)
       {
          pgagroal_disconnect(sockfd);
-         ZF_LOGD("server: listen: %s:%d (%s)", hostname, port, strerror(errno));
+         pgagroal_log_debug("server: listen: %s:%d (%s)", hostname, port, strerror(errno));
          continue;
       }
 

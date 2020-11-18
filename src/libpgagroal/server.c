@@ -28,12 +28,10 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <logging.h>
 #include <message.h>
 #include <server.h>
 #include <utils.h>
-
-#define ZF_LOG_TAG "server"
-#include <zf_log.h>
 
 /* system */
 #include <errno.h>
@@ -62,7 +60,7 @@ pgagroal_get_primary(int* server)
       server_state = atomic_load(&config->servers[i].state);
       if (server_state == SERVER_PRIMARY)
       {
-         ZF_LOGV("pgagroal_get_primary: server (%d) name (%s) primary", i, config->servers[i].name);
+         pgagroal_log_trace("pgagroal_get_primary: server (%d) name (%s) primary", i, config->servers[i].name);
          primary = i;
       }
    }
@@ -73,7 +71,7 @@ pgagroal_get_primary(int* server)
       server_state = atomic_load(&config->servers[i].state);
       if (server_state == SERVER_NOTINIT_PRIMARY)
       {
-         ZF_LOGV("pgagroal_get_primary: server (%d) name (%s) noninit_primary", i, config->servers[i].name);
+         pgagroal_log_trace("pgagroal_get_primary: server (%d) name (%s) noninit_primary", i, config->servers[i].name);
          primary = i;
       }
    }
@@ -84,7 +82,7 @@ pgagroal_get_primary(int* server)
       server_state = atomic_load(&config->servers[i].state);
       if (server_state != SERVER_FAILOVER && server_state != SERVER_FAILED)
       {
-         ZF_LOGV("pgagroal_get_primary: server (%d) name (%s) any (%d)", i, config->servers[i].name, server_state);
+         pgagroal_log_trace("pgagroal_get_primary: server (%d) name (%s) any (%d)", i, config->servers[i].name, server_state);
          primary = i;
       }
    }
@@ -162,7 +160,7 @@ pgagroal_update_server_state(int slot, int socket)
    return 0;
 
 error:
-   ZF_LOGV("pgagroal_update_server_state: slot (%d) status (%d)", slot, status);
+   pgagroal_log_trace("pgagroal_update_server_state: slot (%d) status (%d)", slot, status);
 
    pgagroal_free_message(tmsg);
 
@@ -180,32 +178,32 @@ pgagroal_server_status(void)
    {
       if (strlen(config->servers[i].name) > 0)
       {
-         ZF_LOGD("pgagroal_server_status:    #: %d", i);
-         ZF_LOGD("                        Name: %s", config->servers[i].name);
-         ZF_LOGD("                        Host: %s", config->servers[i].host);
-         ZF_LOGD("                        Port: %d", config->servers[i].port);
+         pgagroal_log_debug("pgagroal_server_status:    #: %d", i);
+         pgagroal_log_debug("                        Name: %s", config->servers[i].name);
+         pgagroal_log_debug("                        Host: %s", config->servers[i].host);
+         pgagroal_log_debug("                        Port: %d", config->servers[i].port);
          switch (atomic_load(&config->servers[i].state))
          {
             case SERVER_NOTINIT:
-               ZF_LOGD("                        State: NOTINIT");
+               pgagroal_log_debug("                        State: NOTINIT");
                break;
             case SERVER_NOTINIT_PRIMARY:
-               ZF_LOGD("                        State: NOTINIT_PRIMARY");
+               pgagroal_log_debug("                        State: NOTINIT_PRIMARY");
                break;
             case SERVER_PRIMARY:
-               ZF_LOGD("                        State: PRIMARY");
+               pgagroal_log_debug("                        State: PRIMARY");
                break;
             case SERVER_REPLICA:
-               ZF_LOGD("                        State: REPLICA");
+               pgagroal_log_debug("                        State: REPLICA");
                break;
             case SERVER_FAILOVER:
-               ZF_LOGD("                        State: FAILOVER");
+               pgagroal_log_debug("                        State: FAILOVER");
                break;
             case SERVER_FAILED:
-               ZF_LOGD("                        State: FAILED");
+               pgagroal_log_debug("                        State: FAILED");
                break;
             default:
-               ZF_LOGD("                        State: %d", atomic_load(&config->servers[i].state));
+               pgagroal_log_debug("                        State: %d", atomic_load(&config->servers[i].state));
                break;
          }
       }
@@ -352,7 +350,7 @@ failover(int old_primary)
 
    if (new_primary == -1)
    {
-      ZF_LOGE("Failover: New primary could not be found");
+      pgagroal_log_error("Failover: New primary could not be found");
       atomic_store(&config->servers[old_primary].state, SERVER_FAILED);
       goto error;
    }
@@ -360,7 +358,7 @@ failover(int old_primary)
    pid = fork();
    if (pid == -1)
    {
-      ZF_LOGE("Failover: Unable to execute failover script");
+      pgagroal_log_error("Failover: Unable to execute failover script");
       atomic_store(&config->servers[old_primary].state, SERVER_FAILED);
       goto error;
    }
@@ -370,7 +368,7 @@ failover(int old_primary)
 
       if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
       {
-         ZF_LOGI("Failover: New primary is %s (%s:%d)", config->servers[new_primary].name, config->servers[new_primary].host, config->servers[new_primary].port);
+         pgagroal_log_info("Failover: New primary is %s (%s:%d)", config->servers[new_primary].name, config->servers[new_primary].host, config->servers[new_primary].port);
          atomic_store(&config->servers[old_primary].state, SERVER_FAILED);
          atomic_store(&config->servers[new_primary].state, SERVER_PRIMARY);
       }
@@ -378,11 +376,11 @@ failover(int old_primary)
       {
          if (WIFEXITED(status))
          {
-            ZF_LOGE("Failover: Error from failover script (exit %d)", WEXITSTATUS(status));
+            pgagroal_log_error("Failover: Error from failover script (exit %d)", WEXITSTATUS(status));
          }
          else
          {
-            ZF_LOGE("Failover: Error from failover script (status %d)", status);
+            pgagroal_log_error("Failover: Error from failover script (status %d)", status);
          }
 
          atomic_store(&config->servers[old_primary].state, SERVER_FAILED);

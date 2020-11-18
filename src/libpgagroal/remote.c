@@ -37,9 +37,6 @@
 #include <security.h>
 #include <utils.h>
 
-#define ZF_LOG_TAG "remote"
-#include <zf_log.h>
-
 /* system */
 #include <ev.h>
 #include <stdlib.h>
@@ -66,7 +63,7 @@ pgagroal_remote_management(int client_fd, char* address)
 
    config = (struct configuration*)shmem;
 
-   ZF_LOGD("pgagroal_remote_management: connect %d", client_fd);
+   pgagroal_log_debug("pgagroal_remote_management: connect %d", client_fd);
 
    auth_status = pgagroal_remote_management_auth(client_fd, address, &client_ssl);
    if (auth_status == AUTH_SUCCESS)
@@ -153,7 +150,7 @@ pgagroal_remote_management(int client_fd, char* address)
 
             break;
          default:
-            ZF_LOGW("Unknown management operation: %d", type);
+            pgagroal_log_warn("Unknown management operation: %d", type);
             pgagroal_log_message(msg);
             exit_code = 1;
             goto done;
@@ -180,7 +177,7 @@ done:
       SSL_CTX_free(ctx);
    }
 
-   ZF_LOGD("pgagroal_remote_management: disconnect %d", client_fd);
+   pgagroal_log_debug("pgagroal_remote_management: disconnect %d", client_fd);
    pgagroal_disconnect(client_fd);
    pgagroal_disconnect(server_fd);
 

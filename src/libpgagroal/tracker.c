@@ -32,9 +32,6 @@
 #include <server.h>
 #include <tracker.h>
 
-#define ZF_LOG_TAG "tracker"
-#include <zf_log.h>
-
 /* system */
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,23 +70,23 @@ pgagroal_tracking_event_basic(int id, char* username, char* database)
 
       pgagroal_get_primary(&primary);
 
-      ZF_LOGI("PGAGROAL|%d|%d|%d|%lld|%d|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|",
-              id,
-              -1,
-              -3,
-              milliseconds,
-              getpid(),
-              username,
-              database,
-              "",
-              -1,
-              primary,
-              -1,
-              -3,
-              -1,
-              -1,
-              atomic_load(&config->active_connections),
-              count_connections());
+      pgagroal_log_info("PGAGROAL|%d|%d|%d|%lld|%d|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|",
+                        id,
+                        -1,
+                        -3,
+                        milliseconds,
+                        getpid(),
+                        username,
+                        database,
+                        "",
+                        -1,
+                        primary,
+                        -1,
+                        -3,
+                        -1,
+                        -1,
+                        atomic_load(&config->active_connections),
+                        count_connections());
    }
 }
 
@@ -124,23 +121,23 @@ pgagroal_tracking_event_slot(int id, int slot)
          appname = "";
       }
       
-      ZF_LOGI("PGAGROAL|%d|%d|%d|%lld|%d|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|",
-              id,
-              slot,
-              atomic_load(&config->states[slot]),
-              milliseconds,
-              getpid(),
-              username,
-              database,
-              appname,
-              config->connections[slot].new,
-              config->connections[slot].server,
-              config->connections[slot].tx_mode,
-              config->connections[slot].has_security,
-              config->connections[slot].limit_rule,
-              config->connections[slot].fd,
-              atomic_load(&config->active_connections),
-              count_connections());
+      pgagroal_log_info("PGAGROAL|%d|%d|%d|%lld|%d|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|",
+                        id,
+                        slot,
+                        atomic_load(&config->states[slot]),
+                        milliseconds,
+                        getpid(),
+                        username,
+                        database,
+                        appname,
+                        config->connections[slot].new,
+                        config->connections[slot].server,
+                        config->connections[slot].tx_mode,
+                        config->connections[slot].has_security,
+                        config->connections[slot].limit_rule,
+                        config->connections[slot].fd,
+                        atomic_load(&config->active_connections),
+                        count_connections());
    }
 }
 

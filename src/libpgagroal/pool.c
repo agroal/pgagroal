@@ -40,9 +40,6 @@
 #include <tracker.h>
 #include <utils.h>
 
-#define ZF_LOG_TAG "pool"
-#include <zf_log.h>
-
 /* system */
 #include <assert.h>
 #include <signal.h>
@@ -165,11 +162,11 @@ start:
             goto error;
          }
 
-         ZF_LOGD("connect: server %d", server);
+         pgagroal_log_debug("connect: server %d", server);
          
          if (pgagroal_connect(config->servers[server].host, config->servers[server].port, &fd))
          {
-            ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
+            pgagroal_log_error("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
             config->connections[*slot].limit_rule = -1;
             config->connections[*slot].pid = -1;
             atomic_store(&config->states[*slot], STATE_NOTINIT);
@@ -191,7 +188,7 @@ start:
             goto error;
          }
 
-         ZF_LOGD("connect: %s:%d using slot %d fd %d", config->servers[server].host, config->servers[server].port, *slot, fd);
+         pgagroal_log_debug("connect: %s:%d using slot %d fd %d", config->servers[server].host, config->servers[server].port, *slot, fd);
          
          config->connections[*slot].server = server;
 
@@ -233,7 +230,7 @@ start:
          {
             int status;
 
-            ZF_LOGD("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
+            pgagroal_log_debug("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
             pgagroal_tracking_event_slot(TRACKER_BAD_CONNECTION, *slot);
             status = pgagroal_kill_connection(*slot);
 
@@ -364,7 +361,7 @@ pgagroal_return_connection(int slot, bool transaction_mode)
    /* Verify the socket for the slot */
    if (!transaction_mode && !pgagroal_socket_isvalid(config->connections[slot].fd))
    {
-      ZF_LOGD("pgagroal_return_connection: Slot %d FD %d - Error", slot, config->connections[slot].fd);
+      pgagroal_log_debug("pgagroal_return_connection: Slot %d FD %d - Error", slot, config->connections[slot].fd);
       config->connections[slot].has_security = SECURITY_INVALID;
    }
 
@@ -379,7 +376,7 @@ pgagroal_return_connection(int slot, bool transaction_mode)
       /* Return the connection, if not GRACEFULLY */
       if (state == STATE_IN_USE)
       {
-         ZF_LOGD("pgagroal_return_connection: Slot %d FD %d", slot, config->connections[slot].fd);
+         pgagroal_log_debug("pgagroal_return_connection: Slot %d FD %d", slot, config->connections[slot].fd);
 
          if (!transaction_mode)
          {
@@ -438,7 +435,7 @@ pgagroal_kill_connection(int slot)
 
    config = (struct configuration*)shmem;
 
-   ZF_LOGD("pgagroal_kill_connection: Slot %d FD %d State %d PID %d",
+   pgagroal_log_debug("pgagroal_kill_connection: Slot %d FD %d State %d PID %d",
            slot, config->connections[slot].fd, atomic_load(&config->states[slot]),
            config->connections[slot].pid);
 
@@ -511,7 +508,7 @@ pgagroal_idle_timeout(void)
    now = time(NULL);
    prefill = false;
 
-   ZF_LOGD("pgagroal_idle_timeout");
+   pgagroal_log_debug("pgagroal_idle_timeout");
 
    /* Here we run backwards in order to keep hot connections in the beginning */
    for (int i = config->max_connections - 1; i >= 0; i--)
@@ -572,7 +569,7 @@ pgagroal_validation(void)
    config = (struct configuration*)shmem;
    now = time(NULL);
 
-   ZF_LOGD("pgagroal_validation");
+   pgagroal_log_debug("pgagroal_validation");
 
    /* We run backwards */
    for (int i = config->max_connections - 1; i >= 0; i--)
@@ -659,7 +656,7 @@ pgagroal_flush(int mode)
 
    prefill = false;
 
-   ZF_LOGD("pgagroal_flush");
+   pgagroal_log_debug("pgagroal_flush");
    for (int i = config->max_connections - 1; i >= 0; i--)
    {
       free = STATE_FREE;
@@ -763,7 +760,7 @@ pgagroal_prefill(bool initial)
 
    config = (struct configuration*)shmem;
 
-   ZF_LOGD("pgagroal_prefill");
+   pgagroal_log_debug("pgagroal_prefill");
 
    for (int i = 0; i < config->number_of_limits; i++)
    {
@@ -801,7 +798,7 @@ pgagroal_prefill(bool initial)
                   if (pgagroal_prefill_auth(config->users[user].username, config->users[user].password,
                                             config->limits[i].database, &slot) != AUTH_SUCCESS)
                   {
-                     ZF_LOGW("Invalid data for user '%s' using limit entry (%d)", config->limits[i].username, i);
+                     pgagroal_log_warn("Invalid data for user '%s' using limit entry (%d)", config->limits[i].username, i);
 
                      if (slot != -1)
                      {
@@ -828,7 +825,7 @@ pgagroal_prefill(bool initial)
                      }
                      else
                      {
-                        ZF_LOGW("Unsupported security model during prefill for user '%s' using limit entry (%d)", config->limits[i].username, i);
+                        pgagroal_log_warn("Unsupported security model during prefill for user '%s' using limit entry (%d)", config->limits[i].username, i);
                         if (config->connections[slot].fd != -1)
                         {
                            if (pgagroal_socket_isvalid(config->connections[slot].fd))
@@ -845,12 +842,12 @@ pgagroal_prefill(bool initial)
             }
             else
             {
-               ZF_LOGW("Unknown user '%s' for limit entry (%d)", config->limits[i].username, i);
+               pgagroal_log_warn("Unknown user '%s' for limit entry (%d)", config->limits[i].username, i);
             }
          }
          else
          {
-            ZF_LOGW("Limit entry (%d) with invalid definition", i);
+            pgagroal_log_warn("Limit entry (%d) with invalid definition", i);
          }
       }
    }
@@ -932,7 +929,7 @@ pgagroal_pool_status(void)
 
    config = (struct configuration*)shmem;
 
-   ZF_LOGD("pgagroal_pool_status: %d/%d", atomic_load(&config->active_connections), config->max_connections);
+   pgagroal_log_debug("pgagroal_pool_status: %d/%d", atomic_load(&config->active_connections), config->max_connections);
 
    for (int i = 0; i < config->max_connections; i++)
    {
@@ -1007,7 +1004,7 @@ remove_connection(char* username, char* database)
 
    config = (struct configuration*)shmem;
 
-   ZF_LOGV("remove_connection");
+   pgagroal_log_trace("remove_connection");
    for (int i = config->max_connections - 1; i >= 0; i--)
    {
       free = STATE_FREE;
@@ -1058,150 +1055,143 @@ connection_details(int slot)
    switch (state)
    {
       case STATE_NOTINIT:
-         ZF_LOGD("pgagroal_pool_status: State: NOTINIT");
-         ZF_LOGD("                      Slot: %d", slot);
-         ZF_LOGD("                      FD: %d", connection.fd);
+         pgagroal_log_debug("pgagroal_pool_status: State: NOTINIT");
+         pgagroal_log_debug("                      Slot: %d", slot);
+         pgagroal_log_debug("                      FD: %d", connection.fd);
          break;
       case STATE_INIT:
-         ZF_LOGD("pgagroal_pool_status: State: INIT");
-         ZF_LOGD("                      Slot: %d", slot);
-         ZF_LOGD("                      FD: %d", connection.fd);
+         pgagroal_log_debug("pgagroal_pool_status: State: INIT");
+         pgagroal_log_debug("                      Slot: %d", slot);
+         pgagroal_log_debug("                      FD: %d", connection.fd);
          break;
       case STATE_FREE:
-         ZF_LOGD("pgagroal_pool_status: State: FREE");
-         ZF_LOGD("                      Slot: %d", slot);
-         ZF_LOGD("                      Server: %d", connection.server);
-         ZF_LOGD("                      User: %s", connection.username);
-         ZF_LOGD("                      Database: %s", connection.database);
-         ZF_LOGD("                      AppName: %s", connection.appname);
-         ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGD("                      FD: %d", connection.fd);
-         ZF_LOGV("                      PID: %d", connection.pid);
-         ZF_LOGV("                      Auth: %d", connection.has_security);
+         pgagroal_log_debug("pgagroal_pool_status: State: FREE");
+         pgagroal_log_debug("                      Slot: %d", slot);
+         pgagroal_log_debug("                      Server: %d", connection.server);
+         pgagroal_log_debug("                      User: %s", connection.username);
+         pgagroal_log_debug("                      Database: %s", connection.database);
+         pgagroal_log_debug("                      AppName: %s", connection.appname);
+         pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Time: %s", &time_buf[0]);
+         pgagroal_log_debug("                      FD: %d", connection.fd);
+         pgagroal_log_trace("                      PID: %d", connection.pid);
+         pgagroal_log_trace("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {
-            ZF_LOGV("                      Size: %zd", connection.security_lengths[i]);
-            ZF_LOGV_MEM(&connection.security_messages[i], connection.security_lengths[i],
-                        "                      Message %p:", (const void *)&connection.security_messages[i]);
+            pgagroal_log_trace("                      Size: %zd", connection.security_lengths[i]);
+            pgagroal_log_mem(&connection.security_messages[i], connection.security_lengths[i]);
          }
          break;
       case STATE_IN_USE:
-         ZF_LOGD("pgagroal_pool_status: State: IN_USE");
-         ZF_LOGD("                      Slot: %d", slot);
-         ZF_LOGD("                      Server: %d", connection.server);
-         ZF_LOGD("                      User: %s", connection.username);
-         ZF_LOGD("                      Database: %s", connection.database);
-         ZF_LOGD("                      AppName: %s", connection.appname);
-         ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGD("                      FD: %d", connection.fd);
-         ZF_LOGV("                      PID: %d", connection.pid);
-         ZF_LOGV("                      Auth: %d", connection.has_security);
+         pgagroal_log_debug("pgagroal_pool_status: State: IN_USE");
+         pgagroal_log_debug("                      Slot: %d", slot);
+         pgagroal_log_debug("                      Server: %d", connection.server);
+         pgagroal_log_debug("                      User: %s", connection.username);
+         pgagroal_log_debug("                      Database: %s", connection.database);
+         pgagroal_log_debug("                      AppName: %s", connection.appname);
+         pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Time: %s", &time_buf[0]);
+         pgagroal_log_debug("                      FD: %d", connection.fd);
+         pgagroal_log_trace("                      PID: %d", connection.pid);
+         pgagroal_log_trace("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {
-            ZF_LOGV("                      Size: %zd", connection.security_lengths[i]);
-            ZF_LOGV_MEM(&connection.security_messages[i], connection.security_lengths[i],
-                        "                      Message %p:", (const void *)&connection.security_messages[i]);
+            pgagroal_log_trace("                      Size: %zd", connection.security_lengths[i]);
+            pgagroal_log_mem(&connection.security_messages[i], connection.security_lengths[i]);
          }
          break;
       case STATE_GRACEFULLY:
-         ZF_LOGD("pgagroal_pool_status: State: GRACEFULLY");
-         ZF_LOGD("                      Slot: %d", slot);
-         ZF_LOGD("                      Server: %d", connection.server);
-         ZF_LOGD("                      User: %s", connection.username);
-         ZF_LOGD("                      Database: %s", connection.database);
-         ZF_LOGD("                      AppName: %s", connection.appname);
-         ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGD("                      FD: %d", connection.fd);
-         ZF_LOGV("                      PID: %d", connection.pid);
-         ZF_LOGV("                      Auth: %d", connection.has_security);
+         pgagroal_log_debug("pgagroal_pool_status: State: GRACEFULLY");
+         pgagroal_log_debug("                      Slot: %d", slot);
+         pgagroal_log_debug("                      Server: %d", connection.server);
+         pgagroal_log_debug("                      User: %s", connection.username);
+         pgagroal_log_debug("                      Database: %s", connection.database);
+         pgagroal_log_debug("                      AppName: %s", connection.appname);
+         pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Time: %s", &time_buf[0]);
+         pgagroal_log_debug("                      FD: %d", connection.fd);
+         pgagroal_log_trace("                      PID: %d", connection.pid);
+         pgagroal_log_trace("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {
-            ZF_LOGV("                      Size: %zd", connection.security_lengths[i]);
-            ZF_LOGV_MEM(&connection.security_messages[i], connection.security_lengths[i],
-                        "                      Message %p:", (const void *)&connection.security_messages[i]);
+            pgagroal_log_trace("                      Size: %zd", connection.security_lengths[i]);
+            pgagroal_log_mem(&connection.security_messages[i], connection.security_lengths[i]);
          }
          break;
       case STATE_FLUSH:
-         ZF_LOGD("pgagroal_pool_status: State: FLUSH");
-         ZF_LOGD("                      Slot: %d", slot);
-         ZF_LOGD("                      Server: %d", connection.server);
-         ZF_LOGD("                      User: %s", connection.username);
-         ZF_LOGD("                      Database: %s", connection.database);
-         ZF_LOGD("                      AppName: %s", connection.appname);
-         ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGD("                      FD: %d", connection.fd);
-         ZF_LOGV("                      PID: %d", connection.pid);
-         ZF_LOGV("                      Auth: %d", connection.has_security);
+         pgagroal_log_debug("pgagroal_pool_status: State: FLUSH");
+         pgagroal_log_debug("                      Slot: %d", slot);
+         pgagroal_log_debug("                      Server: %d", connection.server);
+         pgagroal_log_debug("                      User: %s", connection.username);
+         pgagroal_log_debug("                      Database: %s", connection.database);
+         pgagroal_log_debug("                      AppName: %s", connection.appname);
+         pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Time: %s", &time_buf[0]);
+         pgagroal_log_debug("                      FD: %d", connection.fd);
+         pgagroal_log_trace("                      PID: %d", connection.pid);
+         pgagroal_log_trace("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {
-            ZF_LOGV("                      Size: %zd", connection.security_lengths[i]);
-            ZF_LOGV_MEM(&connection.security_messages[i], connection.security_lengths[i],
-                        "                      Message %p:", (const void *)&connection.security_messages[i]);
+            pgagroal_log_trace("                      Size: %zd", connection.security_lengths[i]);
+            pgagroal_log_mem(&connection.security_messages[i], connection.security_lengths[i]);
          }
          break;
       case STATE_IDLE_CHECK:
-         ZF_LOGD("pgagroal_pool_status: State: IDLE CHECK");
-         ZF_LOGD("                      Slot: %d", slot);
-         ZF_LOGD("                      Server: %d", connection.server);
-         ZF_LOGD("                      User: %s", connection.username);
-         ZF_LOGD("                      Database: %s", connection.database);
-         ZF_LOGD("                      AppName: %s", connection.appname);
-         ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGD("                      FD: %d", connection.fd);
-         ZF_LOGV("                      PID: %d", connection.pid);
-         ZF_LOGV("                      Auth: %d", connection.has_security);
+         pgagroal_log_debug("pgagroal_pool_status: State: IDLE CHECK");
+         pgagroal_log_debug("                      Slot: %d", slot);
+         pgagroal_log_debug("                      Server: %d", connection.server);
+         pgagroal_log_debug("                      User: %s", connection.username);
+         pgagroal_log_debug("                      Database: %s", connection.database);
+         pgagroal_log_debug("                      AppName: %s", connection.appname);
+         pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Time: %s", &time_buf[0]);
+         pgagroal_log_debug("                      FD: %d", connection.fd);
+         pgagroal_log_trace("                      PID: %d", connection.pid);
+         pgagroal_log_trace("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {
-            ZF_LOGV("                      Size: %zd", connection.security_lengths[i]);
-            ZF_LOGV_MEM(&connection.security_messages[i], connection.security_lengths[i],
-                        "                      Message %p:", (const void *)&connection.security_messages[i]);
+            pgagroal_log_trace("                      Size: %zd", connection.security_lengths[i]);
+            pgagroal_log_mem(&connection.security_messages[i], connection.security_lengths[i]);
          }
          break;
       case STATE_VALIDATION:
-         ZF_LOGD("pgagroal_pool_status: State: VALIDATION");
-         ZF_LOGD("                      Slot: %d", slot);
-         ZF_LOGD("                      Server: %d", connection.server);
-         ZF_LOGD("                      User: %s", connection.username);
-         ZF_LOGD("                      Database: %s", connection.database);
-         ZF_LOGD("                      AppName: %s", connection.appname);
-         ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGD("                      FD: %d", connection.fd);
-         ZF_LOGV("                      PID: %d", connection.pid);
-         ZF_LOGV("                      Auth: %d", connection.has_security);
+         pgagroal_log_debug("pgagroal_pool_status: State: VALIDATION");
+         pgagroal_log_debug("                      Slot: %d", slot);
+         pgagroal_log_debug("                      Server: %d", connection.server);
+         pgagroal_log_debug("                      User: %s", connection.username);
+         pgagroal_log_debug("                      Database: %s", connection.database);
+         pgagroal_log_debug("                      AppName: %s", connection.appname);
+         pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Time: %s", &time_buf[0]);
+         pgagroal_log_debug("                      FD: %d", connection.fd);
+         pgagroal_log_trace("                      PID: %d", connection.pid);
+         pgagroal_log_trace("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {
-            ZF_LOGV("                      Size: %zd", connection.security_lengths[i]);
-            ZF_LOGV_MEM(&connection.security_messages[i], connection.security_lengths[i],
-                        "                      Message %p:", (const void *)&connection.security_messages[i]);
+            pgagroal_log_trace("                      Size: %zd", connection.security_lengths[i]);
+            pgagroal_log_mem(&connection.security_messages[i], connection.security_lengths[i]);
          }
          break;
       case STATE_REMOVE:
-         ZF_LOGD("pgagroal_pool_status: State: REMOVE");
-         ZF_LOGD("                      Slot: %d", slot);
-         ZF_LOGD("                      Server: %d", connection.server);
-         ZF_LOGD("                      User: %s", connection.username);
-         ZF_LOGD("                      Database: %s", connection.database);
-         ZF_LOGD("                      AppName: %s", connection.appname);
-         ZF_LOGD("                      Rule: %d", connection.limit_rule);
-         ZF_LOGD("                      Time: %s", &time_buf[0]);
-         ZF_LOGD("                      FD: %d", connection.fd);
-         ZF_LOGV("                      PID: %d", connection.pid);
-         ZF_LOGV("                      Auth: %d", connection.has_security);
+         pgagroal_log_debug("pgagroal_pool_status: State: REMOVE");
+         pgagroal_log_debug("                      Slot: %d", slot);
+         pgagroal_log_debug("                      Server: %d", connection.server);
+         pgagroal_log_debug("                      User: %s", connection.username);
+         pgagroal_log_debug("                      Database: %s", connection.database);
+         pgagroal_log_debug("                      AppName: %s", connection.appname);
+         pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Time: %s", &time_buf[0]);
+         pgagroal_log_debug("                      FD: %d", connection.fd);
+         pgagroal_log_trace("                      PID: %d", connection.pid);
+         pgagroal_log_trace("                      Auth: %d", connection.has_security);
          for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
          {
-            ZF_LOGV("                      Size: %zd", connection.security_lengths[i]);
-            ZF_LOGV_MEM(&connection.security_messages[i], connection.security_lengths[i],
-                        "                      Message %p:", (const void *)&connection.security_messages[i]);
+            pgagroal_log_trace("                      Size: %zd", connection.security_lengths[i]);
+            pgagroal_log_mem(&connection.security_messages[i], connection.security_lengths[i]);
          }
          break;
       default:
-         ZF_LOGD("pgagroal_pool_status: State %d Slot %d FD %d", state, slot, connection.fd);
+         pgagroal_log_debug("pgagroal_pool_status: State %d Slot %d FD %d", state, slot, connection.fd);
          break;
    }
 }

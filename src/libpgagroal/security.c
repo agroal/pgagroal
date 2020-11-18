@@ -39,9 +39,6 @@
 #include <tracker.h>
 #include <utils.h>
 
-#define ZF_LOG_TAG "security"
-#include <zf_log.h>
-
 /* system */
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -166,12 +163,12 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
    /* Cancel request: 80877102 */
    if (request == 80877102)
    {
-      ZF_LOGD("Cancel request from client: %d", client_fd);
+      pgagroal_log_debug("Cancel request from client: %d", client_fd);
 
       /* We need to find the server for the connection */
       if (pgagroal_get_primary(&server))
       {
-         ZF_LOGE("pgagroal: No valid server available");
+         pgagroal_log_error("pgagroal: No valid server available");
          pgagroal_write_connection_refused(NULL, client_fd);
          pgagroal_write_empty(NULL, client_fd);
          goto error;
@@ -179,7 +176,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
 
       if (pgagroal_connect(config->servers[server].host, config->servers[server].port, &server_fd))
       {
-         ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
+         pgagroal_log_error("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
          goto error;
       }
 
@@ -200,7 +197,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
    /* GSS request: 80877104 */
    if (request == 80877104)
    {
-      ZF_LOGD("GSS request from client: %d", client_fd);
+      pgagroal_log_debug("GSS request from client: %d", client_fd);
       status = pgagroal_write_notice(NULL, client_fd);
       if (status != MESSAGE_STATUS_OK)
       {
@@ -219,7 +216,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
    /* SSL request: 80877103 */
    if (request == 80877103)
    {
-      ZF_LOGD("SSL request from client: %d", client_fd);
+      pgagroal_log_debug("SSL request from client: %d", client_fd);
 
       if (config->tls)
       {
@@ -249,7 +246,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
          status = SSL_accept(c_ssl);
          if (status != 1)
          {
-            ZF_LOGE("SSL failed: %d", status);
+            pgagroal_log_error("SSL failed: %d", status);
             goto error;
          }
 
@@ -284,13 +281,13 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
       request_msg = pgagroal_copy_message(msg);
 
       /* Extract parameters: username / database */
-      ZF_LOGV("authenticate: username/database (%d)", client_fd);
+      pgagroal_log_trace("authenticate: username/database (%d)", client_fd);
       pgagroal_extract_username_database(request_msg, &username, &database, &appname);
 
       /* TLS scenario */
       if (is_tls_user(username, database) && c_ssl == NULL)
       {
-         ZF_LOGD("authenticate: tls: %s / %s / %s", username, database, address);
+         pgagroal_log_debug("authenticate: tls: %s / %s / %s", username, database, address);
          pgagroal_write_connection_refused(c_ssl, client_fd);
          pgagroal_write_empty(c_ssl, client_fd);
          goto bad_password;
@@ -300,7 +297,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
       if (!is_allowed(username, database, address, &hba_method))
       {
          /* User not allowed */
-         ZF_LOGD("authenticate: not allowed: %s / %s / %s", username, database, address);
+         pgagroal_log_debug("authenticate: not allowed: %s / %s / %s", username, database, address);
          pgagroal_write_no_hba_entry(c_ssl, client_fd, username, database, address);
          pgagroal_write_empty(c_ssl, client_fd);
          goto bad_password;
@@ -309,7 +306,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
       /* Reject scenario */
       if (hba_method == SECURITY_REJECT)
       {
-         ZF_LOGD("authenticate: reject: %s / %s / %s", username, database, address);
+         pgagroal_log_debug("authenticate: reject: %s / %s / %s", username, database, address);
          pgagroal_write_connection_refused(c_ssl, client_fd);
          pgagroal_write_empty(c_ssl, client_fd);
          goto bad_password;
@@ -318,7 +315,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
       /* Gracefully scenario */
       if (config->gracefully)
       {
-         ZF_LOGD("authenticate: gracefully: %s / %s / %s", username, database, address);
+         pgagroal_log_debug("authenticate: gracefully: %s / %s / %s", username, database, address);
          pgagroal_write_connection_refused(c_ssl, client_fd);
          pgagroal_write_empty(c_ssl, client_fd);
          goto bad_password;
@@ -327,7 +324,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
       /* Disabled scenario */
       if (is_disabled(database))
       {
-         ZF_LOGD("authenticate: disabled: %s / %s / %s", username, database, address);
+         pgagroal_log_debug("authenticate: disabled: %s / %s / %s", username, database, address);
          pgagroal_write_connection_refused(c_ssl, client_fd);
          pgagroal_write_empty(c_ssl, client_fd);
          goto bad_password;
@@ -341,7 +338,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
          if (ret == 1)
          {
             /* Pool full */
-            ZF_LOGD("authenticate: pool is full");
+            pgagroal_log_debug("authenticate: pool is full");
             pgagroal_write_pool_full(c_ssl, client_fd);
             pgagroal_write_empty(c_ssl, client_fd);
             goto bad_password;
@@ -349,7 +346,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
          else
          {
             /* Other error */
-            ZF_LOGD("authenticate: connection error");
+            pgagroal_log_debug("authenticate: connection error");
             pgagroal_write_connection_refused(c_ssl, client_fd);
             pgagroal_write_empty(c_ssl, client_fd);
             goto error;
@@ -365,7 +362,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
 
       if (config->connections[*slot].has_security != SECURITY_INVALID)
       {
-         ZF_LOGD("authenticate: getting pooled connection");
+         pgagroal_log_debug("authenticate: getting pooled connection");
          pgagroal_free_message(msg);
 
          ret = use_pooled_connection(c_ssl, client_fd, *slot, username, database, hba_method);
@@ -378,11 +375,11 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
             goto error;
          }
 
-         ZF_LOGD("authenticate: got pooled connection (%d)", *slot);
+         pgagroal_log_debug("authenticate: got pooled connection (%d)", *slot);
       }
       else
       {
-         ZF_LOGD("authenticate: creating pooled connection");
+         pgagroal_log_debug("authenticate: creating pooled connection");
 
          ret = use_unpooled_connection(request_msg, c_ssl, client_fd, *slot, username, hba_method);
          if (ret == AUTH_BAD_PASSWORD)
@@ -394,7 +391,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
             goto error;
          }
 
-         ZF_LOGD("authenticate: created pooled connection (%d)", *slot);
+         pgagroal_log_debug("authenticate: created pooled connection (%d)", *slot);
       }
 
       pgagroal_free_copy_message(request_msg);
@@ -404,7 +401,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
       
       pgagroal_prometheus_auth_user_success();
 
-      ZF_LOGD("authenticate: SUCCESS");
+      pgagroal_log_debug("authenticate: SUCCESS");
       return AUTH_SUCCESS;
    }
    else if (request == -1)
@@ -413,7 +410,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
    }
    else
    {
-      ZF_LOGD("authenticate: old version: %d (%s)", request, address);
+      pgagroal_log_debug("authenticate: old version: %d (%s)", request, address);
       pgagroal_write_connection_refused_old(c_ssl, client_fd);
       pgagroal_write_empty(c_ssl, client_fd);
       goto bad_password;
@@ -429,7 +426,7 @@ bad_password:
 
    pgagroal_prometheus_auth_user_bad_password();
 
-   ZF_LOGD("authenticate: BAD_PASSWORD");
+   pgagroal_log_debug("authenticate: BAD_PASSWORD");
    return AUTH_BAD_PASSWORD;
 
 error:
@@ -442,7 +439,7 @@ error:
 
    pgagroal_prometheus_auth_user_error();
 
-   ZF_LOGD("authenticate: ERROR");
+   pgagroal_log_debug("authenticate: ERROR");
    return AUTH_ERROR;
 }
 
@@ -488,7 +485,7 @@ pgagroal_prefill_auth(char* username, char* password, char* database, int* slot)
    }
 
    get_auth_type(msg, &auth_type);
-   ZF_LOGV("prefill_auth: auth type %d", auth_type);
+   pgagroal_log_trace("prefill_auth: auth type %d", auth_type);
 
    /* Supported security models: */
    /*   trust (0) */
@@ -512,13 +509,13 @@ pgagroal_prefill_auth(char* username, char* password, char* database, int* slot)
    server_state = atomic_load(&config->servers[config->connections[*slot].server].state);
    if (server_state == SERVER_NOTINIT || server_state == SERVER_NOTINIT_PRIMARY)
    {
-      ZF_LOGD("Verify server mode: %d", config->connections[*slot].server);
+      pgagroal_log_debug("Verify server mode: %d", config->connections[*slot].server);
       pgagroal_update_server_state(*slot, server_fd);
       pgagroal_server_status();
    }
 
-   ZF_LOGV("prefill_auth: has_security %d", config->connections[*slot].has_security);
-   ZF_LOGD("prefill_auth: SUCCESS");
+   pgagroal_log_trace("prefill_auth: has_security %d", config->connections[*slot].has_security);
+   pgagroal_log_debug("prefill_auth: SUCCESS");
 
    pgagroal_free_copy_message(startup_msg);
    pgagroal_free_message(msg);
@@ -527,7 +524,7 @@ pgagroal_prefill_auth(char* username, char* password, char* database, int* slot)
 
 error:
 
-   ZF_LOGD("prefill_auth: ERROR");
+   pgagroal_log_debug("prefill_auth: ERROR");
 
    if (*slot != -1)
    {
@@ -574,7 +571,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
    /* SSL request: 80877103 */
    if (request == 80877103)
    {
-      ZF_LOGD("SSL request from client: %d", client_fd);
+      pgagroal_log_debug("SSL request from client: %d", client_fd);
 
       if (config->tls)
       {
@@ -604,7 +601,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
          status = SSL_accept(c_ssl);
          if (status != 1)
          {
-            ZF_LOGE("SSL failed: %d", status);
+            pgagroal_log_error("SSL failed: %d", status);
             goto error;
          }
 
@@ -639,13 +636,13 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
       request_msg = pgagroal_copy_message(msg);
 
       /* Extract parameters: username / database */
-      ZF_LOGV("remote_management_auth: username/database (%d)", client_fd);
+      pgagroal_log_trace("remote_management_auth: username/database (%d)", client_fd);
       pgagroal_extract_username_database(request_msg, &username, &database, &appname);
 
       /* Must be admin database */
       if (strcmp("admin", database) != 0)
       {
-         ZF_LOGD("remote_management_auth: admin: %s / %s", username, address);
+         pgagroal_log_debug("remote_management_auth: admin: %s / %s", username, address);
          pgagroal_write_connection_refused(c_ssl, client_fd);
          pgagroal_write_empty(c_ssl, client_fd);
          goto bad_password;
@@ -654,7 +651,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
       /* TLS scenario */
       if (is_tls_user(username, "admin") && c_ssl == NULL)
       {
-         ZF_LOGD("remote_management_auth: tls: %s / admin / %s", username, address);
+         pgagroal_log_debug("remote_management_auth: tls: %s / admin / %s", username, address);
          pgagroal_write_connection_refused(c_ssl, client_fd);
          pgagroal_write_empty(c_ssl, client_fd);
          goto bad_password;
@@ -664,7 +661,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
       if (!is_allowed(username, "admin", address, &hba_method))
       {
          /* User not allowed */
-         ZF_LOGD("remote_management_auth: not allowed: %s / admin / %s", username, address);
+         pgagroal_log_debug("remote_management_auth: not allowed: %s / admin / %s", username, address);
          pgagroal_write_no_hba_entry(c_ssl, client_fd, username, "admin", address);
          pgagroal_write_empty(c_ssl, client_fd);
          goto bad_password;
@@ -673,7 +670,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
       /* Reject scenario */
       if (hba_method == SECURITY_REJECT)
       {
-         ZF_LOGD("remote_management_auth: reject: %s / admin / %s", username, address);
+         pgagroal_log_debug("remote_management_auth: reject: %s / admin / %s", username, address);
          pgagroal_write_connection_refused(c_ssl, client_fd);
          pgagroal_write_empty(c_ssl, client_fd);
          goto bad_password;
@@ -682,7 +679,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
       password = get_admin_password(username);
       if (password == NULL)
       {
-         ZF_LOGD("remote_management_auth: password: %s / admin / %s", username, address);
+         pgagroal_log_debug("remote_management_auth: password: %s / admin / %s", username, address);
          pgagroal_write_connection_refused(c_ssl, client_fd);
          pgagroal_write_empty(c_ssl, client_fd);
          goto bad_password;
@@ -713,7 +710,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
       free(database);
       free(appname);
 
-      ZF_LOGD("remote_management_auth: SUCCESS");
+      pgagroal_log_debug("remote_management_auth: SUCCESS");
       return AUTH_SUCCESS;
    }
    else if (request == -1)
@@ -722,7 +719,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
    }
    else
    {
-      ZF_LOGD("remote_management_auth: old version: %d (%s)", request, address);
+      pgagroal_log_debug("remote_management_auth: old version: %d (%s)", request, address);
       pgagroal_write_connection_refused_old(c_ssl, client_fd);
       pgagroal_write_empty(c_ssl, client_fd);
       goto bad_password;
@@ -736,7 +733,7 @@ bad_password:
    free(database);
    free(appname);
 
-   ZF_LOGD("remote_management_auth: BAD_PASSWORD");
+   pgagroal_log_debug("remote_management_auth: BAD_PASSWORD");
    return AUTH_BAD_PASSWORD;
 
 error:
@@ -747,7 +744,7 @@ error:
    free(database);
    free(appname);
 
-   ZF_LOGD("remote_management_auth: ERROR");
+   pgagroal_log_debug("remote_management_auth: ERROR");
    return AUTH_ERROR;
 }
 
@@ -870,15 +867,15 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
 #endif
                               break;
                            case SSL_ERROR_SYSCALL:
-                              ZF_LOGE("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), server_fd);
+                              pgagroal_log_error("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), server_fd);
                               errno = 0;
                               goto error;
                               break;
                            case SSL_ERROR_SSL:
-                              ZF_LOGE("SSL_ERROR_SSL: %s (%d)", strerror(errno), server_fd);
-                              ZF_LOGE("%s", ERR_error_string(err, NULL));
-                              ZF_LOGE("%s", ERR_lib_error_string(err));
-                              ZF_LOGE("%s", ERR_reason_error_string(err));
+                              pgagroal_log_error("SSL_ERROR_SSL: %s (%d)", strerror(errno), server_fd);
+                              pgagroal_log_error("%s", ERR_error_string(err, NULL));
+                              pgagroal_log_error("%s", ERR_lib_error_string(err));
+                              pgagroal_log_error("%s", ERR_reason_error_string(err));
                               errno = 0;
                               goto error;
                               break;
@@ -1134,48 +1131,48 @@ get_auth_type(struct message* msg, int* auth_type)
    switch (type)
    {
       case 0:
-         ZF_LOGV("Backend: R - Success");
+         pgagroal_log_trace("Backend: R - Success");
          break;
       case 2:
-         ZF_LOGV("Backend: R - KerberosV5");
+         pgagroal_log_trace("Backend: R - KerberosV5");
          break;
       case 3:
-         ZF_LOGV("Backend: R - CleartextPassword");
+         pgagroal_log_trace("Backend: R - CleartextPassword");
          break;
       case 5:
-         ZF_LOGV("Backend: R - MD5Password");
-         ZF_LOGV("             Salt %02hhx%02hhx%02hhx%02hhx",
+         pgagroal_log_trace("Backend: R - MD5Password");
+         pgagroal_log_trace("             Salt %02hhx%02hhx%02hhx%02hhx",
                  (signed char)(pgagroal_read_byte(msg->data + 9) & 0xFF),
                  (signed char)(pgagroal_read_byte(msg->data + 10) & 0xFF),
                  (signed char)(pgagroal_read_byte(msg->data + 11) & 0xFF),
                  (signed char)(pgagroal_read_byte(msg->data + 12) & 0xFF));
          break;
       case 6:
-         ZF_LOGV("Backend: R - SCMCredential");
+         pgagroal_log_trace("Backend: R - SCMCredential");
          break;
       case 7:
-         ZF_LOGV("Backend: R - GSS");
+         pgagroal_log_trace("Backend: R - GSS");
          break;
       case 8:
-         ZF_LOGV("Backend: R - GSSContinue");
+         pgagroal_log_trace("Backend: R - GSSContinue");
          break;
       case 9:
-         ZF_LOGV("Backend: R - SSPI");
+         pgagroal_log_trace("Backend: R - SSPI");
          break;
       case 10:
-         ZF_LOGV("Backend: R - SASL");
+         pgagroal_log_trace("Backend: R - SASL");
          while (offset < length - 8)
          {
             char* mechanism = pgagroal_read_string(msg->data + offset);
-            ZF_LOGV("             %s", mechanism);
+            pgagroal_log_trace("             %s", mechanism);
             offset += strlen(mechanism) + 1;
          }
          break;
       case 11:
-         ZF_LOGV("Backend: R - SASLContinue");
+         pgagroal_log_trace("Backend: R - SASLContinue");
          break;
       case 12:
-         ZF_LOGV("Backend: R - SASLFinal");
+         pgagroal_log_trace("Backend: R - SASLFinal");
          offset += length - 8;
 
          if (offset < msg->length)
@@ -1365,13 +1362,13 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char*
 
 bad_password:
 
-   ZF_LOGV("use_pooled_connection: bad password for slot %d", slot);
+   pgagroal_log_trace("use_pooled_connection: bad password for slot %d", slot);
 
    return AUTH_BAD_PASSWORD;
 
 error:
 
-   ZF_LOGV("use_pooled_connection: failed for slot %d", slot);
+   pgagroal_log_trace("use_pooled_connection: failed for slot %d", slot);
 
    return AUTH_ERROR;
 }
@@ -1397,14 +1394,14 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    /* Disallow unknown users */
    if (password == NULL && !config->allow_unknown_users)
    {
-      ZF_LOGD("reject: %s", username);
+      pgagroal_log_debug("reject: %s", username);
       pgagroal_write_connection_refused(c_ssl, client_fd);
       pgagroal_write_empty(c_ssl, client_fd);
       goto error;
    }
 
    /* Send auth request to PostgreSQL */
-   ZF_LOGV("authenticate: client auth request (%d)", client_fd);
+   pgagroal_log_trace("authenticate: client auth request (%d)", client_fd);
    status = pgagroal_write_message(NULL, server_fd, request_msg);
    if (status != MESSAGE_STATUS_OK)
    {
@@ -1413,7 +1410,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    pgagroal_free_message(msg);
 
    /* Keep response, and send response to client */
-   ZF_LOGV("authenticate: server auth request (%d)", server_fd);
+   pgagroal_log_trace("authenticate: server auth request (%d)", server_fd);
    status = pgagroal_read_block_message(NULL, server_fd, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
@@ -1421,7 +1418,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    }
 
    get_auth_type(msg, &auth_type);
-   ZF_LOGV("authenticate: auth type %d", auth_type);
+   pgagroal_log_trace("authenticate: auth type %d", auth_type);
 
    /* Supported security models: */
    /*   trust (0) */
@@ -1436,7 +1433,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    }
    else if (auth_type != SECURITY_TRUST && auth_type != SECURITY_PASSWORD && auth_type != SECURITY_MD5 && auth_type != SECURITY_SCRAM256)
    {
-      ZF_LOGI("Unsupported security model: %d", auth_type);
+      pgagroal_log_info("Unsupported security model: %d", auth_type);
       pgagroal_write_unsupported_security_model(c_ssl, client_fd, username);
       pgagroal_write_empty(c_ssl, client_fd);
       goto error;
@@ -1530,12 +1527,12 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    server_state = atomic_load(&config->servers[config->connections[slot].server].state);
    if (server_state == SERVER_NOTINIT || server_state == SERVER_NOTINIT_PRIMARY)
    {
-      ZF_LOGD("Verify server mode: %d", config->connections[slot].server);
+      pgagroal_log_debug("Verify server mode: %d", config->connections[slot].server);
       pgagroal_update_server_state(slot, server_fd);
       pgagroal_server_status();
    }
 
-   ZF_LOGV("authenticate: has_security %d", config->connections[slot].has_security);
+   pgagroal_log_trace("authenticate: has_security %d", config->connections[slot].has_security);
 
    return AUTH_SUCCESS;
 
@@ -1558,7 +1555,7 @@ error:
 
    pgagroal_free_copy_message(auth_msg);
 
-   ZF_LOGV("use_unpooled_connection: failed for slot %d", slot);
+   pgagroal_log_trace("use_unpooled_connection: failed for slot %d", slot);
 
    return AUTH_ERROR;
 }
@@ -1566,7 +1563,7 @@ error:
 static int
 client_trust(SSL* c_ssl, int client_fd, char* username, char* password, int slot)
 {
-   ZF_LOGD("client_trust %d %d", client_fd, slot);
+   pgagroal_log_debug("client_trust %d %d", client_fd, slot);
 
    return AUTH_SUCCESS;
 }
@@ -1580,7 +1577,7 @@ client_password(SSL* c_ssl, int client_fd, char* username, char* password, int s
    struct configuration* config;
    struct message* msg = NULL;
 
-   ZF_LOGD("client_password %d %d", client_fd, slot);
+   pgagroal_log_debug("client_password %d %d", client_fd, slot);
 
    config = (struct configuration*)shmem;
 
@@ -1664,7 +1661,7 @@ client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot)
    struct configuration* config;
    struct message* msg = NULL;
 
-   ZF_LOGD("client_md5 %d %d", client_fd, slot);
+   pgagroal_log_debug("client_md5 %d %d", client_fd, slot);
 
    config = (struct configuration*)shmem;
 
@@ -1802,7 +1799,7 @@ client_scram256(SSL* c_ssl, int client_fd, char* username, char* password, int s
    struct message* sasl_continue = NULL;
    struct message* sasl_final = NULL;
 
-   ZF_LOGD("client_scram256 %d %d", client_fd, slot);
+   pgagroal_log_debug("client_scram256 %d %d", client_fd, slot);
 
    config = (struct configuration*)shmem;
 
@@ -1930,7 +1927,7 @@ retry:
       goto error;
    }
 
-   ZF_LOGD("client_scram256 done");
+   pgagroal_log_debug("client_scram256 done");
 
    free(password_prep);
    free(client_first_message_bare);
@@ -2063,7 +2060,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
    config = (struct configuration*)shmem;
    server_fd = config->connections[slot].fd;
 
-   ZF_LOGV("server_passthrough %d %d", auth_type, slot);
+   pgagroal_log_trace("server_passthrough %d %d", auth_type, slot);
 
    for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
    {
@@ -2072,7 +2069,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
 
    if (msg->length > SECURITY_BUFFER_SIZE)
    {
-      ZF_LOGE("Security message too large: %ld", msg->length);
+      pgagroal_log_error("Security message too large: %ld", msg->length);
       goto error;
    }
 
@@ -2099,7 +2096,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
 
       if (msg->length > SECURITY_BUFFER_SIZE)
       {
-         ZF_LOGE("Security message too large: %ld", msg->length);
+         pgagroal_log_error("Security message too large: %ld", msg->length);
          goto error;
       }
 
@@ -2124,7 +2121,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
       {
          if (msg->length > SECURITY_BUFFER_SIZE)
          {
-            ZF_LOGE("Security message too large: %ld", msg->length);
+            pgagroal_log_error("Security message too large: %ld", msg->length);
             goto error;
          }
 
@@ -2147,7 +2144,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
 
          if (msg->length > SECURITY_BUFFER_SIZE)
          {
-            ZF_LOGE("Security message too large: %ld", msg->length);
+            pgagroal_log_error("Security message too large: %ld", msg->length);
             goto error;
          }
 
@@ -2171,13 +2168,13 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
 
       /* Ok: Keep the response, send it to the client, and exit authenticate() */
       get_auth_type(msg, &auth_response);
-      ZF_LOGV("authenticate: auth response %d", auth_response);
+      pgagroal_log_trace("authenticate: auth response %d", auth_response);
 
       if (auth_response == 0)
       {
          if (msg->length > SECURITY_BUFFER_SIZE)
          {
-            ZF_LOGE("Security message too large: %ld", msg->length);
+            pgagroal_log_error("Security message too large: %ld", msg->length);
             goto error;
          }
 
@@ -2226,7 +2223,7 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
 
    if (msg->length > SECURITY_BUFFER_SIZE)
    {
-      ZF_LOGE("Security message too large: %ld", msg->length);
+      pgagroal_log_error("Security message too large: %ld", msg->length);
       goto error;
    }
 
@@ -2252,7 +2249,7 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
 
 error:
 
-   ZF_LOGE("server_authenticate: %d", auth_type);
+   pgagroal_log_error("server_authenticate: %d", auth_type);
 
    return AUTH_ERROR;
 }
@@ -2264,7 +2261,7 @@ server_trust(int slot)
 
    config = (struct configuration*)shmem;
 
-   ZF_LOGV("server_trust");
+   pgagroal_log_trace("server_trust");
 
    config->connections[slot].has_security = SECURITY_TRUST;
 
@@ -2285,7 +2282,7 @@ server_password(char* username, char* password, int slot)
    config = (struct configuration*)shmem;
    server_fd = config->connections[slot].fd;
 
-   ZF_LOGV("server_password");
+   pgagroal_log_trace("server_password");
 
    status = pgagroal_create_auth_password_response(password, &password_msg);
    if (status != MESSAGE_STATUS_OK)
@@ -2306,18 +2303,18 @@ server_password(char* username, char* password, int slot)
    status = pgagroal_read_block_message(NULL, server_fd, &auth_msg);
    if (auth_msg->length > SECURITY_BUFFER_SIZE)
    {
-      ZF_LOGE("Security message too large: %ld", auth_msg->length);
+      pgagroal_log_error("Security message too large: %ld", auth_msg->length);
       goto error;
    }
 
    get_auth_type(auth_msg, &auth_response);
-   ZF_LOGV("authenticate: auth response %d", auth_response);
+   pgagroal_log_trace("authenticate: auth response %d", auth_response);
 
    if (auth_response == 0)
    {
       if (auth_msg->length > SECURITY_BUFFER_SIZE)
       {
-         ZF_LOGE("Security message too large: %ld", auth_msg->length);
+         pgagroal_log_error("Security message too large: %ld", auth_msg->length);
          goto error;
       }
 
@@ -2338,7 +2335,7 @@ server_password(char* username, char* password, int slot)
 
 bad_password:
 
-   ZF_LOGW("Wrong password for user: %s", username);
+   pgagroal_log_warn("Wrong password for user: %s", username);
 
    pgagroal_free_copy_message(password_msg);
    pgagroal_free_message(auth_msg);
@@ -2374,7 +2371,7 @@ server_md5(char* username, char* password, int slot)
    config = (struct configuration*)shmem;
    server_fd = config->connections[slot].fd;
 
-   ZF_LOGV("server_md5");
+   pgagroal_log_trace("server_md5");
 
    if (get_salt(config->connections[slot].security_messages[0], &salt))
    {
@@ -2424,18 +2421,18 @@ server_md5(char* username, char* password, int slot)
    status = pgagroal_read_block_message(NULL, server_fd, &auth_msg);
    if (auth_msg->length > SECURITY_BUFFER_SIZE)
    {
-      ZF_LOGE("Security message too large: %ld", auth_msg->length);
+      pgagroal_log_error("Security message too large: %ld", auth_msg->length);
       goto error;
    }
 
    get_auth_type(auth_msg, &auth_response);
-   ZF_LOGV("authenticate: auth response %d", auth_response);
+   pgagroal_log_trace("authenticate: auth response %d", auth_response);
 
    if (auth_response == 0)
    {
       if (auth_msg->length > SECURITY_BUFFER_SIZE)
       {
-         ZF_LOGE("Security message too large: %ld", auth_msg->length);
+         pgagroal_log_error("Security message too large: %ld", auth_msg->length);
          goto error;
       }
 
@@ -2462,7 +2459,7 @@ server_md5(char* username, char* password, int slot)
 
 bad_password:
 
-   ZF_LOGW("Wrong password for user: %s", username);
+   pgagroal_log_warn("Wrong password for user: %s", username);
 
    free(pwdusr);
    free(shadow);
@@ -2525,7 +2522,7 @@ server_scram256(char* username, char* password, int slot)
    config = (struct configuration*)shmem;
    server_fd = config->connections[slot].fd;
 
-   ZF_LOGV("server_scram256");
+   pgagroal_log_trace("server_scram256");
 
    status = sasl_prep(password, &password_prep);
    if (status)
@@ -2554,7 +2551,7 @@ server_scram256(char* username, char* password, int slot)
    status = pgagroal_read_block_message(NULL, server_fd, &msg);
    if (msg->length > SECURITY_BUFFER_SIZE)
    {
-      ZF_LOGE("Security message too large: %ld", msg->length);
+      pgagroal_log_error("Security message too large: %ld", msg->length);
       goto error;
    }
 
@@ -2571,7 +2568,7 @@ server_scram256(char* username, char* password, int slot)
 
    if (err != NULL)
    {
-      ZF_LOGE("SCRAM-SHA-256: %s", err);
+      pgagroal_log_error("SCRAM-SHA-256: %s", err);
       goto error;
    }
 
@@ -2618,7 +2615,7 @@ server_scram256(char* username, char* password, int slot)
    status = pgagroal_read_block_message(NULL, server_fd, &msg);
    if (msg->length > SECURITY_BUFFER_SIZE)
    {
-      ZF_LOGE("Security message too large: %ld", msg->length);
+      pgagroal_log_error("Security message too large: %ld", msg->length);
       goto error;
    }
 
@@ -2675,7 +2672,7 @@ server_scram256(char* username, char* password, int slot)
 
 bad_password:
 
-   ZF_LOGW("Wrong password for user: %s", username);
+   pgagroal_log_warn("Wrong password for user: %s", username);
 
    free(salt);
    free(err);
@@ -2786,7 +2783,7 @@ is_allowed_address(char* address, char* entry)
    marker = strchr(entry, '/');
    if (!marker)
    {
-      ZF_LOGW("Invalid HBA entry: %s", entry);
+      pgagroal_log_warn("Invalid HBA entry: %s", entry);
       return false;
    }
 
@@ -2833,7 +2830,7 @@ is_allowed_address(char* address, char* entry)
 
       if (mask < 0 || mask > 32)
       {
-         ZF_LOGW("Invalid HBA entry: %s", entry);
+         pgagroal_log_warn("Invalid HBA entry: %s", entry);
          return false;
       }
 
@@ -2873,7 +2870,7 @@ is_allowed_address(char* address, char* entry)
 
       if (mask < 0 || mask > 128)
       {
-         ZF_LOGW("Invalid HBA entry: %s", entry);
+         pgagroal_log_warn("Invalid HBA entry: %s", entry);
          return false;
       }
 
@@ -3162,31 +3159,31 @@ pgagroal_tls_valid(void)
    {
       if (strlen(config->tls_cert_file) == 0)
       {
-         ZF_LOGE("No TLS certificate defined");
+         pgagroal_log_error("No TLS certificate defined");
          goto error;
       }
 
       if (strlen(config->tls_key_file) == 0)
       {
-         ZF_LOGE("No TLS private key defined");
+         pgagroal_log_error("No TLS private key defined");
          goto error;
       }
 
       if (stat(config->tls_cert_file, &st) == -1)
       {
-         ZF_LOGE("Can't locate TLS certificate file: %s", config->tls_cert_file);
+         pgagroal_log_error("Can't locate TLS certificate file: %s", config->tls_cert_file);
          goto error;
       }
 
       if (!S_ISREG(st.st_mode))
       {
-         ZF_LOGE("TLS certificate file is not a regular file: %s", config->tls_cert_file);
+         pgagroal_log_error("TLS certificate file is not a regular file: %s", config->tls_cert_file);
          goto error;
       }
 
       if (st.st_uid != geteuid())
       {
-         ZF_LOGE("TLS certificate file not owned by user: %s", config->tls_cert_file);
+         pgagroal_log_error("TLS certificate file not owned by user: %s", config->tls_cert_file);
          goto error;
       }
 
@@ -3194,25 +3191,25 @@ pgagroal_tls_valid(void)
 
       if (stat(config->tls_key_file, &st) == -1)
       {
-         ZF_LOGE("Can't locate TLS private key file: %s", config->tls_key_file);
+         pgagroal_log_error("Can't locate TLS private key file: %s", config->tls_key_file);
          goto error;
       }
 
       if (!S_ISREG(st.st_mode))
       {
-         ZF_LOGE("TLS private key file is not a regular file: %s", config->tls_key_file);
+         pgagroal_log_error("TLS private key file is not a regular file: %s", config->tls_key_file);
          goto error;
       }
 
       if (st.st_uid != geteuid())
       {
-         ZF_LOGE("TLS private key file not owned by user: %s", config->tls_key_file);
+         pgagroal_log_error("TLS private key file not owned by user: %s", config->tls_key_file);
          goto error;
       }
 
       if (st.st_mode & (S_IRWXG | S_IRWXO))
       {
-         ZF_LOGE("TLS private key file must have 0600 permissions: %s", config->tls_key_file);
+         pgagroal_log_error("TLS private key file must have 0600 permissions: %s", config->tls_key_file);
          goto error;
       }
 
@@ -3222,25 +3219,25 @@ pgagroal_tls_valid(void)
 
          if (stat(config->tls_ca_file, &st) == -1)
          {
-            ZF_LOGE("Can't locate TLS CA file: %s", config->tls_ca_file);
+            pgagroal_log_error("Can't locate TLS CA file: %s", config->tls_ca_file);
             goto error;
          }
 
          if (!S_ISREG(st.st_mode))
          {
-            ZF_LOGE("TLS CA file is not a regular file: %s", config->tls_ca_file);
+            pgagroal_log_error("TLS CA file is not a regular file: %s", config->tls_ca_file);
             goto error;
          }
 
          if (st.st_uid != geteuid())
          {
-            ZF_LOGE("TLS CA file not owned by user: %s", config->tls_ca_file);
+            pgagroal_log_error("TLS CA file not owned by user: %s", config->tls_ca_file);
             goto error;
          }
       }
       else
       {
-         ZF_LOGD("No TLS CA file");
+         pgagroal_log_debug("No TLS CA file");
       }
    }
 
@@ -4265,7 +4262,7 @@ create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, S
    {
       if (SSL_CTX_load_verify_locations(ctx, root, NULL) != 1)
       {
-         ZF_LOGE("Couldn't load TLS CA: %s", root);
+         pgagroal_log_error("Couldn't load TLS CA: %s", root);
          goto error;
       }
 
@@ -4276,7 +4273,7 @@ create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, S
    {
       if (SSL_CTX_use_certificate_chain_file(ctx, cert) != 1)
       {
-         ZF_LOGE("Couldn't load TLS certificate: %s", cert);
+         pgagroal_log_error("Couldn't load TLS certificate: %s", cert);
          goto error;
       }
 
@@ -4299,13 +4296,13 @@ create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, S
    {
       if (SSL_use_PrivateKey_file(s, key, SSL_FILETYPE_PEM) != 1)
       {
-         ZF_LOGE("Couldn't load TLS private key: %s", key);
+         pgagroal_log_error("Couldn't load TLS private key: %s", key);
          goto error;
       }
 
       if (SSL_check_private_key(s) != 1)
       {
-         ZF_LOGE("TLS private key check failed: %s", key);
+         pgagroal_log_error("TLS private key check failed: %s", key);
          goto error;
       }
    }
@@ -4342,31 +4339,31 @@ create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl)
 
    if (strlen(config->tls_cert_file) == 0)
    {
-      ZF_LOGE("No TLS certificate defined");
+      pgagroal_log_error("No TLS certificate defined");
       goto error;
    }
 
    if (strlen(config->tls_key_file) == 0)
    {
-      ZF_LOGE("No TLS private key defined");
+      pgagroal_log_error("No TLS private key defined");
       goto error;
    }
 
    if (SSL_CTX_use_certificate_chain_file(ctx, config->tls_cert_file) != 1)
    {
-      ZF_LOGE("Couldn't load TLS certificate: %s", config->tls_cert_file);
+      pgagroal_log_error("Couldn't load TLS certificate: %s", config->tls_cert_file);
       goto error;
    }
 
    if (SSL_CTX_use_PrivateKey_file(ctx, config->tls_key_file, SSL_FILETYPE_PEM) != 1)
    {
-      ZF_LOGE("Couldn't load TLS private key: %s", config->tls_key_file);
+      pgagroal_log_error("Couldn't load TLS private key: %s", config->tls_key_file);
       goto error;
    }
 
    if (SSL_CTX_check_private_key(ctx) != 1)
    {
-      ZF_LOGE("TLS private key check failed: %s", config->tls_key_file);
+      pgagroal_log_error("TLS private key check failed: %s", config->tls_key_file);
       goto error;
    }
 
@@ -4374,14 +4371,14 @@ create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl)
    {
       if (SSL_CTX_load_verify_locations(ctx, config->tls_ca_file, NULL) != 1)
       {
-         ZF_LOGE("Couldn't load TLS CA: %s", config->tls_ca_file);
+         pgagroal_log_error("Couldn't load TLS CA: %s", config->tls_ca_file);
          goto error;
       }
       
       root_cert_list = SSL_load_client_CA_file(config->tls_ca_file);
       if (root_cert_list == NULL)
       {
-         ZF_LOGE("Couldn't load TLS CA: %s", config->tls_ca_file);
+         pgagroal_log_error("Couldn't load TLS CA: %s", config->tls_ca_file);
          goto error;
       }
 
@@ -4495,7 +4492,7 @@ auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, 
    }
    else
    {
-      ZF_LOGE("Authentication query not supported: %d", config->connections[slot].has_security);
+      pgagroal_log_error("Authentication query not supported: %d", config->connections[slot].has_security);
       pgagroal_write_connection_refused(c_ssl, client_fd);
       pgagroal_write_empty(c_ssl, client_fd);
       goto error;
@@ -4548,10 +4545,10 @@ auth_query_get_connection(char* username, char* password, char* database, int* s
    /* We need to find the server for the connection */
    if (pgagroal_get_primary(&server))
    {
-      ZF_LOGE("pgagroal: No valid server available");
+      pgagroal_log_error("pgagroal: No valid server available");
       goto error;
    }
-   ZF_LOGD("connect: server %d", server);
+   pgagroal_log_debug("connect: server %d", server);
 
    start_time = time(NULL);
 
@@ -4563,7 +4560,7 @@ retry:
    {
       if (pgagroal_connect(config->servers[server].host, config->servers[server].port, server_fd))
       {
-         ZF_LOGE("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
+         pgagroal_log_error("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
          atomic_store(&config->su_connection, STATE_FREE);
          goto error;
       }
@@ -4592,7 +4589,7 @@ retry:
       }
    }
 
-   ZF_LOGD("connect: %s:%d using fd %d", config->servers[server].host, config->servers[server].port, *server_fd);
+   pgagroal_log_debug("connect: %s:%d using fd %d", config->servers[server].host, config->servers[server].port, *server_fd);
 
    /* Startup message */
    status = pgagroal_create_startup_message(username, database, &startup_msg);
@@ -4616,7 +4613,7 @@ retry:
    startup_response_msg = pgagroal_copy_message(msg);
 
    get_auth_type(msg, &auth_type);
-   ZF_LOGV("auth_query_get_connection: auth type %d", auth_type);
+   pgagroal_log_trace("auth_query_get_connection: auth type %d", auth_type);
 
    /* Supported security models: */
    /*   md5 (5) */
@@ -4653,7 +4650,7 @@ retry:
          {
             goto error;
          }
-         ZF_LOGE("%s", error);
+         pgagroal_log_error("%s", error);
       }
 
       goto error;
@@ -4669,7 +4666,7 @@ retry:
 
 bad_password:
 
-   ZF_LOGD("auth_query_get_connection: BAD_PASSWORD");
+   pgagroal_log_debug("auth_query_get_connection: BAD_PASSWORD");
 
    if (*server_fd != -1)
    {
@@ -4688,7 +4685,7 @@ bad_password:
 
 error:
 
-   ZF_LOGD("auth_query_get_connection: ERROR (%d)", auth_type);
+   pgagroal_log_debug("auth_query_get_connection: ERROR (%d)", auth_type);
 
    if (*server_fd != -1)
    {
@@ -4707,7 +4704,7 @@ error:
 
 timeout:
 
-   ZF_LOGD("auth_query_get_connection: TIMEOUT");
+   pgagroal_log_debug("auth_query_get_connection: TIMEOUT");
 
    *server_fd = -1;
 
@@ -4735,7 +4732,7 @@ auth_query_server_md5(struct message* startup_response_msg, char* username, char
    struct message* auth_msg = NULL;
    struct message* md5_msg = NULL;
 
-   ZF_LOGV("auth_query_server_md5");
+   pgagroal_log_trace("auth_query_server_md5");
 
    if (get_salt(startup_response_msg->data, &salt))
    {
@@ -4781,18 +4778,18 @@ auth_query_server_md5(struct message* startup_response_msg, char* username, char
    status = pgagroal_read_block_message(NULL, socket, &auth_msg);
    if (auth_msg->length > SECURITY_BUFFER_SIZE)
    {
-      ZF_LOGE("Security message too large: %ld", auth_msg->length);
+      pgagroal_log_error("Security message too large: %ld", auth_msg->length);
       goto error;
    }
 
    get_auth_type(auth_msg, &auth_response);
-   ZF_LOGV("authenticate: auth response %d", auth_response);
+   pgagroal_log_trace("authenticate: auth response %d", auth_response);
 
    if (auth_response == 0)
    {
       if (auth_msg->length > SECURITY_BUFFER_SIZE)
       {
-         ZF_LOGE("Security message too large: %ld", auth_msg->length);
+         pgagroal_log_error("Security message too large: %ld", auth_msg->length);
          goto error;
       }
    }
@@ -4814,7 +4811,7 @@ auth_query_server_md5(struct message* startup_response_msg, char* username, char
 
 bad_password:
 
-   ZF_LOGW("Wrong password for user: %s", username);
+   pgagroal_log_warn("Wrong password for user: %s", username);
 
    free(pwdusr);
    free(shadow);
@@ -4872,7 +4869,7 @@ auth_query_server_scram256(char* username, char* password, int socket)
    struct message* sasl_final = NULL;
    struct message* msg = NULL;
 
-   ZF_LOGV("auth_query_server_scram256");
+   pgagroal_log_trace("auth_query_server_scram256");
 
    status = sasl_prep(password, &password_prep);
    if (status)
@@ -4909,7 +4906,7 @@ auth_query_server_scram256(char* username, char* password, int socket)
 
    if (err != NULL)
    {
-      ZF_LOGE("SCRAM-SHA-256: %s", err);
+      pgagroal_log_error("SCRAM-SHA-256: %s", err);
       goto error;
    }
 
@@ -4960,7 +4957,7 @@ auth_query_server_scram256(char* username, char* password, int socket)
       pgagroal_extract_error_message(msg, &error);
       if (error != NULL)
       {
-         ZF_LOGE("%s", error);
+         pgagroal_log_error("%s", error);
       }
       goto bad_password;
    }
@@ -5013,7 +5010,7 @@ auth_query_server_scram256(char* username, char* password, int socket)
 
 bad_password:
 
-   ZF_LOGW("Wrong password for user: %s", username);
+   pgagroal_log_warn("Wrong password for user: %s", username);
 
    free(error);
    free(salt);
@@ -5119,7 +5116,7 @@ auth_query_get_password(int socket, char* username, char* database, char** passw
    return 0;
 
 error:
-   ZF_LOGV("auth_query_get_password: socket (%d) status (%d)", socket, status);
+   pgagroal_log_trace("auth_query_get_password: socket (%d) status (%d)", socket, status);
 
    if (tmsg->kind == 'E')
    {
@@ -5130,7 +5127,7 @@ error:
          goto error;
       }
 
-      ZF_LOGE("%s in %s", error, database);
+      pgagroal_log_error("%s in %s", error, database);
       free(error);
    }
 
@@ -5281,7 +5278,7 @@ auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username, char* shad
    struct message* sasl_continue = NULL;
    struct message* sasl_final = NULL;
 
-   ZF_LOGD("auth_query_client_scram256 %d %d", client_fd, slot);
+   pgagroal_log_debug("auth_query_client_scram256 %d %d", client_fd, slot);
 
    config = (struct configuration*)shmem;
 
@@ -5428,7 +5425,7 @@ retry:
       goto error;
    }
 
-   ZF_LOGD("auth_query_client_scram256 success (%d)", slot);
+   pgagroal_log_debug("auth_query_client_scram256 success (%d)", slot);
 
    free(salt);
    free(stored_key);
@@ -5449,7 +5446,7 @@ retry:
    return AUTH_SUCCESS;
 
 bad_password:
-   ZF_LOGD("auth_query_client_scram256 bad_password (%d)", slot);
+   pgagroal_log_debug("auth_query_client_scram256 bad_password (%d)", slot);
 
    free(salt);
    free(stored_key);
@@ -5470,7 +5467,7 @@ bad_password:
    return AUTH_BAD_PASSWORD;
 
 error:
-   ZF_LOGD("auth_query_client_scram256 error (%d)", slot);
+   pgagroal_log_debug("auth_query_client_scram256 error (%d)", slot);
 
    free(salt);
    free(stored_key);

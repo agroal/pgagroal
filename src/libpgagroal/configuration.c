@@ -34,9 +34,6 @@
 #include <security.h>
 #include <utils.h>
 
-#define ZF_LOG_TAG "configuration"
-#include <zf_log.h>
-
 /* system */
 #include <errno.h>
 #include <stdatomic.h>
@@ -104,6 +101,7 @@ pgagroal_init_configuration(void)
    config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;
    config->log_connections = false;
    config->log_disconnections = false;
+   atomic_init(&config->log_lock, STATE_FREE);
 
    config->max_connections = 100;
    config->allow_unknown_users = true;
@@ -785,13 +783,13 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets)
    {
       if (strlen(config->host) == 0)
       {
-         ZF_LOGF("pgagroal: No host defined");
+         pgagroal_log_fatal("pgagroal: No host defined");
          return 1;
       }
 
       if (config->port <= 0)
       {
-         ZF_LOGF("pgagroal: No port defined");
+         pgagroal_log_fatal("pgagroal: No port defined");
          return 1;
       }
    }
@@ -800,7 +798,7 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets)
    {
       if (strlen(config->unix_socket_dir) == 0)
       {
-         ZF_LOGF("pgagroal: No unix_socket_dir defined");
+         pgagroal_log_fatal("pgagroal: No unix_socket_dir defined");
          return 1;
       }
    }
@@ -822,19 +820,19 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets)
 
    if (config->authquery && strlen(config->superuser.username) == 0)
    {
-      ZF_LOGF("pgagroal: Authentication query requires a superuser");
+      pgagroal_log_fatal("pgagroal: Authentication query requires a superuser");
       return 1;
    }
 
    if (config->max_connections <= 0)
    {
-      ZF_LOGF("pgagroal: max_connections must be greater than 0");
+      pgagroal_log_fatal("pgagroal: max_connections must be greater than 0");
       return 1;
    }
 
    if (config->max_connections > MAX_NUMBER_OF_CONNECTIONS)
    {
-      ZF_LOGW("pgagroal: max_connections (%d) is greater than allowed (%d)", config->max_connections, MAX_NUMBER_OF_CONNECTIONS);
+      pgagroal_log_warn("pgagroal: max_connections (%d) is greater than allowed (%d)", config->max_connections, MAX_NUMBER_OF_CONNECTIONS);
       config->max_connections = MAX_NUMBER_OF_CONNECTIONS;
    }
 
@@ -842,7 +840,7 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets)
    {
       if (strlen(config->failover_script) == 0)
       {
-         ZF_LOGF("pgagroal: Failover requires a script definition");
+         pgagroal_log_fatal("pgagroal: Failover requires a script definition");
          return 1;
       }
 
@@ -850,38 +848,38 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets)
 
       if (stat(config->failover_script, &st) == -1)
       {
-         ZF_LOGE("pgagroal: Can't locate failover script: %s", config->failover_script);
+         pgagroal_log_error("pgagroal: Can't locate failover script: %s", config->failover_script);
          return 1;
       }
 
       if (!S_ISREG(st.st_mode))
       {
-         ZF_LOGE("pgagroal: Failover script is not a regular file: %s", config->failover_script);
+         pgagroal_log_error("pgagroal: Failover script is not a regular file: %s", config->failover_script);
          return 1;
       }
 
       if (st.st_uid != geteuid())
       {
-         ZF_LOGE("pgagroal: Failover script not owned by user: %s", config->failover_script);
+         pgagroal_log_error("pgagroal: Failover script not owned by user: %s", config->failover_script);
          return 1;
       }
 
       if (!(st.st_mode & (S_IRUSR | S_IXUSR)))
       {
-         ZF_LOGE("pgagroal: Failover script must be executable: %s", config->failover_script);
+         pgagroal_log_error("pgagroal: Failover script must be executable: %s", config->failover_script);
          return 1;
       }
 
       if (config->number_of_servers <= 1)
       {
-         ZF_LOGF("pgagroal: Failover requires at least 2 servers defined");
+         pgagroal_log_fatal("pgagroal: Failover requires at least 2 servers defined");
          return 1;
       }
    }
 
    if (config->number_of_servers <= 0)
    {
-      ZF_LOGF("pgagroal: No servers defined");
+      pgagroal_log_fatal("pgagroal: No servers defined");
       return 1;
    }
 
@@ -889,13 +887,13 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets)
    {
       if (strlen(config->servers[i].host) == 0)
       {
-         ZF_LOGF("pgagroal: No host defined for %s", config->servers[i].name);
+         pgagroal_log_fatal("pgagroal: No host defined for %s", config->servers[i].name);
          return 1;
       }
 
       if (config->servers[i].port == 0)
       {
-         ZF_LOGF("pgagroal: No port defined for %s", config->servers[i].name);
+         pgagroal_log_fatal("pgagroal: No port defined for %s", config->servers[i].name);
          return 1;
       }
    }
@@ -920,33 +918,33 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets)
    {
       if (config->disconnect_client > 0)
       {
-         ZF_LOGF("pgagroal: Transaction pipeline does not support disconnect_client");
+         pgagroal_log_fatal("pgagroal: Transaction pipeline does not support disconnect_client");
          return 1;
       }
 
       if (config->blocking_timeout > 0)
       {
-         ZF_LOGW("pgagroal: Using blocking_timeout for the transaction pipeline is not recommended");
+         pgagroal_log_warn("pgagroal: Using blocking_timeout for the transaction pipeline is not recommended");
       }
 
       if (config->idle_timeout > 0)
       {
-         ZF_LOGW("pgagroal: Using idle_timeout for the transaction pipeline is not recommended");
+         pgagroal_log_warn("pgagroal: Using idle_timeout for the transaction pipeline is not recommended");
       }
 
       if (config->validation == VALIDATION_FOREGROUND)
       {
-         ZF_LOGW("pgagroal: Using foreground validation for the transaction pipeline is not recommended");
+         pgagroal_log_warn("pgagroal: Using foreground validation for the transaction pipeline is not recommended");
       }
 
       if (config->number_of_users == 0)
       {
-         ZF_LOGI("pgagroal: Defining users for the transaction pipeline is recommended");
+         pgagroal_log_info("pgagroal: Defining users for the transaction pipeline is recommended");
       }
 
       if (config->number_of_limits == 0)
       {
-         ZF_LOGI("pgagroal: Defining limits for the transaction pipeline is recommended");
+         pgagroal_log_info("pgagroal: Defining limits for the transaction pipeline is recommended");
       }
    }
    else if (config->pipeline == PIPELINE_PERFORMANCE)
@@ -958,19 +956,19 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets)
 
       if (config->failover)
       {
-         ZF_LOGF("pgagroal: Performance pipeline does not support failover");
+         pgagroal_log_fatal("pgagroal: Performance pipeline does not support failover");
          return 1;
       }
 
       if (tls)
       {
-         ZF_LOGF("pgagroal: Performance pipeline does not support TLS");
+         pgagroal_log_fatal("pgagroal: Performance pipeline does not support TLS");
          return 1;
       }
 
       if (config->disconnect_client > 0)
       {
-         ZF_LOGF("pgagroal: Performance pipeline does not support disconnect_client");
+         pgagroal_log_fatal("pgagroal: Performance pipeline does not support disconnect_client");
          return 1;
       }
    }
@@ -1083,7 +1081,7 @@ pgagroal_validate_hba_configuration(void)
 
    if (config->number_of_hbas == 0)
    {
-      ZF_LOGF("pgagroal: No HBA entry defined");
+      pgagroal_log_fatal("pgagroal: No HBA entry defined");
       return 1;
    }
 
@@ -1096,7 +1094,7 @@ pgagroal_validate_hba_configuration(void)
       }
       else
       {
-         ZF_LOGF("pgagroal: Unknown HBA type: %s", config->hbas[i].type);
+         pgagroal_log_fatal("pgagroal: Unknown HBA type: %s", config->hbas[i].type);
          return 1;
       }
 
@@ -1111,7 +1109,7 @@ pgagroal_validate_hba_configuration(void)
       }
       else
       {
-         ZF_LOGF("pgagroal: Unknown HBA method: %s", config->hbas[i].method);
+         pgagroal_log_fatal("pgagroal: Unknown HBA method: %s", config->hbas[i].method);
          return 1;
       }
    }
@@ -1249,7 +1247,7 @@ pgagroal_validate_limit_configuration(void)
 
       if (config->limits[i].max_size <= 0)
       {
-         ZF_LOGF("max_size must be greater than 0 for limit entry %d", i);
+         pgagroal_log_fatal("max_size must be greater than 0 for limit entry %d", i);
          return 1;
       }
 
@@ -1267,13 +1265,13 @@ pgagroal_validate_limit_configuration(void)
 
          if (!user_found)
          {
-            ZF_LOGF("Unknown user '%s' for limit entry %d", config->limits[i].username, i);
+            pgagroal_log_fatal("Unknown user '%s' for limit entry %d", config->limits[i].username, i);
             return 1;
          }
 
          if (config->limits[i].initial_size < config->limits[i].min_size)
          {
-            ZF_LOGW("initial_size smaller than min_size for limit entry (%d)", i);
+            pgagroal_log_warn("initial_size smaller than min_size for limit entry (%d)", i);
             config->limits[i].initial_size = config->limits[i].min_size;
          }
       }
@@ -1281,7 +1279,7 @@ pgagroal_validate_limit_configuration(void)
 
    if (total_connections > config->max_connections)
    {
-      ZF_LOGF("pgagroal: LIMIT: Too many connections defined %d (max %d)", total_connections, config->max_connections);
+      pgagroal_log_fatal("pgagroal: LIMIT: Too many connections defined %d (max %d)", total_connections, config->max_connections);
       return 1;
    }
 
@@ -1577,7 +1575,7 @@ pgagroal_validate_admins_configuration(void)
 
    if (config->management > 0 && config->number_of_admins == 0)
    {
-      ZF_LOGW("pgagroal: Remote management enabled, but no admins are defined");
+      pgagroal_log_warn("pgagroal: Remote management enabled, but no admins are defined");
    }
 
    return 0;

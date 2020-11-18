@@ -46,13 +46,6 @@ extern "C" {
 #define PGAGROAL_HOMEPAGE "https://agroal.github.io/pgagroal/"
 #define PGAGROAL_ISSUES "https://github.com/agroal/pgagroal/issues"
 
-/* Setup zf_log to include DEBUG support even for release builds */
-#ifdef DEBUG
-#define ZF_LOG_LEVEL ZF_LOG_VERBOSE
-#else
-#define ZF_LOG_LEVEL ZF_LOG_DEBUG
-#endif
-
 #define MAIN_UDS ".s.pgagroal"
 
 #define MAX_BUFFER_SIZE      65535
@@ -267,6 +260,7 @@ struct configuration
    char log_path[MISC_LENGTH]; /**< The logging path */
    bool log_connections;       /**< Log successful logins */
    bool log_disconnections;    /**< Log disconnects */
+   atomic_schar log_lock;      /**< The logging lock */
 
    bool authquery; /**< Is authentication query enabled */
 
