@@ -73,8 +73,8 @@ chrpath -r %{_libdir} %{buildroot}%{_bindir}/pgagroal-cli
 chrpath -r %{_libdir} %{buildroot}%{_bindir}/pgagroal-admin
 
 cd %{buildroot}%{_libdir}/
-%{__ln_s} -f libpgagroal.so.%{version} libpgagroal.so.0
-%{__ln_s} -f libpgagroal.so.0 libpgagroal.so
+%{__ln_s} -f libpgagroal.so.%{version} libpgagroal.so.1
+%{__ln_s} -f libpgagroal.so.1 libpgagroal.so
 
 %files
 %license %{_docdir}/%{name}/LICENSE
@@ -106,7 +106,7 @@ cd %{buildroot}%{_libdir}/
 %{_bindir}/pgagroal-cli
 %{_bindir}/pgagroal-admin
 %{_libdir}/libpgagroal.so
-%{_libdir}/libpgagroal.so.0
+%{_libdir}/libpgagroal.so.1
 %{_libdir}/libpgagroal.so.%{version}
 
 %changelog
