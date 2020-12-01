@@ -75,9 +75,6 @@ static int reset(SSL* ssl, int socket);
 static int reset_server(SSL* ssl, int socket, char* server);
 static int switch_to(SSL* ssl, int socket, char* server);
 
-void* shmem = NULL;
-void* pipeline_shmem = NULL;
-
 static void
 version(void)
 {

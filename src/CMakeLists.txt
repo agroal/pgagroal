@@ -35,6 +35,8 @@ add_compile_options(-D_POSIX_C_SOURCE=200809L)
 add_compile_options(-D__USE_ISOC11)
 add_compile_options(-D_GNU_SOURCE)
 
+add_link_options(-Wl,--no-undefined)
+
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
   add_compile_options(-Wstrict-prototypes)
 endif()
