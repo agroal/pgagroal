@@ -63,9 +63,6 @@ static int update_user(char* users_path, char* username, char* password);
 static int remove_user(char* users_path, char* username);
 static int list_users(char* users_path);
 
-void* shmem = NULL;
-void* pipeline_shmem = NULL;
-
 static void
 version(void)
 {

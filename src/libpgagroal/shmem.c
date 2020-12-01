@@ -35,6 +35,9 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 
+void* shmem = NULL;
+void* pipeline_shmem = NULL;
+
 int
 pgagroal_create_shared_memory(size_t size, unsigned char hp, void** shmem)
 {

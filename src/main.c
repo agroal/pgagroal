@@ -90,9 +90,6 @@ struct client
    struct client* next;
 };
 
-void* shmem = NULL;
-void* pipeline_shmem = NULL;
-
 static volatile int keep_running = 1;
 static char** argv_ptr;
 static struct ev_loop* main_loop = NULL;
