@@ -1,5 +1,5 @@
 Name:          pgagroal
-Version:       1.0.1
+Version:       1.0.2
 Release:       1%{dist}
 Summary:       High-performance connection pool for PostgreSQL
 License:       BSD
