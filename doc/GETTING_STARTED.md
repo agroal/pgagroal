@@ -244,7 +244,7 @@ the project interesting.
 
 Feel free to
 
-* [Ask a question](https://github.com/agroal/pgagroal/issues)
+* [Ask a question](https://github.com/agroal/pgagroal/discussions)
 * [Raise an issue](https://github.com/agroal/pgagroal/issues)
 * [Submit a feature request](https://github.com/agroal/pgagroal/issues)
 * [Write a code submission](https://github.com/agroal/pgagroal/pulls)

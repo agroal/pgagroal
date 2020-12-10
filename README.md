@@ -108,7 +108,7 @@ Remember to set the `log_level` configuration option to `debug5`.
 
 Contributions to `pgagroal` are managed on [GitHub.com](https://github.com/agroal/pgagroal/)
 
-* [Ask a question](https://github.com/agroal/pgagroal/issues)
+* [Ask a question](https://github.com/agroal/pgagroal/discussions)
 * [Raise an issue](https://github.com/agroal/pgagroal/issues)
 * [Feature request](https://github.com/agroal/pgagroal/issues)
 * [Code submission](https://github.com/agroal/pgagroal/pulls)
