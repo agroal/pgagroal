@@ -66,8 +66,10 @@ static int slot;
 static char username[MAX_USERNAME_LENGTH];
 static char database[MAX_DATABASE_LENGTH];
 static bool in_tx;
-static int next_message;
+static int next_client_message;
+static int next_server_message;
 static int unix_socket = -1;
+static int deallocate;
 static struct ev_io io_mgt;
 static struct worker_io server_io;
 
@@ -105,7 +107,9 @@ transaction_start(struct ev_loop* loop, struct worker_io* w)
    memcpy(&username[0], config->connections[w->slot].username, MAX_USERNAME_LENGTH);
    memcpy(&database[0], config->connections[w->slot].database, MAX_DATABASE_LENGTH);
    in_tx = false;
-   next_message = 0;
+   next_client_message = 0;
+   next_server_message = 0;
+   deallocate = false;
 
    memset(&p, 0, sizeof(p));
    snprintf(&p[0], sizeof(p), ".s.%d", getpid());
@@ -225,6 +229,47 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    {
       if (likely(msg->kind != 'X'))
       {
+         if (config->track_prepared_statements)
+         {
+            int offset = 0;
+
+            while (offset < msg->length)
+            {
+               if (next_client_message == 0)
+               {
+                  char kind = pgagroal_read_byte(msg->data + offset);
+                  int length = pgagroal_read_int32(msg->data + offset + 1);
+
+                  /* The P message tell us the prepared statement */
+                  if (kind == 'P')
+                  {
+                     char* ps = pgagroal_read_string(msg->data + offset + 5);
+                     if (strcmp(ps, ""))
+                     {
+                        deallocate = true;
+                     }
+                  }
+
+                  /* Calculate the offset to the next message */
+                  if (offset + length + 1 <= msg->length)
+                  {
+                     next_client_message = 0;
+                     offset += length + 1;
+                  }
+                  else
+                  {
+                     next_client_message = length + 1 - (msg->length - offset);
+                     offset = msg->length;
+                  }
+               }
+               else
+               {
+                  offset = MIN(next_client_message, msg->length);
+                  next_client_message -= offset;
+               }
+            }
+         }
+
          status = pgagroal_write_socket_message(wi->server_fd, msg);
          if (unlikely(status == MESSAGE_STATUS_ERROR))
          {
@@ -318,7 +363,7 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
       while (offset < msg->length)
       {
-         if (next_message == 0)
+         if (next_server_message == 0)
          {
             char kind = pgagroal_read_byte(msg->data + offset);
             int length = pgagroal_read_int32(msg->data + offset + 1);
@@ -340,19 +385,19 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
             /* Calculate the offset to the next message */
             if (offset + length + 1 <= msg->length)
             {
-               next_message = 0;
+               next_server_message = 0;
                offset += length + 1;
             }
             else
             {
-               next_message = length + 1 - (msg->length - offset);
+               next_server_message = length + 1 - (msg->length - offset);
                offset = msg->length;
             }
          }
          else
          {
-            offset = MIN(next_message, msg->length);
-            next_message -= offset;
+            offset = MIN(next_server_message, msg->length);
+            next_server_message -= offset;
          }
       }
 
@@ -374,6 +419,12 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
          if (!in_tx && slot != -1)
          {
             ev_io_stop(loop, (struct ev_io*)&server_io);
+
+            if (deallocate)
+            {
+               pgagroal_write_deallocate_all(NULL, wi->server_fd);
+               deallocate = false;
+            }
 
             pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION, slot);
             if (pgagroal_return_connection(slot, true))

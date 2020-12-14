@@ -289,6 +289,7 @@ struct configuration
    int backlog;             /**< The backlog for listen */
    unsigned char hugepage;  /**< Huge page support */
    bool tracker;            /**< Tracker support */
+   bool track_prepared_statements; /**< Track prepared statements (transaction pooling) */
 
    char unix_socket_dir[MISC_LENGTH]; /**< The directory for the Unix Domain Socket */
 

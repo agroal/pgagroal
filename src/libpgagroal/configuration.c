@@ -96,6 +96,7 @@ pgagroal_init_configuration(void)
    config->backlog = -1;
    config->hugepage = HUGEPAGE_TRY;
    config->tracker = false;
+   config->track_prepared_statements = false;
 
    config->log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;
@@ -725,6 +726,20 @@ pgagroal_read_configuration(char* filename)
                   if (!strcmp(section, "pgagroal"))
                   {
                      if (as_bool(value, &config->tracker))
+                     {
+                        unknown = true;
+                     }
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "track_prepared_statements"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     if (as_bool(value, &config->track_prepared_statements))
                      {
                         unknown = true;
                      }

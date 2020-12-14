@@ -438,6 +438,69 @@ pgagroal_write_no_hba_entry(SSL* ssl, int socket, char* username, char* database
 }
 
 int
+pgagroal_write_deallocate_all(SSL* ssl, int socket)
+{
+   int status;
+   int size = 21;
+
+   char deallocate[size];
+   struct message msg;
+   struct message* reply = NULL;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&deallocate, 0, sizeof(deallocate));
+
+   pgagroal_write_byte(&deallocate, 'Q');
+   pgagroal_write_int32(&(deallocate[1]), size - 1);
+   pgagroal_write_string(&(deallocate[5]), "DEALLOCATE ALL;");
+
+   msg.kind = 'Q';
+   msg.length = size;
+   msg.data = &deallocate;
+
+   if (ssl == NULL)
+   {
+      status = write_message(socket, &msg);
+   }
+   else
+   {
+      status = ssl_write_message(ssl, &msg);
+   }
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (ssl == NULL)
+   {
+      status = read_message(socket, true, 0, &reply);
+   }
+   else
+   {
+      status = ssl_read_message(ssl, 0, &reply);
+   }
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (reply->kind == 'E')
+   {
+      goto error;
+   }
+
+   pgagroal_free_message(reply);
+
+   return 0;
+
+error:
+   if (reply)
+      pgagroal_free_message(reply);
+
+   return 1;
+}
+
+int
 pgagroal_write_discard_all(SSL* ssl, int socket)
 {
    int status;

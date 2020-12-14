@@ -79,8 +79,12 @@ connection they were created in which means that clients can't be sure that they
 the prepared statement on the connection unless it is issued within the same transaction
 where it is used.
 
-Note, that pgagroal does not issue any `DEALLOCATE ALL` nor `DISCARD ALL` statements
-when using the transaction pipeline.
+pgagroal can issue a `DEALLOCATE ALL` statement before a connection is returned back to
+the pool if the `track_prepared_statements` setting is set to `on`. If `off` then no
+statement is issued.
+
+Note, that pgagroal does not issue a `DISCARD ALL` statement when using the transaction
+pipeline.
 
 __Performance considerations__
 

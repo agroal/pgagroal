@@ -56,6 +56,7 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | backlog | `max_connections` / 4 | Int | No | The backlog for `listen()`. Minimum `16` |
 | hugepage | `try` | String | No | Huge page support (`off`, `try`, `on`) |
 | tracker | off | Bool | No | Track connection lifecycle |
+| track_prepared_statements | off | Bool | No | Track prepared statements (transaction pooling) |
 
 __Danger zone__
 
