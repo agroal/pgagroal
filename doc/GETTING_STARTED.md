@@ -109,7 +109,9 @@ If you type the above `psql` command again `pgagroal` will reuse the existing co
 thereby lower the overhead of getting a connection to [PostgreSQL](https://www.postgresql.org).
 
 Now you are ready to point your applications to use `pgagroal` instead of going directly to
-[PostgreSQL](https://www.postgresql.org).
+[PostgreSQL](https://www.postgresql.org). `pgagroal` will work with any
+[PostgreSQL](https://www.postgresql.org) compliant driver, for example [pgjdbc](https://jdbc.postgresql.org/),
+[Npgsql](https://www.npgsql.org/) and [pq](https://github.com/lib/pq).
 
 `pgagroal` is stopped by pressing Ctrl-C (`^C`) in the console where you started it, or by sending
 the `SIGTERM` signal to the process using `kill <pid>`.

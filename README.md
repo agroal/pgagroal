@@ -39,6 +39,9 @@ See [Performance](./doc/PERFORMANCE.md) for a performance run.
 * The [PostgreSQL](https://www.postgresql.org) native protocol
   [v3](https://www.postgresql.org/docs/11/protocol-message-formats.html) for its communication
 
+`pgagroal` will work with any [PostgreSQL](https://www.postgresql.org) compliant driver, for example
+[pgjdbc](https://jdbc.postgresql.org/), [Npgsql](https://www.npgsql.org/) and [pq](https://github.com/lib/pq).
+
 See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
 
 ## Tested platforms
