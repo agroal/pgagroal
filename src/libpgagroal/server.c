@@ -320,6 +320,11 @@ pgagroal_server_switch(char* server)
       atomic_store(&config->servers[new_primary].state, SERVER_PRIMARY);
       return 0;
    }
+   else if (old_primary == -1 && new_primary != -1)
+   {
+      atomic_store(&config->servers[new_primary].state, SERVER_PRIMARY);
+      return 0;
+   }
 
    return 1;
 }
