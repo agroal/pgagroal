@@ -32,6 +32,7 @@
 #include <logging.h>
 #include <pipeline.h>
 #include <security.h>
+#include <shmem.h>
 #include <utils.h>
 
 /* system */
@@ -58,15 +59,23 @@ static int extract_value(char* str, int offset, char** value);
 static void extract_hba(char* str, char** type, char** database, char** user, char** address, char** method);
 static void extract_limit(char* str, int server_max, char** database, char** user, int* max_size, int* initial_size, int* min_size);
 
+static int transfer_configuration(struct configuration* config, struct configuration* reload);
+static void copy_server(struct server* dst, struct server* src);
+static void copy_hba(struct hba* dst, struct hba* src);
+static void copy_user(struct user* dst, struct user* src);
+static int restart_int(char* name, int e, int n);
+static int restart_string(char* name, char* e, char* n);
+static int restart_limit(char* name, struct configuration* config, struct configuration* reload);
+
 /**
  *
  */
 int
-pgagroal_init_configuration(void)
+pgagroal_init_configuration(void* shm)
 {
    struct configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct configuration*)shm;
 
    atomic_init(&config->active_connections, 0);
    
@@ -143,7 +152,7 @@ pgagroal_init_configuration(void)
  *
  */
 int
-pgagroal_read_configuration(char* filename)
+pgagroal_read_configuration(void* shm, char* filename)
 {
    FILE* file;
    char section[LINE_LENGTH];
@@ -162,7 +171,7 @@ pgagroal_read_configuration(char* filename)
       return 1;
     
    memset(&section, 0, LINE_LENGTH);
-   config = (struct configuration*)shmem;
+   config = (struct configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -784,7 +793,7 @@ pgagroal_read_configuration(char* filename)
  *
  */
 int
-pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets)
+pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_sockets)
 {
    bool tls;
    struct stat st;
@@ -792,7 +801,7 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets)
 
    tls = false;
 
-   config = (struct configuration*)shmem;
+   config = (struct configuration*)shm;
 
    if (!has_main_sockets)
    {
@@ -995,7 +1004,7 @@ pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets)
  *
  */
 int
-pgagroal_read_hba_configuration(char* filename)
+pgagroal_read_hba_configuration(void* shm, char* filename)
 {
    FILE* file;
    char line[LINE_LENGTH];
@@ -1013,7 +1022,7 @@ pgagroal_read_hba_configuration(char* filename)
       return 1;
 
    index = 0;
-   config = (struct configuration*)shmem;
+   config = (struct configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1088,11 +1097,11 @@ pgagroal_read_hba_configuration(char* filename)
  *
  */
 int
-pgagroal_validate_hba_configuration(void)
+pgagroal_validate_hba_configuration(void* shm)
 {
    struct configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct configuration*)shm;
 
    if (config->number_of_hbas == 0)
    {
@@ -1136,7 +1145,7 @@ pgagroal_validate_hba_configuration(void)
  *
  */
 int
-pgagroal_read_limit_configuration(char* filename)
+pgagroal_read_limit_configuration(void* shm, char* filename)
 {
    FILE* file;
    char line[LINE_LENGTH];
@@ -1155,7 +1164,7 @@ pgagroal_read_limit_configuration(char* filename)
       return 1;
 
    index = 0;
-   config = (struct configuration*)shmem;
+   config = (struct configuration*)shm;
 
    server_max = config->max_connections;
 
@@ -1248,13 +1257,13 @@ pgagroal_read_limit_configuration(char* filename)
  *
  */
 int
-pgagroal_validate_limit_configuration(void)
+pgagroal_validate_limit_configuration(void* shm)
 {
    int total_connections;
    struct configuration* config;
 
    total_connections = 0;
-   config = (struct configuration*)shmem;
+   config = (struct configuration*)shm;
 
    for (int i = 0; i < config->number_of_limits; i++)
    {
@@ -1305,7 +1314,7 @@ pgagroal_validate_limit_configuration(void)
  *
  */
 int
-pgagroal_read_users_configuration(char* filename)
+pgagroal_read_users_configuration(void* shm, char* filename)
 {
    FILE* file;
    char line[LINE_LENGTH];
@@ -1331,7 +1340,7 @@ pgagroal_read_users_configuration(char* filename)
    }
 
    index = 0;
-   config = (struct configuration*)shmem;
+   config = (struct configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1439,7 +1448,7 @@ above:
  *
  */
 int
-pgagroal_validate_users_configuration(void)
+pgagroal_validate_users_configuration(void* shm)
 {
    return 0;
 }
@@ -1448,7 +1457,7 @@ pgagroal_validate_users_configuration(void)
  *
  */
 int
-pgagroal_read_admins_configuration(char* filename)
+pgagroal_read_admins_configuration(void* shm, char* filename)
 {
    FILE* file;
    char line[LINE_LENGTH];
@@ -1474,7 +1483,7 @@ pgagroal_read_admins_configuration(char* filename)
    }
 
    index = 0;
-   config = (struct configuration*)shmem;
+   config = (struct configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1582,11 +1591,11 @@ above:
  *
  */
 int
-pgagroal_validate_admins_configuration(void)
+pgagroal_validate_admins_configuration(void* shm)
 {
    struct configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct configuration*)shm;
 
    if (config->management > 0 && config->number_of_admins == 0)
    {
@@ -1597,7 +1606,7 @@ pgagroal_validate_admins_configuration(void)
 }
 
 int
-pgagroal_read_superuser_configuration(char* filename)
+pgagroal_read_superuser_configuration(void* shm, char* filename)
 {
    FILE* file;
    char line[LINE_LENGTH];
@@ -1623,7 +1632,7 @@ pgagroal_read_superuser_configuration(char* filename)
    }
 
    index = 0;
-   config = (struct configuration*)shmem;
+   config = (struct configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1723,6 +1732,134 @@ above:
    }
 
    return 3;
+}
+
+/**
+ *
+ */
+int
+pgagroal_validate_superuser_configuration(void* shm)
+{
+   return 0;
+}
+
+int
+pgagroal_reload_configuration(void)
+{
+   size_t reload_size;
+   struct configuration* reload = NULL;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   pgagroal_log_trace("Configuration: %s", config->configuration_path);
+   pgagroal_log_trace("HBA: %s", config->hba_path);
+   pgagroal_log_trace("Limit: %s", config->limit_path);
+   pgagroal_log_trace("Users: %s", config->users_path);
+   pgagroal_log_trace("Admins: %s", config->admins_path);
+   pgagroal_log_trace("Superuser: %s", config->superuser_path);
+
+   reload_size = sizeof(struct configuration);
+
+   if (pgagroal_create_shared_memory(reload_size, HUGEPAGE_OFF, (void**)&reload))
+   {
+      goto error;
+   }
+
+   pgagroal_init_configuration((void*)reload);
+
+   if (pgagroal_read_configuration((void*)reload, config->configuration_path))
+   {
+      goto error;
+   }
+
+   if (pgagroal_read_hba_configuration((void*)reload, config->hba_path))
+   {
+      goto error;
+   }
+
+   if (config->limit_path != NULL && strcmp("", config->limit_path))
+   {
+      if (pgagroal_read_limit_configuration((void*)reload, config->limit_path))
+      {
+         goto error;
+      }
+   }
+
+   if (config->users_path != NULL && strcmp("", config->users_path))
+   {
+      if (pgagroal_read_users_configuration((void*)reload, config->users_path))
+      {
+         goto error;
+      }
+   }
+
+   if (config->admins_path != NULL && strcmp("", config->admins_path))
+   {
+      if (pgagroal_read_admins_configuration((void*)reload, config->admins_path))
+      {
+         goto error;
+      }
+   }
+
+   if (config->superuser_path != NULL && strcmp("", config->superuser_path))
+   {
+      if (pgagroal_read_superuser_configuration((void*)reload, config->superuser_path))
+      {
+         goto error;
+      }
+   }
+
+   if (pgagroal_validate_configuration(reload, false, false))
+   {
+      goto error;
+   }
+
+   if (pgagroal_validate_hba_configuration(reload))
+   {
+      goto error;
+   }
+
+   if (pgagroal_validate_limit_configuration(reload))
+   {
+      goto error;
+   }
+
+   if (pgagroal_validate_users_configuration(reload))
+   {
+      goto error;
+   }
+
+   if (pgagroal_validate_admins_configuration(reload))
+   {
+      goto error;
+   }
+
+   if (pgagroal_validate_superuser_configuration(reload))
+   {
+      goto error;
+   }
+
+   if (transfer_configuration(config, reload))
+   {
+      goto error;
+   }
+
+   pgagroal_destroy_shared_memory((void*)reload, reload_size);
+
+   pgagroal_log_debug("Reload: Success");
+
+   return 0;
+
+error:
+   if (reload != NULL)
+   {
+      pgagroal_destroy_shared_memory((void*)reload, reload_size);
+   }
+
+   pgagroal_log_debug("Reload: Failure");
+
+   return 1;
 }
 
 static void
@@ -2042,4 +2179,206 @@ extract_value(char* str, int offset, char** value)
    }
 
    return -1;
+}
+
+static int
+transfer_configuration(struct configuration* config, struct configuration* reload)
+{
+   memcpy(config->host, reload->host, MISC_LENGTH);
+   config->port = reload->port;
+   config->metrics = reload->metrics;
+   config->management = reload->management;
+   /* gracefully */
+
+   /* disabled */
+
+   /* pipeline */
+   restart_int("pipeline", config->pipeline, reload->pipeline);
+
+   config->failover = reload->failover;
+   memcpy(config->failover_script, reload->failover_script, MISC_LENGTH);
+
+   /* log_type */
+   restart_int("log_type", config->log_type, reload->log_type);
+   config->log_level = reload->log_level;
+   /* log_path */
+   restart_string("log_path", config->log_path, reload->log_path);
+   config->log_connections = reload->log_connections;
+   config->log_disconnections = reload->log_disconnections;
+   /* log_lock */
+
+   config->authquery = reload->authquery;
+
+   config->tls = reload->tls;
+   memcpy(config->tls_cert_file, reload->tls_cert_file, MISC_LENGTH);
+   memcpy(config->tls_key_file, reload->tls_key_file, MISC_LENGTH);
+   memcpy(config->tls_ca_file, reload->tls_ca_file, MISC_LENGTH);
+
+   if (config->tls && (config->pipeline == PIPELINE_SESSION || config->pipeline == PIPELINE_TRANSACTION))
+   {
+      if (pgagroal_tls_valid())
+      {
+         pgagroal_log_fatal("pgagroal: Invalid TLS configuration");
+         exit(1);
+      }
+   }
+
+   /* active_connections */
+   /* max_connections */
+   restart_int("max_connections", config->max_connections, reload->max_connections);
+   config->allow_unknown_users = reload->allow_unknown_users;
+
+   config->blocking_timeout = reload->blocking_timeout;
+   config->idle_timeout = reload->idle_timeout;
+   config->validation = reload->validation;
+   config->background_interval = reload->background_interval;
+   config->max_retries = reload->max_retries;
+   config->authentication_timeout = reload->authentication_timeout;
+   config->disconnect_client = reload->disconnect_client;
+
+   /* libev */
+   restart_string("libev", config->libev, reload->libev);
+   config->buffer_size = reload->buffer_size;
+   config->keep_alive = reload->keep_alive;
+   config->nodelay = reload->nodelay;
+   config->non_blocking = reload->non_blocking;
+   config->backlog = reload->backlog;
+   /* hugepage */
+   restart_int("hugepage", config->hugepage, reload->hugepage);
+   config->tracker = reload->tracker;
+   config->track_prepared_statements = reload->track_prepared_statements;
+
+   /* unix_socket_dir */
+   restart_string("unix_socket_dir", config->unix_socket_dir, reload->unix_socket_dir);
+
+   /* su_connection */
+
+   /* states */
+
+   memset(&config->servers[0], 0, sizeof(struct server) * NUMBER_OF_SERVERS);
+   for (int i = 0; i < reload->number_of_servers; i++)
+   {
+      copy_server(&config->servers[i], &reload->servers[i]);
+   }
+   config->number_of_servers = reload->number_of_servers;
+
+   memset(&config->hbas[0], 0, sizeof(struct hba) * NUMBER_OF_HBAS);
+   for (int i = 0; i < reload->number_of_hbas; i++)
+   {
+      copy_hba(&config->hbas[i], &reload->hbas[i]);
+   }
+   config->number_of_hbas = reload->number_of_hbas;
+
+   /* number_of_limits */
+   /* limits */
+   restart_limit("limits", config, reload);
+
+   memset(&config->users[0], 0, sizeof(struct user) * NUMBER_OF_USERS);
+   for (int i = 0; i < reload->number_of_users; i++)
+   {
+      copy_user(&config->users[i], &reload->users[i]);
+   }
+   config->number_of_users = reload->number_of_users;
+
+   memset(&config->admins[0], 0, sizeof(struct user) * NUMBER_OF_ADMINS);
+   for (int i = 0; i < reload->number_of_admins; i++)
+   {
+      copy_user(&config->admins[i], &reload->admins[i]);
+   }
+   config->number_of_admins = reload->number_of_admins;
+
+   memset(&config->superuser, 0, sizeof(struct user));
+   copy_user(&config->superuser, &reload->superuser);
+
+   /* prometheus */
+   /* connections[] */
+
+   return 0;
+}
+
+static void
+copy_server(struct server* dst, struct server* src)
+{
+   memcpy(&dst->name[0], &src->name[0], MISC_LENGTH);
+   memcpy(&dst->host[0], &src->host[0], MISC_LENGTH);
+   dst->port = src->port;
+   atomic_init(&dst->state, SERVER_NOTINIT);
+}
+
+static void
+copy_hba(struct hba* dst, struct hba* src)
+{
+   memcpy(&dst->type[0], &src->type[0], MAX_TYPE_LENGTH);
+   memcpy(&dst->database[0], &src->database[0], MAX_DATABASE_LENGTH);
+   memcpy(&dst->username[0], &src->username[0], MAX_USERNAME_LENGTH);
+   memcpy(&dst->address[0], &src->address[0], MAX_ADDRESS_LENGTH);
+   memcpy(&dst->method[0], &src->method[0], MAX_ADDRESS_LENGTH);
+}
+
+static void
+copy_user(struct user* dst, struct user* src)
+{
+   memcpy(&dst->username[0], &src->username[0], MAX_USERNAME_LENGTH);
+   memcpy(&dst->password[0], &src->password[0], MAX_PASSWORD_LENGTH);
+}
+
+static int
+restart_int(char* name, int e, int n)
+{
+   if (e != n)
+   {
+      pgagroal_log_info("Restart required for %s - Existing %d New %d", name, e, n);
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+restart_string(char* name, char* e, char* n)
+{
+   if (strcmp(e, n))
+   {
+      pgagroal_log_info("Restart required for %s - Existing %s New %s", name, e, n);
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+restart_limit(char* name, struct configuration* config, struct configuration* reload)
+{
+   int ret;
+
+   ret = restart_int("limits", config->number_of_limits, reload->number_of_limits);
+   if (ret == 1)
+   {
+      goto error;
+   }
+
+   for (int i = 0; i < reload->number_of_limits; i++)
+   {
+      struct limit* e;
+      struct limit* n;
+
+      e = &config->limits[i];
+      n = &reload->limits[i];
+
+      if (strcmp(e->database, n->database) ||
+          strcmp(e->username, n->username) ||
+          e->max_size != n->max_size ||
+          e->initial_size != n->initial_size ||
+          e->min_size != n->min_size)
+      {
+         pgagroal_log_info("Restart required for limits");
+         goto error;
+      }
+   }
+
+   return 0;
+
+error:
+
+   return 1;
 }

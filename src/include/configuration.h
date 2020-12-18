@@ -37,95 +37,122 @@ extern "C" {
 
 /**
  * Initialize the configuration structure
+ * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_init_configuration(void);
+pgagroal_init_configuration(void* shmem);
 
 /**
  * Read the configuration from a file
+ * @param shmem The shared memory segment
  * @param filename The file name
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_read_configuration(char* filename);
+pgagroal_read_configuration(void* shmem, char* filename);
 
 /**
  * Validate the configuration
+ * @param shmem The shared memory segment
  * @param has_unix_socket Has Unix socket
  * @param has_main_sockets Has main sockets
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_validate_configuration(bool has_unix_socket, bool has_main_sockets);
+pgagroal_validate_configuration(void* shmem, bool has_unix_socket, bool has_main_sockets);
 
 /**
  * Read the HBA configuration from a file
+ * @param shmem The shared memory segment
  * @param filename The file name
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_read_hba_configuration(char* filename);
+pgagroal_read_hba_configuration(void* shmem, char* filename);
 
 /**
  * Validate the HBA configuration from a file
+ * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_validate_hba_configuration(void);
+pgagroal_validate_hba_configuration(void* shmem);
 
 /**
  * Read the LIMIT configuration from a file
+ * @param shmem The shared memory segment
  * @param filename The file name
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_read_limit_configuration(char* filename);
+pgagroal_read_limit_configuration(void* shmem, char* filename);
 
 /**
  * Validate the LIMIT configuration from a file
+ * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_validate_limit_configuration(void);
+pgagroal_validate_limit_configuration(void* shmem);
 
 /**
  * Read the USERS configuration from a file
+ * @param shmem The shared memory segment
  * @param filename The file name
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_read_users_configuration(char* filename);
+pgagroal_read_users_configuration(void* shmem, char* filename);
 
 /**
  * Validate the USERS configuration from a file
+ * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_validate_users_configuration(void);
+pgagroal_validate_users_configuration(void* shmem);
 
 /**
  * Read the ADMINS configuration from a file
+ * @param shmem The shared memory segment
  * @param filename The file name
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_read_admins_configuration(char* filename);
+pgagroal_read_admins_configuration(void* shmem, char* filename);
 
 /**
  * Validate the ADMINS configuration from a file
+ * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_validate_admins_configuration(void);
+pgagroal_validate_admins_configuration(void* shmem);
 
 /**
  * Read the superuser from a file
+ * @param shmem The shared memory segment
  * @param filename The file name
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_read_superuser_configuration(char* filename);
+pgagroal_read_superuser_configuration(void* shmem, char* filename);
+
+/**
+ * Validate the SUPERUSER configuration from a file
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_validate_superuser_configuration(void* shmem);
+
+/**
+ * Reload the configuration
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_reload_configuration(void);
 
 #ifdef __cplusplus
 }

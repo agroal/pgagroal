@@ -61,6 +61,7 @@
 #define ACTION_RESET          10
 #define ACTION_RESET_SERVER   11
 #define ACTION_SWITCH_TO      12
+#define ACTION_RELOAD         13
 
 static int flush(SSL* ssl, int socket, int32_t mode);
 static int enabledb(SSL* ssl, int socket, char* database);
@@ -74,6 +75,7 @@ static int isalive(SSL* ssl, int socket);
 static int reset(SSL* ssl, int socket);
 static int reset_server(SSL* ssl, int socket, char* server);
 static int switch_to(SSL* ssl, int socket, char* server);
+static int reload(SSL* ssl, int socket);
 
 static void
 version(void)
@@ -115,6 +117,7 @@ usage(void)
    printf("  status                   Status of pgagroal\n");
    printf("  details                  Detailed status of pgagroal\n");
    printf("  switch-to                Switch to another primary\n");
+   printf("  reload                   Reload the configuration\n");
    printf("  reset                    Reset the Prometheus statistics\n");
    printf("  reset-server             Reset the state of a server\n");
    printf("\n");
@@ -216,11 +219,11 @@ main(int argc, char **argv)
       printf("pgagroal-cli: Error creating shared memory\n");
       exit(1);
    }
-   pgagroal_init_configuration();
+   pgagroal_init_configuration(shmem);
 
    if (configuration_path != NULL)
    {
-      ret = pgagroal_read_configuration(configuration_path);
+      ret = pgagroal_read_configuration(shmem, configuration_path);
       if (ret)
       {
          printf("pgagroal-cli: Configuration not found: %s\n", configuration_path);
@@ -232,7 +235,7 @@ main(int argc, char **argv)
    }
    else
    {
-      ret = pgagroal_read_configuration("/etc/pgagroal/pgagroal.conf");
+      ret = pgagroal_read_configuration(shmem, "/etc/pgagroal/pgagroal.conf");
       if (ret)
       {
          if (host == NULL || port == NULL)
@@ -332,6 +335,14 @@ main(int argc, char **argv)
          {
             action = ACTION_SWITCH_TO;
             server = argv[argc - 1];
+         }
+      }
+      else if (!strcmp("reload", argv[argc - 1]))
+      {
+         /* Local connection only */
+         if (configuration_path != NULL)
+         {
+            action = ACTION_RELOAD;
          }
       }
 
@@ -455,6 +466,10 @@ password:
       else if (action == ACTION_SWITCH_TO)
       {
          exit_code = switch_to(s_ssl, socket, server);
+      }
+      else if (action == ACTION_RELOAD)
+      {
+         exit_code = reload(s_ssl, socket);
       }
    }
 
@@ -660,6 +675,17 @@ static int
 switch_to(SSL* ssl, int socket, char* server)
 {
    if (pgagroal_management_switch_to(ssl, socket, server))
+   {
+      return 1;
+   }
+
+   return 0;
+}
+
+static int
+reload(SSL* ssl, int socket)
+{
+   if (pgagroal_management_reload(ssl, socket))
    {
       return 1;
    }

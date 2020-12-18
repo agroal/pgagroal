@@ -59,6 +59,7 @@ extern "C" {
 #define MAX_PASSWORD_LENGTH  1024
 #define MAX_APPLICATION_NAME   64
 
+#define MAX_PATH 1024
 #define MISC_LENGTH 128
 #define NUMBER_OF_SERVERS 64
 #ifdef DEBUG
@@ -242,6 +243,13 @@ struct prometheus
  */
 struct configuration
 {
+   char configuration_path[MAX_PATH]; /**< The configuration path */
+   char hba_path[MAX_PATH];           /**< The HBA path */
+   char limit_path[MAX_PATH];         /**< The limit path */
+   char users_path[MAX_PATH];         /**< The users path */
+   char admins_path[MAX_PATH];        /**< The admins path */
+   char superuser_path[MAX_PATH];     /**< The superuser path */
+
    char host[MISC_LENGTH]; /**< The host */
    int port;               /**< The port */
    int metrics;            /**< The metrics port */

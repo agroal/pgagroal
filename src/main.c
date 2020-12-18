@@ -68,6 +68,7 @@ static void accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int reven
 static void accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static void shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents);
+static void reload_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void graceful_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void coredump_cb(struct ev_loop *loop, ev_signal *w, int revents);
 static void idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents);
@@ -76,6 +77,7 @@ static void disconnect_client_cb(struct ev_loop *loop, ev_periodic *w, int reven
 static bool accept_fatal(int error);
 static void add_client(pid_t pid);
 static void remove_client(pid_t pid);
+static void reload_configuration(void);
 
 struct accept_io
 {
@@ -373,13 +375,14 @@ main(int argc, char **argv)
       exit(1);
    }
 
-   pgagroal_init_configuration();
+   pgagroal_init_configuration(shmem);
+   config = (struct configuration*)shmem;
 
    memset(&known_fds, 0, sizeof(known_fds));
 
    if (configuration_path != NULL)
    {
-      if (pgagroal_read_configuration(configuration_path))
+      if (pgagroal_read_configuration(shmem, configuration_path))
       {
          printf("pgagroal: Configuration not found: %s\n", configuration_path);
          sd_notifyf(0, "STATUS=Configuration not found: %s", configuration_path);
@@ -388,17 +391,19 @@ main(int argc, char **argv)
    }
    else
    {
-      if (pgagroal_read_configuration("/etc/pgagroal/pgagroal.conf"))
+      if (pgagroal_read_configuration(shmem, "/etc/pgagroal/pgagroal.conf"))
       {
          printf("pgagroal: Configuration not found: /etc/pgagroal/pgagroal.conf\n");
          sd_notify(0, "STATUS=Configuration not found: /etc/pgagroal/pgagroal.conf");
          exit(1);
       }
+      configuration_path = "/etc/pgagroal/pgagroal.conf";
    }
+   memcpy(&config->configuration_path[0], configuration_path, MIN(strlen(configuration_path), MAX_PATH - 1));
 
    if (hba_path != NULL)
    {
-      if (pgagroal_read_hba_configuration(hba_path))
+      if (pgagroal_read_hba_configuration(shmem, hba_path))
       {
          printf("pgagroal: HBA configuration not found: %s\n", hba_path);
          sd_notifyf(0, "STATUS=HBA configuration not found: %s", hba_path);
@@ -407,31 +412,39 @@ main(int argc, char **argv)
    }
    else
    {
-      if (pgagroal_read_hba_configuration("/etc/pgagroal/pgagroal_hba.conf"))
+      if (pgagroal_read_hba_configuration(shmem, "/etc/pgagroal/pgagroal_hba.conf"))
       {
          printf("pgagroal: HBA configuration not found: /etc/pgagroal/pgagroal_hba.conf\n");
          sd_notify(0, "STATUS=HBA configuration not found: /etc/pgagroal/pgagroal_hba.conf");
          exit(1);
       }
+      hba_path = "/etc/pgagroal/pgagroal_hba.conf";
    }
+   memcpy(&config->hba_path[0], hba_path, MIN(strlen(hba_path), MAX_PATH - 1));
 
    if (limit_path != NULL)
    {
-      if (pgagroal_read_limit_configuration(limit_path))
+      if (pgagroal_read_limit_configuration(shmem, limit_path))
       {
          printf("pgagroal: LIMIT configuration not found: %s\n", limit_path);
          sd_notifyf(0, "STATUS=LIMIT configuration not found: %s", limit_path);
          exit(1);
       }
+      memcpy(&config->limit_path[0], limit_path, MIN(strlen(limit_path), MAX_PATH - 1));
    }
    else
    {
-      pgagroal_read_limit_configuration("/etc/pgagroal/pgagroal_databases.conf");
+      limit_path = "/etc/pgagroal/pgagroal_databases.conf";
+      ret = pgagroal_read_limit_configuration(shmem, limit_path);
+      if (ret == 0)
+      {
+         memcpy(&config->limit_path[0], limit_path, MIN(strlen(limit_path), MAX_PATH - 1));
+      }
    }
 
    if (users_path != NULL)
    {
-      ret = pgagroal_read_users_configuration(users_path);
+      ret = pgagroal_read_users_configuration(shmem, users_path);
       if (ret == 1)
       {
          printf("pgagroal: USERS configuration not found: %s\n", users_path);
@@ -450,15 +463,21 @@ main(int argc, char **argv)
          sd_notifyf(0, "STATUS=USERS: Too many users defined %d (max %d)", config->number_of_users, NUMBER_OF_USERS);
          exit(1);
       }
+      memcpy(&config->users_path[0], users_path, MIN(strlen(users_path), MAX_PATH - 1));
    }
    else
    {
-      pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_users.conf");
+      users_path = "/etc/pgagroal/pgagroal_users.conf";
+      ret = pgagroal_read_users_configuration(shmem, users_path);
+      if (ret == 0)
+      {
+         memcpy(&config->users_path[0], users_path, MIN(strlen(users_path), MAX_PATH - 1));
+      }
    }
 
    if (admins_path != NULL)
    {
-      ret = pgagroal_read_admins_configuration(admins_path);
+      ret = pgagroal_read_admins_configuration(shmem, admins_path);
       if (ret == 1)
       {
          printf("pgagroal: ADMINS configuration not found: %s\n", admins_path);
@@ -477,15 +496,21 @@ main(int argc, char **argv)
          sd_notifyf(0, "STATUS=ADMINS: Too many admins defined %d (max %d)", config->number_of_admins, NUMBER_OF_ADMINS);
          exit(1);
       }
+      memcpy(&config->admins_path[0], admins_path, MIN(strlen(admins_path), MAX_PATH - 1));
    }
    else
    {
-      pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_admins.conf");
+      admins_path = "/etc/pgagroal/pgagroal_admins.conf";
+      ret = pgagroal_read_users_configuration(shmem, admins_path);
+      if (ret == 0)
+      {
+         memcpy(&config->admins_path[0], admins_path, MIN(strlen(admins_path), MAX_PATH - 1));
+      }
    }
 
    if (superuser_path != NULL)
    {
-      ret = pgagroal_read_superuser_configuration(superuser_path);
+      ret = pgagroal_read_superuser_configuration(shmem, superuser_path);
       if (ret == 1)
       {
          printf("pgagroal: SUPERUSER configuration not found: %s\n", superuser_path);
@@ -504,10 +529,16 @@ main(int argc, char **argv)
          sd_notify(0, "STATUS=SUPERUSER: Too many superusers defined (max 1)");
          exit(1);
       }
+      memcpy(&config->superuser_path[0], superuser_path, MIN(strlen(superuser_path), MAX_PATH - 1));
    }
    else
    {
-      pgagroal_read_users_configuration("/etc/pgagroal/pgagroal_superuser.conf");
+      superuser_path = "/etc/pgagroal/pgagroal_superuser.conf";
+      ret = pgagroal_read_users_configuration(shmem, superuser_path);
+      if (ret == 0)
+      {
+         memcpy(&config->superuser_path[0], superuser_path, MIN(strlen(superuser_path), MAX_PATH - 1));
+      }
    }
 
    /* systemd sockets */
@@ -551,27 +582,27 @@ main(int argc, char **argv)
       }
    }
 
-   if (pgagroal_validate_configuration(has_unix_socket, has_main_sockets))
+   if (pgagroal_validate_configuration(shmem, has_unix_socket, has_main_sockets))
    {
       sd_notify(0, "STATUS=Invalid configuration");
       exit(1);
    }
-   if (pgagroal_validate_hba_configuration())
+   if (pgagroal_validate_hba_configuration(shmem))
    {
       sd_notify(0, "STATUS=Invalid HBA configuration");
       exit(1);
    }
-   if (pgagroal_validate_limit_configuration())
+   if (pgagroal_validate_limit_configuration(shmem))
    {
       sd_notify(0, "STATUS=Invalid LIMIT configuration");
       exit(1);
    }
-   if (pgagroal_validate_users_configuration())
+   if (pgagroal_validate_users_configuration(shmem))
    {
       sd_notify(0, "STATUS=Invalid USERS configuration");
       exit(1);
    }
-   if (pgagroal_validate_admins_configuration())
+   if (pgagroal_validate_admins_configuration(shmem))
    {
       sd_notify(0, "STATUS=Invalid ADMINS configuration");
       exit(1);
@@ -591,7 +622,6 @@ main(int argc, char **argv)
    }
    shmem_size = tmp_size;
    shmem = tmp_shmem;
-
    config = (struct configuration*)shmem;
 
    if (getrlimit(RLIMIT_NOFILE, &flimit) == -1)
@@ -701,7 +731,7 @@ main(int argc, char **argv)
    }
 
    ev_signal_init((struct ev_signal*)&signal_watcher[0], shutdown_cb, SIGTERM);
-   ev_signal_init((struct ev_signal*)&signal_watcher[1], shutdown_cb, SIGHUP);
+   ev_signal_init((struct ev_signal*)&signal_watcher[1], reload_cb, SIGHUP);
    ev_signal_init((struct ev_signal*)&signal_watcher[2], shutdown_cb, SIGINT);
    ev_signal_init((struct ev_signal*)&signal_watcher[3], graceful_cb, SIGTRAP);
    ev_signal_init((struct ev_signal*)&signal_watcher[4], coredump_cb, SIGABRT);
@@ -889,6 +919,8 @@ main(int argc, char **argv)
    ev_loop_destroy(main_loop);
 
    free(main_fds);
+   free(metrics_fds);
+   free(management_fds);
 
    main_pipeline.destroy(pipeline_shmem, pipeline_shmem_size);
 
@@ -1207,6 +1239,10 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
             pgagroal_prometheus_failed_servers();
          }
          break;
+      case MANAGEMENT_RELOAD:
+         pgagroal_log_debug("pgagroal: Management reload");
+         reload_configuration();
+         break;
       default:
          pgagroal_log_debug("pgagroal: Unknown management id: %d", id);
          break;
@@ -1383,6 +1419,13 @@ shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents)
 }
 
 static void
+reload_cb(struct ev_loop *loop, ev_signal *w, int revents)
+{
+   pgagroal_log_debug("pgagroal: reload requested");
+   reload_configuration();
+}
+
+static void
 graceful_cb(struct ev_loop *loop, ev_signal *w, int revents)
 {
    struct configuration* config;
@@ -1545,5 +1588,107 @@ remove_client(pid_t pid)
       }
 
       free(c);
+   }
+}
+
+static void
+reload_configuration(void)
+{
+   char pgsql[MISC_LENGTH];
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   shutdown_io();
+   shutdown_uds();
+   shutdown_metrics();
+   shutdown_management();
+
+   pgagroal_reload_configuration();
+
+   memset(&pgsql, 0, sizeof(pgsql));
+   snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->port);
+
+   if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], &unix_pgsql_socket))
+   {
+      pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, &pgsql[0]);
+      exit(1);
+   }
+
+   free(main_fds);
+   main_fds = NULL;
+   main_fds_length = 0;
+
+   if (pgagroal_bind(config->host, config->port, &main_fds, &main_fds_length))
+   {
+      pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->port);
+      exit(1);
+   }
+
+   if (main_fds_length > MAX_FDS)
+   {
+      pgagroal_log_fatal("pgagroal: Too many descriptors %d", main_fds_length);
+      exit(1);
+   }
+
+   start_io();
+   start_uds();
+
+   if (config->metrics > 0)
+   {
+      free(metrics_fds);
+      metrics_fds = NULL;
+      metrics_fds_length = 0;
+
+      /* Bind metrics socket */
+      if (pgagroal_bind(config->host, config->metrics, &metrics_fds, &metrics_fds_length))
+      {
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->metrics);
+         exit(1);
+      }
+
+      if (metrics_fds_length > MAX_FDS)
+      {
+         pgagroal_log_fatal("pgagroal: Too many descriptors %d", metrics_fds_length);
+         exit(1);
+      }
+
+      start_metrics();
+   }
+
+   if (config->management > 0)
+   {
+      free(management_fds);
+      management_fds = NULL;
+      management_fds_length = 0;
+
+      /* Bind management socket */
+      if (pgagroal_bind(config->host, config->management, &management_fds, &management_fds_length))
+      {
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->management);
+         exit(1);
+      }
+
+      if (management_fds_length > MAX_FDS)
+      {
+         pgagroal_log_fatal("pgagroal: Too many descriptors %d", management_fds_length);
+         exit(1);
+      }
+
+      start_management();
+   }
+
+   for (int i = 0; i < main_fds_length; i++)
+   {
+      pgagroal_log_debug("Socket: %d", *(main_fds + i));
+   }
+   pgagroal_log_debug("Unix Domain Socket: %d", unix_pgsql_socket);
+   for (int i = 0; i < metrics_fds_length; i++)
+   {
+      pgagroal_log_debug("Metrics: %d", *(metrics_fds + i));
+   }
+   for (int i = 0; i < management_fds_length; i++)
+   {
+      pgagroal_log_debug("Remote management: %d", *(management_fds + i));
    }
 }

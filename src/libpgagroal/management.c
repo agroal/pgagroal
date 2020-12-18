@@ -195,6 +195,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
       case MANAGEMENT_STATUS:
       case MANAGEMENT_DETAILS:
       case MANAGEMENT_RESET:
+      case MANAGEMENT_RELOAD:
          break;
       default:
          goto error;
@@ -1135,6 +1136,23 @@ pgagroal_management_switch_to(SSL* ssl, int fd, char* server)
    if (write_complete(ssl, fd, &name[0], sizeof(name)))
    {
       pgagroal_log_warn("pgagroal_management_switch_to: write: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+int
+pgagroal_management_reload(SSL* ssl, int fd)
+{
+   if (write_header(ssl, fd, MANAGEMENT_RELOAD, -1))
+   {
+      pgagroal_log_warn("pgagroal_management_reload: write: %d", fd);
       errno = 0;
       goto error;
    }

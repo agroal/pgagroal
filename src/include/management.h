@@ -57,6 +57,7 @@ extern "C" {
 #define MANAGEMENT_CLIENT_DONE        15
 #define MANAGEMENT_CLIENT_FD          16
 #define MANAGEMENT_SWITCH_TO          17
+#define MANAGEMENT_RELOAD             18
 
 /**
  * Read the management header
@@ -283,6 +284,15 @@ pgagroal_management_client_fd(int32_t slot, pid_t pid);
  */
 int
 pgagroal_management_switch_to(SSL* ssl, int socket, char* server);
+
+/**
+ * Management operation: Reload
+ * @param ssl The SSL connection
+ * @param socket The socket
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_reload(SSL* ssl, int socket);
 
 #ifdef __cplusplus
 }

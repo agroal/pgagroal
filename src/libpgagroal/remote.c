@@ -93,6 +93,7 @@ pgagroal_remote_management(int client_fd, char* address)
          case MANAGEMENT_STOP:
          case MANAGEMENT_CANCEL_SHUTDOWN:
          case MANAGEMENT_RESET:
+         case MANAGEMENT_RELOAD:
             break;
          case MANAGEMENT_STATUS:
          case MANAGEMENT_ISALIVE:

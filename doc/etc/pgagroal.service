@@ -13,6 +13,7 @@ After=network.target
 Type=notify
 User=pgagroal
 ExecStart=/usr/bin/pgagroal
+ExecReload=/bin/kill -HUP $MAINPID
 KillSignal=SIGINT
 #LimitNOFILE=1024
 

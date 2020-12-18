@@ -218,14 +218,33 @@ The pipeline is defined in [pipeline_transaction.c](../src/libpgagroal/pipeline_
 
 ## Signals
 
-The main process of `pgagroal` supports the following signals `SIGTERM`, `SIGHUP`, `SIGINT` and `SIGALRM`
+The main process of `pgagroal` supports the following signals `SIGTERM`, `SIGINT` and `SIGALRM`
 as a mechanism for shutting down. The `SIGTRAP` signal will put `pgagroal` into graceful shutdown, meaning that
 exisiting connections are allowed to finish their session. The `SIGABRT` is used to request a core dump (`abort()`).
+The `SIGHUP` signal will trigger a reload of the configuration.
 
 The child processes support `SIGQUIT` as a mechanism to shutdown. This will not shutdown the pool itself.
 
 It should not be needed to use `SIGKILL` for `pgagroal`. Please, consider using `SIGABRT` instead, and share the
 core dump and debug logs with the `pgagroal` community.
+
+## Reload
+
+The `SIGHUP` signal will trigger a reload of the configuration.
+
+However, some configuration settings requires a full restart of `pgagroal` in order to take effect. These are
+
+* `hugepage`
+* `libev`
+* `log_path`
+* `log_type`
+* `max_connections`
+* `pipeline`
+* `unix_socket_dir`
+* Limit rules defined by `pgagroal_databases.conf`
+
+The configuration can also be reloaded using `pgagroal-cli -c pgagroal.conf reload`. The command is only supported
+over the local interface, and hence doesn't work remotely.
 
 ## Prometheus
 

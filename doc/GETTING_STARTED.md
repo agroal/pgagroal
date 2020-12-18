@@ -152,6 +152,7 @@ Commands:
   status                   Status of pgagroal
   details                  Detailed status of pgagroal
   switch-to                Switch to another primary
+  reload                   Reload the configuration
   reset                    Reset the Prometheus statistics
   reset-server             Reset the state of a server
 ```
