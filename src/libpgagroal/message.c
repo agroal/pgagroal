@@ -41,6 +41,7 @@
 #include <unistd.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
+#include <sys/time.h>
 
 static int read_message(int socket, bool block, int timeout, struct message** msg);
 static int write_message(int socket, struct message* msg);

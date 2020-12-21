@@ -46,6 +46,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <openssl/err.h>
@@ -54,6 +55,8 @@
 #include <openssl/md5.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 
 static int get_auth_type(struct message* msg, int* auth_type);
