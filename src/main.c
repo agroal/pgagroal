@@ -583,6 +583,8 @@ main(int argc, char **argv)
       }
    }
 
+   pgagroal_start_logging();
+
    if (pgagroal_validate_configuration(shmem, has_unix_socket, has_main_sockets))
    {
       sd_notify(0, "STATUS=Invalid configuration");
@@ -675,7 +677,6 @@ main(int argc, char **argv)
       }
    }
 
-   pgagroal_start_logging();
    pgagroal_pool_init();
 
    pgagroal_set_proc_title(argv, "main", NULL);
