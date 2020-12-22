@@ -224,23 +224,13 @@ Commands:
   list-users              List all users
     </pre>
 
-    In order to set the master key for all users use
+    In order to set the master key for all users you can use
 
     <pre>
-pgagroal-admin master-key
+pgagroal-admin -g master-key
     </pre>
 
-    The master key must have the following properties
-
-    <ul>
-      <li>At least 8 characters long</li>
-      <li>Use at least 1 upper case letter (A, B, C, ...)</li>
-      <li>Use at least 1 lower case letter (a, b, c, ...)</li>
-      <li>Use at least 1 number  (1, 2, 3, ...)</li>
-      <li>Use at least 1 special character (!, @, #, ...)</li>
-    </ul>
-
-    in order to be considered valid.
+    The master key must be at least 8 characters.
     <p/>
 
     Then use the other commands to add, update, remove or list the current user names, f.ex.
