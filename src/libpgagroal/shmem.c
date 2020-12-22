@@ -47,12 +47,14 @@ pgagroal_create_shared_memory(size_t size, unsigned char hp, void** shmem)
 
    *shmem = NULL;
 
+#ifdef HAVE_LINUX
    if (hp == HUGEPAGE_TRY || hp == HUGEPAGE_ON)
    {
       visibility = visibility | MAP_HUGETLB;
    }
+#endif
 
-   s = mmap(NULL, size, protection, visibility, 0, 0);
+   s = mmap(NULL, size, protection, visibility, -1, 0);
    if (s == (void *)-1)
    {
       errno = 0;

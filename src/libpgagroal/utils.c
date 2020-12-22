@@ -689,6 +689,7 @@ error:
 void
 pgagroal_set_proc_title(char** argv, char* s1, char *s2)
 {
+#ifdef HAVE_LINUX
    char title[256];
 
    memset(&title, 0, sizeof(title));
@@ -703,6 +704,16 @@ pgagroal_set_proc_title(char** argv, char* s1, char *s2)
    }
 
    memcpy(*argv, title, 256);
+#else
+   if (s1 != NULL && s2 != NULL)
+   {
+      setproctitle("-pgagroal: %s/%s", s1, s2);
+   }
+   else
+   {
+      setproctitle("-pgagroal: %s", s1);
+   }
+#endif
 }
 
 #ifdef DEBUG
@@ -710,6 +721,7 @@ pgagroal_set_proc_title(char** argv, char* s1, char *s2)
 int
 pgagroal_backtrace(void)
 {
+#ifdef HAVE_LINUX
    void* array[100];
    size_t size;
    char** strings;
@@ -723,6 +735,7 @@ pgagroal_backtrace(void)
    }
 
    free(strings);
+#endif
 
    return 0;
 }

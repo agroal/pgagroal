@@ -87,8 +87,7 @@ error:
 int
 pgagroal_management_read_payload(int socket, signed char id, int* payload_i, char** payload_s)
 {
-   int newfd, nr, status;
-   char *ptr;
+   int nr;
    char* s = NULL;
    char buf2[2];
    char buf4[4];
@@ -103,53 +102,35 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
    {
       case MANAGEMENT_TRANSFER_CONNECTION:
       case MANAGEMENT_CLIENT_FD:
-         status = -1;
-         newfd = -1;
+         memset(&buf2[0], 0, sizeof(buf2));
 
-         iov[0].iov_base = buf2;
-         iov[0].iov_len = 2;
-         msg.msg_iov = iov;
-         msg.msg_iovlen = 1;
+         iov[0].iov_base = &buf2[0];
+         iov[0].iov_len = sizeof(buf2);
+
+         cmptr = malloc(CMSG_SPACE(sizeof(int)));
+         memset(cmptr, 0, CMSG_SPACE(sizeof(int)));
+         cmptr->cmsg_len = CMSG_LEN(sizeof(int));
+         cmptr->cmsg_level = SOL_SOCKET;
+         cmptr->cmsg_type = SCM_RIGHTS;
+
          msg.msg_name = NULL;
          msg.msg_namelen = 0;
-
-         cmptr = malloc(CMSG_LEN(sizeof(int)));
-
+         msg.msg_iov = iov;
+         msg.msg_iovlen = 1;
          msg.msg_control    = cmptr;
-         msg.msg_controllen = CMSG_LEN(sizeof(int));
+         msg.msg_controllen = CMSG_SPACE(sizeof(int));
+         msg.msg_flags = 0;
+
          if ((nr = recvmsg(socket, &msg, 0)) < 0)
          {
             goto error;
          }
          else if (nr == 0)
          {
-            /* TODO */
-            return -1;
+            goto error;
          }
 
-         /*
-          * See if this is the final data with null & status.  Null
-          * is next to last byte of buffer; status byte is last byte.
-          * Zero status means there is a file descriptor to receive.
-          */
-         for (ptr = buf2; ptr < &buf2[nr]; )
-         {
-            if (*ptr++ == 0)
-            {
-               status = *ptr & 0xFF;
-               if (status == 0)
-               {
-                  newfd = *(int *)CMSG_DATA(cmptr);
-               }
-               else
-               {
-                  newfd = -status;
-               }
-               nr -= 2;
-            }
-         }
-
-         *payload_i = newfd;
+         *payload_i = *(int *)CMSG_DATA(cmptr);
 
          free(cmptr);
          break;
@@ -220,7 +201,7 @@ pgagroal_management_transfer_connection(int32_t slot)
    struct cmsghdr *cmptr = NULL;
    struct iovec iov[1];
    struct msghdr msg;
-   char buf[2]; /* send_fd()/recv_fd() 2-byte protocol */
+   char buf2[2];
 
    config = (struct configuration*)shmem;
 
@@ -239,22 +220,25 @@ pgagroal_management_transfer_connection(int32_t slot)
    }
 
    /* Write file descriptor */
-   iov[0].iov_base = buf;
-   iov[0].iov_len  = 2;
-   msg.msg_iov     = iov;
-   msg.msg_iovlen  = 1;
-   msg.msg_name    = NULL;
-   msg.msg_namelen = 0;
+   memset(&buf2[0], 0, sizeof(buf2));
 
-   cmptr = malloc(CMSG_LEN(sizeof(int)));
+   iov[0].iov_base = &buf2[0];
+   iov[0].iov_len  = sizeof(buf2);
+
+   cmptr = malloc(CMSG_SPACE(sizeof(int)));
+   memset(cmptr, 0, CMSG_SPACE(sizeof(int)));
    cmptr->cmsg_level  = SOL_SOCKET;
    cmptr->cmsg_type   = SCM_RIGHTS;
    cmptr->cmsg_len    = CMSG_LEN(sizeof(int));
+
+   msg.msg_name    = NULL;
+   msg.msg_namelen = 0;
+   msg.msg_iov     = iov;
+   msg.msg_iovlen  = 1;
    msg.msg_control    = cmptr;
-   msg.msg_controllen = CMSG_LEN(sizeof(int));
+   msg.msg_controllen = CMSG_SPACE(sizeof(int));
+   msg.msg_flags = 0;
    *(int *)CMSG_DATA(cmptr) = config->connections[slot].fd;
-   buf[1] = 0; /* zero status means OK */
-   buf[0] = 0; /* null byte flag to recv_fd() */
 
    if (sendmsg(fd, &msg, 0) != 2)
    {
@@ -267,7 +251,8 @@ pgagroal_management_transfer_connection(int32_t slot)
    return 0;
 
 error:
-   free(cmptr);
+   if (cmptr)
+      free(cmptr);
    pgagroal_disconnect(fd);
    pgagroal_kill_connection(slot);
 

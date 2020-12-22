@@ -7,23 +7,56 @@ FILE(GLOB HEADER_FILES "include/*.h")
 set(SOURCES ${SOURCE_FILES} ${HEADER_FILES})
 
 #
-# Include directories
+# OS
 #
-include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-  ${LIBEV_INCLUDE_DIRS}
-  ${OPENSSL_INCLUDE_DIRS}
-  ${SYSTEMD_INCLUDE_DIRS}
-)
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 
-#
-# Library directories
-#
-link_libraries(
-  ${LIBEV_LIBRARIES}
-  ${OPENSSL_LIBRARIES}
-  ${SYSTEMD_LIBRARIES}
-)
+  add_compile_options(-DHAVE_LINUX)
+  add_compile_options(-D_POSIX_C_SOURCE=200809L)
+
+  #
+  # Include directories
+  #
+  include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${LIBEV_INCLUDE_DIRS}
+    ${OPENSSL_INCLUDE_DIRS}
+    ${SYSTEMD_INCLUDE_DIRS}
+  )
+
+  #
+  # Library directories
+  #
+  link_libraries(
+    ${LIBEV_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+    ${SYSTEMD_LIBRARIES}
+  )
+
+else()
+
+  add_compile_options(-D_XOPEN_SOURCE=700)
+  add_compile_options(-D_BSD_SOURCE)
+  add_compile_options(-D_DEFAULT_SOURCE)
+  add_compile_options(-D__BSD_VISIBLE)
+
+  #
+  # Include directories
+  #
+  include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${LIBEV_INCLUDE_DIRS}
+    ${OPENSSL_INCLUDE_DIRS}
+  )
+
+  #
+  # Library directories
+  #
+  link_libraries(
+    ${LIBEV_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+  )
+endif()
 
 #
 # Compile options
@@ -31,7 +64,6 @@ link_libraries(
 add_compile_options(-g)
 add_compile_options(-Wall)
 add_compile_options(-std=c17)
-add_compile_options(-D_POSIX_C_SOURCE=200809L)
 add_compile_options(-D__USE_ISOC11)
 add_compile_options(-D_GNU_SOURCE)
 
