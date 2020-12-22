@@ -1170,6 +1170,12 @@ read:
 
    if (r == -1)
    {
+      if (errno == EAGAIN || errno == EWOULDBLOCK)
+      {
+         errno = 0;
+         goto read;
+      }
+
       goto error;
    }
    else if (r < needs)
