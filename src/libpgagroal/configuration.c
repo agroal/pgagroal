@@ -1779,7 +1779,7 @@ pgagroal_reload_configuration(void)
       goto error;
    }
 
-   if (config->limit_path != NULL && strcmp("", config->limit_path))
+   if (strcmp("", config->limit_path))
    {
       if (pgagroal_read_limit_configuration((void*)reload, config->limit_path))
       {
@@ -1787,7 +1787,7 @@ pgagroal_reload_configuration(void)
       }
    }
 
-   if (config->users_path != NULL && strcmp("", config->users_path))
+   if (strcmp("", config->users_path))
    {
       if (pgagroal_read_users_configuration((void*)reload, config->users_path))
       {
@@ -1795,7 +1795,7 @@ pgagroal_reload_configuration(void)
       }
    }
 
-   if (config->admins_path != NULL && strcmp("", config->admins_path))
+   if (&& strcmp("", config->admins_path))
    {
       if (pgagroal_read_admins_configuration((void*)reload, config->admins_path))
       {
@@ -1803,7 +1803,7 @@ pgagroal_reload_configuration(void)
       }
    }
 
-   if (config->superuser_path != NULL && strcmp("", config->superuser_path))
+   if (strcmp("", config->superuser_path))
    {
       if (pgagroal_read_superuser_configuration((void*)reload, config->superuser_path))
       {
