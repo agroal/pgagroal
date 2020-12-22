@@ -1795,7 +1795,7 @@ pgagroal_reload_configuration(void)
       }
    }
 
-   if (&& strcmp("", config->admins_path))
+   if (strcmp("", config->admins_path))
    {
       if (pgagroal_read_admins_configuration((void*)reload, config->admins_path))
       {
