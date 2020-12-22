@@ -400,11 +400,8 @@ error:
 static bool
 is_valid_key(char* key)
 {
-   int index;
    char c;
    
-   index = 0;
-
    if (!key)
    {
       return false;
@@ -415,8 +412,10 @@ is_valid_key(char* key)
       return false;
    }
 
-   while ((c = *(key + index)) != 0)
+   for (int i = 0; i < strlen(key); i++)
    {
+      c = *(key + i);
+
       /* Only support ASCII for now */
       if ((unsigned char)c & 0x80)
       {
