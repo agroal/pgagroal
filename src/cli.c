@@ -230,7 +230,11 @@ main(int argc, char **argv)
          exit(1);
       }
 
-      pgagroal_start_logging();
+      if (pgagroal_start_logging())
+      {
+         exit(1);
+      }
+
       config = (struct configuration*)shmem;
    }
    else
@@ -247,7 +251,12 @@ main(int argc, char **argv)
       else
       {
          configuration_path = "/etc/pgagroal/pgagroal.conf";
-         pgagroal_start_logging();
+
+         if (pgagroal_start_logging())
+         {
+            exit(1);
+         }
+
          config = (struct configuration*)shmem;
       }
    }

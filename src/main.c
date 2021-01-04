@@ -621,7 +621,13 @@ main(int argc, char **argv)
    }
 #endif
 
-   pgagroal_start_logging();
+   if (pgagroal_start_logging())
+   {
+#ifdef HAVE_LINUX
+      sd_notify(0, "STATUS=Failed to start logging");
+#endif
+      exit(1);
+   }
 
    if (pgagroal_validate_configuration(shmem, has_unix_socket, has_main_sockets))
    {
