@@ -241,7 +241,7 @@ main(int argc, char **argv)
          config = (struct configuration*)shmem;
 
          config->log_type = PGAGROAL_LOGGING_TYPE_FILE;
-         memcpy(&config->log_path[0], logfile, MAX(MISC_LENGTH - 1, strlen(logfile)));
+         memcpy(&config->log_path[0], logfile, MIN(MISC_LENGTH - 1, strlen(logfile)));
       }
 
       if (pgagroal_start_logging())
@@ -271,7 +271,7 @@ main(int argc, char **argv)
             config = (struct configuration*)shmem;
 
             config->log_type = PGAGROAL_LOGGING_TYPE_FILE;
-            memcpy(&config->log_path[0], logfile, MAX(MISC_LENGTH - 1, strlen(logfile)));
+            memcpy(&config->log_path[0], logfile, MIN(MISC_LENGTH - 1, strlen(logfile)));
          }
 
          if (pgagroal_start_logging())
