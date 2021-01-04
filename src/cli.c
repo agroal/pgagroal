@@ -100,6 +100,7 @@ usage(void)
    printf("  -p, --port PORT          Set the port number\n");
    printf("  -U, --user USERNAME      Set the user name\n");
    printf("  -P, --password PASSWORD  Set the password\n");
+   printf("  -L, --logfile FILE       Set the log file\n");
    printf("  -v, --verbose            Output text string of result\n");
    printf("  -V, --version            Display version information\n");
    printf("  -?, --help               Display help\n");
@@ -138,6 +139,7 @@ main(int argc, char **argv)
    char* username = NULL;
    char* password = NULL;
    bool verbose = false;
+   char* logfile = NULL;
    bool do_free = true;
    int c;
    int option_index = 0;
@@ -158,12 +160,13 @@ main(int argc, char **argv)
          {"port",  required_argument, 0, 'p'},
          {"user",  required_argument, 0, 'U'},
          {"password",  required_argument, 0, 'P'},
+         {"logfile",  required_argument, 0, 'L'},
          {"verbose", no_argument, 0, 'v'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
 
-      c = getopt_long(argc, argv, "vV?c:h:p:U:P:",
+      c = getopt_long(argc, argv, "vV?c:h:p:U:P:L:",
                       long_options, &option_index);
 
       if (c == -1)
@@ -185,6 +188,9 @@ main(int argc, char **argv)
             break;
          case 'P':
             password = optarg;
+            break;
+         case 'L':
+            logfile = optarg;
             break;
          case 'v':
             verbose = true;
@@ -230,6 +236,14 @@ main(int argc, char **argv)
          exit(1);
       }
 
+      if (logfile)
+      {
+         config = (struct configuration*)shmem;
+
+         config->log_type = PGAGROAL_LOGGING_TYPE_FILE;
+         memcpy(&config->log_path[0], logfile, MAX(MISC_LENGTH - 1, strlen(logfile)));
+      }
+
       if (pgagroal_start_logging())
       {
          exit(1);
@@ -251,6 +265,14 @@ main(int argc, char **argv)
       else
       {
          configuration_path = "/etc/pgagroal/pgagroal.conf";
+
+         if (logfile)
+         {
+            config = (struct configuration*)shmem;
+
+            config->log_type = PGAGROAL_LOGGING_TYPE_FILE;
+            memcpy(&config->log_path[0], logfile, MAX(MISC_LENGTH - 1, strlen(logfile)));
+         }
 
          if (pgagroal_start_logging())
          {

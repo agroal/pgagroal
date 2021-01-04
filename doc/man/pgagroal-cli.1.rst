@@ -36,6 +36,9 @@ OPTIONS
 -P, --password PASSWORD
   Set the password
 
+-L, --logfile FILE
+  Set the logfile
+
 -v, --verbose
   Output text string of result
 

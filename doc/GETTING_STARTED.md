@@ -135,6 +135,7 @@ Options:
   -p, --port PORT          Set the port number
   -U, --user USERNAME      Set the user name
   -P, --password PASSWORD  Set the password
+  -L, --logfile FILE       Set the log file
   -v, --verbose            Output text string of result
   -V, --version            Display version information
   -?, --help               Display help
