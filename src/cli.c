@@ -241,6 +241,7 @@ main(int argc, char **argv)
          config = (struct configuration*)shmem;
 
          config->log_type = PGAGROAL_LOGGING_TYPE_FILE;
+         memset(&config->log_path[0], 0, MISC_LENGTH);
          memcpy(&config->log_path[0], logfile, MIN(MISC_LENGTH - 1, strlen(logfile)));
       }
 
@@ -271,6 +272,7 @@ main(int argc, char **argv)
             config = (struct configuration*)shmem;
 
             config->log_type = PGAGROAL_LOGGING_TYPE_FILE;
+            memset(&config->log_path[0], 0, MISC_LENGTH);
             memcpy(&config->log_path[0], logfile, MIN(MISC_LENGTH - 1, strlen(logfile)));
          }
 
