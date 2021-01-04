@@ -84,7 +84,7 @@ pgagroal_start_logging(void)
 
       if (!log_file)
       {
-         pgagroal_log_warn("Failed to open log file %s due to %s", strlen(config->log_path) > 0 ? config->log_path : "pgagroal.log", strerror(errno));
+         printf("Failed to open log file %s due to %s\n", strlen(config->log_path) > 0 ? config->log_path : "pgagroal.log", strerror(errno));
          errno = 0;
          return 1;
       }
