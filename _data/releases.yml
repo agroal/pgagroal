@@ -61,3 +61,6 @@
 - name: pgagroal 1.0.2
   date: 2020-12-22
   announce: release/announcement/2020/12/22/pgagroal-1.0.2.html
+- name: pgagroal 1.1.0
+  date: 2021-01-05
+  announce: release/announcement/2021/01/05/pgagroal-1.1.0.html

@@ -16,7 +16,7 @@ layout: default
     using "pgagroal -?". You should see
 
     <pre>
-pgagroal 1.0.2
+pgagroal 1.1.0
   High-performance connection pool for PostgreSQL
 
 Usage:
@@ -135,7 +135,7 @@ psql -h localhost -p 2345 -U test test
     You can see the commands it supports by using "pgagroal-cli -?" which will give
 
     <pre>
-pgagroal-cli 1.0.2
+pgagroal-cli 1.1.0
   Command line utility for pgagroal
 
 Usage:
@@ -147,6 +147,7 @@ Options:
   -p, --port PORT          Set the port number
   -U, --user USERNAME      Set the user name
   -P, --password PASSWORD  Set the password
+  -L, --logfile FILE       Set the log file
   -v, --verbose            Output text string of the result
   -V, --version            Display version information
   -?, --help               Display help
@@ -203,7 +204,7 @@ echo $?
     You can see the commands it supports by using "pgagroal-admin -?" which will give
 
     <pre>
-pgagroal-admin 1.0.2
+pgagroal-admin 1.1.0
   Administration utility for pgagroal
 
 Usage:
