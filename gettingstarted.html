@@ -123,7 +123,9 @@ psql -h localhost -p 2345 -U test test
     thereby lower the overhead of getting a connection to <a href="https://www.postgresql.org">PostgreSQL</a>.
     <p/>
     Now you are ready to point your applications to use pgagroal instead of going directly to
-    <a href="https://www.postgresql.org">PostgreSQL</a>.
+    <a href="https://www.postgresql.org">PostgreSQL</a>. pgagroal will work with any
+    <a href="https://www.postgresql.org">PostgreSQL</a> compliant driver, for example <a href="https://jdbc.postgresql.org/">pgjdbc</a>,
+    <a href="https://www.npgsql.org/">Npgsql</a> and <a href="https://github.com/lib/pq">pq</a>.
     <p/>
     pgagroal is stopped by pressing Ctrl-C (^C) in the console where you started it, or by sending
     the SIGTERM signal to the process using "kill pid".
@@ -165,6 +167,7 @@ Commands:
   status                   Status of pgagroal
   details                  Detailed status of pgagroal
   switch-to                Switch to another primary
+  reload                   Reload the configuration
   reset                    Reset the Prometheus statistics
   reset-server             Reset the state of a server
     </pre>
