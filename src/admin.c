@@ -463,7 +463,10 @@ username:
       printf("User name: ");
    
       memset(&un, 0, sizeof(un));
-      fgets(&un[0], sizeof(un), stdin);
+      if (fgets(&un[0], sizeof(un), stdin) == NULL)
+      {
+         goto error;
+      }
       un[strlen(un) - 1] = 0;
       username = &un[0];
    }
@@ -624,7 +627,10 @@ username:
       printf("User name: ");
    
       memset(&un, 0, sizeof(un));
-      fgets(&un[0], sizeof(un), stdin);
+      if (fgets(&un[0], sizeof(un), stdin) == NULL)
+      {
+         goto error;
+      }
       un[strlen(un) - 1] = 0;
       username = &un[0];
    }
@@ -783,7 +789,10 @@ username:
       printf("User name: ");
    
       memset(&un, 0, sizeof(un));
-      fgets(&un[0], sizeof(un), stdin);
+      if (fgets(&un[0], sizeof(un), stdin) == NULL)
+      {
+         goto error;
+      }
       un[strlen(un) - 1] = 0;
       username = &un[0];
    }
