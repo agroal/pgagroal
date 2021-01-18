@@ -149,7 +149,7 @@ main(int argc, char **argv)
    char* database = NULL;
    char un[MAX_USERNAME_LENGTH];
    char* server = NULL;
-   struct configuration* config;
+   struct configuration* config = NULL;
 
    while (1)
    {
