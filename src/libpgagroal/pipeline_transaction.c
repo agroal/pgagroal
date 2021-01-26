@@ -65,6 +65,7 @@ static void accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 static int slot;
 static char username[MAX_USERNAME_LENGTH];
 static char database[MAX_DATABASE_LENGTH];
+static char appname[MAX_APPLICATION_NAME];
 static bool in_tx;
 static int next_client_message;
 static int next_server_message;
@@ -106,6 +107,7 @@ transaction_start(struct ev_loop* loop, struct worker_io* w)
    slot = -1;
    memcpy(&username[0], config->connections[w->slot].username, MAX_USERNAME_LENGTH);
    memcpy(&database[0], config->connections[w->slot].database, MAX_DATABASE_LENGTH);
+   memcpy(&appname[0], config->connections[w->slot].appname, MAX_APPLICATION_NAME);
    in_tx = false;
    next_client_message = 0;
    next_server_message = 0;
@@ -207,6 +209,8 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
       wi->server_fd = config->connections[slot].fd;
       wi->slot = slot;
+
+      memcpy(&config->connections[slot].appname[0], &appname[0], MAX_APPLICATION_NAME);
 
       ev_io_init((struct ev_io*)&server_io, transaction_server, config->connections[slot].fd, EV_READ);
       server_io.client_fd = wi->client_fd;
