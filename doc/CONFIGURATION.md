@@ -45,9 +45,9 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | failover | `off` | Bool | No | Enable failover support |
 | failover_script | | String | No | The failover script to execute |
 | tls | `off` | Bool | No | Enable Transport Layer Security (TLS) |
-| tls_cert_file | | String | No | Certificate file for TLS |
-| tls_key_file | | String | No | Private key file for TLS |
-| tls_ca_file | | String | No | Certificate Authority (CA) file for TLS |
+| tls_cert_file | | String | No | Certificate file for TLS. This file must be owned by either the user running pgagroal or root. |
+| tls_key_file | | String | No | Private key file for TLS. This file must be owned by either the user running pgagroal or root. Additionally permissions must be at least `0640` when owned by root or `0600` otherwise. |
+| tls_ca_file | | String | No | Certificate Authority (CA) file for TLS. This file must be owned by either the user running pgagroal or root.  |
 | libev | `auto` | String | No | Select the [libev](http://software.schmorp.de/pkg/libev.html) backend to use. Valid options: `auto`, `select`, `poll`, `epoll`, `iouring`, `devpoll` and `port` |
 | buffer_size | 65535 | Int | No | The network buffer size (`SO_RCVBUF` and `SO_SNDBUF`) |
 | keep_alive | on | Bool | No | Have `SO_KEEPALIVE` on sockets |

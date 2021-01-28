@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2021 Red Hat
- * 
+ *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this list
  * of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this
  * list of conditions and the following disclaimer in the documentation and/or other
  * materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its contributors may
  * be used to endorse or promote products derived from this software without specific
  * prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -401,7 +401,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
       free(username);
       free(database);
       free(appname);
-      
+
       pgagroal_prometheus_auth_user_success();
 
       pgagroal_log_debug("authenticate: SUCCESS");
@@ -1850,7 +1850,7 @@ retry:
    client_first_message_bare = malloc(msg->length - 25);
    memset(client_first_message_bare, 0, msg->length - 25);
    memcpy(client_first_message_bare, msg->data + 26, msg->length - 26);
-   
+
    get_scram_attribute('r', (char*)msg->data + 26, msg->length - 26, &client_nounce);
    generate_nounce(&server_nounce);
    generate_salt(&salt, &salt_length);
@@ -3184,9 +3184,9 @@ pgagroal_tls_valid(void)
          goto error;
       }
 
-      if (st.st_uid != geteuid())
+      if (st.st_uid && st.st_uid != geteuid())
       {
-         pgagroal_log_error("TLS certificate file not owned by user: %s", config->tls_cert_file);
+         pgagroal_log_error("TLS certificate file not owned by user or root: %s", config->tls_cert_file);
          goto error;
       }
 
@@ -3204,15 +3204,26 @@ pgagroal_tls_valid(void)
          goto error;
       }
 
-      if (st.st_uid != geteuid())
+      if (st.st_uid == geteuid())
       {
-         pgagroal_log_error("TLS private key file not owned by user: %s", config->tls_key_file);
-         goto error;
+         if (st.st_mode & (S_IRWXG | S_IRWXO))
+         {
+            pgagroal_log_error("TLS private key file must have 0600 permissions when owned by a non-root user: %s", config->tls_key_file);
+            goto error;
+         }
       }
-
-      if (st.st_mode & (S_IRWXG | S_IRWXO))
+      else if (st.st_uid == 0)
       {
-         pgagroal_log_error("TLS private key file must have 0600 permissions: %s", config->tls_key_file);
+         if (st.st_mode & (S_IWGRP | S_IXGRP | S_IRWXO))
+         {
+            pgagroal_log_error("TLS private key file must have at least 0640 permissions when owned by root: %s", config->tls_key_file);
+            goto error;
+         }
+
+      }
+      else
+      {
+         pgagroal_log_error("TLS private key file not owned by user or root: %s", config->tls_key_file);
          goto error;
       }
 
@@ -3232,9 +3243,9 @@ pgagroal_tls_valid(void)
             goto error;
          }
 
-         if (st.st_uid != geteuid())
+         if (st.st_uid && st.st_uid != geteuid())
          {
-            pgagroal_log_error("TLS CA file not owned by user: %s", config->tls_ca_file);
+            pgagroal_log_error("TLS CA file not owned by user or root: %s", config->tls_ca_file);
             goto error;
          }
       }
@@ -3557,7 +3568,7 @@ client_proof(char* password, char* salt, int salt_length, int iterations,
    {
       goto error;
    }
-   
+
    if (HMAC_Update(ctx, (unsigned char*)",", 1) != 1)
    {
       goto error;
@@ -3567,12 +3578,12 @@ client_proof(char* password, char* salt, int salt_length, int iterations,
    {
       goto error;
    }
-   
+
    if (HMAC_Update(ctx, (unsigned char*)",", 1) != 1)
    {
       goto error;
    }
-   
+
    if (HMAC_Update(ctx, (unsigned char*)client_final_message_wo_proof, client_final_message_wo_proof_length) != 1)
    {
       goto error;
@@ -3678,7 +3689,7 @@ verify_client_proof(char* s_key, int s_key_length,
    {
       goto error;
    }
-   
+
    if (HMAC_Update(ctx, (unsigned char*)",", 1) != 1)
    {
       goto error;
@@ -3688,12 +3699,12 @@ verify_client_proof(char* s_key, int s_key_length,
    {
       goto error;
    }
-   
+
    if (HMAC_Update(ctx, (unsigned char*)",", 1) != 1)
    {
       goto error;
    }
-   
+
    if (HMAC_Update(ctx, (unsigned char*)client_final_message_wo_proof, client_final_message_wo_proof_length) != 1)
    {
       goto error;
@@ -3798,7 +3809,7 @@ salted_password(char* password, char* salt, int salt_length, int iterations, uns
    {
       goto error;
    }
-   
+
    if (HMAC_Update(ctx, (unsigned char *)&one, sizeof(one)) != 1)
    {
       goto error;
@@ -4229,7 +4240,7 @@ create_ssl_ctx(bool client, SSL_CTX** ctx)
    SSL_CTX_set_options(c, SSL_OP_NO_SSLv3);
    SSL_CTX_set_options(c, SSL_OP_NO_TLSv1);
    SSL_CTX_set_options(c, SSL_OP_NO_TLSv1_1);
-#else   
+#else
    if (SSL_CTX_set_min_proto_version(c, TLS1_2_VERSION) == 0)
    {
       goto error;
@@ -4377,7 +4388,7 @@ create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl)
          pgagroal_log_error("Couldn't load TLS CA: %s", config->tls_ca_file);
          goto error;
       }
-      
+
       root_cert_list = SSL_load_client_CA_file(config->tls_ca_file);
       if (root_cert_list == NULL)
       {
@@ -4426,7 +4437,7 @@ auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, 
    struct configuration* config;
 
    config = (struct configuration*)shmem;
-   
+
    /* Get connection to server using the superuser */
    ret = auth_query_get_connection(config->superuser.username, config->superuser.password, database, &su_socket);
    if (ret == AUTH_BAD_PASSWORD)
