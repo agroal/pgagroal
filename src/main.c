@@ -1003,6 +1003,16 @@ main(int argc, char **argv)
 #endif
    pgagroal_pool_shutdown();
 
+   if (clients != NULL)
+   {
+      struct client* c = clients;
+      while (c != NULL)
+      {
+         kill(c->pid, SIGQUIT);
+         c = c->next;
+      }
+   }
+
    shutdown_management();
    shutdown_metrics();
    shutdown_mgt();
