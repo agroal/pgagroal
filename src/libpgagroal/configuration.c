@@ -1193,18 +1193,18 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                   {
                      initial_size = max_size;
                   }
-                  else if (initial_size < 0)
-                  {
-                     initial_size = 0;
-                  }
 
                   if (min_size > max_size)
                   {
                      min_size = max_size;
                   }
-                  else if (min_size < 0)
+
+                  server_max -= max_size;
+
+                  if (server_max < 0)
                   {
-                     min_size = 0;
+                     server_max = 0;
+                     max_size = 0;
                   }
 
                   memcpy(&(config->limits[index].database), database, strlen(database));
@@ -1213,8 +1213,6 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                   config->limits[index].initial_size = initial_size;
                   config->limits[index].min_size = min_size;
                   atomic_init(&config->limits[index].active_connections, 0);
-
-                  server_max -= max_size;
 
                   index++;
 
@@ -1272,7 +1270,19 @@ pgagroal_validate_limit_configuration(void* shm)
 
       if (config->limits[i].max_size <= 0)
       {
-         pgagroal_log_fatal("max_size must be greater than 0 for limit entry %d", i);
+         pgagroal_log_fatal("max_size must be greater than 0 for limit entry %d", i + 1);
+         return 1;
+      }
+
+      if (config->limits[i].initial_size < 0)
+      {
+         pgagroal_log_fatal("initial_size must be greater or equal to 0 for limit entry %d", i + 1);
+         return 1;
+      }
+
+      if (config->limits[i].min_size < 0)
+      {
+         pgagroal_log_fatal("min_size must be greater or equal to 0 for limit entry %d", i + 1);
          return 1;
       }
 
@@ -1290,13 +1300,13 @@ pgagroal_validate_limit_configuration(void* shm)
 
          if (!user_found)
          {
-            pgagroal_log_fatal("Unknown user '%s' for limit entry %d", config->limits[i].username, i);
+            pgagroal_log_fatal("Unknown user '%s' for limit entry %d", config->limits[i].username, i + 1);
             return 1;
          }
 
          if (config->limits[i].initial_size < config->limits[i].min_size)
          {
-            pgagroal_log_warn("initial_size smaller than min_size for limit entry (%d)", i);
+            pgagroal_log_warn("initial_size smaller than min_size for limit entry (%d)", i + 1);
             config->limits[i].initial_size = config->limits[i].min_size;
          }
       }
@@ -2104,7 +2114,7 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    if (offset == -1)
       return;
 
-   if (!strcmp("all", value))
+   if (!strcasecmp("all", value))
    {
       *max_size = server_max;
    }
@@ -2112,7 +2122,7 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    {
       if (as_int(value, max_size))
       {
-         printf("Invalid max_size value: %s\n", value);
+         *max_size = -1;
          return;
       }
    }
@@ -2125,10 +2135,20 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    if (offset == -1)
       return;
 
-   if (value != NULL && strcmp("", value) != 0 && as_int(value, initial_size))
+   if (value != NULL && strcmp("", value) != 0)
    {
-      printf("Invalid initial_size value: %s\n", value);
-      return;
+      if (!strcasecmp("all", value))
+      {
+         *initial_size = server_max;
+      }
+      else
+      {
+         if (as_int(value, initial_size))
+         {
+            *initial_size = -1;
+            return;
+         }
+      }
    }
 
    free(value);
@@ -2139,10 +2159,20 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    if (offset == -1)
       return;
 
-   if (value != NULL && strcmp("", value) != 0 && as_int(value, min_size))
+   if (value != NULL && strcmp("", value) != 0)
    {
-      printf("Invalid min_size value: %s\n", value);
-      return;
+      if (!strcasecmp("all", value))
+      {
+         *min_size = server_max;
+      }
+      else
+      {
+         if (as_int(value, min_size))
+         {
+            *min_size = -1;
+            return;
+         }
+      }
    }
 
    free(value);

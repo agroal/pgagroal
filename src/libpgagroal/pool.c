@@ -798,7 +798,7 @@ pgagroal_prefill(bool initial)
                   if (pgagroal_prefill_auth(config->users[user].username, config->users[user].password,
                                             config->limits[i].database, &slot) != AUTH_SUCCESS)
                   {
-                     pgagroal_log_warn("Invalid data for user '%s' using limit entry (%d)", config->limits[i].username, i);
+                     pgagroal_log_warn("Invalid data for user '%s' using limit entry (%d)", config->limits[i].username, i + 1);
 
                      if (slot != -1)
                      {
@@ -825,7 +825,7 @@ pgagroal_prefill(bool initial)
                      }
                      else
                      {
-                        pgagroal_log_warn("Unsupported security model during prefill for user '%s' using limit entry (%d)", config->limits[i].username, i);
+                        pgagroal_log_warn("Unsupported security model during prefill for user '%s' using limit entry (%d)", config->limits[i].username, i + 1);
                         if (config->connections[slot].fd != -1)
                         {
                            if (pgagroal_socket_isvalid(config->connections[slot].fd))
@@ -842,12 +842,12 @@ pgagroal_prefill(bool initial)
             }
             else
             {
-               pgagroal_log_warn("Unknown user '%s' for limit entry (%d)", config->limits[i].username, i);
+               pgagroal_log_warn("Unknown user '%s' for limit entry (%d)", config->limits[i].username, i + 1);
             }
          }
          else
          {
-            pgagroal_log_warn("Limit entry (%d) with invalid definition", i);
+            pgagroal_log_warn("Limit entry (%d) with invalid definition", i + 1);
          }
       }
    }

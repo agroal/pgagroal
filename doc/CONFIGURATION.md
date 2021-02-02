@@ -115,11 +115,11 @@ all        all   all
 
 | Column | Required | Description |
 |--------|----------|-------------|
-| DATABASE | Yes | Specifies the database for the rule. Either specific name or `all` for all databases |
-| USER | Yes | Specifies the user for the rule. Either specific name or `all` for all users |
-| MAX_SIZE | Yes | Specifies the maximum pool size for the entry. `all` for all connections |
-| INITIAL_SIZE | No | Specifies the initial pool size for the entry, e.g. `all` isn't supported. Default is 0 |
-| MIN_SIZE | No | Specifies the minimum pool size for the entry, e.g. `all` isn't supported. Default is 0 |
+| DATABASE | Yes | Specifies the database for the rule |
+| USER | Yes | Specifies the user for the rule |
+| MAX_SIZE | Yes | Specifies the maximum pool size for the entry. `all` for `max_connections` |
+| INITIAL_SIZE | No | Specifies the initial pool size for the entry. `all` for `MAX_SIZE` connections. Default is 0 |
+| MIN_SIZE | No | Specifies the minimum pool size for the entry. `all` for `MAX_SIZE` connections. Default is 0 |
 
 # pgagroal_users configuration
 
