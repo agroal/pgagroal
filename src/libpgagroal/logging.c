@@ -189,25 +189,25 @@ retry:
             switch (level)
             {
                case PGAGROAL_LOGGING_LEVEL_DEBUG5:
-                  syslog(LOG_DEBUG, fmt, vl);
+                  vsyslog(LOG_DEBUG, fmt, vl);
                   break;
                case PGAGROAL_LOGGING_LEVEL_DEBUG1:
-                  syslog(LOG_DEBUG, fmt, vl);
+                  vsyslog(LOG_DEBUG, fmt, vl);
                   break;
                case PGAGROAL_LOGGING_LEVEL_INFO:
-                  syslog(LOG_INFO, fmt, vl);
+                  vsyslog(LOG_INFO, fmt, vl);
                   break;
                case PGAGROAL_LOGGING_LEVEL_WARN:
-                  syslog(LOG_WARNING, fmt, vl);
+                  vsyslog(LOG_WARNING, fmt, vl);
                   break;
                case PGAGROAL_LOGGING_LEVEL_ERROR:
-                  syslog(LOG_ERR, fmt, vl);
+                  vsyslog(LOG_ERR, fmt, vl);
                   break;
                case PGAGROAL_LOGGING_LEVEL_FATAL:
-                  syslog(LOG_CRIT, fmt, vl);
+                  vsyslog(LOG_CRIT, fmt, vl);
                   break;
                default:
-                  syslog(LOG_INFO, fmt, vl);
+                  vsyslog(LOG_INFO, fmt, vl);
                   break;
             }
          }
