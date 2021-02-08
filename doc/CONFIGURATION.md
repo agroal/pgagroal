@@ -37,7 +37,7 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | validation | `off` | String | No | Should connection validation be performed. Valid options: `off`, `foreground` and `background` |
 | background_interval | 300 | Int | No | The interval between background validation scans in seconds |
 | max_retries | 5 | Int | No | The maximum number of iterations to obtain a connection |
-| max_connections | 100 | Int | No | The maximum number of connections (max 10000) |
+| max_connections | 100 | Int | No | The maximum number of connections to PostgreSQL (max 10000) |
 | allow_unknown_users | `true` | Bool | No | Allow unknown users to connect |
 | authentication_timeout | 5 | Int | No | The number of seconds the process will wait for valid credentials |
 | pipeline | `auto` | String | No | The pipeline type (`auto`, `performance`, `session`, `transaction`) |
@@ -99,18 +99,19 @@ Remote management users needs to have their database set to `admin` in order for
 
 # pgagroal_databases configuration
 
-The `pgagroal_databases` configuration defines limits for a database or a user or both.
+The `pgagroal_databases` configuration defines limits for a database or a user or both. The limits are the number
+of connections from `pgagroal` to PostgreSQL for each entry.
 
-It also defines the initial and minimum pool size for a database and user pair. Note, that this feature requires
+The file also defines the initial and minimum pool size for a database and user pair. Note, that this feature requires
 a user definition file, see below.
 
 The configuration is loaded from either the path specified by the `-l` flag or `/etc/pgagroal/pgagroal_databases.conf`.
 
 ```
 #
-# DATABASE USER  MAX_SIZE INITIAL_SIZE MIN_SIZE
+# DATABASE USER    MAX_SIZE INITIAL_SIZE MIN_SIZE
 #
-all        all   all
+mydb       myuser  all
 ```
 
 | Column | Required | Description |
