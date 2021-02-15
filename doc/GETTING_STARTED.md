@@ -11,15 +11,16 @@ Usage:
   pgagroal [ -c CONFIG_FILE ] [ -a HBA_FILE ] [ -d ]
 
 Options:
-  -c, --config CONFIG_FILE       Set the path to the pgagroal.conf file
-  -a, --hba HBA_FILE             Set the path to the pgagroal_hba.conf file
-  -l, --limit LIMIT_FILE         Set the path to the pgagroal_databases.conf file
-  -u, --users USERS_FILE         Set the path to the pgagroal_users.conf file
-  -A, --admins ADMINS_FILE       Set the path to the pgagroal_admins.conf file
-  -S, --superuser SUPERUSER_FILE Set the path to the pgagroal_superuser.conf file
-  -d, --daemon                   Run as a daemon
-  -V, --version                  Display version information
-  -?, --help                     Display help
+  -c, --config CONFIG_FILE           Set the path to the pgagroal.conf file
+  -a, --hba HBA_FILE                 Set the path to the pgagroal_hba.conf file
+  -l, --limit LIMIT_FILE             Set the path to the pgagroal_databases.conf file
+  -u, --users USERS_FILE             Set the path to the pgagroal_users.conf file
+  -F, --frontend FRONTEND_USERS_FILE Set the path to the pgagroal_frontend_users.conf file
+  -A, --admins ADMINS_FILE           Set the path to the pgagroal_admins.conf file
+  -S, --superuser SUPERUSER_FILE     Set the path to the pgagroal_superuser.conf file
+  -d, --daemon                       Run as a daemon
+  -V, --version                      Display version information
+  -?, --help                         Display help
 ```
 
 If you don't have `pgagroal` in your path see [README](../README.md) on how to
@@ -202,7 +203,7 @@ Options:
   -f, --file FILE         Set the path to a user file
   -U, --user USER         Set the user name
   -P, --password PASSWORD Set the password for the user
-  -g, --generate          Generate a password for the master key
+  -g, --generate          Generate a password
   -V, --version           Display version information
   -?, --help              Display help
 

@@ -114,6 +114,23 @@ int
 pgagroal_validate_users_configuration(void* shmem);
 
 /**
+ * Read the FRONTEND USERS configuration from a file
+ * @param shmem The shared memory segment
+ * @param filename The file name
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_read_frontend_users_configuration(void* shmem, char* filename);
+
+/**
+ * Validate the FRONTEND USERS configuration from a file
+ * @param shmem The shared memory segment
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_validate_frontend_users_configuration(void* shmem);
+
+/**
  * Read the ADMINS configuration from a file
  * @param shmem The shared memory segment
  * @param filename The file name

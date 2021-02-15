@@ -263,15 +263,16 @@ usage(void)
    printf("  pgagroal [ -c CONFIG_FILE ] [ -a HBA_FILE ] [ -d ]\n");
    printf("\n");
    printf("Options:\n");
-   printf("  -c, --config CONFIG_FILE       Set the path to the pgagroal.conf file\n");
-   printf("  -a, --hba HBA_FILE             Set the path to the pgagroal_hba.conf file\n");
-   printf("  -l, --limit LIMIT_FILE         Set the path to the pgagroal_databases.conf file\n");
-   printf("  -u, --users USERS_FILE         Set the path to the pgagroal_users.conf file\n");
-   printf("  -A, --admins ADMINS_FILE       Set the path to the pgagroal_admins.conf file\n");
-   printf("  -S, --superuser SUPERUSER_FILE Set the path to the pgagroal_superuser.conf file\n");
-   printf("  -d, --daemon                   Run as a daemon\n");
-   printf("  -V, --version                  Display version information\n");
-   printf("  -?, --help                     Display help\n");
+   printf("  -c, --config CONFIG_FILE           Set the path to the pgagroal.conf file\n");
+   printf("  -a, --hba HBA_FILE                 Set the path to the pgagroal_hba.conf file\n");
+   printf("  -l, --limit LIMIT_FILE             Set the path to the pgagroal_databases.conf file\n");
+   printf("  -u, --users USERS_FILE             Set the path to the pgagroal_users.conf file\n");
+   printf("  -F, --frontend FRONTEND_USERS_FILE Set the path to the pgagroal_frontend_users.conf file\n");
+   printf("  -A, --admins ADMINS_FILE           Set the path to the pgagroal_admins.conf file\n");
+   printf("  -S, --superuser SUPERUSER_FILE     Set the path to the pgagroal_superuser.conf file\n");
+   printf("  -d, --daemon                       Run as a daemon\n");
+   printf("  -V, --version                      Display version information\n");
+   printf("  -?, --help                         Display help\n");
    printf("\n");
    printf("pgagroal: %s\n", PGAGROAL_HOMEPAGE);
    printf("Report bugs: %s\n", PGAGROAL_ISSUES);
@@ -284,6 +285,7 @@ main(int argc, char **argv)
    char* hba_path = NULL;
    char* limit_path = NULL;
    char* users_path = NULL;
+   char* frontend_users_path = NULL;
    char* admins_path = NULL;
    char* superuser_path = NULL;
    bool daemon = false;
@@ -316,6 +318,7 @@ main(int argc, char **argv)
          {"hba", required_argument, 0, 'a'},
          {"limit", required_argument, 0, 'l'},
          {"users", required_argument, 0, 'u'},
+         {"frontend", required_argument, 0, 'F'},
          {"admins", required_argument, 0, 'A'},
          {"superuser", required_argument, 0, 'S'},
          {"daemon", no_argument, 0, 'd'},
@@ -324,7 +327,7 @@ main(int argc, char **argv)
       };
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "dV?a:c:l:u:A:S:",
+      c = getopt_long (argc, argv, "dV?a:c:l:u:F:A:S:",
                        long_options, &option_index);
 
       if (c == -1)
@@ -343,6 +346,9 @@ main(int argc, char **argv)
             break;
          case 'u':
             users_path = optarg;
+            break;
+         case 'F':
+            frontend_users_path = optarg;
             break;
          case 'A':
             admins_path = optarg;
@@ -500,6 +506,45 @@ main(int argc, char **argv)
       }
    }
 
+   if (frontend_users_path != NULL)
+   {
+      ret = pgagroal_read_frontend_users_configuration(shmem, frontend_users_path);
+      if (ret == 1)
+      {
+         printf("pgagroal: FRONTEND USERS configuration not found: %s\n", frontend_users_path);
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=FRONTEND USERS configuration not found: %s", frontend_users_path);
+#endif
+         exit(1);
+      }
+      else if (ret == 2)
+      {
+         printf("pgagroal: Invalid master key file\n");
+#ifdef HAVE_LINUX
+         sd_notify(0, "STATUS=Invalid master key file");
+#endif
+         exit(1);
+      }
+      else if (ret == 3)
+      {
+         printf("pgagroal: FRONTEND USERS: Too many users defined %d (max %d)\n", config->number_of_frontend_users, NUMBER_OF_USERS);
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=FRONTEND USERS: Too many users defined %d (max %d)", config->number_of_frontend_users, NUMBER_OF_USERS);
+#endif
+         exit(1);
+      }
+      memcpy(&config->frontend_users_path[0], frontend_users_path, MIN(strlen(frontend_users_path), MAX_PATH - 1));
+   }
+   else
+   {
+      frontend_users_path = "/etc/pgagroal/pgagroal_frontend_users.conf";
+      ret = pgagroal_read_frontend_users_configuration(shmem, frontend_users_path);
+      if (ret == 0)
+      {
+         memcpy(&config->frontend_users_path[0], frontend_users_path, MIN(strlen(frontend_users_path), MAX_PATH - 1));
+      }
+   }
+
    if (admins_path != NULL)
    {
       ret = pgagroal_read_admins_configuration(shmem, admins_path);
@@ -654,6 +699,14 @@ main(int argc, char **argv)
    {
 #ifdef HAVE_LINUX
       sd_notify(0, "STATUS=Invalid USERS configuration");
+#endif
+      exit(1);
+   }
+   if (pgagroal_validate_frontend_users_configuration(shmem))
+   {
+      printf("pgagroal: Invalid FRONTEND USERS configuration\n");
+#ifdef HAVE_LINUX
+      sd_notify(0, "STATUS=Invalid FRONTEND USERS configuration");
 #endif
       exit(1);
    }
@@ -969,6 +1022,7 @@ main(int argc, char **argv)
    pgagroal_log_debug("Configuration size: %lu", shmem_size);
    pgagroal_log_debug("Max connections: %d", config->max_connections);
    pgagroal_log_debug("Known users: %d", config->number_of_users);
+   pgagroal_log_debug("Known frontend users: %d", config->number_of_frontend_users);
    pgagroal_log_debug("Known admins: %d", config->number_of_admins);
    pgagroal_log_debug("Known superuser: %s", strlen(config->superuser.username) > 0 ? "Yes" : "No");
 

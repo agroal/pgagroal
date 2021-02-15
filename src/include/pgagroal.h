@@ -247,6 +247,7 @@ struct configuration
    char hba_path[MAX_PATH];           /**< The HBA path */
    char limit_path[MAX_PATH];         /**< The limit path */
    char users_path[MAX_PATH];         /**< The users path */
+   char frontend_users_path[MAX_PATH];/**< The frontend users path */
    char admins_path[MAX_PATH];        /**< The admins path */
    char superuser_path[MAX_PATH];     /**< The superuser path */
 
@@ -303,17 +304,19 @@ struct configuration
 
    atomic_schar su_connection; /**< The superuser connection */
 
-   int number_of_servers; /**< The number of servers */
-   int number_of_hbas;    /**< The number of HBA entries */
-   int number_of_limits;  /**< The number of limit entries */
-   int number_of_users;   /**< The number of users */
-   int number_of_admins;  /**< The number of admins */
+   int number_of_servers;        /**< The number of servers */
+   int number_of_hbas;           /**< The number of HBA entries */
+   int number_of_limits;         /**< The number of limit entries */
+   int number_of_users;          /**< The number of users */
+   int number_of_frontend_users; /**< The number of users */
+   int number_of_admins;         /**< The number of admins */
 
    atomic_schar states[MAX_NUMBER_OF_CONNECTIONS]; /**< The states */
    struct server servers[NUMBER_OF_SERVERS];       /**< The servers */
    struct hba hbas[NUMBER_OF_HBAS];                /**< The HBA entries */
    struct limit limits[NUMBER_OF_LIMITS];          /**< The limit entries */
    struct user users[NUMBER_OF_USERS];             /**< The users */
+   struct user frontend_users[NUMBER_OF_USERS];    /**< The frontend users */
    struct user admins[NUMBER_OF_ADMINS];           /**< The admins */
    struct user superuser;                          /**< The superuser */
    struct prometheus prometheus;                   /**< The Prometheus metrics */

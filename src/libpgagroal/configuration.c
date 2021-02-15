@@ -1468,6 +1468,174 @@ pgagroal_validate_users_configuration(void* shm)
  *
  */
 int
+pgagroal_read_frontend_users_configuration(void* shm, char* filename)
+{
+   FILE* file;
+   char line[LINE_LENGTH];
+   int index;
+   char* master_key = NULL;
+   char* username = NULL;
+   char* password = NULL;
+   char* decoded = NULL;
+   int decoded_length = 0;
+   char* ptr = NULL;
+   struct configuration* config;
+
+   file = fopen(filename, "r");
+
+   if (!file)
+   {
+      goto error;
+   }
+
+   if (pgagroal_get_master_key(&master_key))
+   {
+      goto masterkey;
+   }
+
+   index = 0;
+   config = (struct configuration*)shm;
+
+   while (fgets(line, sizeof(line), file))
+   {
+      if (strcmp(line, ""))
+      {
+         if (line[0] == '#' || line[0] == ';')
+         {
+            /* Comment, so ignore */
+         }
+         else
+         {
+            ptr = strtok(line, ":");
+
+            username = ptr;
+
+            ptr = strtok(NULL, ":");
+
+            if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
+            {
+               goto error;
+            }
+
+            if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+            {
+               goto error;
+            }
+
+            if (strlen(username) < MAX_USERNAME_LENGTH &&
+                strlen(password) < MAX_PASSWORD_LENGTH)
+            {
+               memcpy(&config->frontend_users[index].username, username, strlen(username));
+               memcpy(&config->frontend_users[index].password, password, strlen(password));
+            }
+            else
+            {
+               printf("pgagroal: Invalid FRONTEND USER entry\n");
+               printf("%s\n", line);
+            }
+
+            free(password);
+            free(decoded);
+
+            password = NULL;
+            decoded = NULL;
+
+            index++;
+         }
+      }
+   }
+
+   config->number_of_frontend_users = index;
+
+   if (config->number_of_frontend_users > NUMBER_OF_USERS)
+   {
+      goto above;
+   }
+
+   free(master_key);
+
+   fclose(file);
+
+   return 0;
+
+error:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return 1;
+
+masterkey:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return 2;
+
+above:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return 3;
+}
+
+/**
+ *
+ */
+int
+pgagroal_validate_frontend_users_configuration(void* shm)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shm;
+
+   for (int i = 0; i < config->number_of_frontend_users; i++)
+   {
+      bool found = false;
+      char* f = &config->frontend_users[i].username[0];
+
+      for (int i = 0; !found && i < config->number_of_users; i++)
+      {
+         char* u = &config->users[i].username[0];
+
+         if (!strcmp(f, u))
+         {
+            found = true;
+         }
+      }
+
+      if (!found)
+      {
+         return 1;
+      }
+   }
+
+   return 0;
+}
+
+/**
+ *
+ */
+int
 pgagroal_read_admins_configuration(void* shm, char* filename)
 {
    FILE* file;
@@ -1767,6 +1935,7 @@ pgagroal_reload_configuration(void)
    pgagroal_log_trace("HBA: %s", config->hba_path);
    pgagroal_log_trace("Limit: %s", config->limit_path);
    pgagroal_log_trace("Users: %s", config->users_path);
+   pgagroal_log_trace("Frontend users: %s", config->frontend_users_path);
    pgagroal_log_trace("Admins: %s", config->admins_path);
    pgagroal_log_trace("Superuser: %s", config->superuser_path);
 
@@ -1805,6 +1974,14 @@ pgagroal_reload_configuration(void)
       }
    }
 
+   if (strcmp("", config->frontend_users_path))
+   {
+      if (pgagroal_read_frontend_users_configuration((void*)reload, config->frontend_users_path))
+      {
+         goto error;
+      }
+   }
+
    if (strcmp("", config->admins_path))
    {
       if (pgagroal_read_admins_configuration((void*)reload, config->admins_path))
@@ -1837,6 +2014,11 @@ pgagroal_reload_configuration(void)
    }
 
    if (pgagroal_validate_users_configuration(reload))
+   {
+      goto error;
+   }
+
+   if (pgagroal_validate_frontend_users_configuration(reload))
    {
       goto error;
    }
@@ -2310,6 +2492,13 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
       copy_user(&config->users[i], &reload->users[i]);
    }
    config->number_of_users = reload->number_of_users;
+
+   memset(&config->frontend_users[0], 0, sizeof(struct user) * NUMBER_OF_USERS);
+   for (int i = 0; i < reload->number_of_frontend_users; i++)
+   {
+      copy_user(&config->frontend_users[i], &reload->frontend_users[i]);
+   }
+   config->number_of_frontend_users = reload->number_of_frontend_users;
 
    memset(&config->admins[0], 0, sizeof(struct user) * NUMBER_OF_ADMINS);
    for (int i = 0; i < reload->number_of_admins; i++)

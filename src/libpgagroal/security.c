@@ -86,6 +86,7 @@ static bool is_disabled(char* database);
 
 static int   get_hba_method(int index);
 static char* get_password(char* username);
+static char* get_frontend_password(char* username);
 static char* get_admin_password(char* username);
 static int   get_salt(void* data, char** salt);
 
@@ -1231,7 +1232,11 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char*
 
    config = (struct configuration*)shmem;
 
-   password = get_password(username);
+   password = get_frontend_password(username);
+   if (password == NULL)
+   {
+      password = get_password(username);
+   }
 
    if (hba_method == SECURITY_ALL)
    {
@@ -1392,7 +1397,11 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    config = (struct configuration*)shmem;
    server_fd = config->connections[slot].fd;
 
-   password = get_password(username);
+   password = get_frontend_password(username);
+   if (password == NULL)
+   {
+      password = get_password(username);
+   }
 
    /* Disallow unknown users */
    if (password == NULL && !config->allow_unknown_users)
@@ -1510,7 +1519,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
          goto error;
       }
 
-      if (server_authenticate(auth_msg, auth_type, username, password, slot))
+      if (server_authenticate(auth_msg, auth_type, username, get_password(username), slot))
       {
          if (pgagroal_socket_isvalid(client_fd))
          {
@@ -2957,6 +2966,24 @@ get_password(char* username)
       if (!strcmp(&config->users[i].username[0], username))
       {
          return &config->users[i].password[0];
+      }
+   }
+
+   return NULL;
+}
+
+static char*
+get_frontend_password(char* username)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < config->number_of_frontend_users; i++)
+   {
+      if (!strcmp(&config->frontend_users[i].username[0], username))
+      {
+         return &config->frontend_users[i].password[0];
       }
    }
 

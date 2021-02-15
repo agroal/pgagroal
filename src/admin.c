@@ -58,10 +58,11 @@ static char CHARS[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L
 
 static int master_key(char* password, bool generate_pwd);
 static bool is_valid_key(char* key);
-static int add_user(char* users_path, char* username, char* password);
-static int update_user(char* users_path, char* username, char* password);
+static int add_user(char* users_path, char* username, char* password, bool generate_pwd);
+static int update_user(char* users_path, char* username, char* password, bool generate_pwd);
 static int remove_user(char* users_path, char* username);
 static int list_users(char* users_path);
+static char* generate_password(void);
 
 static void
 version(void)
@@ -84,7 +85,7 @@ usage(void)
    printf("  -f, --file FILE         Set the path to a user file\n");
    printf("  -U, --user USER         Set the user name\n");
    printf("  -P, --password PASSWORD Set the password for the user\n");
-   printf("  -g, --generate          Generate a password for the master key\n");
+   printf("  -g, --generate          Generate a password\n");
    printf("  -V, --version           Display version information\n");
    printf("  -?, --help              Display help\n");
    printf("\n");
@@ -196,7 +197,7 @@ main(int argc, char **argv)
       {
          if (file_path != NULL)
          {
-            if (add_user(file_path, username, password))
+            if (add_user(file_path, username, password, generate_pwd))
             {
                printf("Error for add-user\n");
                exit_code = 1;
@@ -212,7 +213,7 @@ main(int argc, char **argv)
       {
          if (file_path != NULL)
          {
-            if (update_user(file_path, username, password))
+            if (update_user(file_path, username, password, generate_pwd))
             {
                printf("Error for update-user\n");
                exit_code = 1;
@@ -338,20 +339,7 @@ master_key(char* password, bool generate_pwd)
       }
       else
       {
-         char pwd[65];
-         time_t t;
-
-         memset(&pwd[0], 0, sizeof(pwd));
-
-         srand((unsigned)time(&t));
-
-         for (int i = 0; i < 65; i++)
-         {
-            pwd[i] = CHARS[rand() % sizeof(CHARS)];
-         }
-         pwd[64] = '\0';
-
-         password = &pwd[0];
+         password = generate_password();
          do_free = false;
       }
    }
@@ -427,7 +415,7 @@ is_valid_key(char* key)
 }
 
 static int
-add_user(char* users_path, char* username, char* password)
+add_user(char* users_path, char* username, char* password, bool generate_pwd)
 {
    FILE* users_file = NULL;
    char line[MISC_LENGTH];
@@ -499,15 +487,24 @@ username:
    if (password == NULL)
    {
 password:
-      printf("Password : ");
-
-      if (password != NULL)
+      if (generate_pwd)
       {
-         free(password);
-         password = NULL;
+         password = generate_password();
+         do_verify = false;
+         printf("Password : %s", password);
       }
+      else
+      {
+         printf("Password : ");
 
-      password = pgagroal_get_password();
+         if (password != NULL)
+         {
+            free(password);
+            password = NULL;
+         }
+
+         password = pgagroal_get_password();
+      }
       printf("\n");
    }
 
@@ -578,7 +575,7 @@ error:
 }
 
 static int
-update_user(char* users_path, char* username, char* password)
+update_user(char* users_path, char* username, char* password, bool generate_pwd)
 {
    FILE* users_file = NULL;
    FILE* users_file_tmp = NULL;
@@ -653,15 +650,24 @@ username:
          if (password == NULL)
          {
 password:
-            printf("Password : ");
-
-            if (password != NULL)
+            if (generate_pwd)
             {
-               free(password);
-               password = NULL;
+               password = generate_password();
+               do_verify = false;
+               printf("Password : %s", password);
             }
+            else
+            {
+               printf("Password : ");
 
-            password = pgagroal_get_password();
+               if (password != NULL)
+               {
+                  free(password);
+                  password = NULL;
+               }
+
+               password = pgagroal_get_password();
+            }
             printf("\n");
          }
 
@@ -884,4 +890,24 @@ error:
    }
 
    return 1;
+}
+
+static char*
+generate_password(void)
+{
+   char* pwd;
+   time_t t;
+
+   pwd = malloc(65);
+   memset(pwd, 0, 65);
+
+   srand((unsigned)time(&t));
+
+   for (int i = 0; i < 65; i++)
+   {
+      *((char*)(pwd + i)) = CHARS[rand() % sizeof(CHARS)];
+   }
+   *((char*)(pwd + 64)) = '\0';
+
+   return pwd;
 }

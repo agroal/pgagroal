@@ -22,6 +22,16 @@ The vault is static, and is managed through the `pgagroal-admin` tool.
 
 The user vault is specified using the `-u` or `--users` command line parameter.
 
+### Frontend users
+
+The `-F` or `--frontend` command line parameter allows users to be defined for the client to
+`pgagroal` authenticating. This allows the setup to use different passwords for the `pgagroal` to
+PostgreSQL authentication.
+
+All users defined in the frontend authentication must be defined in the user vault (`-u`).
+
+Frontend users (`-F`) requires a user vault (`-u`) to be defined.
+
 ## Authentication query
 
 Authentication query will use the below defined function to query the database
