@@ -703,7 +703,7 @@ pgagroal_set_proc_title(char** argv, char* s1, char *s2)
       snprintf(title, sizeof(title) - 1, "pgagroal: %s", s1);
    }
 
-   memcpy(*argv, title, 256);
+   memcpy(*argv, title, MIN(strlen(title) + 1, 256));
 #else
    if (s1 != NULL && s2 != NULL)
    {
