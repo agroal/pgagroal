@@ -861,6 +861,11 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       config->max_connections = MAX_NUMBER_OF_CONNECTIONS;
    }
 
+   if (config->number_of_frontend_users > 0 && config->allow_unknown_users)
+   {
+      pgagroal_log_warn("pgagroal: Frontend users should not be used with allow_unknown_users");
+   }
+
    if (config->failover)
    {
       if (strlen(config->failover_script) == 0)
