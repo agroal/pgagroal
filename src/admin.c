@@ -43,6 +43,8 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
+#define DEFAULT_PASSWORD_LENGTH 64
+
 #define ACTION_UNKNOWN     0
 #define ACTION_MASTER_KEY  1
 #define ACTION_ADD_USER    2
@@ -56,13 +58,13 @@ static char CHARS[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L
                        '!', '@', '#', '$', '%', '^', '&',  '*', '(', ')', '-', '_', '=', '+', '[', '{', ']', '}', '\\', '|', ';', ':',
                        '\'', '\"', ',', '<', '.',  '>', '/', '?'};
 
-static int master_key(char* password, bool generate_pwd);
+static int master_key(char* password, bool generate_pwd, int pwd_length);
 static bool is_valid_key(char* key);
-static int add_user(char* users_path, char* username, char* password, bool generate_pwd);
-static int update_user(char* users_path, char* username, char* password, bool generate_pwd);
+static int add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
+static int update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int remove_user(char* users_path, char* username);
 static int list_users(char* users_path);
-static char* generate_password(void);
+static char* generate_password(int pwd_length);
 
 static void
 version(void)
@@ -86,6 +88,7 @@ usage(void)
    printf("  -U, --user USER         Set the user name\n");
    printf("  -P, --password PASSWORD Set the password for the user\n");
    printf("  -g, --generate          Generate a password\n");
+   printf("  -l, --length            Password length\n");
    printf("  -V, --version           Display version information\n");
    printf("  -?, --help              Display help\n");
    printf("\n");
@@ -109,6 +112,7 @@ main(int argc, char **argv)
    char* password = NULL;
    char* file_path = NULL;
    bool generate_pwd = false;
+   int pwd_length = DEFAULT_PASSWORD_LENGTH;
    int option_index = 0;
    int32_t action = ACTION_UNKNOWN;
 
@@ -120,11 +124,12 @@ main(int argc, char **argv)
          {"password",  required_argument, 0, 'P'},
          {"file",  required_argument, 0, 'f'},
          {"generate",  no_argument, 0, 'g'},
+         {"length",  required_argument, 0, 'l'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
 
-      c = getopt_long(argc, argv, "gV?f:U:P:",
+      c = getopt_long(argc, argv, "gV?f:U:P:l:",
                       long_options, &option_index);
 
       if (c == -1)
@@ -143,6 +148,9 @@ main(int argc, char **argv)
             break;
          case 'g':
             generate_pwd = true;
+            break;
+         case 'l':
+            pwd_length = atoi(optarg);
             break;
          case 'V':
             version();
@@ -187,7 +195,7 @@ main(int argc, char **argv)
 
       if (action == ACTION_MASTER_KEY)
       {
-         if (master_key(password, generate_pwd))
+         if (master_key(password, generate_pwd, pwd_length))
          {
             printf("Error for master key\n");
             exit_code = 1;
@@ -197,7 +205,7 @@ main(int argc, char **argv)
       {
          if (file_path != NULL)
          {
-            if (add_user(file_path, username, password, generate_pwd))
+            if (add_user(file_path, username, password, generate_pwd, pwd_length))
             {
                printf("Error for add-user\n");
                exit_code = 1;
@@ -213,7 +221,7 @@ main(int argc, char **argv)
       {
          if (file_path != NULL)
          {
-            if (update_user(file_path, username, password, generate_pwd))
+            if (update_user(file_path, username, password, generate_pwd, pwd_length))
             {
                printf("Error for update-user\n");
                exit_code = 1;
@@ -269,7 +277,7 @@ main(int argc, char **argv)
 }
 
 static int
-master_key(char* password, bool generate_pwd)
+master_key(char* password, bool generate_pwd, int pwd_length)
 {
    FILE* file = NULL;
    char buf[MISC_LENGTH];
@@ -339,7 +347,7 @@ master_key(char* password, bool generate_pwd)
       }
       else
       {
-         password = generate_password();
+         password = generate_password(pwd_length);
          do_free = false;
       }
    }
@@ -415,7 +423,7 @@ is_valid_key(char* key)
 }
 
 static int
-add_user(char* users_path, char* username, char* password, bool generate_pwd)
+add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length)
 {
    FILE* users_file = NULL;
    char line[MISC_LENGTH];
@@ -489,7 +497,7 @@ username:
 password:
       if (generate_pwd)
       {
-         password = generate_password();
+         password = generate_password(pwd_length);
          do_verify = false;
          printf("Password : %s", password);
       }
@@ -575,7 +583,7 @@ error:
 }
 
 static int
-update_user(char* users_path, char* username, char* password, bool generate_pwd)
+update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length)
 {
    FILE* users_file = NULL;
    FILE* users_file_tmp = NULL;
@@ -652,7 +660,7 @@ username:
 password:
             if (generate_pwd)
             {
-               password = generate_password();
+               password = generate_password(pwd_length);
                do_verify = false;
                printf("Password : %s", password);
             }
@@ -893,21 +901,24 @@ error:
 }
 
 static char*
-generate_password(void)
+generate_password(int pwd_length)
 {
    char* pwd;
+   size_t s;
    time_t t;
 
-   pwd = malloc(65);
-   memset(pwd, 0, 65);
+   s = pwd_length + 1;
+
+   pwd = malloc(s);
+   memset(pwd, 0, s);
 
    srand((unsigned)time(&t));
 
-   for (int i = 0; i < 65; i++)
+   for (int i = 0; i < s; i++)
    {
       *((char*)(pwd + i)) = CHARS[rand() % sizeof(CHARS)];
    }
-   *((char*)(pwd + 64)) = '\0';
+   *((char*)(pwd + pwd_length)) = '\0';
 
    return pwd;
 }

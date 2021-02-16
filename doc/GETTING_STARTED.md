@@ -204,6 +204,7 @@ Options:
   -U, --user USER         Set the user name
   -P, --password PASSWORD Set the password for the user
   -g, --generate          Generate a password
+  -l, --length            Password length
   -V, --version           Display version information
   -?, --help              Display help
 

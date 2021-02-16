@@ -31,7 +31,10 @@ OPTIONS
   Set the password for the user
 
 -g, --generate
-  Generate a password for the master key
+  Generate a password
+
+-l, --length
+  Password length
 
 -V, --version
   Display version information
