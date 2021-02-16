@@ -10,7 +10,7 @@ Documentation=https://agroal.github.io/pgagroal/
 After=network.target
 
 [Service]
-Type=notify
+Type=exec
 User=pgagroal
 ExecStart=/usr/bin/pgagroal
 ExecReload=/bin/kill -HUP $MAINPID
