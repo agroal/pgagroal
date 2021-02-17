@@ -45,6 +45,9 @@
 #include <strings.h>
 #include <unistd.h>
 #include <sys/types.h>
+#ifdef HAVE_LINUX
+#include <systemd/sd-daemon.h>
+#endif
 
 #define LINE_LENGTH 512
 
@@ -2402,6 +2405,10 @@ extract_value(char* str, int offset, char** value)
 static int
 transfer_configuration(struct configuration* config, struct configuration* reload)
 {
+#ifdef HAVE_LINUX
+   sd_notify(0, "RELOADING=1");
+#endif
+
    memcpy(config->host, reload->host, MISC_LENGTH);
    config->port = reload->port;
    config->metrics = reload->metrics;
@@ -2517,6 +2524,10 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
 
    /* prometheus */
    /* connections[] */
+
+#ifdef HAVE_LINUX
+   sd_notify(0, "READY=1");
+#endif
 
    return 0;
 }
