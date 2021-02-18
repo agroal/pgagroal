@@ -129,6 +129,12 @@ hugepage
 tracker
   Track connection lifecycle. Default is off
 
+track_prepared_statements
+  Track prepared statements (transaction pooling). Default is off
+
+pidfile
+  Path to the PID file
+
 Danger zone
 
 disconnect_client

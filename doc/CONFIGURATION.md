@@ -57,6 +57,7 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | hugepage | `try` | String | No | Huge page support (`off`, `try`, `on`) |
 | tracker | off | Bool | No | Track connection lifecycle |
 | track_prepared_statements | off | Bool | No | Track prepared statements (transaction pooling) |
+| pidfile | | String | No | Path to the PID file |
 
 __Danger zone__
 

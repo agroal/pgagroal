@@ -241,6 +241,7 @@ However, some configuration settings requires a full restart of `pgagroal` in or
 * `max_connections`
 * `pipeline`
 * `unix_socket_dir`
+* `pidfile`
 * Limit rules defined by `pgagroal_databases.conf`
 
 The configuration can also be reloaded using `pgagroal-cli -c pgagroal.conf reload`. The command is only supported

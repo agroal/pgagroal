@@ -528,6 +528,20 @@ pgagroal_read_configuration(void* shm, char* filename)
                      unknown = true;
                   }
                }
+               else if (!strcmp(key, "pidfile"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     max = strlen(value);
+                     if (max > MISC_LENGTH - 1)
+                        max = MISC_LENGTH - 1;
+                     memcpy(config->pidfile, value, max);
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
                else if (!strcmp(key, "allow_unknown_users"))
                {
                   if (!strcmp(section, "pgagroal"))
@@ -2460,6 +2474,8 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    config->max_retries = reload->max_retries;
    config->authentication_timeout = reload->authentication_timeout;
    config->disconnect_client = reload->disconnect_client;
+   /* pidfile */
+   restart_string("pidfile", config->pidfile, reload->pidfile);
 
    /* libev */
    restart_string("libev", config->libev, reload->libev);

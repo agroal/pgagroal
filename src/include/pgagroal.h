@@ -289,6 +289,7 @@ struct configuration
    int max_retries;            /**< The maximum number of retries */
    int authentication_timeout; /**< The authentication timeout in seconds */
    int disconnect_client;      /**< Disconnect client if idle for more than the specified seconds */
+   char pidfile[MISC_LENGTH];  /**< File containing the PID */
 
    char libev[MISC_LENGTH]; /**< Name of libev mode */
    int buffer_size;         /**< Socket buffer size */

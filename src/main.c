@@ -45,6 +45,7 @@
 /* system */
 #include <errno.h>
 #include <ev.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <signal.h>
 #include <stdio.h>
@@ -81,6 +82,8 @@ static bool accept_fatal(int error);
 static void add_client(pid_t pid);
 static void remove_client(pid_t pid);
 static void reload_configuration(void);
+static int  create_pidfile(void);
+static void remove_pidfile(void);
 
 struct accept_io
 {
@@ -796,6 +799,11 @@ main(int argc, char **argv)
       }
    }
 
+   if (create_pidfile())
+   {
+      exit(1);
+   }
+
    pgagroal_pool_init();
 
    pgagroal_set_proc_title(argv, "main", NULL);
@@ -1085,6 +1093,8 @@ main(int argc, char **argv)
    free(management_fds);
 
    main_pipeline.destroy(pipeline_shmem, pipeline_shmem_size);
+
+   remove_pidfile();
 
    pgagroal_stop_logging();
    pgagroal_destroy_shared_memory(shmem, shmem_size);
@@ -1854,5 +1864,58 @@ reload_configuration(void)
    for (int i = 0; i < management_fds_length; i++)
    {
       pgagroal_log_debug("Remote management: %d", *(management_fds + i));
+   }
+}
+
+static int
+create_pidfile(void)
+{
+   char buffer[64];
+   pid_t pid;
+   int r;
+   int fd;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (strlen(config->pidfile) > 0)
+   {
+      pid = getpid();
+
+      fd = open(config->pidfile, O_WRONLY | O_CREAT | O_EXCL, 0644);
+      if (fd < 0)
+      {
+         printf("Could not create PID file '%s' due to %s\n", config->pidfile, strerror(errno));
+         goto error;
+      }
+
+      snprintf(&buffer[0], sizeof(buffer), "%u\n", (unsigned)pid);
+
+      r = write(fd, &buffer[0], strlen(buffer));
+      if (r < 0)
+      {
+         printf("Could not write pidfile '%s' due to %s\n", config->pidfile, strerror(errno));
+         goto error;
+      }
+
+      close(fd);
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static void remove_pidfile(void)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (strlen(config->pidfile) > 0)
+   {
+      unlink(config->pidfile);
    }
 }
