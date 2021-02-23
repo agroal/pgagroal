@@ -44,6 +44,18 @@ layout: default
 
     The user vault is specified using the -u or --users command line parameter.    
 
+    <h4>Frontend users</h4>
+
+    The -F or --frontend command line parameter allows users to be defined for the client to
+    pgagroal authenticating. This allows the setup to use different passwords for the pgagroal to
+    PostgreSQL authentication.
+    <p/>
+    
+    All users defined in the frontend authentication must be defined in the user vault (-u).
+    <p/>
+
+    Frontend users (-F) requires a user vault (-u) to be defined.
+
     <h3>Authentication query</h3>
 
     Authentication query will use the below defined function to query the database for the user password

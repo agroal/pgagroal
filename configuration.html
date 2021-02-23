@@ -122,7 +122,7 @@ layout: default
           <td>100</td>
           <td>Int</td>
           <td>No</td>
-          <td>The maximum number of connections (max 10000)</td>
+          <td>The maximum number of connections to PostgreSQL (max 10000)</td>
         </tr>
         <tr>
           <td>allow_unknown_users</td>
@@ -178,21 +178,22 @@ layout: default
           <td></td>
           <td>String</td>
           <td>No</td>
-          <td>Certificate file for TLS</td>
+          <td>Certificate file for TLS. This file must be owned by either the user running pgagroal or root</td>
         </tr>
         <tr>
           <td>tls_key_file</td>
           <td></td>
           <td>String</td>
           <td>No</td>
-          <td>Private key file for TLS</td>
+          <td>Private key file for TLS. This file must be owned by either the user running pgagroal or root.
+            Additionally permissions must be at least 0640 when owned by root or 0600 otherwise.</td>
         </tr>
         <tr>
           <td>tls_ca_file</td>
           <td></td>
           <td>String</td>
           <td>No</td>
-          <td>Certificate Authority (CA) file for TLS</td>
+          <td>Certificate Authority (CA) file for TLS. This file must be owned by either the user running pgagroal or root</td>
         </tr>
         <tr>
           <td>libev</td>
@@ -256,6 +257,13 @@ layout: default
           <td>Bool</td>
           <td>No</td>
           <td>Track prepared statements (transaction pooling)</td>
+        </tr>
+        <tr>
+          <td>pidfile</td>
+          <td></td>
+          <td>String</td>
+          <td>No</td>
+          <td>Path to the PID file</td>
         </tr>
       </tbody>
     </table>
@@ -402,7 +410,12 @@ host    all      all   all      all
 
     <h2>pgagroal_databases.conf</h2>
 
-    Specifies the limits for a database or a user or both.
+    Specifies the limits for a database or a user or both. The limits are the number
+    of connections from pgagroal to PostgreSQL for each entry.
+    <p/>
+    
+    The file also defines the initial and minimum pool size for a database and user pair. Note, that this feature requires
+    a user definition file, see below.
     <p/>
     
     <table border="1">
@@ -415,27 +428,27 @@ host    all      all   all      all
         <tr>
           <td>DATABASE</td>
           <td>Yes</td>
-          <td>Specifies the database for the rule. Either specific name or all for all databases</td>
+          <td>Specifies the database for the rule</td>
         </tr>
         <tr>
           <td>USER</td>
           <td>Yes</td>
-          <td>Specifies the user for the rule. Either specific name or all for all users</td>
+          <td>Specifies the user for the rule</td>
         </tr>
         <tr>
           <td>MAX_SIZE</td>
           <td>Yes</td>
-          <td>Specifies the maximum number of connections for the entry. all for all connections</td>
+          <td>Specifies the maximum pool size for the entry. all for max_connections</td>
         </tr>
         <tr>
           <td>INITIAL_SIZE</td>
           <td>No</td>
-          <td>Specifies the initial pool size for a database and user pair, e.g. all isn't supported</td>
+          <td>Specifies the initial pool size for the entry. all for MAX_SIZE connections. Default is 0</td>
         </tr>
         <tr>
           <td>MIN_SIZE</td>
           <td>No</td>
-          <td>Specifies the minimum pool size for a database and user pair, e.g. all isn't supported</td>
+          <td>Specifies the minimum pool size for the entry. all for MAX_SIZE connections. Default is 0</td>
         </tr>
       </tbody>
     </table>
@@ -447,9 +460,9 @@ host    all      all   all      all
     
     <pre>
 #
-# DATABASE USER MAX_SIZE INITIAL_SIZE MIN_SIZE
+# DATABASE USER    MAX_SIZE INITIAL_SIZE MIN_SIZE
 #
-all        all  all
+mydb       myuser  all
     </pre>
     
     <h2>pgagroal_users.conf</h2>
