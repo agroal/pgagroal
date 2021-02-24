@@ -130,6 +130,18 @@ the `pgagroal-admin` tool.
 
 The configuration is loaded from either the path specified by the `-u` flag or `/etc/pgagroal/pgagroal_users.conf`.
 
+# pgagroal_frontend_users configuration
+
+The `pgagroal_frontend_users` configuration defines the passwords for the users connecting to pgagroal.
+This allows the setup to use different passwords for the `pgagroal` to PostgreSQL authentication.
+This file is created and managed through the `pgagroal-admin` tool.
+
+All users defined in the frontend authentication must be defined in the user vault (`-u`).
+
+Frontend users (`-F`) requires a user vault (`-u`) to be defined.
+
+The configuration is loaded from either the path specified by the `-F` flag or `/etc/pgagroal/pgagroal_frontend_users.conf`.
+
 # pgagroal_admins configuration
 
 The `pgagroal_admins` configuration defines the administrators known to the system. This file is created and managed through
