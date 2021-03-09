@@ -219,6 +219,12 @@ main(int argc, char **argv)
       exit(1);
    }
 
+   if (argc <= 1)
+   {
+      usage();
+      exit(1);
+   }
+
    size = sizeof(struct configuration);
    if (pgagroal_create_shared_memory(size, HUGEPAGE_OFF, &shmem))
    {
