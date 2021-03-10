@@ -234,6 +234,9 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
 
          if (create_ssl_server(ctx, client_fd, &c_ssl))
          {
+            pgagroal_log_debug("authenticate: connection error");
+            pgagroal_write_connection_refused(NULL, client_fd);
+            pgagroal_write_empty(NULL, client_fd);
             goto error;
          }
 
@@ -250,7 +253,10 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
          status = SSL_accept(c_ssl);
          if (status != 1)
          {
-            pgagroal_log_error("SSL failed: %d", status);
+            unsigned long err;
+
+            err = ERR_get_error();
+            pgagroal_log_error("SSL failed: %s", ERR_reason_error_string(err));
             goto error;
          }
 
@@ -605,7 +611,10 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
          status = SSL_accept(c_ssl);
          if (status != 1)
          {
-            pgagroal_log_error("SSL failed: %d", status);
+            unsigned long err;
+
+            err = ERR_get_error();
+            pgagroal_log_error("SSL failed: %s", ERR_reason_error_string(err));
             goto error;
          }
 
@@ -4303,7 +4312,11 @@ create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, S
    {
       if (SSL_CTX_load_verify_locations(ctx, root, NULL) != 1)
       {
+         unsigned long err;
+
+         err = ERR_get_error();
          pgagroal_log_error("Couldn't load TLS CA: %s", root);
+         pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
          goto error;
       }
 
@@ -4314,7 +4327,11 @@ create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, S
    {
       if (SSL_CTX_use_certificate_chain_file(ctx, cert) != 1)
       {
+         unsigned long err;
+
+         err = ERR_get_error();
          pgagroal_log_error("Couldn't load TLS certificate: %s", cert);
+         pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
          goto error;
       }
 
@@ -4337,13 +4354,21 @@ create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, S
    {
       if (SSL_use_PrivateKey_file(s, key, SSL_FILETYPE_PEM) != 1)
       {
+         unsigned long err;
+
+         err = ERR_get_error();
          pgagroal_log_error("Couldn't load TLS private key: %s", key);
+         pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
          goto error;
       }
 
       if (SSL_check_private_key(s) != 1)
       {
+         unsigned long err;
+
+         err = ERR_get_error();
          pgagroal_log_error("TLS private key check failed: %s", key);
+         pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
          goto error;
       }
    }
@@ -4392,19 +4417,31 @@ create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl)
 
    if (SSL_CTX_use_certificate_chain_file(ctx, config->tls_cert_file) != 1)
    {
+      unsigned long err;
+
+      err = ERR_get_error();
       pgagroal_log_error("Couldn't load TLS certificate: %s", config->tls_cert_file);
+      pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
       goto error;
    }
 
    if (SSL_CTX_use_PrivateKey_file(ctx, config->tls_key_file, SSL_FILETYPE_PEM) != 1)
    {
+      unsigned long err;
+
+      err = ERR_get_error();
       pgagroal_log_error("Couldn't load TLS private key: %s", config->tls_key_file);
+      pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
       goto error;
    }
 
    if (SSL_CTX_check_private_key(ctx) != 1)
    {
+      unsigned long err;
+
+      err = ERR_get_error();
       pgagroal_log_error("TLS private key check failed: %s", config->tls_key_file);
+      pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
       goto error;
    }
 
@@ -4412,14 +4449,22 @@ create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl)
    {
       if (SSL_CTX_load_verify_locations(ctx, config->tls_ca_file, NULL) != 1)
       {
+         unsigned long err;
+
+         err = ERR_get_error();
          pgagroal_log_error("Couldn't load TLS CA: %s", config->tls_ca_file);
+         pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
          goto error;
       }
 
       root_cert_list = SSL_load_client_CA_file(config->tls_ca_file);
       if (root_cert_list == NULL)
       {
+         unsigned long err;
+
+         err = ERR_get_error();
          pgagroal_log_error("Couldn't load TLS CA: %s", config->tls_ca_file);
+         pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
          goto error;
       }
 
