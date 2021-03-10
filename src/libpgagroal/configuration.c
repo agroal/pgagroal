@@ -963,9 +963,21 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
    }
    else if (config->pipeline == PIPELINE_TRANSACTION)
    {
+      if (config->number_of_users == 0)
+      {
+         pgagroal_log_fatal("pgagroal: Users must be defined for the transaction pipeline");
+         return 1;
+      }
+
       if (config->disconnect_client > 0)
       {
          pgagroal_log_fatal("pgagroal: Transaction pipeline does not support disconnect_client");
+         return 1;
+      }
+
+      if (config->allow_unknown_users)
+      {
+         pgagroal_log_fatal("pgagroal: Transaction pipeline does not support allow_unknown_users");
          return 1;
       }
 
@@ -982,11 +994,6 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       if (config->validation == VALIDATION_FOREGROUND)
       {
          pgagroal_log_warn("pgagroal: Using foreground validation for the transaction pipeline is not recommended");
-      }
-
-      if (config->number_of_users == 0)
-      {
-         pgagroal_log_info("pgagroal: Defining users for the transaction pipeline is recommended");
       }
 
       if (config->number_of_limits == 0)
