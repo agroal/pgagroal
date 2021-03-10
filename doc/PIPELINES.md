@@ -49,6 +49,9 @@ The transaction pipeline will release the connection back to the pool after each
 transaction completes. This feature will support many more clients than there are
 database connections.
 
+The transaction pipeline requires that there are users defined such that connections
+can be kept in the pool in all security scenarios.
+
 However, there are some session based features of PostgreSQL that can't be supported in this
 pipeline.
 
@@ -99,7 +102,8 @@ setting `idle_timeout` to 0.
 
 It is highly recommended that you prefill all connections for each user.
 
-The transaction pipeline doesn't support the `disconnect_client` setting.
+The transaction pipeline doesn't support the `disconnect_client` or
+`allow_unknown_users` settings.
 
 Select the transaction pipeline by
 
