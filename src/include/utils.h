@@ -210,6 +210,13 @@ char*
 pgagroal_get_home_directory(void);
 
 /**
+ * Get the user name
+ * @return The user name
+ */
+char*
+pgagroal_get_user_name(void);
+
+/**
  * Get a password from stdin
  * @return The password
  */

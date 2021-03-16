@@ -557,7 +557,25 @@ pgagroal_get_home_directory(void)
 {
    struct passwd *pw = getpwuid(getuid());
 
+   if (pw == NULL)
+   {
+      return NULL;
+   }
+
    return pw->pw_dir;
+}
+
+char*
+pgagroal_get_user_name(void)
+{
+   struct passwd *pw = getpwuid(getuid());
+
+   if (pw == NULL)
+   {
+      return NULL;
+   }
+
+   return pw->pw_name;
 }
 
 char*
