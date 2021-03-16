@@ -285,6 +285,22 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    struct stat st = {0};
    bool do_free = true;
 
+   if (pgagroal_get_home_directory() == NULL)
+   {
+      char* username = pgagroal_get_user_name();
+
+      if (username != NULL)
+      {
+         printf("No home directory for user \'%s\'\n", username);
+      }
+      else
+      {
+         printf("No home directory for user running pgagroal\n");
+      }
+
+      goto error;
+   }
+
    memset(&buf, 0, sizeof(buf));
    snprintf(&buf[0], sizeof(buf), "%s/.pgagroal", pgagroal_get_home_directory());
    

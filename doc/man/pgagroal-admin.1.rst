@@ -46,7 +46,7 @@ COMMANDS
 ========
 
 master-key
-  Create or update the master key
+  Create or update the master key. The master key will be created in the pgagroal user home directory under ~/.pgagroal
 
 add-user
   Add a user
