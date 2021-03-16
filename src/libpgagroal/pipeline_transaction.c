@@ -71,6 +71,7 @@ static int next_client_message;
 static int next_server_message;
 static int unix_socket = -1;
 static int deallocate;
+static bool fatal;
 static struct ev_io io_mgt;
 static struct worker_io server_io;
 
@@ -218,6 +219,8 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
       server_io.slot = slot;
       server_io.client_ssl = wi->client_ssl;
 
+      fatal = false;
+
       ev_io_start(loop, (struct ev_io*)&server_io);
    }
 
@@ -343,7 +346,7 @@ static void
 transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
-   bool fatal = false;
+   bool has_z = false;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
    struct configuration* config = NULL;
@@ -376,6 +379,9 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
             if (kind == 'Z')
             {
                char tx_state = pgagroal_read_byte(msg->data + offset + 5);
+
+               has_z = true;
+
                if (tx_state == 'I')
                {
                   in_tx = false;
@@ -418,9 +424,15 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
          goto client_error;
       }
 
-      if (likely(msg->kind != 'E'))
+      if (unlikely(msg->kind == 'E'))
       {
-         if (!in_tx && slot != -1)
+         if (!strncmp(msg->data + 6, "FATAL", 5) || !strncmp(msg->data + 6, "PANIC", 5))
+            fatal = true;
+      }
+
+      if (!fatal)
+      {
+         if (has_z && !in_tx && slot != -1)
          {
             ev_io_stop(loop, (struct ev_io*)&server_io);
 
@@ -441,15 +453,10 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
       }
       else
       {
-         fatal = false;
-
-         ev_io_stop(loop, (struct ev_io*)&server_io);
-
-         if (!strncmp(msg->data + 6, "FATAL", 5) || !strncmp(msg->data + 6, "PANIC", 5))
-            fatal = true;
-
-         if (fatal)
+         if (has_z && !in_tx && slot != -1)
          {
+            ev_io_stop(loop, (struct ev_io*)&server_io);
+
             exit_code = WORKER_SERVER_FATAL;
             running = 0;
          }
