@@ -83,7 +83,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    start_time = time(NULL);
 
    pgagroal_tracking_event_basic(TRACKER_CLIENT_START, NULL, NULL);
-   pgagroal_set_proc_title(argv, "authenticating", NULL);
+   pgagroal_set_proc_title(1, argv, "authenticating", NULL);
 
    /* Authentication */
    auth_status = pgagroal_authenticate(client_fd, address, &slot, &client_ssl);
@@ -98,7 +98,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       }
 
       pgagroal_pool_status();
-      pgagroal_set_proc_title(argv, config->connections[slot].username, config->connections[slot].database);
+      pgagroal_set_proc_title(1, argv, config->connections[slot].username, config->connections[slot].database);
 
       if (config->pipeline == PIPELINE_PERFORMANCE)
       {

@@ -246,12 +246,13 @@ pgagroal_base64_decode(char* encoded, size_t encoded_length, char** raw, int* ra
 
 /**
  * Set process title
+ * @param argc The number of arguments
  * @param argv The argv pointer
  * @param s1 The first string
  * @param s2 The second string
  */
 void
-pgagroal_set_proc_title(char** argv, char* s1, char *s2);
+pgagroal_set_proc_title(int argc, char** argv, char* s1, char *s2);
 
 #ifdef DEBUG
 

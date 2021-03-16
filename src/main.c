@@ -806,7 +806,7 @@ main(int argc, char **argv)
 
    pgagroal_pool_init();
 
-   pgagroal_set_proc_title(argv, "main", NULL);
+   pgagroal_set_proc_title(argc, argv, "main", NULL);
 
    /* Bind Unix Domain Socket for file descriptor transfers */
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, &unix_management_socket))

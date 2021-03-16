@@ -52,6 +52,8 @@
 #define EVBACKEND_IOURING  0x00000080U
 #endif
 
+static int max_process_title_size = -1;
+
 int32_t
 pgagroal_get_request(struct message* msg)
 {
@@ -705,12 +707,25 @@ error:
 }
 
 void
-pgagroal_set_proc_title(char** argv, char* s1, char *s2)
+pgagroal_set_proc_title(int argc, char** argv, char* s1, char *s2)
 {
 #ifdef HAVE_LINUX
    char title[256];
 
    memset(&title, 0, sizeof(title));
+
+   if (max_process_title_size == -1)
+   {
+      int m = 0;
+
+      for (int i = 0; i < argc; i++)
+      {
+         m += strlen(argv[i]);
+         m += 1;
+      }
+
+      max_process_title_size = m;
+   }
 
    if (s1 != NULL && s2 != NULL)
    {
@@ -721,7 +736,8 @@ pgagroal_set_proc_title(char** argv, char* s1, char *s2)
       snprintf(title, sizeof(title) - 1, "pgagroal: %s", s1);
    }
 
-   memcpy(*argv, title, MIN(strlen(title) + 1, 256));
+   memcpy(*argv, title, MIN(max_process_title_size, 256));
+
 #else
    if (s1 != NULL && s2 != NULL)
    {
