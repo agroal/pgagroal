@@ -800,6 +800,11 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
 
    pgagroal_memory_size(DEFAULT_BUFFER_SIZE);
 
+   if (pgagroal_get_home_directory() == NULL)
+   {
+      goto error;
+   }
+
    memset(&key_file, 0, sizeof(key_file));
    snprintf(&key_file[0], sizeof(key_file), "%s/.pgagroal/pgagroal.key", pgagroal_get_home_directory());
 
@@ -3042,6 +3047,11 @@ pgagroal_get_master_key(char** masterkey)
    int mk_length = 0;
    struct stat st = {0};
 
+   if (pgagroal_get_home_directory() == NULL)
+   {
+      goto error;
+   }
+
    memset(&buf, 0, sizeof(buf));
    snprintf(&buf[0], sizeof(buf), "%s/.pgagroal", pgagroal_get_home_directory());
 
@@ -3081,6 +3091,10 @@ pgagroal_get_master_key(char** masterkey)
    }
 
    master_key_file = fopen(&buf[0], "r");
+   if (master_key_file == NULL)
+   {
+      goto error;
+   }
 
    memset(&line, 0, sizeof(line));
    if (fgets(line, sizeof(line), master_key_file) == NULL)
