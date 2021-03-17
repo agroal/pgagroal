@@ -34,6 +34,7 @@
 
 /* system */
 #include <ctype.h>
+#include <errno.h>
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -343,6 +344,11 @@ master_key(char* password, bool generate_pwd, int pwd_length)
 
 
    file = fopen(&buf[0], "w+");
+   if (file == NULL)
+   {
+      printf("Could not write to master key file '%s' due to %s\n", &buf[0], strerror(errno));
+      goto error;
+   }
 
    if (password == NULL)
    {
@@ -467,6 +473,11 @@ add_user(char* users_path, char* username, char* password, bool generate_pwd, in
    }
 
    users_file = fopen(users_path, "a+");
+   if (users_file == NULL)
+   {
+      printf("Could not append to users file '%s' due to %s\n", users_path, strerror(errno));
+      goto error;
+   }
 
    /* User */
    if (username == NULL)
@@ -640,6 +651,11 @@ update_user(char* users_path, char* username, char* password, bool generate_pwd,
 
    snprintf(tmpfilename, sizeof(tmpfilename), "%s.tmp", users_path);
    users_file_tmp = fopen(tmpfilename, "w+");
+   if (users_file_tmp == NULL)
+   {
+      printf("Could not write to temporary user file '%s' due to %s\n", tmpfilename, strerror(errno));
+      goto error;
+   }
 
    /* User */
    if (username == NULL)
@@ -811,6 +827,11 @@ remove_user(char* users_path, char* username)
    memset(&tmpfilename, 0, sizeof(tmpfilename));
    snprintf(tmpfilename, sizeof(tmpfilename), "%s.tmp", users_path);
    users_file_tmp = fopen(tmpfilename, "w+");
+   if (users_file_tmp == NULL)
+   {
+      printf("Could not write to temporary user file '%s' due to %s\n", tmpfilename, strerror(errno));
+      goto error;
+   }
 
    /* User */
    if (username == NULL)
