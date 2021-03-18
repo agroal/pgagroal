@@ -860,10 +860,35 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       config->disconnect_client = 0;
    }
 
-   if (config->authquery && strlen(config->superuser.username) == 0)
+   if (config->authquery)
    {
-      pgagroal_log_fatal("pgagroal: Authentication query requires a superuser");
-      return 1;
+      if (strlen(config->superuser.username) == 0)
+      {
+         pgagroal_log_fatal("pgagroal: Authentication query requires a superuser");
+         return 1;
+      }
+      else
+      {
+         config->allow_unknown_users = true;
+
+         if (config->number_of_users > 0)
+         {
+            pgagroal_log_fatal("pgagroal: Users are not supported when using authentication query");
+            return 1;
+         }
+
+         if (config->number_of_frontend_users > 0)
+         {
+            pgagroal_log_fatal("pgagroal: Frontend users are not supported when using authentication query");
+            return 1;
+         }
+
+         if (config->number_of_limits > 0)
+         {
+            pgagroal_log_fatal("pgagroal: Limits are not supported when using authentication query");
+            return 1;
+         }
+      }
    }
 
    if (config->max_connections <= 0)
@@ -961,24 +986,37 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
          config->pipeline = PIPELINE_PERFORMANCE;
       }
    }
+
+   if (config->pipeline == PIPELINE_SESSION)
+   {
+      /* Checks */
+   }
    else if (config->pipeline == PIPELINE_TRANSACTION)
    {
-      if (config->number_of_users == 0)
-      {
-         pgagroal_log_fatal("pgagroal: Users must be defined for the transaction pipeline");
-         return 1;
-      }
-
       if (config->disconnect_client > 0)
       {
          pgagroal_log_fatal("pgagroal: Transaction pipeline does not support disconnect_client");
          return 1;
       }
 
-      if (config->allow_unknown_users)
+      if (!config->authquery)
       {
-         pgagroal_log_fatal("pgagroal: Transaction pipeline does not support allow_unknown_users");
-         return 1;
+         if (config->number_of_users == 0)
+         {
+            pgagroal_log_fatal("pgagroal: Users must be defined for the transaction pipeline");
+            return 1;
+         }
+
+         if (config->allow_unknown_users)
+         {
+            pgagroal_log_fatal("pgagroal: Transaction pipeline does not support allow_unknown_users");
+            return 1;
+         }
+
+         if (config->number_of_limits == 0)
+         {
+            pgagroal_log_info("pgagroal: Defining limits for the transaction pipeline is recommended");
+         }
       }
 
       if (config->blocking_timeout > 0)
@@ -994,11 +1032,6 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       if (config->validation == VALIDATION_FOREGROUND)
       {
          pgagroal_log_warn("pgagroal: Using foreground validation for the transaction pipeline is not recommended");
-      }
-
-      if (config->number_of_limits == 0)
-      {
-         pgagroal_log_info("pgagroal: Defining limits for the transaction pipeline is recommended");
       }
    }
    else if (config->pipeline == PIPELINE_PERFORMANCE)
