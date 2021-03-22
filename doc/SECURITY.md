@@ -67,3 +67,6 @@ in the vault passed to the `-S` or `--superuser` command line parameter.
 
 The user executing the authentication query must use either a MD5 or a SCRAM-SHA-256
 password protected based account.
+
+Note, that authentication query doesn't support user vaults - user vault (`-u`) and frontend users (`-F`) -
+as well as limits (`-l`).
