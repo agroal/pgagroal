@@ -32,7 +32,6 @@
 #include <memory.h>
 #include <message.h>
 #include <network.h>
-#include <worker.h>
 #include <utils.h>
 
 #include <assert.h>
