@@ -1466,9 +1466,9 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          metrics_fds = NULL;
          metrics_fds_length = 0;
 
-         if (pgagroal_bind(config->host, config->port, &metrics_fds, &metrics_fds_length))
+         if (pgagroal_bind(config->host, config->metrics, &metrics_fds, &metrics_fds_length))
          {
-            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->port);
+            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->metrics);
             exit(1);
          }
 
@@ -1539,9 +1539,9 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          management_fds = NULL;
          management_fds_length = 0;
 
-         if (pgagroal_bind(config->host, config->port, &management_fds, &management_fds_length))
+         if (pgagroal_bind(config->host, config->management, &management_fds, &management_fds_length))
          {
-            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->port);
+            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->management);
             exit(1);
          }
 
