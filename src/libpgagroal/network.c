@@ -137,7 +137,7 @@ int
 pgagroal_bind_unix_socket(const char* directory, const char* file, int *fd)
 {
    int status;
-   char buf[MISC_LENGTH];
+   char buf[107];
    struct stat st = {0};
    struct sockaddr_un addr;
    struct configuration* config;
@@ -342,7 +342,7 @@ error:
 int
 pgagroal_connect_unix_socket(const char* directory, const char* file, int* fd)
 {
-   char buf[MISC_LENGTH];
+   char buf[107];
    struct sockaddr_un addr;
 
    if ((*fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
