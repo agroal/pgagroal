@@ -97,8 +97,6 @@ pgagroal_prometheus(int client_fd)
 
    config = (struct configuration*)shmem;
 
-   pgagroal_log_debug("pgagroal_prometheus: connect %d", client_fd);
-
    status = pgagroal_read_timeout_message(NULL, client_fd, config->authentication_timeout, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
@@ -120,7 +118,6 @@ pgagroal_prometheus(int client_fd)
       unknown_page(client_fd);
    }
 
-   pgagroal_log_debug("pgagroal_prometheus: disconnect %d", client_fd);
    pgagroal_disconnect(client_fd);
 
    pgagroal_memory_destroy();

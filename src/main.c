@@ -1113,8 +1113,6 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    struct accept_io* ai;
    struct configuration* config;
 
-   pgagroal_log_trace("accept_main_cb: sockfd ready (%d)", revents);
-
    if (EV_ERROR & revents)
    {
       pgagroal_log_debug("accept_main_cb: invalid event: %s", strerror(errno));
@@ -1228,8 +1226,6 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    int payload_i;
    char* payload_s = NULL;
    struct configuration* config;
-
-   pgagroal_log_trace("pgagroal: unix_management_socket ready (%d)", revents);
 
    if (EV_ERROR & revents)
    {
@@ -1441,8 +1437,6 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    int client_fd;
    struct configuration* config;
 
-   pgagroal_log_trace("accept_metrics_cb: sockfd ready (%d)", revents);
-
    if (EV_ERROR & revents)
    {
       pgagroal_log_debug("accept_metrics_cb: invalid event: %s", strerror(errno));
@@ -1511,8 +1505,6 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    int client_fd;
    char address[INET6_ADDRSTRLEN];
    struct configuration* config;
-
-   pgagroal_log_trace("accept_management_cb: sockfd ready (%d)", revents);
 
    if (EV_ERROR & revents)
    {
@@ -1628,8 +1620,6 @@ coredump_cb(struct ev_loop *loop, ev_signal *w, int revents)
 static void
 idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 {
-   pgagroal_log_trace("pgagroal: idle_timeout_cb (%d)", revents);
-
    if (EV_ERROR & revents)
    {
       pgagroal_log_trace("idle_timeout_cb: got invalid event: %s", strerror(errno));
@@ -1646,8 +1636,6 @@ idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 static void
 validation_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 {
-   pgagroal_log_trace("pgagroal: validation_cb (%d)", revents);
-
    if (EV_ERROR & revents)
    {
       pgagroal_log_trace("validation_cb: got invalid event: %s", strerror(errno));
@@ -1664,8 +1652,6 @@ validation_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 static void
 disconnect_client_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 {
-   pgagroal_log_trace("pgagroal: disconnect_client_cb (%d)", revents);
-
    if (EV_ERROR & revents)
    {
       pgagroal_log_trace("disconnect_client_cb: got invalid event: %s", strerror(errno));
