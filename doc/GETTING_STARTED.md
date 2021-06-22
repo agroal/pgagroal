@@ -240,6 +240,7 @@ Next steps in improving pgagroal's configuration could be
 * Disable access for unknown users by setting `allow_unknown_users` to `false`
 * Define a `pgagroal_databases.conf` file with the limits and prefill settings for each database
 * Enable Transport Layer Security v1.2+ (TLS)
+* Deploy Grafana dashboard
 
 See [Configuration](./CONFIGURATION.md) for more information on these subjects.
 
