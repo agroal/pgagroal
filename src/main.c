@@ -580,7 +580,7 @@ main(int argc, char **argv)
    else
    {
       admins_path = "/etc/pgagroal/pgagroal_admins.conf";
-      ret = pgagroal_read_users_configuration(shmem, admins_path);
+      ret = pgagroal_read_admins_configuration(shmem, admins_path);
       if (ret == 0)
       {
          memcpy(&config->admins_path[0], admins_path, MIN(strlen(admins_path), MAX_PATH - 1));
@@ -619,7 +619,7 @@ main(int argc, char **argv)
    else
    {
       superuser_path = "/etc/pgagroal/pgagroal_superuser.conf";
-      ret = pgagroal_read_users_configuration(shmem, superuser_path);
+      ret = pgagroal_read_superuser_configuration(shmem, superuser_path);
       if (ret == 0)
       {
          memcpy(&config->superuser_path[0], superuser_path, MIN(strlen(superuser_path), MAX_PATH - 1));
