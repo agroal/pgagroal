@@ -44,6 +44,12 @@ void
 pgagroal_prometheus(int fd);
 
 /**
+ * Initialize prometheus shmem
+ */
+int
+pgagroal_init_prometheus(size_t* p_size, void** p_shmem);
+
+/**
  * Add session time information
  * @param time The time
  */

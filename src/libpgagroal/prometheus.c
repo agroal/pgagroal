@@ -34,6 +34,7 @@
 #include <network.h>
 #include <prometheus.h>
 #include <utils.h>
+#include <shmem.h>
 
 /* system */
 #include <ev.h>
@@ -136,273 +137,335 @@ error:
    exit(1);
 }
 
+int
+pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
+{
+   struct configuration* config;
+   struct prometheus* prometheus;
+
+   size_t tmp_p_size = 0;
+   void* tmp_p_shmem = NULL;
+
+   config = (struct configuration*) shmem;
+
+   tmp_p_size = sizeof(struct prometheus) + (config->max_connections * sizeof(struct prometheus_connection));
+   if (pgagroal_create_shared_memory(tmp_p_size, config->hugepage, &tmp_p_shmem))
+   {
+      return 1;
+   }
+
+   *p_size = tmp_p_size;
+   *p_shmem = tmp_p_shmem;
+
+   prometheus = (struct prometheus*)*p_shmem;
+
+   for (int i = 0; i < HISTOGRAM_BUCKETS; i++)
+   {
+      atomic_init(&prometheus->session_time[i], 0);
+   }
+   atomic_init(&prometheus->session_time_sum, 0);
+
+   atomic_init(&prometheus->connection_error, 0);
+   atomic_init(&prometheus->connection_kill, 0);
+   atomic_init(&prometheus->connection_remove, 0);
+   atomic_init(&prometheus->connection_timeout, 0);
+   atomic_init(&prometheus->connection_return, 0);
+   atomic_init(&prometheus->connection_invalid, 0);
+   atomic_init(&prometheus->connection_get, 0);
+   atomic_init(&prometheus->connection_idletimeout, 0);
+   atomic_init(&prometheus->connection_flush, 0);
+   atomic_init(&prometheus->connection_success, 0);
+
+   atomic_init(&prometheus->auth_user_success, 0);
+   atomic_init(&prometheus->auth_user_bad_password, 0);
+   atomic_init(&prometheus->auth_user_error, 0);
+
+   for (int i = 0; i < NUMBER_OF_SERVERS; i++)
+   {
+      atomic_init(&prometheus->server_error[i], 0);
+   }
+   atomic_init(&prometheus->failed_servers, 0);
+
+   for (int i = 0; i < config->max_connections; i++)
+   {
+      memset(&prometheus->prometheus_connections[i], 0, sizeof(struct prometheus_connection));
+      /**< TODO: init other metrics */
+   }
+
+   return 0;
+}
+
 void
 pgagroal_prometheus_session_time(double time)
 {
    unsigned long t;
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
    t = (unsigned long)time;
 
-   atomic_fetch_add(&config->prometheus.session_time_sum, t);
+   atomic_fetch_add(&prometheus->session_time_sum, t);
 
    if (t <= FIVE_SECONDS)
    {
-      atomic_fetch_add(&config->prometheus.session_time[0], 1);
+      atomic_fetch_add(&prometheus->session_time[0], 1);
    }
    else if (t > FIVE_SECONDS && t <= TEN_SECONDS)
    {
-      atomic_fetch_add(&config->prometheus.session_time[1], 1);
+      atomic_fetch_add(&prometheus->session_time[1], 1);
    }
    else if (t > TEN_SECONDS && t <= TWENTY_SECONDS)
    {
-      atomic_fetch_add(&config->prometheus.session_time[2], 1);
+      atomic_fetch_add(&prometheus->session_time[2], 1);
    }
    else if (t > TWENTY_SECONDS && t <= THIRTY_SECONDS)
    {
-      atomic_fetch_add(&config->prometheus.session_time[3], 1);
+      atomic_fetch_add(&prometheus->session_time[3], 1);
    }
    else if (t > THIRTY_SECONDS && t <= FOURTYFIVE_SECONDS)
    {
-      atomic_fetch_add(&config->prometheus.session_time[4], 1);
+      atomic_fetch_add(&prometheus->session_time[4], 1);
    }
    else if (t > FOURTYFIVE_SECONDS && t <= ONE_MINUTE)
    {
-      atomic_fetch_add(&config->prometheus.session_time[5], 1);
+      atomic_fetch_add(&prometheus->session_time[5], 1);
    }
    else if (t > ONE_MINUTE && t <= FIVE_MINUTES)
    {
-      atomic_fetch_add(&config->prometheus.session_time[6], 1);
+      atomic_fetch_add(&prometheus->session_time[6], 1);
    }
    else if (t > FIVE_MINUTES && t <= TEN_MINUTES)
    {
-      atomic_fetch_add(&config->prometheus.session_time[7], 1);
+      atomic_fetch_add(&prometheus->session_time[7], 1);
    }
    else if (t > TEN_MINUTES && t <= TWENTY_MINUTES)
    {
-      atomic_fetch_add(&config->prometheus.session_time[8], 1);
+      atomic_fetch_add(&prometheus->session_time[8], 1);
    }
    else if (t > TWENTY_MINUTES && t <= THIRTY_MINUTES)
    {
-      atomic_fetch_add(&config->prometheus.session_time[9], 1);
+      atomic_fetch_add(&prometheus->session_time[9], 1);
    }
    else if (t > THIRTY_MINUTES && t <= FOURTYFIVE_MINUTES)
    {
-      atomic_fetch_add(&config->prometheus.session_time[10], 1);
+      atomic_fetch_add(&prometheus->session_time[10], 1);
    }
    else if (t > FOURTYFIVE_MINUTES && t <= ONE_HOUR)
    {
-      atomic_fetch_add(&config->prometheus.session_time[11], 1);
+      atomic_fetch_add(&prometheus->session_time[11], 1);
    }
    else if (t > ONE_HOUR && t <= TWO_HOURS)
    {
-      atomic_fetch_add(&config->prometheus.session_time[12], 1);
+      atomic_fetch_add(&prometheus->session_time[12], 1);
    }
    else if (t > TWO_HOURS && t <= FOUR_HOURS)
    {
-      atomic_fetch_add(&config->prometheus.session_time[13], 1);
+      atomic_fetch_add(&prometheus->session_time[13], 1);
    }
    else if (t > FOUR_HOURS && t <= SIX_HOURS)
    {
-      atomic_fetch_add(&config->prometheus.session_time[14], 1);
+      atomic_fetch_add(&prometheus->session_time[14], 1);
    }
    else if (t > SIX_HOURS && t <= TWELVE_HOURS)
    {
-      atomic_fetch_add(&config->prometheus.session_time[15], 1);
+      atomic_fetch_add(&prometheus->session_time[15], 1);
    }
    else if (t > TWELVE_HOURS && t <= TWENTYFOUR_HOURS)
    {
-      atomic_fetch_add(&config->prometheus.session_time[16], 1);
+      atomic_fetch_add(&prometheus->session_time[16], 1);
    }
    else
    {
-      atomic_fetch_add(&config->prometheus.session_time[17], 1);
+      atomic_fetch_add(&prometheus->session_time[17], 1);
    }
 }
 
 void
 pgagroal_prometheus_connection_error(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.connection_error, 1);
+   atomic_fetch_add(&prometheus->connection_error, 1);
 }
 
 void
 pgagroal_prometheus_connection_kill(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.connection_kill, 1);
+   atomic_fetch_add(&prometheus->connection_kill, 1);
 }
 
 void
 pgagroal_prometheus_connection_remove(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.connection_remove, 1);
+   atomic_fetch_add(&prometheus->connection_remove, 1);
 }
 
 void
 pgagroal_prometheus_connection_timeout(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.connection_timeout, 1);
+   atomic_fetch_add(&prometheus->connection_timeout, 1);
 }
 
 void
 pgagroal_prometheus_connection_return(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.connection_return, 1);
+   atomic_fetch_add(&prometheus->connection_return, 1);
 }
 
 void
 pgagroal_prometheus_connection_invalid(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.connection_invalid, 1);
+   atomic_fetch_add(&prometheus->connection_invalid, 1);
 }
 
 void
 pgagroal_prometheus_connection_get(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.connection_get, 1);
+   atomic_fetch_add(&prometheus->connection_get, 1);
 }
 
 void
 pgagroal_prometheus_connection_idletimeout(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.connection_idletimeout, 1);
+   atomic_fetch_add(&prometheus->connection_idletimeout, 1);
 }
 
 void
 pgagroal_prometheus_connection_flush(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.connection_flush, 1);
+   atomic_fetch_add(&prometheus->connection_flush, 1);
 }
 
 void
 pgagroal_prometheus_connection_success(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.connection_success, 1);
+   atomic_fetch_add(&prometheus->connection_success, 1);
 }
 
 void
 pgagroal_prometheus_auth_user_success(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.auth_user_success, 1);
+   atomic_fetch_add(&prometheus->auth_user_success, 1);
 }
 
 void
 pgagroal_prometheus_auth_user_bad_password(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.auth_user_bad_password, 1);
+   atomic_fetch_add(&prometheus->auth_user_bad_password, 1);
 }
 
 void
 pgagroal_prometheus_auth_user_error(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.auth_user_error, 1);
+   atomic_fetch_add(&prometheus->auth_user_error, 1);
 }
 
 void
 pgagroal_prometheus_reset(void)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
    for (int i = 0; i < HISTOGRAM_BUCKETS; i++)
    {
-      atomic_store(&config->prometheus.session_time[i], 0);
+      atomic_store(&prometheus->session_time[i], 0);
    }
-   atomic_store(&config->prometheus.session_time_sum, 0);
+   atomic_store(&prometheus->session_time_sum, 0);
 
-   atomic_store(&config->prometheus.connection_error, 0);
-   atomic_store(&config->prometheus.connection_kill, 0);
-   atomic_store(&config->prometheus.connection_remove, 0);
-   atomic_store(&config->prometheus.connection_timeout, 0);
-   atomic_store(&config->prometheus.connection_return, 0);
-   atomic_store(&config->prometheus.connection_invalid, 0);
-   atomic_store(&config->prometheus.connection_get, 0);
-   atomic_store(&config->prometheus.connection_idletimeout, 0);
-   atomic_store(&config->prometheus.connection_flush, 0);
-   atomic_store(&config->prometheus.connection_success, 0);
+   atomic_store(&prometheus->connection_error, 0);
+   atomic_store(&prometheus->connection_kill, 0);
+   atomic_store(&prometheus->connection_remove, 0);
+   atomic_store(&prometheus->connection_timeout, 0);
+   atomic_store(&prometheus->connection_return, 0);
+   atomic_store(&prometheus->connection_invalid, 0);
+   atomic_store(&prometheus->connection_get, 0);
+   atomic_store(&prometheus->connection_idletimeout, 0);
+   atomic_store(&prometheus->connection_flush, 0);
+   atomic_store(&prometheus->connection_success, 0);
 
-   atomic_store(&config->prometheus.auth_user_success, 0);
-   atomic_store(&config->prometheus.auth_user_bad_password, 0);
-   atomic_store(&config->prometheus.auth_user_error, 0);
+   atomic_store(&prometheus->auth_user_success, 0);
+   atomic_store(&prometheus->auth_user_bad_password, 0);
+   atomic_store(&prometheus->auth_user_error, 0);
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
-      atomic_store(&config->prometheus.server_error[i], 0);
+      atomic_store(&prometheus->server_error[i], 0);
    }
 }
 
 void
 pgagroal_prometheus_server_error(int server)
 {
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
-   atomic_fetch_add(&config->prometheus.server_error[server], 1);
+   atomic_fetch_add(&prometheus->server_error[server], 1);
 }
 
 void
 pgagroal_prometheus_failed_servers(void)
 {
    int count;
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
    struct configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct configuration*) shmem;
 
    count = 0;
 
@@ -415,7 +478,7 @@ pgagroal_prometheus_failed_servers(void)
       }
    }
 
-   atomic_store(&config->prometheus.failed_servers, count);
+   atomic_store(&prometheus->failed_servers, count);
 }
 
 static int
@@ -792,8 +855,11 @@ general_information(int client_fd)
 {
    char* data = NULL;
    struct configuration* config;
+   struct prometheus* prometheus;
 
    config = (struct configuration*)shmem;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
 
    data = append(data, "#HELP pgagroal_state The state of pgagroal\n");
    data = append(data, "#TYPE pgagroal_state gauge\n");
@@ -846,7 +912,7 @@ general_information(int client_fd)
 
       data = append(data, "\"} ");
 
-      data = append_ulong(data, atomic_load(&config->prometheus.server_error[i]));
+      data = append_ulong(data, atomic_load(&prometheus->server_error[i]));
       data = append(data, "\n");
    }
    data = append(data, "\n");
@@ -854,7 +920,7 @@ general_information(int client_fd)
    data = append(data, "#HELP pgagroal_failed_servers The number of failed servers\n");
    data = append(data, "#TYPE pgagroal_failed_servers gauge\n");
    data = append(data, "pgagroal_failed_servers ");
-   data = append_ulong(data, atomic_load(&config->prometheus.failed_servers));
+   data = append_ulong(data, atomic_load(&prometheus->failed_servers));
    data = append(data, "\n\n");
 
    if (data != NULL)
@@ -1111,9 +1177,9 @@ session_information(int client_fd)
 {
    char* data = NULL;
    unsigned long counter;
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
    counter = 0;
 
@@ -1121,97 +1187,97 @@ session_information(int client_fd)
    data = append(data, "#TYPE pgagroal_session_time_seconds histogram\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"5\"} ");
-   counter += atomic_load(&config->prometheus.session_time[0]);
+   counter += atomic_load(&prometheus->session_time[0]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"10\"} ");
-   counter += atomic_load(&config->prometheus.session_time[1]);
+   counter += atomic_load(&prometheus->session_time[1]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"20\"} ");
-   counter += atomic_load(&config->prometheus.session_time[2]);
+   counter += atomic_load(&prometheus->session_time[2]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"30\"} ");
-   counter += atomic_load(&config->prometheus.session_time[3]);
+   counter += atomic_load(&prometheus->session_time[3]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"45\"} ");
-   counter += atomic_load(&config->prometheus.session_time[4]);
+   counter += atomic_load(&prometheus->session_time[4]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"60\"} ");
-   counter += atomic_load(&config->prometheus.session_time[5]);
+   counter += atomic_load(&prometheus->session_time[5]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"300\"} ");
-   counter += atomic_load(&config->prometheus.session_time[6]);
+   counter += atomic_load(&prometheus->session_time[6]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"600\"} ");
-   counter += atomic_load(&config->prometheus.session_time[7]);
+   counter += atomic_load(&prometheus->session_time[7]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"1200\"} ");
-   counter += atomic_load(&config->prometheus.session_time[8]);
+   counter += atomic_load(&prometheus->session_time[8]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"1800\"} ");
-   counter += atomic_load(&config->prometheus.session_time[9]);
+   counter += atomic_load(&prometheus->session_time[9]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"2700\"} ");
-   counter += atomic_load(&config->prometheus.session_time[10]);
+   counter += atomic_load(&prometheus->session_time[10]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"3600\"} ");
-   counter += atomic_load(&config->prometheus.session_time[11]);
+   counter += atomic_load(&prometheus->session_time[11]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"7200\"} ");
-   counter += atomic_load(&config->prometheus.session_time[12]);
+   counter += atomic_load(&prometheus->session_time[12]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"14400\"} ");
-   counter += atomic_load(&config->prometheus.session_time[13]);
+   counter += atomic_load(&prometheus->session_time[13]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"21600\"} ");
-   counter += atomic_load(&config->prometheus.session_time[14]);
+   counter += atomic_load(&prometheus->session_time[14]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"43200\"} ");
-   counter += atomic_load(&config->prometheus.session_time[15]);
+   counter += atomic_load(&prometheus->session_time[15]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"86400\"} ");
-   counter += atomic_load(&config->prometheus.session_time[16]);
+   counter += atomic_load(&prometheus->session_time[16]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_bucket{le=\"+Inf\"} ");
-   counter += atomic_load(&config->prometheus.session_time[17]);
+   counter += atomic_load(&prometheus->session_time[17]);
    data = append_ulong(data, counter);
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_sum ");
-   data = append_ulong(data, atomic_load(&config->prometheus.session_time_sum));
+   data = append_ulong(data, atomic_load(&prometheus->session_time_sum));
    data = append(data, "\n");
 
    data = append(data, "pgagroal_session_time_seconds_count ");
@@ -1227,68 +1293,68 @@ static void
 pool_information(int client_fd)
 {
    char* data = NULL;
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
    data = append(data, "#HELP pgagroal_connection_error Number of connection errors\n");
    data = append(data, "#TYPE pgagroal_connection_error counter\n");
    data = append(data, "pgagroal_connection_error ");
-   data = append_ulong(data, atomic_load(&config->prometheus.connection_error));
+   data = append_ulong(data, atomic_load(&prometheus->connection_error));
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_connection_kill Number of connection kills\n");
    data = append(data, "#TYPE pgagroal_connection_kill counter\n");
    data = append(data, "pgagroal_connection_kill ");
-   data = append_ulong(data, atomic_load(&config->prometheus.connection_kill));
+   data = append_ulong(data, atomic_load(&prometheus->connection_kill));
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_connection_remove Number of connection removes\n");
    data = append(data, "#TYPE pgagroal_connection_remove counter\n");
    data = append(data, "pgagroal_connection_remove ");
-   data = append_ulong(data, atomic_load(&config->prometheus.connection_remove));
+   data = append_ulong(data, atomic_load(&prometheus->connection_remove));
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_connection_timeout Number of connection time outs\n");
    data = append(data, "#TYPE pgagroal_connection_timeout counter\n");
    data = append(data, "pgagroal_connection_timeout ");
-   data = append_ulong(data, atomic_load(&config->prometheus.connection_timeout));
+   data = append_ulong(data, atomic_load(&prometheus->connection_timeout));
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_connection_return Number of connection returns\n");
    data = append(data, "#TYPE pgagroal_connection_return counter\n");
    data = append(data, "pgagroal_connection_return ");
-   data = append_ulong(data, atomic_load(&config->prometheus.connection_return));
+   data = append_ulong(data, atomic_load(&prometheus->connection_return));
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_connection_invalid Number of connection invalids\n");
    data = append(data, "#TYPE pgagroal_connection_invalid counter\n");
    data = append(data, "pgagroal_connection_invalid ");
-   data = append_ulong(data, atomic_load(&config->prometheus.connection_invalid));
+   data = append_ulong(data, atomic_load(&prometheus->connection_invalid));
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_connection_get Number of connection gets\n");
    data = append(data, "#TYPE pgagroal_connection_get counter\n");
    data = append(data, "pgagroal_connection_get ");
-   data = append_ulong(data, atomic_load(&config->prometheus.connection_get));
+   data = append_ulong(data, atomic_load(&prometheus->connection_get));
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_connection_idletimeout Number of connection idle timeouts\n");
    data = append(data, "#TYPE pgagroal_connection_idletimeout counter\n");
    data = append(data, "pgagroal_connection_idletimeout ");
-   data = append_ulong(data, atomic_load(&config->prometheus.connection_idletimeout));
+   data = append_ulong(data, atomic_load(&prometheus->connection_idletimeout));
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_connection_flush Number of connection flushes\n");
    data = append(data, "#TYPE pgagroal_connection_flush counter\n");
    data = append(data, "pgagroal_connection_flush ");
-   data = append_ulong(data, atomic_load(&config->prometheus.connection_flush));
+   data = append_ulong(data, atomic_load(&prometheus->connection_flush));
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_connection_success Number of connection successes\n");
    data = append(data, "#TYPE pgagroal_connection_success counter\n");
    data = append(data, "pgagroal_connection_success ");
-   data = append_ulong(data, atomic_load(&config->prometheus.connection_success));
+   data = append_ulong(data, atomic_load(&prometheus->connection_success));
    data = append(data, "\n\n");
 
    send_chunk(client_fd, data);
@@ -1300,26 +1366,26 @@ static void
 auth_information(int client_fd)
 {
    char* data = NULL;
-   struct configuration* config;
+   struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
    data = append(data, "#HELP pgagroal_auth_user_success Number of successful user authentications\n");
    data = append(data, "#TYPE pgagroal_auth_user_success counter\n");
    data = append(data, "pgagroal_auth_user_success ");
-   data = append_ulong(data, atomic_load(&config->prometheus.auth_user_success));
+   data = append_ulong(data, atomic_load(&prometheus->auth_user_success));
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_auth_user_bad_password Number of bad passwords during user authentication\n");
    data = append(data, "#TYPE pgagroal_auth_user_bad_password counter\n");
    data = append(data, "pgagroal_auth_user_bad_password ");
-   data = append_ulong(data, atomic_load(&config->prometheus.auth_user_bad_password));
+   data = append_ulong(data, atomic_load(&prometheus->auth_user_bad_password));
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_auth_user_error Number of errors during user authentication\n");
    data = append(data, "#TYPE pgagroal_auth_user_error counter\n");
    data = append(data, "pgagroal_auth_user_error ");
-   data = append_ulong(data, atomic_load(&config->prometheus.auth_user_error));
+   data = append_ulong(data, atomic_load(&prometheus->auth_user_error));
    data = append(data, "\n\n");
 
    send_chunk(client_fd, data);
