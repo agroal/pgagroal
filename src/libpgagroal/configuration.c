@@ -122,33 +122,6 @@ pgagroal_init_configuration(void* shm)
 
    atomic_init(&config->su_connection, STATE_FREE);
 
-   for (int i = 0; i < HISTOGRAM_BUCKETS; i++)
-   {
-      atomic_init(&config->prometheus.session_time[i], 0);
-   }
-   atomic_init(&config->prometheus.session_time_sum, 0);
-
-   atomic_init(&config->prometheus.connection_error, 0);
-   atomic_init(&config->prometheus.connection_kill, 0);
-   atomic_init(&config->prometheus.connection_remove, 0);
-   atomic_init(&config->prometheus.connection_timeout, 0);
-   atomic_init(&config->prometheus.connection_return, 0);
-   atomic_init(&config->prometheus.connection_invalid, 0);
-   atomic_init(&config->prometheus.connection_get, 0);
-   atomic_init(&config->prometheus.connection_idletimeout, 0);
-   atomic_init(&config->prometheus.connection_flush, 0);
-   atomic_init(&config->prometheus.connection_success, 0);
-
-   atomic_init(&config->prometheus.auth_user_success, 0);
-   atomic_init(&config->prometheus.auth_user_bad_password, 0);
-   atomic_init(&config->prometheus.auth_user_error, 0);
-
-   for (int i = 0; i < NUMBER_OF_SERVERS; i++)
-   {
-      atomic_init(&config->prometheus.server_error[i], 0);
-   }
-   atomic_init(&config->prometheus.failed_servers, 0);
-
    return 0;
 }
 

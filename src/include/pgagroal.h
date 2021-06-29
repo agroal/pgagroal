@@ -142,6 +142,11 @@ extern void* shmem;
  */
 extern void* pipeline_shmem;
 
+/**
+ * The shared memory segment for the Prometheus data
+ */
+extern void* prometheus_shmem;
+
 /** @struct
  * Defines a server
  */
@@ -211,6 +216,15 @@ struct user
 } __attribute__ ((aligned (64)));
 
 /** @struct
+ * Defines the Prometheus connection metric
+ */
+struct prometheus_connection
+{
+   /**< The metrics */
+} __attribute__ ((aligned (64)));
+
+
+/** @struct
  * Defines the Prometheus metrics
  */
 struct prometheus
@@ -235,6 +249,7 @@ struct prometheus
 
    atomic_ulong server_error[NUMBER_OF_SERVERS]; /**< The number of errors for a server */
    atomic_ulong failed_servers;                  /**< The number of failed servers */
+   struct prometheus_connection prometheus_connections[];  /**< The number of prometheus connections (FMA) */
 
 } __attribute__ ((aligned (64)));
 
@@ -320,7 +335,6 @@ struct configuration
    struct user frontend_users[NUMBER_OF_USERS];    /**< The frontend users */
    struct user admins[NUMBER_OF_ADMINS];           /**< The admins */
    struct user superuser;                          /**< The superuser */
-   struct prometheus prometheus;                   /**< The Prometheus metrics */
    struct connection connections[];                /**< The connections (FMA) */
 } __attribute__ ((aligned (64)));
 
