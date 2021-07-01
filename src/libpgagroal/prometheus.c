@@ -140,24 +140,23 @@ error:
 int
 pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
 {
+   size_t tmp_p_size = 0;
+   void* tmp_p_shmem = NULL;
    struct configuration* config;
    struct prometheus* prometheus;
 
-   size_t tmp_p_size = 0;
-   void* tmp_p_shmem = NULL;
-
    config = (struct configuration*) shmem;
+
+   *p_size = 0;
+   *p_shmem = NULL;
 
    tmp_p_size = sizeof(struct prometheus) + (config->max_connections * sizeof(struct prometheus_connection));
    if (pgagroal_create_shared_memory(tmp_p_size, config->hugepage, &tmp_p_shmem))
    {
-      return 1;
+      goto error;
    }
 
-   *p_size = tmp_p_size;
-   *p_shmem = tmp_p_shmem;
-
-   prometheus = (struct prometheus*)*p_shmem;
+   prometheus = (struct prometheus*)tmp_p_shmem;
 
    for (int i = 0; i < HISTOGRAM_BUCKETS; i++)
    {
@@ -192,7 +191,14 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
       /**< TODO: init other metrics */
    }
 
+   *p_size = tmp_p_size;
+   *p_shmem = tmp_p_shmem;
+
    return 0;
+
+error:
+
+   return 1;
 }
 
 void
@@ -460,11 +466,9 @@ pgagroal_prometheus_failed_servers(void)
 {
    int count;
    struct prometheus* prometheus;
-
-   prometheus = (struct prometheus*)prometheus_shmem;
-
    struct configuration* config;
 
+   prometheus = (struct prometheus*)prometheus_shmem;
    config = (struct configuration*) shmem;
 
    count = 0;
