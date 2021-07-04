@@ -120,16 +120,26 @@
             "mode": "thresholds"
           },
           "mappings": [],
+          "max": 1,
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 0.8
+              },
+              {
+                "color": "dark-red",
+                "value": 0.9
               }
             ]
           },
-          "unit": "none"
+          "unit": "percentunit"
         },
         "overrides": []
       },
@@ -156,7 +166,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "pgagroal_active_connections",
+          "expr": "pgagroal_active_connections/pgagroal_max_connections",
           "interval": "",
           "legendFormat": "",
           "refId": "active connections"
@@ -239,7 +249,7 @@
               },
               {
                 "color": "red",
-                "value": 80
+                "value": 1
               }
             ]
           }
@@ -677,13 +687,99 @@
       "type": "row"
     },
     {
+      "datasource": null,
+      "description": "Client state",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 11,
+        "x": 0,
+        "y": 37
+      },
+      "id": 38,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "pgagroal_client_active",
+          "interval": "",
+          "legendFormat": "active clients",
+          "refId": "pgagroal_client_active"
+        },
+        {
+          "exemplar": true,
+          "expr": "pgagroal_client_wait",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "waiting clients",
+          "refId": "pgagroal_client_wait"
+        }
+      ],
+      "title": "Client state",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 45
       },
       "id": 6,
       "panels": [],
@@ -745,7 +841,7 @@
         "h": 8,
         "w": 11,
         "x": 0,
-        "y": 38
+        "y": 46
       },
       "id": 34,
       "options": {
@@ -827,7 +923,7 @@
         "h": 8,
         "w": 12,
         "x": 11,
-        "y": 38
+        "y": 46
       },
       "id": 36,
       "options": {
@@ -868,5 +964,5 @@
   "timezone": "",
   "title": "pgagroal dashboard",
   "uid": "t_a1YcR7k",
-  "version": 23
+  "version": 24
 }

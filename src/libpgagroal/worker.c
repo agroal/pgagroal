@@ -85,6 +85,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    pgagroal_tracking_event_basic(TRACKER_CLIENT_START, NULL, NULL);
    pgagroal_set_proc_title(1, argv, "authenticating", NULL);
 
+   pgagroal_prometheus_client_wait_add();
    /* Authentication */
    auth_status = pgagroal_authenticate(client_fd, address, &slot, &client_ssl);
    if (auth_status == AUTH_SUCCESS)
@@ -96,6 +97,9 @@ pgagroal_worker(int client_fd, char* address, char** argv)
          pgagroal_log_info("connect: user=%s database=%s address=%s", config->connections[slot].username,
                            config->connections[slot].database, address);
       }
+
+      pgagroal_prometheus_client_wait_sub();
+      pgagroal_prometheus_client_active_add();
 
       pgagroal_pool_status();
       pgagroal_set_proc_title(1, argv, config->connections[slot].username, config->connections[slot].database);
@@ -159,6 +163,8 @@ pgagroal_worker(int client_fd, char* address, char** argv)
          /* The slot may have been updated */
          slot = client_io.slot;
       }
+
+      pgagroal_prometheus_client_active_sub();
    }
    else
    {
@@ -166,6 +172,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       {
          pgagroal_log_info("connect: address=%s", address);
       }
+      pgagroal_prometheus_client_wait_sub();
    }
 
    if (config->log_disconnections)

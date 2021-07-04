@@ -78,6 +78,7 @@ static void limit_information(int client_fd);
 static void session_information(int client_fd);
 static void pool_information(int client_fd);
 static void auth_information(int client_fd);
+static void client_information(int client_fd);
 
 static int send_chunk(int client_fd, char* data);
 
@@ -178,6 +179,9 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
    atomic_init(&prometheus->auth_user_success, 0);
    atomic_init(&prometheus->auth_user_bad_password, 0);
    atomic_init(&prometheus->auth_user_error, 0);
+
+   atomic_init(&prometheus->client_wait, 0);
+   atomic_init(&prometheus->client_active, 0);
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -415,6 +419,46 @@ pgagroal_prometheus_auth_user_error(void)
    prometheus = (struct prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->auth_user_error, 1);
+}
+
+void
+pgagroal_prometheus_client_wait_add(void)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_add(&prometheus->client_wait, 1);
+}
+
+void
+pgagroal_prometheus_client_wait_sub(void)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_sub(&prometheus->client_wait, 1);
+}
+
+void
+pgagroal_prometheus_client_active_add(void)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_add(&prometheus->client_active, 1);
+}
+
+void
+pgagroal_prometheus_client_active_sub(void)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_sub(&prometheus->client_active, 1);
 }
 
 void
@@ -759,6 +803,12 @@ home_page(int client_fd)
    data = append(data, "  <h2>pgagroal_auth_user_error</h2>\n");
    data = append(data, "  Number of errors during user authentication\n");
    data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_client_wait</h2>\n");
+   data = append(data, "  Number of waiting clients\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_client_active</h2>\n");
+   data = append(data, "  Number of active clients\n");
+   data = append(data, "  <p>\n");
    data = append(data, "  <a href=\"https://agroal.github.io/pgagroal/\">agroal.github.io/pgagroal/</a>\n");
    data = append(data, "</body>\n");
    data = append(data, "</html>\n");
@@ -829,6 +879,7 @@ metrics_page(int client_fd)
    session_information(client_fd);
    pool_information(client_fd);
    auth_information(client_fd);
+   client_information(client_fd);
 
    /* Footer */
    data = append(data, "0\r\n\r\n");
@@ -1390,6 +1441,31 @@ auth_information(int client_fd)
    data = append(data, "#TYPE pgagroal_auth_user_error counter\n");
    data = append(data, "pgagroal_auth_user_error ");
    data = append_ulong(data, atomic_load(&prometheus->auth_user_error));
+   data = append(data, "\n\n");
+
+   send_chunk(client_fd, data);
+   free(data);
+   data = NULL;
+}
+
+static void
+client_information(int client_fd)
+{
+   char* data = NULL;
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   data = append(data, "#HELP pgagroal_client_wait Number of waiting clients\n");
+   data = append(data, "#TYPE pgagroal_client_wait gauge\n");
+   data = append(data, "pgagroal_client_wait ");
+   data = append_ulong(data, atomic_load(&prometheus->client_wait));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_client_active Number of active clients\n");
+   data = append(data, "#TYPE pgagroal_client_active gauge\n");
+   data = append(data, "pgagroal_client_active ");
+   data = append_ulong(data, atomic_load(&prometheus->client_active));
    data = append(data, "\n\n");
 
    send_chunk(client_fd, data);
