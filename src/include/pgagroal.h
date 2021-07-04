@@ -247,6 +247,9 @@ struct prometheus
    atomic_ulong auth_user_bad_password; /**< The number of AUTH_BAD_PASSWORD calls */
    atomic_ulong auth_user_error;        /**< The number of AUTH_ERROR calls */
 
+   atomic_ulong client_wait;            /**< The number of waiting clients */
+   atomic_ulong client_active;          /**< The number of active clients */
+
    atomic_ulong server_error[NUMBER_OF_SERVERS]; /**< The number of errors for a server */
    atomic_ulong failed_servers;                  /**< The number of failed servers */
    struct prometheus_connection prometheus_connections[];  /**< The number of prometheus connections (FMA) */

@@ -135,6 +135,30 @@ void
 pgagroal_prometheus_auth_user_error(void);
 
 /**
+ * Increase client_wait by 1
+ */
+void
+pgagroal_prometheus_client_wait_add(void);
+
+/**
+ * Decrease client_wait by 1
+ */
+void
+pgagroal_prometheus_client_wait_sub(void);
+
+/**
+ * Increase client_active by 1
+ */
+void
+pgagroal_prometheus_client_active_add(void);
+
+/**
+ * Decrease client_active by 1
+ */
+void
+pgagroal_prometheus_client_active_sub(void);
+
+/**
  * Reset the counters and histograms
  */
 void
