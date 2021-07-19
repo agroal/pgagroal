@@ -70,9 +70,12 @@ pgagroal_get_connection(char* username, char* database, bool reuse, bool transac
    time_t start_time;
    int best_rule;
    int retries;
+
    struct configuration* config;
+   struct prometheus* prometheus;
 
    config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
    pgagroal_prometheus_connection_get();
 
@@ -255,6 +258,7 @@ start:
 
       config->connections[*slot].timestamp = time(NULL);
 
+      atomic_store(&prometheus->client_wait_time, difftime(time(NULL), start_time));
       pgagroal_prometheus_connection_success();
       pgagroal_tracking_event_slot(TRACKER_GET_CONNECTION_SUCCESS, *slot);
 
@@ -331,7 +335,7 @@ retry2:
    }
 
 timeout:
-
+   atomic_store(&prometheus->client_wait_time, difftime(time(NULL), start_time));
    pgagroal_prometheus_connection_timeout();
    pgagroal_tracking_event_basic(TRACKER_GET_CONNECTION_TIMEOUT, username, database);
 
@@ -343,7 +347,7 @@ error:
       atomic_fetch_sub(&config->limits[best_rule].active_connections, 1);
    }
    atomic_fetch_sub(&config->active_connections, 1);
-
+   atomic_store(&prometheus->client_wait_time, difftime(time(NULL), start_time));
    pgagroal_prometheus_connection_error();
    pgagroal_tracking_event_basic(TRACKER_GET_CONNECTION_ERROR, username, database);
 

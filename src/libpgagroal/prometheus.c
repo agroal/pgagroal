@@ -182,6 +182,7 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
 
    atomic_init(&prometheus->client_wait, 0);
    atomic_init(&prometheus->client_active, 0);
+   atomic_init(&prometheus->client_wait_time, 0);
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -687,6 +688,9 @@ home_page(int client_fd)
    data = append(data, "  <h2>pgagroal_failed_servers</h2>\n");
    data = append(data, "  The number of failed servers. Only set if failover is enabled\n");
    data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_wait_time</h2>\n");
+   data = append(data, "  The waiting time of clients\n");
+   data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_active_connections</h2>\n");
    data = append(data, "  The number of active connections\n");
    data = append(data, "  <p>\n");
@@ -976,6 +980,12 @@ general_information(int client_fd)
    data = append(data, "#TYPE pgagroal_failed_servers gauge\n");
    data = append(data, "pgagroal_failed_servers ");
    data = append_ulong(data, atomic_load(&prometheus->failed_servers));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_wait_time The waiting time of clients\n");
+   data = append(data, "#TYPE pgagroal_wait_time gauge\n");
+   data = append(data, "pgagroal_wait_time ");
+   data = append_ulong(data, atomic_load(&prometheus->client_wait_time));
    data = append(data, "\n\n");
 
    if (data != NULL)
