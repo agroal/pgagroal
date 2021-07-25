@@ -220,6 +220,11 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
    {
       if (likely(msg->kind != 'X'))
       {
+         if (msg->kind == 'Q' || msg->kind == 'E')
+         {
+            pgagroal_prometheus_query_count_add();
+         }
+
          status = pgagroal_write_socket_message(wi->server_fd, msg);
          if (unlikely(status == MESSAGE_STATUS_ERROR))
          {

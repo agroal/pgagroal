@@ -236,6 +236,11 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    {
       if (likely(msg->kind != 'X'))
       {
+         if (msg->kind == 'Q' || msg->kind == 'E')
+         {
+            pgagroal_prometheus_query_count_add();
+         }
+
          if (config->track_prepared_statements)
          {
             int offset = 0;

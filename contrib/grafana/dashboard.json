@@ -577,11 +577,89 @@
     },
     {
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 11,
+        "x": 0,
+        "y": 26
+      },
+      "id": 42,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "rate(pgagroal_query_count[5m])",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "query rate"
+        }
+      ],
+      "title": "Query rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 34
       },
       "id": 12,
       "title": "Internal",
@@ -593,7 +671,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 35
       },
       "id": 10,
       "title": "Connection",
@@ -656,7 +734,7 @@
         "h": 8,
         "w": 11,
         "x": 0,
-        "y": 28
+        "y": 36
       },
       "id": 24,
       "options": {
@@ -759,7 +837,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 44
       },
       "id": 8,
       "title": "Client",
@@ -818,7 +896,7 @@
         "h": 8,
         "w": 11,
         "x": 0,
-        "y": 37
+        "y": 45
       },
       "id": 38,
       "options": {
@@ -858,7 +936,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 45
+        "y": 53
       },
       "id": 6,
       "panels": [],
@@ -920,7 +998,7 @@
         "h": 8,
         "w": 11,
         "x": 0,
-        "y": 46
+        "y": 54
       },
       "id": 34,
       "options": {
@@ -1002,7 +1080,7 @@
         "h": 8,
         "w": 12,
         "x": 11,
-        "y": 46
+        "y": 54
       },
       "id": 36,
       "options": {
@@ -1043,5 +1121,5 @@
   "timezone": "",
   "title": "pgagroal dashboard",
   "uid": "t_a1YcR7k",
-  "version": 26
+  "version": 27
 }

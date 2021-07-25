@@ -159,6 +159,12 @@ void
 pgagroal_prometheus_client_active_sub(void);
 
 /**
+ * Increase query_count by 1
+ */
+void
+pgagroal_prometheus_query_count_add(void);
+
+/**
  * Reset the counters and histograms
  */
 void

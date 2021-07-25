@@ -85,6 +85,7 @@ static int send_chunk(int client_fd, char* data);
 static char* append(char* orig, char* s);
 static char* append_int(char* orig, int i);
 static char* append_ulong(char* orig, unsigned long i);
+static char* append_ullong(char* orig, unsigned long long l);
 
 void
 pgagroal_prometheus(int client_fd)
@@ -183,6 +184,8 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
    atomic_init(&prometheus->client_wait, 0);
    atomic_init(&prometheus->client_active, 0);
    atomic_init(&prometheus->client_wait_time, 0);
+
+   atomic_init(&prometheus->query_count, 0);
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -463,6 +466,16 @@ pgagroal_prometheus_client_active_sub(void)
 }
 
 void
+pgagroal_prometheus_query_count_add(void)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_add(&prometheus->query_count, 1);
+}
+
+void
 pgagroal_prometheus_reset(void)
 {
    struct prometheus* prometheus;
@@ -489,6 +502,12 @@ pgagroal_prometheus_reset(void)
    atomic_store(&prometheus->auth_user_success, 0);
    atomic_store(&prometheus->auth_user_bad_password, 0);
    atomic_store(&prometheus->auth_user_error, 0);
+
+   atomic_store(&prometheus->client_active, 0);
+   atomic_store(&prometheus->client_wait, 0);
+   atomic_store(&prometheus->client_wait_time, 0);
+
+   atomic_store(&prometheus->query_count, 0);
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -690,6 +709,9 @@ home_page(int client_fd)
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_wait_time</h2>\n");
    data = append(data, "  The waiting time of clients\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_query_count</h2>\n");
+   data = append(data, "  The number of queries\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_active_connections</h2>\n");
    data = append(data, "  The number of active connections\n");
@@ -986,6 +1008,12 @@ general_information(int client_fd)
    data = append(data, "#TYPE pgagroal_wait_time gauge\n");
    data = append(data, "pgagroal_wait_time ");
    data = append_ulong(data, atomic_load(&prometheus->client_wait_time));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_query_count The number of queries\n");
+   data = append(data, "#TYPE pgagroal_query_count count\n");
+   data = append(data, "pgagroal_query_count ");
+   data = append_ullong(data, atomic_load(&prometheus->query_count));
    data = append(data, "\n\n");
 
    if (data != NULL)
@@ -1562,6 +1590,18 @@ append_ulong(char* orig, unsigned long l)
 
    memset(&number[0], 0, sizeof(number));
    snprintf(&number[0], 20, "%lu", l);
+   orig = append(orig, number);
+
+   return orig;
+}
+
+static char*
+append_ullong(char* orig, unsigned long long l)
+{
+   char number[21];
+
+   memset(&number[0], 0, sizeof(number));
+   snprintf(&number[0], 20, "%llu", l);
    orig = append(orig, number);
 
    return orig;
