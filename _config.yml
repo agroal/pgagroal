@@ -41,6 +41,9 @@ github:
     - text: github
       url: https://github.com/agroal/pgagroal
       icon: https://agroal.github.io/pgagroal/images/icomoon/433-github.png
+    - text: discussions
+      url: https://github.com/agroal/pgagroal/discussions
+      icon: https://agroal.github.io/pgagroal/images/icomoon/115-users.png
     - text: issues
       url: https://github.com/agroal/pgagroal/issues
       icon: https://agroal.github.io/pgagroal/images/icomoon/154-bug.png
