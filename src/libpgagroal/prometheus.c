@@ -186,6 +186,7 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
    atomic_init(&prometheus->client_wait_time, 0);
 
    atomic_init(&prometheus->query_count, 0);
+   atomic_init(&prometheus->tx_count, 0);
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -476,6 +477,16 @@ pgagroal_prometheus_query_count_add(void)
 }
 
 void
+pgagroal_prometheus_tx_count_add(void)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_add(&prometheus->tx_count, 1);
+}
+
+void
 pgagroal_prometheus_reset(void)
 {
    struct prometheus* prometheus;
@@ -508,6 +519,7 @@ pgagroal_prometheus_reset(void)
    atomic_store(&prometheus->client_wait_time, 0);
 
    atomic_store(&prometheus->query_count, 0);
+   atomic_store(&prometheus->tx_count, 0);
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -712,6 +724,9 @@ home_page(int client_fd)
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_query_count</h2>\n");
    data = append(data, "  The number of queries\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_tx_count</h2>\n");
+   data = append(data, "  The number of transactions\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_active_connections</h2>\n");
    data = append(data, "  The number of active connections\n");
@@ -1014,6 +1029,12 @@ general_information(int client_fd)
    data = append(data, "#TYPE pgagroal_query_count count\n");
    data = append(data, "pgagroal_query_count ");
    data = append_ullong(data, atomic_load(&prometheus->query_count));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_tx_count The number of transactions\n");
+   data = append(data, "#TYPE pgagroal_tx_count count\n");
+   data = append(data, "pgagroal_tx_count ");
+   data = append_ullong(data, atomic_load(&prometheus->tx_count));
    data = append(data, "\n\n");
 
    if (data != NULL)

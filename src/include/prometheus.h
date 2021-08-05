@@ -165,6 +165,12 @@ void
 pgagroal_prometheus_query_count_add(void);
 
 /**
+ * Increase tx_count by 1
+ */
+void
+pgagroal_prometheus_tx_count_add(void);
+
+/**
  * Reset the counters and histograms
  */
 void

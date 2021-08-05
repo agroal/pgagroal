@@ -252,6 +252,7 @@ struct prometheus
    atomic_ulong client_wait_time;       /**< The time the client waits */
 
    atomic_ullong query_count;           /**< The number of queries */
+   atomic_ullong tx_count;              /**< The number of transactions */
 
    atomic_ulong server_error[NUMBER_OF_SERVERS]; /**< The number of errors for a server */
    atomic_ulong failed_servers;                  /**< The number of failed servers */

@@ -35,6 +35,7 @@
 #include <server.h>
 #include <shmem.h>
 #include <worker.h>
+#include <utils.h>
 
 /* system */
 #include <errno.h>
@@ -48,6 +49,9 @@ static void session_server(struct ev_loop *loop, struct ev_io *watcher, int reve
 static void session_stop(struct ev_loop *loop, struct worker_io*);
 static void session_destroy(void*, size_t);
 static void session_periodic(void);
+
+static bool in_tx;
+static int next_server_message;
 
 #define CLIENT_INIT   0
 #define CLIENT_IDLE   1
@@ -119,6 +123,9 @@ static void
 session_start(struct ev_loop *loop, struct worker_io* w)
 {
    struct client_session* client;
+
+   in_tx = false;
+   next_server_message = 0;
 
    if (pipeline_shmem != NULL)
    {
@@ -307,6 +314,46 @@ session_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    status = pgagroal_read_socket_message(wi->server_fd, &msg);
    if (likely(status == MESSAGE_STATUS_OK))
    {
+      int offset = 0;
+
+      while (offset < msg->length)
+      {
+         if (next_server_message == 0)
+         {
+            char kind = pgagroal_read_byte(msg->data + offset);
+            int length = pgagroal_read_int32(msg->data + offset + 1);
+
+            /* The Z message tell us the transaction state */
+            if (kind == 'Z')
+            {
+               char tx_state = pgagroal_read_byte(msg->data + offset + 5);
+
+               if (tx_state != 'I' && !in_tx)
+               {
+                  pgagroal_prometheus_tx_count_add();
+               }
+
+               in_tx = tx_state != 'I';
+            }
+
+            /* Calculate the offset to the next message */
+            if (offset + length + 1 <= msg->length)
+            {
+               next_server_message = 0;
+               offset += length + 1;
+            }
+            else
+            {
+               next_server_message = length + 1 - (msg->length - offset);
+               offset = msg->length;
+            }
+         }
+         else
+         {
+            offset = MIN(next_server_message, msg->length);
+            next_server_message -= offset;
+         }
+      }
       if (wi->client_ssl == NULL)
       {
          status = pgagroal_write_socket_message(wi->client_fd, msg);

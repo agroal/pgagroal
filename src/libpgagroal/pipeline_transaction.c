@@ -387,14 +387,12 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
                has_z = true;
 
-               if (tx_state == 'I')
+               if (tx_state != 'I' && !in_tx)
                {
-                  in_tx = false;
+                  pgagroal_prometheus_tx_count_add();
                }
-               else
-               {
-                  in_tx = true;
-               }
+
+               in_tx = tx_state != 'I';
             }
 
             /* Calculate the offset to the next message */
