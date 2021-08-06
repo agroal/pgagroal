@@ -79,6 +79,7 @@ static void session_information(int client_fd);
 static void pool_information(int client_fd);
 static void auth_information(int client_fd);
 static void client_information(int client_fd);
+static void internal_information(int client_fd);
 
 static int send_chunk(int client_fd, char* data);
 
@@ -187,6 +188,9 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
 
    atomic_init(&prometheus->query_count, 0);
    atomic_init(&prometheus->tx_count, 0);
+
+   atomic_init(&prometheus->network_sent, 0);
+   atomic_init(&prometheus->network_received, 0);
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -487,6 +491,26 @@ pgagroal_prometheus_tx_count_add(void)
 }
 
 void
+pgagroal_prometheus_network_sent_add(ssize_t s)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_add(&prometheus->network_sent, s);
+}
+
+void
+pgagroal_prometheus_network_received_add(ssize_t s)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_add(&prometheus->network_received, s);
+}
+
+void
 pgagroal_prometheus_reset(void)
 {
    struct prometheus* prometheus;
@@ -520,6 +544,9 @@ pgagroal_prometheus_reset(void)
 
    atomic_store(&prometheus->query_count, 0);
    atomic_store(&prometheus->tx_count, 0);
+
+   atomic_store(&prometheus->network_sent, 0);
+   atomic_store(&prometheus->network_received, 0);
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -850,6 +877,12 @@ home_page(int client_fd)
    data = append(data, "  <h2>pgagroal_client_active</h2>\n");
    data = append(data, "  Number of active clients\n");
    data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_network_sent</h2>\n");
+   data = append(data, "  Bytes sent by clients\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_network_received</h2>\n");
+   data = append(data, "  Bytes received from servers\n");
+   data = append(data, "  <p>\n");
    data = append(data, "  <a href=\"https://agroal.github.io/pgagroal/\">agroal.github.io/pgagroal/</a>\n");
    data = append(data, "</body>\n");
    data = append(data, "</html>\n");
@@ -921,6 +954,7 @@ metrics_page(int client_fd)
    pool_information(client_fd);
    auth_information(client_fd);
    client_information(client_fd);
+   internal_information(client_fd);
 
    /* Footer */
    data = append(data, "0\r\n\r\n");
@@ -1525,6 +1559,31 @@ client_information(int client_fd)
    data = append(data, "#TYPE pgagroal_client_active gauge\n");
    data = append(data, "pgagroal_client_active ");
    data = append_ulong(data, atomic_load(&prometheus->client_active));
+   data = append(data, "\n\n");
+
+   send_chunk(client_fd, data);
+   free(data);
+   data = NULL;
+}
+
+static void
+internal_information(int client_fd)
+{
+   char* data = NULL;
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   data = append(data, "#HELP pgagroal_network_sent Bytes sent by clients\n");
+   data = append(data, "#TYPE pgagroal_network_sent gauge\n");
+   data = append(data, "pgagroal_network_sent ");
+   data = append_ullong(data, atomic_load(&prometheus->network_sent));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_network_received Bytes received from servers\n");
+   data = append(data, "#TYPE pgagroal_network_received gauge\n");
+   data = append(data, "pgagroal_network_received ");
+   data = append_ullong(data, atomic_load(&prometheus->network_received));
    data = append(data, "\n\n");
 
    send_chunk(client_fd, data);

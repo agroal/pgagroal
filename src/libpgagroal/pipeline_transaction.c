@@ -234,6 +234,8 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    }
    if (likely(status == MESSAGE_STATUS_OK))
    {
+      pgagroal_prometheus_network_sent_add(msg->length);
+
       if (likely(msg->kind != 'X'))
       {
          if (msg->kind == 'Q' || msg->kind == 'E')
@@ -371,6 +373,8 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    status = pgagroal_read_socket_message(wi->server_fd, &msg);
    if (likely(status == MESSAGE_STATUS_OK))
    {
+      pgagroal_prometheus_network_received_add(msg->length);
+
       int offset = 0;
 
       while (offset < msg->length)

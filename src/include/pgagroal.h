@@ -254,6 +254,9 @@ struct prometheus
    atomic_ullong query_count;           /**< The number of queries */
    atomic_ullong tx_count;              /**< The number of transactions */
 
+   atomic_ullong network_sent;          /**< The bytes sent by clients*/
+   atomic_ullong network_received;      /**< The bytes received from servers*/
+
    atomic_ulong server_error[NUMBER_OF_SERVERS]; /**< The number of errors for a server */
    atomic_ulong failed_servers;                  /**< The number of failed servers */
    struct prometheus_connection prometheus_connections[];  /**< The number of prometheus connections (FMA) */

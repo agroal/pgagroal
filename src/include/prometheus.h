@@ -171,6 +171,20 @@ void
 pgagroal_prometheus_tx_count_add(void);
 
 /**
+ * Increase network_sent
+ * @param s The size
+ */
+void
+pgagroal_prometheus_network_sent_add(ssize_t s);
+
+/**
+ * Increase network_received
+ * @param s The size
+ */
+void
+pgagroal_prometheus_network_received_add(ssize_t s);
+
+/**
  * Reset the counters and histograms
  */
 void
