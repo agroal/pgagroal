@@ -254,8 +254,11 @@ struct prometheus
    atomic_ullong query_count;           /**< The number of queries */
    atomic_ullong tx_count;              /**< The number of transactions */
 
-   atomic_ullong network_sent;          /**< The bytes sent by clients*/
-   atomic_ullong network_received;      /**< The bytes received from servers*/
+   atomic_ullong network_sent;          /**< The bytes sent by clients */
+   atomic_ullong network_received;      /**< The bytes received from servers */
+
+   atomic_int client_sockets;          /**< The number of sockets the client used */
+   atomic_int self_sockets;            /**< The number of sockets used by pgagroal itself */
 
    atomic_ulong server_error[NUMBER_OF_SERVERS]; /**< The number of errors for a server */
    atomic_ulong failed_servers;                  /**< The number of failed servers */

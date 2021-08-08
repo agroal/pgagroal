@@ -905,11 +905,105 @@
     },
     {
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 11,
+        "x": 0,
+        "y": 43
+      },
+      "id": 50,
+      "interval": "1s",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "pgagroal_client_sockets",
+          "interval": "",
+          "legendFormat": "client sockets",
+          "refId": "client sockets"
+        },
+        {
+          "exemplar": true,
+          "expr": "pgagroal_total_connections",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "server sockets",
+          "refId": "server sockets"
+        },
+        {
+          "exemplar": true,
+          "expr": "pgagroal_self_sockets",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "self sockets",
+          "refId": "self sockets"
+        }
+      ],
+      "title": "Sockets used",
+      "type": "timeseries"
+    },
+    {
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 51
       },
       "id": 10,
       "title": "Connection",
@@ -972,7 +1066,7 @@
         "h": 8,
         "w": 11,
         "x": 0,
-        "y": 44
+        "y": 52
       },
       "id": 24,
       "options": {
@@ -1075,7 +1169,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 52
+        "y": 60
       },
       "id": 8,
       "title": "Client",
@@ -1134,7 +1228,7 @@
         "h": 8,
         "w": 11,
         "x": 0,
-        "y": 53
+        "y": 61
       },
       "id": 38,
       "options": {
@@ -1174,7 +1268,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 61
+        "y": 69
       },
       "id": 6,
       "panels": [],
@@ -1236,7 +1330,7 @@
         "h": 8,
         "w": 11,
         "x": 0,
-        "y": 62
+        "y": 70
       },
       "id": 34,
       "options": {
@@ -1318,7 +1412,7 @@
         "h": 8,
         "w": 12,
         "x": 11,
-        "y": 62
+        "y": 70
       },
       "id": 36,
       "options": {
@@ -1359,5 +1453,5 @@
   "timezone": "",
   "title": "pgagroal dashboard",
   "uid": "t_a1YcR7k",
-  "version": 30
+  "version": 32
 }

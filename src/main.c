@@ -1196,6 +1196,8 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       return;
    }
 
+   pgagroal_prometheus_client_sockets_add();
+
    pgagroal_get_address((struct sockaddr *)&client_addr, (char*)&address, sizeof(address));
 
    pgagroal_log_trace("accept_main_cb: client address: %s", address);
@@ -1248,6 +1250,9 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
+
+   pgagroal_prometheus_self_sockets_add();
+
    if (client_fd == -1)
    {
       if (accept_fatal(errno) && keep_running)
@@ -1438,6 +1443,8 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    }
 
    pgagroal_disconnect(client_fd);
+
+   pgagroal_prometheus_self_sockets_sub();
 }
 
 static void
@@ -1459,6 +1466,9 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
+
+   pgagroal_prometheus_self_sockets_add();
+
    if (client_fd == -1)
    {
       if (accept_fatal(errno) && keep_running)
@@ -1506,6 +1516,7 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    }
 
    pgagroal_disconnect(client_fd);
+   pgagroal_prometheus_self_sockets_sub();
 }
 
 static void
@@ -1530,6 +1541,9 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
+
+   pgagroal_prometheus_self_sockets_add();
+
    if (client_fd == -1)
    {
       if (accept_fatal(errno) && keep_running)
@@ -1582,6 +1596,7 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    }
 
    pgagroal_disconnect(client_fd);
+   pgagroal_prometheus_self_sockets_sub();
 }
 
 static void

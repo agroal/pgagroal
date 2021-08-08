@@ -249,6 +249,8 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    pgagroal_log_debug("client disconnect: %d", client_fd);
    pgagroal_disconnect(client_fd);
 
+   pgagroal_prometheus_client_sockets_sub();
+
    pgagroal_pool_status();
    pgagroal_log_debug("After client: PID %d Slot %d (%d)", getpid(), slot, exit_code);
 

@@ -192,6 +192,9 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
    atomic_init(&prometheus->network_sent, 0);
    atomic_init(&prometheus->network_received, 0);
 
+   atomic_init(&prometheus->client_sockets, 0);
+   atomic_init(&prometheus->self_sockets, 0);
+
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
       atomic_init(&prometheus->server_error[i], 0);
@@ -511,6 +514,46 @@ pgagroal_prometheus_network_received_add(ssize_t s)
 }
 
 void
+pgagroal_prometheus_client_sockets_add(void)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_add(&prometheus->client_sockets, 1);
+}
+
+void
+pgagroal_prometheus_client_sockets_sub(void)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_sub(&prometheus->client_sockets, 1);
+}
+
+void
+pgagroal_prometheus_self_sockets_add(void)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_add(&prometheus->self_sockets, 1);
+}
+
+void
+pgagroal_prometheus_self_sockets_sub(void)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_sub(&prometheus->self_sockets, 1);
+}
+
+void
 pgagroal_prometheus_reset(void)
 {
    struct prometheus* prometheus;
@@ -547,6 +590,9 @@ pgagroal_prometheus_reset(void)
 
    atomic_store(&prometheus->network_sent, 0);
    atomic_store(&prometheus->network_received, 0);
+
+   atomic_store(&prometheus->client_sockets, 0);
+   atomic_store(&prometheus->self_sockets, 0);
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -882,6 +928,12 @@ home_page(int client_fd)
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_network_received</h2>\n");
    data = append(data, "  Bytes received from servers\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_client_sockets</h2>\n");
+   data = append(data, "  Number of sockets the client used\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_self_sockets</h2>\n");
+   data = append(data, "  Number of sockets used by pgagroal itself\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <a href=\"https://agroal.github.io/pgagroal/\">agroal.github.io/pgagroal/</a>\n");
    data = append(data, "</body>\n");
@@ -1584,6 +1636,18 @@ internal_information(int client_fd)
    data = append(data, "#TYPE pgagroal_network_received gauge\n");
    data = append(data, "pgagroal_network_received ");
    data = append_ullong(data, atomic_load(&prometheus->network_received));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_client_sockets Number of sockets the client used\n");
+   data = append(data, "#TYPE pgagroal_client_sockets gauge\n");
+   data = append(data, "pgagroal_client_sockets ");
+   data = append_int(data, atomic_load(&prometheus->client_sockets));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_self_sockets Number of sockets used by pgagroal itself\n");
+   data = append(data, "#TYPE pgagroal_self_sockets gauge\n");
+   data = append(data, "pgagroal_self_sockets ");
+   data = append_int(data, atomic_load(&prometheus->self_sockets));
    data = append(data, "\n\n");
 
    send_chunk(client_fd, data);

@@ -185,6 +185,30 @@ void
 pgagroal_prometheus_network_received_add(ssize_t s);
 
 /**
+ * Increase client_sockets by 1
+ */
+void
+pgagroal_prometheus_client_sockets_add(void);
+
+/**
+ * Decrease client_sockets by 1
+ */
+void
+pgagroal_prometheus_client_sockets_sub(void);
+
+/**
+ * Increase self_sockets by 1
+ */
+void
+pgagroal_prometheus_self_sockets_add(void);
+
+/**
+ * Decrease self_sockets by 1
+ */
+void
+pgagroal_prometheus_self_sockets_sub(void);
+
+/**
  * Reset the counters and histograms
  */
 void
