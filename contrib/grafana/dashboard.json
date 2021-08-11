@@ -620,7 +620,7 @@
               }
             ]
           },
-          "unit": "percent"
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -631,6 +631,8 @@
         "y": 26
       },
       "id": 42,
+      "interval": "1s",
+      "maxDataPoints": 20000,
       "options": {
         "legend": {
           "calcs": [],
@@ -644,7 +646,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(pgagroal_query_count[5m])",
+          "expr": "pgagroal_query_count - (pgagroal_query_count offset 1s)",
           "interval": "",
           "legendFormat": "",
           "refId": "query rate"
@@ -699,7 +701,7 @@
               }
             ]
           },
-          "unit": "percent"
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -710,6 +712,8 @@
         "y": 26
       },
       "id": 44,
+      "interval": "1s",
+      "maxDataPoints": 20000,
       "options": {
         "legend": {
           "calcs": [],
@@ -723,7 +727,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(pgagroal_tx_count[5m])",
+          "expr": "pgagroal_tx_count - (pgagroal_tx_count offset 1s)",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
