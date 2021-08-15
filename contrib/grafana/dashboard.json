@@ -32,7 +32,6 @@
     },
     {
       "datasource": null,
-      "description": "pgagroal state",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -42,27 +41,21 @@
             {
               "options": {
                 "0": {
-                  "color": "red",
-                  "index": 1,
-                  "text": "DOWN"
+                  "index": 0,
+                  "text": "Performance"
                 },
                 "1": {
-                  "color": "green",
-                  "index": 0,
-                  "text": "UP"
+                  "index": 1,
+                  "text": "Session"
                 },
                 "2": {
-                  "color": "yellow",
                   "index": 2,
-                  "text": "GRACEFUL"
+                  "text": "Transaction"
                 }
               },
               "type": "value"
             }
           ],
-          "max": 1,
-          "min": 0,
-          "noValue": "UNKNOWN",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -71,18 +64,17 @@
                 "value": null
               }
             ]
-          },
-          "unit": "none"
+          }
         },
         "overrides": []
       },
       "gridPos": {
         "h": 4,
-        "w": 2,
+        "w": 6,
         "x": 0,
         "y": 1
       },
-      "id": 2,
+      "id": 54,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -102,13 +94,13 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "pgagroal_state",
+          "expr": "pgagroal_pipeline_mode",
           "interval": "",
-          "legendFormat": "state",
-          "refId": "pgagroal_state"
+          "legendFormat": "",
+          "refId": "A"
         }
       ],
-      "title": "State",
+      "title": "Pipeline mode",
       "type": "stat"
     },
     {
@@ -145,8 +137,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 4,
-        "x": 2,
+        "w": 5,
+        "x": 6,
         "y": 1
       },
       "id": 30,
@@ -233,6 +225,87 @@
     },
     {
       "datasource": null,
+      "description": "pgagroal state",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "UP"
+                },
+                "2": {
+                  "color": "yellow",
+                  "index": 2,
+                  "text": "GRACEFUL"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "max": 1,
+          "min": 0,
+          "noValue": "UNKNOWN",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 5
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.0.2",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "pgagroal_state",
+          "interval": "",
+          "legendFormat": "state",
+          "refId": "pgagroal_state"
+        }
+      ],
+      "title": "State",
+      "type": "stat"
+    },
+    {
+      "datasource": null,
       "description": "Failed servers",
       "fieldConfig": {
         "defaults": {
@@ -258,8 +331,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 2,
-        "x": 0,
+        "w": 3,
+        "x": 3,
         "y": 5
       },
       "id": 20,
