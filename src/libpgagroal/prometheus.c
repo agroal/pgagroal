@@ -766,6 +766,23 @@ home_page(int client_fd)
    data = append(data, "    </tbody>\n");
    data = append(data, "  </table>\n");
    data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_pipeline_mode</h2>\n");
+   data = append(data, "  The mode of pipeline\n");
+   data = append(data, "  <table border=\"1\">\n");
+   data = append(data, "    <tbody>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>value</td>\n");
+   data = append(data, "        <td>Mode\n");
+   data = append(data, "          <ol>\n");
+   data = append(data, "            <li>Performance</li>\n");
+   data = append(data, "            <li>Session</li>\n");
+   data = append(data, "            <li>Transaction</li>\n");
+   data = append(data, "          </ol>\n");
+   data = append(data, "        </td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "    </tbody>\n");
+   data = append(data, "  </table>\n");
+   data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_server_error</h2>\n");
    data = append(data, "  Errors for servers\n");
    data = append(data, "  <table border=\"1\">\n");
@@ -1054,6 +1071,12 @@ general_information(int client_fd)
    {
       data = append(data, "1");
    }
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_pipeline_mode The mode of pipeline\n");
+   data = append(data, "#TYPE pgagroal_pipeline_mode gauge\n");
+   data = append(data, "pgagroal_pipeline_mode ");
+   data = append_int(data, config->pipeline);
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_server_error The number of errors for servers\n");
