@@ -204,7 +204,7 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
    for (int i = 0; i < config->max_connections; i++)
    {
       memset(&prometheus->prometheus_connections[i], 0, sizeof(struct prometheus_connection));
-      /**< TODO: init other metrics */
+      atomic_init(&prometheus->prometheus_connections[i].query_count, 0);
    }
 
    *p_size = tmp_p_size;
@@ -484,6 +484,26 @@ pgagroal_prometheus_query_count_add(void)
 }
 
 void
+pgagroal_prometheus_query_count_specified_add(int slot)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_add(&prometheus->prometheus_connections[slot].query_count, 1);
+}
+
+void
+pgagroal_prometheus_query_count_specified_reset(int slot)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_store(&prometheus->prometheus_connections[slot].query_count, 0);
+}
+
+void
 pgagroal_prometheus_tx_count_add(void)
 {
    struct prometheus* prometheus;
@@ -556,8 +576,10 @@ pgagroal_prometheus_self_sockets_sub(void)
 void
 pgagroal_prometheus_reset(void)
 {
+   struct configuration* config;
    struct prometheus* prometheus;
 
+   config = (struct configuration*) shmem;
    prometheus = (struct prometheus*)prometheus_shmem;
 
    for (int i = 0; i < HISTOGRAM_BUCKETS; i++)
@@ -597,6 +619,11 @@ pgagroal_prometheus_reset(void)
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
       atomic_store(&prometheus->server_error[i], 0);
+   }
+
+   for (int i = 0; i < config->max_connections; i++)
+   {
+      atomic_store(&prometheus->prometheus_connections[i].query_count, 0);
    }
 }
 
@@ -814,6 +841,29 @@ home_page(int client_fd)
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_query_count</h2>\n");
    data = append(data, "  The number of queries\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_query_count</h2>\n");
+   data = append(data, "  The number of queries per connection\n");
+   data = append(data, "  <table border=\"1\">\n");
+   data = append(data, "    <tbody>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>id</td>\n");
+   data = append(data, "        <td>The connection identifier</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>user</td>\n");
+   data = append(data, "        <td>The user name</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>database</td>\n");
+   data = append(data, "        <td>The database</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>application_name</td>\n");
+   data = append(data, "        <td>The application name</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "    </tbody>\n");
+   data = append(data, "  </table>\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_tx_count</h2>\n");
    data = append(data, "  The number of transactions\n");
@@ -1139,6 +1189,33 @@ general_information(int client_fd)
    data = append(data, "pgagroal_query_count ");
    data = append_ullong(data, atomic_load(&prometheus->query_count));
    data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_connection_query_count The number of queries per connection\n");
+   data = append(data, "#TYPE pgagroal_connection_query_count counter\n");
+   for (int i = 0; i < config->max_connections; i++)
+   {
+      data = append(data, "pgagroal_connection_query_count{");
+
+      data = append(data, "id=\"");
+      data = append_int(data, i);
+      data = append(data, "\",");
+
+      data = append(data, "user=\"");
+      data = append(data, config->connections[i].username);
+      data = append(data, "\",");
+
+      data = append(data, "database=\"");
+      data = append(data, config->connections[i].database);
+      data = append(data, "\",");
+
+      data = append(data, "application_name=\"");
+      data = append(data, config->connections[i].appname);
+      data = append(data, "\"} ");
+
+      data = append_ullong(data, atomic_load(&prometheus->prometheus_connections[i].query_count));
+      data = append(data, "\n");
+   }
+   data = append(data, "\n");
 
    data = append(data, "#HELP pgagroal_tx_count The number of transactions\n");
    data = append(data, "#TYPE pgagroal_tx_count count\n");

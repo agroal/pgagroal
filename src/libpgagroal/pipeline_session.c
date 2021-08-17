@@ -51,6 +51,7 @@ static void session_destroy(void*, size_t);
 static void session_periodic(void);
 
 static bool in_tx;
+static int next_client_message;
 static int next_server_message;
 
 #define CLIENT_INIT   0
@@ -125,6 +126,7 @@ session_start(struct ev_loop *loop, struct worker_io* w)
    struct client_session* client;
 
    in_tx = false;
+   next_client_message = 0;
    next_server_message = 0;
 
    if (pipeline_shmem != NULL)
@@ -229,9 +231,39 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
       if (likely(msg->kind != 'X'))
       {
-         if (msg->kind == 'Q' || msg->kind == 'E')
+         int offset = 0;
+
+         while (offset < msg->length)
          {
-            pgagroal_prometheus_query_count_add();
+            if (next_client_message == 0)
+            {
+               char kind = pgagroal_read_byte(msg->data + offset);
+               int length = pgagroal_read_int32(msg->data + offset + 1);
+
+               /* The Q and E message tell us the execute of the simple query and the prepared statement */
+               if (kind == 'Q' || kind == 'E')
+               {
+                  pgagroal_prometheus_query_count_add();
+                  pgagroal_prometheus_query_count_specified_add(wi->slot);
+               }
+
+               /* Calculate the offset to the next message */
+               if (offset + length + 1 <= msg->length)
+               {
+                  next_client_message = 0;
+                  offset += length + 1;
+               }
+               else
+               {
+                  next_client_message = length + 1 - (msg->length - offset);
+                  offset = msg->length;
+               }
+            }
+            else
+            {
+               offset = MIN(next_client_message, msg->length);
+               next_client_message -= offset;
+            }
          }
 
          status = pgagroal_write_socket_message(wi->server_fd, msg);

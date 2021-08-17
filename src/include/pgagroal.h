@@ -220,7 +220,7 @@ struct user
  */
 struct prometheus_connection
 {
-   /**< The metrics */
+   atomic_ullong query_count;           /**< The number of queries per connection */
 } __attribute__ ((aligned (64)));
 
 

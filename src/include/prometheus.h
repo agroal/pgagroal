@@ -165,6 +165,20 @@ void
 pgagroal_prometheus_query_count_add(void);
 
 /**
+ * Increase query_count for the specified connection by 1
+ * @param slot The connection slot
+ */
+void
+pgagroal_prometheus_query_count_specified_add(int slot);
+
+/**
+ * Reset query_count for the specified connection
+ * @param slot The connection slot
+ */
+void
+pgagroal_prometheus_query_count_specified_reset(int slot);
+
+/**
  * Increase tx_count by 1
  */
 void

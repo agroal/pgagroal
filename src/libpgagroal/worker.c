@@ -250,6 +250,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    pgagroal_disconnect(client_fd);
 
    pgagroal_prometheus_client_sockets_sub();
+   pgagroal_prometheus_query_count_specified_reset(slot);
 
    pgagroal_pool_status();
    pgagroal_log_debug("After client: PID %d Slot %d (%d)", getpid(), slot, exit_code);

@@ -238,22 +238,17 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
       if (likely(msg->kind != 'X'))
       {
-         if (msg->kind == 'Q' || msg->kind == 'E')
-         {
-            pgagroal_prometheus_query_count_add();
-         }
+         int offset = 0;
 
-         if (config->track_prepared_statements)
+         while (offset < msg->length)
          {
-            int offset = 0;
-
-            while (offset < msg->length)
+            if (next_client_message == 0)
             {
-               if (next_client_message == 0)
-               {
-                  char kind = pgagroal_read_byte(msg->data + offset);
-                  int length = pgagroal_read_int32(msg->data + offset + 1);
+               char kind = pgagroal_read_byte(msg->data + offset);
+               int length = pgagroal_read_int32(msg->data + offset + 1);
 
+               if (config->track_prepared_statements)
+               {
                   /* The P message tell us the prepared statement */
                   if (kind == 'P')
                   {
@@ -263,24 +258,31 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
                         deallocate = true;
                      }
                   }
+               }
 
-                  /* Calculate the offset to the next message */
-                  if (offset + length + 1 <= msg->length)
-                  {
-                     next_client_message = 0;
-                     offset += length + 1;
-                  }
-                  else
-                  {
-                     next_client_message = length + 1 - (msg->length - offset);
-                     offset = msg->length;
-                  }
+               /* The Q and E message tell us the execute of the simple query and the prepared statement */
+               if (kind == 'Q' || kind == 'E')
+               {
+                  pgagroal_prometheus_query_count_add();
+                  pgagroal_prometheus_query_count_specified_add(wi->slot);
+               }
+
+               /* Calculate the offset to the next message */
+               if (offset + length + 1 <= msg->length)
+               {
+                  next_client_message = 0;
+                  offset += length + 1;
                }
                else
                {
-                  offset = MIN(next_client_message, msg->length);
-                  next_client_message -= offset;
+                  next_client_message = length + 1 - (msg->length - offset);
+                  offset = msg->length;
                }
+            }
+            else
+            {
+               offset = MIN(next_client_message, msg->length);
+               next_client_message -= offset;
             }
          }
 
