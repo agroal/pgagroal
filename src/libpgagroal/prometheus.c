@@ -840,10 +840,10 @@ home_page(int client_fd)
    data = append(data, "  The waiting time of clients\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_query_count</h2>\n");
-   data = append(data, "  The number of queries\n");
+   data = append(data, "  The number of queries. Only session and transaction modes are supported\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_connection_query_count</h2>\n");
-   data = append(data, "  The number of queries per connection\n");
+   data = append(data, "  The number of queries per connection. Only session and transaction modes are supported\n");
    data = append(data, "  <table border=\"1\">\n");
    data = append(data, "    <tbody>\n");
    data = append(data, "      <tr>\n");
@@ -866,7 +866,7 @@ home_page(int client_fd)
    data = append(data, "  </table>\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_tx_count</h2>\n");
-   data = append(data, "  The number of transactions\n");
+   data = append(data, "  The number of transactions. Only session and transaction modes are supported\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_active_connections</h2>\n");
    data = append(data, "  The number of active connections\n");
@@ -991,10 +991,10 @@ home_page(int client_fd)
    data = append(data, "  Number of active clients\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_network_sent</h2>\n");
-   data = append(data, "  Bytes sent by clients\n");
+   data = append(data, "  Bytes sent by clients. Only session and transaction modes are supported\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_network_received</h2>\n");
-   data = append(data, "  Bytes received from servers\n");
+   data = append(data, "  Bytes received from servers. Only session and transaction modes are supported\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_client_sockets</h2>\n");
    data = append(data, "  Number of sockets the client used\n");

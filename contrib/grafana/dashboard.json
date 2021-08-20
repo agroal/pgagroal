@@ -650,6 +650,7 @@
     },
     {
       "datasource": null,
+      "description": "Only session and transaction modes are supported",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -730,7 +731,7 @@
     },
     {
       "datasource": null,
-      "description": "",
+      "description": "Only session and transaction modes are supported",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -811,6 +812,7 @@
     },
     {
       "datasource": null,
+      "description": "Only session and transaction modes are supported",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -903,6 +905,7 @@
     },
     {
       "datasource": null,
+      "description": "Only session and transaction modes are supported",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -983,6 +986,7 @@
     },
     {
       "datasource": null,
+      "description": "Only session and transaction modes are supported",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1687,5 +1691,5 @@
   "timezone": "",
   "title": "pgagroal dashboard",
   "uid": "t_a1YcR7k",
-  "version": 32
+  "version": 1
 }
