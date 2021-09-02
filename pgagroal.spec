@@ -28,6 +28,7 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 %{__mkdir} -p %{buildroot}%{_sysconfdir}
 %{__mkdir} -p %{buildroot}%{_bindir}
 %{__mkdir} -p %{buildroot}%{_libdir}
+%{__mkdir} -p %{buildroot}%{_docdir}/%{name}/grafana
 %{__mkdir} -p %{buildroot}%{_docdir}/%{name}/etc
 %{__mkdir} -p %{buildroot}%{_docdir}/%{name}/images
 %{__mkdir} -p %{buildroot}%{_mandir}/man1
@@ -37,6 +38,8 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/LICENSE %{buildroot}%{_docdir}/%{name}/LICENSE
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/CODE_OF_CONDUCT.md %{buildroot}%{_docdir}/%{name}/CODE_OF_CONDUCT.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/README.md %{buildroot}%{_docdir}/%{name}/README.md
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/contrib/grafana/dashboard.json %{buildroot}%{_docdir}/%{name}/grafana/dashboard.json
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/contrib/grafana/README.md %{buildroot}%{_docdir}/%{name}/grafana/README.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/ARCHITECTURE.md %{buildroot}%{_docdir}/%{name}/ARCHITECTURE.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/CONFIGURATION.md %{buildroot}%{_docdir}/%{name}/CONFIGURATION.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/FAILOVER.md %{buildroot}%{_docdir}/%{name}/FAILOVER.md
@@ -88,6 +91,8 @@ cd %{buildroot}%{_libdir}/
 %{_docdir}/%{name}/README.md
 %{_docdir}/%{name}/RPM.md
 %{_docdir}/%{name}/SECURITY.md
+%{_docdir}/%{name}/grafana/dashboard.json
+%{_docdir}/%{name}/grafana/README.md
 %{_docdir}/%{name}/etc/pgagroal.service
 %{_docdir}/%{name}/etc/pgagroal.socket
 %{_docdir}/%{name}/images/perf-extended.png
