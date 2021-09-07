@@ -71,6 +71,8 @@ static int restart_int(char* name, int e, int n);
 static int restart_string(char* name, char* e, char* n);
 static int restart_limit(char* name, struct configuration* config, struct configuration* reload);
 
+static bool is_empty_string(char* s);
+
 /**
  *
  */
@@ -152,7 +154,7 @@ pgagroal_read_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (strcmp(line, ""))
+      if (!is_empty_string(line))
       {
          if (line[0] == '[')
          {
@@ -1062,7 +1064,7 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (strcmp(line, ""))
+      if (!is_empty_string(line))
       {
          if (line[0] == '#' || line[0] == ';')
          {
@@ -1206,7 +1208,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (strcmp(line, ""))
+      if (!is_empty_string(line))
       {
          if (line[0] == '#' || line[0] == ';')
          {
@@ -1390,7 +1392,7 @@ pgagroal_read_users_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (strcmp(line, ""))
+      if (!is_empty_string(line))
       {
          if (line[0] == '#' || line[0] == ';')
          {
@@ -1533,7 +1535,7 @@ pgagroal_read_frontend_users_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (strcmp(line, ""))
+      if (!is_empty_string(line))
       {
          if (line[0] == '#' || line[0] == ';')
          {
@@ -1701,7 +1703,7 @@ pgagroal_read_admins_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (strcmp(line, ""))
+      if (!is_empty_string(line))
       {
          if (line[0] == '#' || line[0] == ';')
          {
@@ -1850,7 +1852,7 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (strcmp(line, ""))
+      if (!is_empty_string(line))
       {
          if (line[0] == '#' || line[0] == ';')
          {
@@ -2646,4 +2648,32 @@ restart_limit(char* name, struct configuration* config, struct configuration* re
 error:
 
    return 1;
+}
+
+static bool
+is_empty_string(char* s)
+{
+   if (s == NULL)
+   {
+      return true;
+   }
+
+   if (!strcmp(s, ""))
+   {
+      return true;
+   }
+
+   for (int i = 0; i < strlen(s); i++)
+   {
+      if (s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n')
+      {
+         /* Ok */
+      }
+      else
+      {
+         return false;
+      }
+   }
+
+   return true;
 }
