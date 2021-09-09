@@ -249,7 +249,7 @@ retry:
 
       if (atomic_compare_exchange_strong(&config->log_lock, &isfree, STATE_IN_USE))
       {
-         char buf[4096];
+         char buf[256 * 1024];
          int j = 0;
          int k = 0;
 
