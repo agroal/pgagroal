@@ -164,7 +164,9 @@ session_destroy(void* pipeline_shmem, size_t pipeline_shmem_size)
 static void
 session_periodic(void)
 {
+   signed char state;
    signed char idle;
+   bool do_kill;
    time_t now;
    struct client_session* client;
    struct configuration* config;
@@ -179,23 +181,36 @@ session_periodic(void)
       {
          client = pipeline_shmem + (i * sizeof(struct client_session));
 
-         idle = CLIENT_IDLE;
-
-         if (atomic_compare_exchange_strong(&client->state, &idle, CLIENT_CHECK))
+         if (difftime(now, client->timestamp) > config->disconnect_client)
          {
-            if (difftime(now, client->timestamp) > config->disconnect_client)
+            if (config->connections[i].pid != 0)
             {
-               if (config->connections[i].pid != 0)
+               state = atomic_load(&client->state);
+               do_kill = false;
+
+               if (config->disconnect_client_force)
+               {
+                  do_kill = true;
+               }
+               else
+               {
+                  idle = CLIENT_IDLE;
+
+                  if (atomic_compare_exchange_strong(&client->state, &idle, CLIENT_CHECK))
+                  {
+                     do_kill = true;
+                  }
+               }
+
+               if (do_kill)
                {
                   pgagroal_log_info("Disconnect client %s/%s using slot %d (pid %d socket %d)",
                                     config->connections[i].database, config->connections[i].username,
                                     i, config->connections[i].pid, config->connections[i].fd);
                   kill(config->connections[i].pid, SIGQUIT);
                }
-            }
-            else
-            {
-               atomic_store(&client->state, CLIENT_IDLE);
+
+               atomic_store(&client->state, state);
             }
          }
       }

@@ -140,6 +140,9 @@ Danger zone
 disconnect_client
   Disconnect clients that have been idle for more than the specified seconds. This setting DOES NOT take long running transactions into account. Default is 0
 
+disconnect_client_force
+  Disconnect clients that have been active for more than the specified seconds. This setting DOES NOT take long running transactions into account. Default is off
+
 The options for the PostgreSQL section are
 
 host
