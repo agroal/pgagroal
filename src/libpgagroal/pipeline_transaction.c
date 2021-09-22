@@ -309,6 +309,11 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
          running = 0;
       }
    }
+   else if (status == MESSAGE_STATUS_ZERO)
+   {
+      /* Retry */
+      errno = 0;
+   }
    else
    {
       goto client_error;
@@ -470,6 +475,11 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
             running = 0;
          }
       }
+   }
+   else if (status == MESSAGE_STATUS_ZERO)
+   {
+      /* Retry */
+      errno = 0;
    }
    else
    {
