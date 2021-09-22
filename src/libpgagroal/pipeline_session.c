@@ -187,9 +187,9 @@ session_periodic(void)
             {
                if (config->connections[i].pid != 0)
                {
-                  pgagroal_log_info("Disconnect client %s/%s using slot %d (%d)",
+                  pgagroal_log_info("Disconnect client %s/%s using slot %d (pid %d socket %d)",
                                     config->connections[i].database, config->connections[i].username,
-                                    i, config->connections[i].pid);
+                                    i, config->connections[i].pid, config->connections[i].fd);
                   kill(config->connections[i].pid, SIGQUIT);
                }
             }
@@ -288,6 +288,11 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
          exit_code = WORKER_SUCCESS;
          running = 0;
       }
+   }
+   else if (status == MESSAGE_STATUS_ZERO)
+   {
+      /* Retry */
+      errno = 0;
    }
    else
    {
@@ -416,6 +421,11 @@ session_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
             running = 0;
          }
       }
+   }
+   else if (status == MESSAGE_STATUS_ZERO)
+   {
+      /* Retry */
+      errno = 0;
    }
    else
    {
