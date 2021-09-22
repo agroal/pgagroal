@@ -118,7 +118,7 @@ nodelay
   Have TCP_NODELAY on sockets. Default is on
 
 non_blocking
-  Have O_NONBLOCK on sockets. Default is on
+  Have O_NONBLOCK on sockets. Default is off
 
 backlog
   The backlog for listen(). Minimum 16. Default is max_connections / 4

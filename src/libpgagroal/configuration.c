@@ -107,7 +107,7 @@ pgagroal_init_configuration(void* shm)
    config->buffer_size = DEFAULT_BUFFER_SIZE;
    config->keep_alive = true;
    config->nodelay = true;
-   config->non_blocking = true;
+   config->non_blocking = false;
    config->backlog = -1;
    config->hugepage = HUGEPAGE_TRY;
    config->tracker = false;

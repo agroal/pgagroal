@@ -52,7 +52,7 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | buffer_size | 65535 | Int | No | The network buffer size (`SO_RCVBUF` and `SO_SNDBUF`) |
 | keep_alive | on | Bool | No | Have `SO_KEEPALIVE` on sockets |
 | nodelay | on | Bool | No | Have `TCP_NODELAY` on sockets |
-| non_blocking | on | Bool | No | Have `O_NONBLOCK` on sockets |
+| non_blocking | off | Bool | No | Have `O_NONBLOCK` on sockets |
 | backlog | `max_connections` / 4 | Int | No | The backlog for `listen()`. Minimum `16` |
 | hugepage | `try` | String | No | Huge page support (`off`, `try`, `on`) |
 | tracker | off | Bool | No | Track connection lifecycle |
