@@ -961,7 +961,7 @@ main(int argc, char **argv)
    if (config->disconnect_client > 0)
    {
       ev_periodic_init (&disconnect_client, disconnect_client_cb, 0.,
-                        MAX(1. * config->disconnect_client / 2., 1.), 0);
+                        MIN(300., MAX(1. * config->disconnect_client / 2., 1.)), 0);
       ev_periodic_start (main_loop, &disconnect_client);
    }
 

@@ -64,6 +64,7 @@ __Danger zone__
 | Property | Default | Unit | Required | Description |
 |----------|---------|------|----------|-------------|
 | disconnect_client | 0 | Int | No | Disconnect clients that have been idle for more than the specified seconds. This setting __DOES NOT__ take long running transactions into account  |
+| disconnect_client_force | off | Bool | No | Disconnect clients that have been active for more than the specified seconds. This setting __DOES NOT__ take long running transactions into account  |
 
 ## Server section
 

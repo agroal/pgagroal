@@ -103,6 +103,7 @@ pgagroal_init_configuration(void* shm)
    config->max_retries = 5;
    config->authentication_timeout = 5;
    config->disconnect_client = 0;
+   config->disconnect_client_force = false;
 
    config->buffer_size = DEFAULT_BUFFER_SIZE;
    config->keep_alive = true;
@@ -494,6 +495,20 @@ pgagroal_read_configuration(void* shm, char* filename)
                   if (!strcmp(section, "pgagroal"))
                   {
                      if (as_int(value, &config->disconnect_client))
+                     {
+                        unknown = true;
+                     }
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "disconnect_client_force"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     if (as_bool(value, &config->disconnect_client_force))
                      {
                         unknown = true;
                      }
@@ -2489,6 +2504,7 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    config->max_retries = reload->max_retries;
    config->authentication_timeout = reload->authentication_timeout;
    config->disconnect_client = reload->disconnect_client;
+   config->disconnect_client_force = reload->disconnect_client_force;
    /* pidfile */
    restart_string("pidfile", config->pidfile, reload->pidfile);
 
