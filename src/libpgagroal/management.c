@@ -734,13 +734,15 @@ pgagroal_management_read_details(SSL* ssl, int socket)
 
    for (int i = 0; i < max_connections; i++)
    {
-      char details[12 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH + MAX_APPLICATION_NAME];
+      char details[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH + MAX_APPLICATION_NAME];
       signed char state;
       long time;
       time_t t;
       char ts[20] = {0};
       int pid;
       char p[10] = {0};
+      int fd;
+      char f[10] = {0};
 
       memset(&details, 0, sizeof(details));
 
@@ -754,20 +756,23 @@ pgagroal_management_read_details(SSL* ssl, int socket)
       state = (signed char)header[12 + i];
       time = pgagroal_read_long(&(details[0]));
       pid = pgagroal_read_int32(&(details[8]));
+      fd = pgagroal_read_int32(&(details[12]));
 
       t = time;
       strftime(ts, 20, "%Y-%m-%d %H:%M:%S", localtime(&t));
 
       sprintf(p, "%d", pid);
+      sprintf(f, "%d", fd);
 
-      printf("Connection %4d:     %-15s %-19s %-6s %s %s %s\n",
+      printf("Connection %4d:     %-15s %-19s %-6s %-6s %s %s %s\n",
              i,
              pgagroal_get_state_string(state),
              time > 0 ? ts : "",
              pid > 0 ? p : "",
-             pgagroal_read_string(&(details[12])),
-             pgagroal_read_string(&(details[12 + MAX_DATABASE_LENGTH])),
-             pgagroal_read_string(&(details[12 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH])));
+             fd > 0 ? f : "",
+             pgagroal_read_string(&(details[16])),
+             pgagroal_read_string(&(details[16 + MAX_DATABASE_LENGTH])),
+             pgagroal_read_string(&(details[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH])));
    }
 
    return 0;
@@ -846,16 +851,17 @@ pgagroal_management_write_details(int socket)
 
    for (int i = 0; i < config->max_connections; i++)
    {
-      char details[12 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH + MAX_APPLICATION_NAME];
+      char details[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH + MAX_APPLICATION_NAME];
 
       memset(&details, 0, sizeof(details));
 
       pgagroal_write_long(details, (long)config->connections[i].timestamp);
       pgagroal_write_int32(details + 8, (int)config->connections[i].pid);
+      pgagroal_write_int32(details + 12, (int)config->connections[i].fd);
 
-      pgagroal_write_string(details + 12, config->connections[i].database);
-      pgagroal_write_string(details + 12 + MAX_DATABASE_LENGTH, config->connections[i].username);
-      pgagroal_write_string(details + 12 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH, config->connections[i].appname);
+      pgagroal_write_string(details + 16, config->connections[i].database);
+      pgagroal_write_string(details + 16 + MAX_DATABASE_LENGTH, config->connections[i].username);
+      pgagroal_write_string(details + 16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH, config->connections[i].appname);
 
       if (write_complete(NULL, socket, &details, sizeof(details)))
       {
