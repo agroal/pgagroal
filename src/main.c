@@ -1210,10 +1210,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    }
    else if (pid > 0)
    {
-      if (config->pipeline == PIPELINE_TRANSACTION)
-      {
-         add_client(pid);
-      }
+      add_client(pid);
    }
    else
    {
@@ -1308,6 +1305,14 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          pgagroal_log_debug("pgagroal: Management kill connection: Slot %d", slot);
          if (known_fds[slot] == payload_i)
          {
+            struct client* c = clients;
+
+            while (c != NULL)
+            {
+               pgagroal_management_remove_fd(slot, payload_i, c->pid);
+               c = c->next;
+            }
+
             pgagroal_disconnect(payload_i);
             known_fds[slot] = 0;
          }
@@ -1406,11 +1411,8 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          break;
       case MANAGEMENT_CLIENT_DONE:
          pgagroal_log_debug("pgagroal: Management client done");
-         if (config->pipeline == PIPELINE_TRANSACTION)
-         {
-            pid_t p = (pid_t)payload_i;
-            remove_client(p);
-         }
+         pid_t p = (pid_t)payload_i;
+         remove_client(p);
          break;
       case MANAGEMENT_SWITCH_TO:
          pgagroal_log_debug("pgagroal: Management switch to");

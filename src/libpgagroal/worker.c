@@ -285,7 +285,7 @@ signal_cb(struct ev_loop *loop, ev_signal *w, int revents)
 
    si = (struct signal_info*)w;
 
-   pgagroal_log_debug("pgagroal: signal for slot %d", si->slot);
+   pgagroal_log_debug("pgagroal: signal %d for slot %d", si->signal.signum, si->slot);
 
    exit_code = WORKER_SHUTDOWN;
    running = 0;
