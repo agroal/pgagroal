@@ -137,6 +137,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
       case MANAGEMENT_FLUSH:
       case MANAGEMENT_KILL_CONNECTION:
       case MANAGEMENT_CLIENT_DONE:
+      case MANAGEMENT_REMOVE_FD:
          if (read_complete(NULL, socket, &buf4[0], sizeof(buf4)))
          {
             goto error;
@@ -1151,6 +1152,58 @@ pgagroal_management_reload(SSL* ssl, int fd)
    return 0;
 
 error:
+
+   return 1;
+}
+
+int
+pgagroal_management_remove_fd(int32_t slot, int socket, pid_t pid)
+{
+   char p[MISC_LENGTH];
+   int fd;
+   char buf[4];
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (atomic_load(&config->states[slot]) == STATE_NOTINIT)
+   {
+      return 0;
+   }
+
+   memset(&p, 0, sizeof(p));
+   snprintf(&p[0], sizeof(p), ".s.%d", pid);
+
+   if (pgagroal_connect_unix_socket(config->unix_socket_dir, &p[0], &fd))
+   {
+      pgagroal_log_debug("pgagroal_management_remove_fd: slot %d state %d database %s user %s socket %d pid %d connect: %d",
+                         slot, atomic_load(&config->states[slot]),
+                         config->connections[slot].database, config->connections[slot].username, socket, pid, fd);
+      errno = 0;
+      goto error;
+   }
+
+   if (write_header(NULL, fd, MANAGEMENT_REMOVE_FD, slot))
+   {
+      pgagroal_log_warn("pgagroal_management_remove_fd: write: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   pgagroal_write_int32(&buf, socket);
+   if (write_complete(NULL, fd, &buf, sizeof(buf)))
+   {
+      pgagroal_log_warn("pgagroal_management_remove_fd: write: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   pgagroal_disconnect(fd);
+
+   return 0;
+
+error:
+   pgagroal_disconnect(fd);
 
    return 1;
 }

@@ -58,6 +58,7 @@ extern "C" {
 #define MANAGEMENT_CLIENT_FD          16
 #define MANAGEMENT_SWITCH_TO          17
 #define MANAGEMENT_RELOAD             18
+#define MANAGEMENT_REMOVE_FD          19
 
 /**
  * Read the management header
@@ -293,6 +294,16 @@ pgagroal_management_switch_to(SSL* ssl, int socket, char* server);
  */
 int
 pgagroal_management_reload(SSL* ssl, int socket);
+
+/**
+ * Management operation: Remove socket descriptor
+ * @param slot The slot
+ * @param socket The socket
+ * @param pid The pid
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_remove_fd(int32_t slot, int socket, pid_t pid);
 
 #ifdef __cplusplus
 }

@@ -72,6 +72,8 @@ static int next_server_message;
 static int unix_socket = -1;
 static int deallocate;
 static bool fatal;
+static int fds[MAX_NUMBER_OF_CONNECTIONS];
+static bool news[MAX_NUMBER_OF_CONNECTIONS];
 static struct ev_io io_mgt;
 static struct worker_io server_io;
 
@@ -121,6 +123,12 @@ transaction_start(struct ev_loop* loop, struct worker_io* w)
    {
       pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, &p[0]);
       goto error;
+   }
+
+   for (int i = 0; i < config->max_connections; i++)
+   {
+      fds[i] = config->connections[i].fd;
+      news[i] = config->connections[i].new;
    }
 
    start_mgt(loop);
@@ -323,7 +331,10 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    return;
 
 client_error:
-   pgagroal_log_warn("[C] Client error: %s (slot %d socket %d status %d)", strerror(errno), slot, wi->client_fd, status);
+   pgagroal_log_warn("[C] Client error (slot %d database %s user %s): %s (socket %d status %d)",
+                     wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
+                     strerror(errno), wi->client_fd, status);
+   pgagroal_log_message(msg);
    errno = 0;
 
    exit_code = WORKER_CLIENT_FAILURE;
@@ -332,7 +343,10 @@ client_error:
    return;
 
 server_error:
-   pgagroal_log_warn("[C] Server error: %s (slot %d socket %d status %d)", strerror(errno), slot, wi->server_fd, status);
+   pgagroal_log_warn("[C] Server error (slot %d database %s user %s): %s (socket %d status %d)",
+                     wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
+                     strerror(errno), wi->server_fd, status);
+   pgagroal_log_message(msg);
    errno = 0;
 
    exit_code = WORKER_SERVER_FAILURE;
@@ -490,7 +504,10 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    return;
 
 client_error:
-   pgagroal_log_warn("[S] Client error: %s (slot %d socket %d status %d)", strerror(errno), slot, wi->client_fd, status);
+   pgagroal_log_warn("[S] Client error (slot %d database %s user %s): %s (socket %d status %d)",
+                     wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
+                     strerror(errno), wi->client_fd, status);
+   pgagroal_log_message(msg);
    errno = 0;
 
    exit_code = WORKER_CLIENT_FAILURE;
@@ -499,7 +516,10 @@ client_error:
    return;
 
 server_error:
-   pgagroal_log_warn("[S] Server error: %s (slot %d socket %d status %d)", strerror(errno), slot, wi->server_fd, status);
+   pgagroal_log_warn("[S] Server error (slot %d database %s user %s): %s (socket %d status %d)",
+                     wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
+                     strerror(errno), wi->server_fd, status);
+   pgagroal_log_message(msg);
    errno = 0;
 
    exit_code = WORKER_SERVER_FAILURE;
@@ -579,6 +599,15 @@ accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    {
       case MANAGEMENT_CLIENT_FD:
          pgagroal_log_debug("pgagroal: Management client file descriptor: Slot %d FD %d", slot, payload_i);
+         fds[slot] = payload_i;
+         break;
+      case MANAGEMENT_REMOVE_FD:
+         pgagroal_log_debug("pgagroal: Management remove file descriptor: Slot %d FD %d", slot, payload_i);
+         if (fds[slot] == payload_i && !news[slot])
+         {
+            pgagroal_disconnect(payload_i);
+            fds[slot] = 0;
+         }
          break;
       default:
          pgagroal_log_debug("pgagroal: Unsupported management id: %d", id);

@@ -29,18 +29,24 @@
 /* pgagroal */
 #include <pgagroal.h>
 #include <logging.h>
+#include <management.h>
 #include <message.h>
+#include <network.h>
 #include <pipeline.h>
 #include <prometheus.h>
 #include <server.h>
 #include <shmem.h>
-#include <worker.h>
 #include <utils.h>
+#include <worker.h>
 
 /* system */
 #include <errno.h>
 #include <ev.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 static int  session_initialize(void*, void**, size_t*);
 static void session_start(struct ev_loop *loop, struct worker_io*);
@@ -53,6 +59,8 @@ static void session_periodic(void);
 static bool in_tx;
 static int next_client_message;
 static int next_server_message;
+static int unix_socket = -1;
+static struct ev_io io_mgt;
 
 #define CLIENT_INIT   0
 #define CLIENT_IDLE   1
@@ -64,6 +72,13 @@ struct client_session
    atomic_schar state; /**< The state */
    time_t timestamp;   /**< The last used timestamp */
 };
+
+static int fds[MAX_NUMBER_OF_CONNECTIONS];
+static bool news[MAX_NUMBER_OF_CONNECTIONS];
+
+static void start_mgt(struct ev_loop *loop);
+static void shutdown_mgt(struct ev_loop *loop);
+static void accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 
 static void client_active(int);
 static void client_inactive(int);
@@ -123,11 +138,21 @@ session_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_si
 static void
 session_start(struct ev_loop *loop, struct worker_io* w)
 {
+   char p[MISC_LENGTH];
    struct client_session* client;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
 
    in_tx = false;
    next_client_message = 0;
    next_server_message = 0;
+
+   for (int i = 0; i < config->max_connections; i++)
+   {
+      fds[i] = config->connections[i].fd;
+      news[i] = config->connections[i].new;
+   }
 
    if (pipeline_shmem != NULL)
    {
@@ -136,12 +161,34 @@ session_start(struct ev_loop *loop, struct worker_io* w)
       atomic_store(&client->state, CLIENT_IDLE);
       client->timestamp = time(NULL);
    }
+
+   memset(&p, 0, sizeof(p));
+   snprintf(&p[0], sizeof(p), ".s.%d", getpid());
+
+   if (pgagroal_bind_unix_socket(config->unix_socket_dir, &p[0], &unix_socket))
+   {
+      pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, &p[0]);
+      goto error;
+   }
+
+   start_mgt(loop);
+
+   return;
+
+error:
+
+   exit_code = WORKER_FAILURE;
+   running = 0;
+   ev_break(loop, EVBREAK_ALL);
+   return;
 }
 
 static void
 session_stop(struct ev_loop *loop, struct worker_io* w)
 {
    struct client_session* client;
+
+   shutdown_mgt(loop);
 
    if (pipeline_shmem != NULL)
    {
@@ -320,7 +367,9 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
    return;
 
 client_error:
-   pgagroal_log_warn("[C] Client error: %s (socket %d status %d)", strerror(errno), wi->client_fd, status);
+   pgagroal_log_warn("[C] Client error (slot %d database %s user %s): %s (socket %d status %d)",
+                     wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
+                     strerror(errno), wi->client_fd, status);
    pgagroal_log_message(msg);
    errno = 0;
 
@@ -332,7 +381,9 @@ client_error:
    return;
 
 server_error:
-   pgagroal_log_warn("[C] Server error: %s (socket %d status %d)", strerror(errno), wi->server_fd, status);
+   pgagroal_log_warn("[C] Server error (slot %d database %s user %s): %s (socket %d status %d)",
+                     wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
+                     strerror(errno), wi->server_fd, status);
    pgagroal_log_message(msg);
    errno = 0;
 
@@ -360,6 +411,7 @@ session_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    bool fatal = false;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
+   struct configuration* config = NULL;
 
    wi = (struct worker_io*)watcher;
 
@@ -453,7 +505,10 @@ session_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    return;
 
 client_error:
-   pgagroal_log_warn("[S] Client error: %s (socket %d status %d)", strerror(errno), wi->client_fd, status);
+   config = (struct configuration*)shmem;
+   pgagroal_log_warn("[S] Client error (slot %d database %s user %s): %s (socket %d status %d)",
+                     wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
+                     strerror(errno), wi->client_fd, status);
    pgagroal_log_message(msg);
    errno = 0;
 
@@ -465,7 +520,10 @@ client_error:
    return;
 
 server_error:
-   pgagroal_log_warn("[S] Server error: %s (socket %d status %d)", strerror(errno), wi->server_fd, status);
+   config = (struct configuration*)shmem;
+   pgagroal_log_warn("[S] Server error (slot %d database %s user %s): %s (socket %d status %d)",
+                     wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
+                     strerror(errno), wi->server_fd, status);
    pgagroal_log_message(msg);
    errno = 0;
 
@@ -475,6 +533,83 @@ server_error:
    running = 0;
    ev_break(loop, EVBREAK_ALL);
    return;
+}
+
+static void
+start_mgt(struct ev_loop *loop)
+{
+   memset(&io_mgt, 0, sizeof(struct ev_io));
+   ev_io_init(&io_mgt, accept_cb, unix_socket, EV_READ);
+   ev_io_start(loop, &io_mgt);
+}
+
+static void
+shutdown_mgt(struct ev_loop* loop)
+{
+   char p[MISC_LENGTH];
+   struct configuration* config = NULL;
+
+   config = (struct configuration*)shmem;
+
+   memset(&p, 0, sizeof(p));
+   snprintf(&p[0], sizeof(p), ".s.%d", getpid());
+
+   ev_io_stop(loop, &io_mgt);
+   pgagroal_disconnect(unix_socket);
+   errno = 0;
+   pgagroal_remove_unix_socket(config->unix_socket_dir, &p[0]);
+   errno = 0;
+}
+
+static void
+accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+{
+   struct sockaddr_in client_addr;
+   socklen_t client_addr_length;
+   int client_fd;
+   signed char id;
+   int32_t slot;
+   int payload_i;
+   char* payload_s = NULL;
+
+   pgagroal_log_trace("accept_cb: sockfd ready (%d)", revents);
+
+   if (EV_ERROR & revents)
+   {
+      pgagroal_log_debug("accept_cb: invalid event: %s", strerror(errno));
+      errno = 0;
+      return;
+   }
+
+   client_addr_length = sizeof(client_addr);
+   client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
+   if (client_fd == -1)
+   {
+      pgagroal_log_debug("accept: %s (%d)", strerror(errno), watcher->fd);
+      errno = 0;
+      return;
+   }
+
+   /* Process internal management request -- f.ex. returning a file descriptor to the pool */
+   pgagroal_management_read_header(client_fd, &id, &slot);
+   pgagroal_management_read_payload(client_fd, id, &payload_i, &payload_s);
+
+   switch (id)
+   {
+      case MANAGEMENT_REMOVE_FD:
+         pgagroal_log_debug("pgagroal: Management remove file descriptor: Slot %d FD %d", slot, payload_i);
+         if (fds[slot] == payload_i && !news[slot])
+         {
+            pgagroal_disconnect(payload_i);
+            fds[slot] = 0;
+         }
+         break;
+      default:
+         pgagroal_log_debug("pgagroal: Unsupported management id: %d", id);
+         break;
+   }
+
+   pgagroal_disconnect(client_fd);
 }
 
 static void
