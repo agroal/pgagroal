@@ -44,6 +44,7 @@
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #ifdef HAVE_LINUX
 #include <systemd/sd-daemon.h>
@@ -831,6 +832,16 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       if (strlen(config->unix_socket_dir) == 0)
       {
          pgagroal_log_fatal("pgagroal: No unix_socket_dir defined");
+         return 1;
+      }
+
+      if (stat(config->unix_socket_dir, &st) == 0 && S_ISDIR(st.st_mode))
+      {
+         /* Ok */
+      }
+      else
+      {
+         pgagroal_log_fatal("pgagroal: unix_socket_dir is not a directory (%s)", config->unix_socket_dir);
          return 1;
       }
    }
