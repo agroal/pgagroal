@@ -84,6 +84,7 @@ static void remove_client(pid_t pid);
 static void reload_configuration(void);
 static int  create_pidfile(void);
 static void remove_pidfile(void);
+static void shutdown_ports(void);
 
 struct accept_io
 {
@@ -1053,6 +1054,7 @@ main(int argc, char **argv)
    {
       if (!fork())
       {
+         shutdown_ports();
          pgagroal_prefill(true);
       }
    }
@@ -1176,6 +1178,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
          if (!fork())
          {
+            shutdown_ports();
             pgagroal_flush(FLUSH_GRACEFULLY);
          }
 
@@ -1218,6 +1221,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       memcpy(addr, address, sizeof(address));
 
       ev_loop_fork(loop);
+      shutdown_ports();
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
       pgagroal_worker(client_fd, addr, ai->argv);
    }
@@ -1321,6 +1325,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          pgagroal_log_debug("pgagroal: Management flush (%d)", payload_i);
          if (!fork())
          {
+            shutdown_ports();
             pgagroal_flush(payload_i);
          }
          break;
@@ -1420,6 +1425,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          {
             if (!fork())
             {
+               shutdown_ports();
                pgagroal_flush(FLUSH_GRACEFULLY);
             }
             pgagroal_prometheus_failed_servers();
@@ -1513,6 +1519,7 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    if (!fork())
    {
       ev_loop_fork(loop);
+      shutdown_ports();
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
       pgagroal_prometheus(client_fd);
    }
@@ -1593,6 +1600,7 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       memcpy(addr, address, sizeof(address));
 
       ev_loop_fork(loop);
+      shutdown_ports();
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
       pgagroal_remote_management(client_fd, addr);
    }
@@ -1657,6 +1665,7 @@ idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents)
    /* pgagroal_idle_timeout() is always in a fork() */
    if (!fork())
    {
+      shutdown_ports();
       pgagroal_idle_timeout();
    }
 }
@@ -1673,6 +1682,7 @@ validation_cb(struct ev_loop *loop, ev_periodic *w, int revents)
    /* pgagroal_validation() is always in a fork() */
    if (!fork())
    {
+      shutdown_ports();
       pgagroal_validation();
    }
 }
@@ -1689,6 +1699,7 @@ disconnect_client_cb(struct ev_loop *loop, ev_periodic *w, int revents)
    /* main_pipeline.periodic is always in a fork() */
    if (!fork())
    {
+      shutdown_ports();
       main_pipeline.periodic();
    }
 }
@@ -1931,5 +1942,25 @@ static void remove_pidfile(void)
    if (strlen(config->pidfile) > 0)
    {
       unlink(config->pidfile);
+   }
+}
+
+static void
+shutdown_ports(void)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   shutdown_io();
+
+   if (config->metrics > 0)
+   {
+      shutdown_metrics();
+   }
+
+   if (config->management > 0)
+   {
+      shutdown_management();
    }
 }
