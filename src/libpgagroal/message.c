@@ -1068,7 +1068,7 @@ pgagroal_log_message(struct message* msg)
 static int
 read_message(int socket, bool block, int timeout, struct message** msg)
 {
-   bool keep_read = false;
+   bool keep_read;
    ssize_t numbytes;  
    struct timeval tv;
    struct message* m = NULL;
@@ -1082,6 +1082,8 @@ read_message(int socket, bool block, int timeout, struct message** msg)
 
    do
    {
+      keep_read = false;
+
       m = pgagroal_memory_message();
 
       numbytes = read(socket, m->data, m->max_length);
@@ -1103,8 +1105,6 @@ read_message(int socket, bool block, int timeout, struct message** msg)
       }
       else if (numbytes == 0)
       {
-         pgagroal_memory_free();
-
          if ((errno == EAGAIN || errno == EWOULDBLOCK) && block)
          {
             keep_read = true;
@@ -1124,16 +1124,10 @@ read_message(int socket, bool block, int timeout, struct message** msg)
       }
       else
       {
-         pgagroal_memory_free();
-
          if ((errno == EAGAIN || errno == EWOULDBLOCK) && block)
          {
             keep_read = true;
             errno = 0;
-         }
-         else
-         {
-            keep_read = false;
          }
       }
    } while (keep_read);
@@ -1143,8 +1137,6 @@ read_message(int socket, bool block, int timeout, struct message** msg)
       tv.tv_sec = 0;
       tv.tv_usec = 0;
       setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
-
-      pgagroal_memory_free();
    }
 
    return MESSAGE_STATUS_ERROR;
@@ -1153,7 +1145,7 @@ read_message(int socket, bool block, int timeout, struct message** msg)
 static int
 write_message(int socket, struct message* msg)
 {
-   bool keep_write = false;
+   bool keep_write;
    ssize_t numbytes;
    int offset;
    ssize_t totalbytes;
@@ -1170,6 +1162,8 @@ write_message(int socket, struct message* msg)
 
    do
    {
+      keep_write = false;
+
       numbytes = write(socket, msg->data + offset, remaining);
 
       if (likely(numbytes == msg->length))
@@ -1212,7 +1206,7 @@ write_message(int socket, struct message* msg)
 static int
 ssl_read_message(SSL* ssl, int timeout, struct message** msg)
 {
-   bool keep_read = false;
+   bool keep_read;
    ssize_t numbytes;
    time_t start_time;
    struct message* m = NULL;
@@ -1224,6 +1218,8 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
 
    do
    {
+      keep_read = false;
+
       m = pgagroal_memory_message();
 
       numbytes = SSL_read(ssl, m->data, m->max_length);
@@ -1239,8 +1235,6 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
       else
       {
          int err;
-
-         pgagroal_memory_free();
 
          err = SSL_get_error(ssl, numbytes);
          switch (err)
@@ -1277,11 +1271,9 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
             case SSL_ERROR_SYSCALL:
                pgagroal_log_error("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
                errno = 0;
-               keep_read = false;
                break;
             case SSL_ERROR_SSL:
                pgagroal_log_error("SSL_ERROR_SSL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
-               keep_read = false;
                break;
          }
          ERR_clear_error();
@@ -1294,7 +1286,7 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
 static int
 ssl_write_message(SSL* ssl, struct message* msg)
 {
-   bool keep_write = false;
+   bool keep_write;
    ssize_t numbytes;
    int offset;
    ssize_t totalbytes;
@@ -1311,6 +1303,8 @@ ssl_write_message(SSL* ssl, struct message* msg)
 
    do
    {
+      keep_write = false;
+
       numbytes = SSL_write(ssl, msg->data + offset, remaining);
 
       if (likely(numbytes == msg->length))
@@ -1357,12 +1351,10 @@ ssl_write_message(SSL* ssl, struct message* msg)
             case SSL_ERROR_SYSCALL:
                pgagroal_log_error("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
                errno = 0;
-               keep_write = false;
                break;
             case SSL_ERROR_SSL:
                pgagroal_log_error("SSL_ERROR_SSL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
                errno = 0;
-               keep_write = false;
                break;
          }
          ERR_clear_error();
