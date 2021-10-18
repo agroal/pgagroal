@@ -320,6 +320,15 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    else if (status == MESSAGE_STATUS_ZERO)
    {
       /* Retry */
+      if (!pgagroal_socket_isvalid(wi->client_fd))
+      {
+         goto client_error;
+      }
+      else if (!pgagroal_socket_isvalid(wi->server_fd))
+      {
+         goto server_error;
+      }
+
       errno = 0;
    }
    else
@@ -493,6 +502,15 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
    else if (status == MESSAGE_STATUS_ZERO)
    {
       /* Retry */
+      if (!pgagroal_socket_isvalid(wi->client_fd))
+      {
+         goto client_error;
+      }
+      else if (!pgagroal_socket_isvalid(wi->server_fd))
+      {
+         goto server_error;
+      }
+
       errno = 0;
    }
    else
