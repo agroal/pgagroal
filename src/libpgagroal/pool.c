@@ -70,6 +70,7 @@ pgagroal_get_connection(char* username, char* database, bool reuse, bool transac
    time_t start_time;
    int best_rule;
    int retries;
+   int ret;
 
    struct configuration* config;
    struct prometheus* prometheus;
@@ -167,7 +168,20 @@ start:
 
          pgagroal_log_debug("connect: server %d", server);
          
-         if (pgagroal_connect(config->servers[server].host, config->servers[server].port, &fd))
+         if (config->servers[server].host[0] == '/')
+         {
+            char pgsql[MISC_LENGTH];
+
+            memset(&pgsql, 0, sizeof(pgsql));
+            snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->servers[server].port);
+            ret = pgagroal_connect_unix_socket(config->servers[server].host, &pgsql[0], &fd);
+         }
+         else
+         {
+            ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &fd);
+         }
+
+         if (ret)
          {
             pgagroal_log_error("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
             config->connections[*slot].limit_rule = -1;

@@ -74,6 +74,8 @@ __Danger zone__
 | port | | Int | Yes | The port of the PostgreSQL instance |
 | primary | | Bool | No | Identify the instance as primary (hint) |
 
+Note, that if `host` starts with a `/` it represents a path and `pgagroal` will connect using a Unix Domain Socket.
+
 # pgagroal_hba configuration
 
 The `pgagroal_hba` configuration controls access to `pgagroal` through host-based authentication.
