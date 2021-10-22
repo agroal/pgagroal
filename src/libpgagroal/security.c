@@ -178,7 +178,20 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
          goto error;
       }
 
-      if (pgagroal_connect(config->servers[server].host, config->servers[server].port, &server_fd))
+      if (config->servers[server].host[0] == '/')
+      {
+         char pgsql[MISC_LENGTH];
+
+         memset(&pgsql, 0, sizeof(pgsql));
+         snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->servers[server].port);
+         ret = pgagroal_connect_unix_socket(config->servers[server].host, &pgsql[0], &server_fd);
+      }
+      else
+      {
+         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &server_fd);
+      }
+
+      if (ret)
       {
          pgagroal_log_error("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
          goto error;
@@ -4658,7 +4671,20 @@ retry:
 
    if (atomic_compare_exchange_strong(&config->su_connection, &isfree, STATE_IN_USE))
    {
-      if (pgagroal_connect(config->servers[server].host, config->servers[server].port, server_fd))
+      if (config->servers[server].host[0] == '/')
+      {
+         char pgsql[MISC_LENGTH];
+
+         memset(&pgsql, 0, sizeof(pgsql));
+         snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->servers[server].port);
+         ret = pgagroal_connect_unix_socket(config->servers[server].host, &pgsql[0], server_fd);
+      }
+      else
+      {
+         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, server_fd);
+      }
+
+      if (ret)
       {
          pgagroal_log_error("pgagroal: No connection to %s:%d", config->servers[server].host, config->servers[server].port);
          atomic_store(&config->su_connection, STATE_FREE);
