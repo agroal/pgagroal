@@ -53,8 +53,10 @@
 #endif
 
 extern char** environ;
+#ifdef HAVE_LINUX
 static bool env_changed = false;
 static int max_process_title_size = -1;
+#endif
 
 int32_t
 pgagroal_get_request(struct message* msg)
