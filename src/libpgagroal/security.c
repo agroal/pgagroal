@@ -1573,6 +1573,8 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
 
    pgagroal_log_trace("authenticate: has_security %d", config->connections[slot].has_security);
 
+   pgagroal_free_copy_message(auth_msg);
+
    return AUTH_SUCCESS;
 
 bad_password:
