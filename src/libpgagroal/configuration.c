@@ -363,6 +363,13 @@ pgagroal_read_configuration(void* shm, char* filename)
                         unknown = true;
                      }
                   }
+                  else if (strlen(section) > 0)
+                  {
+                     if (as_bool(value, &srv.tls))
+                     {
+                        unknown = true;
+                     }
+                  }
                   else
                   {
                      unknown = true;
@@ -1017,6 +1024,15 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
          if (config->number_of_limits == 0)
          {
             pgagroal_log_info("pgagroal: Defining limits for the transaction pipeline is recommended");
+         }
+      }
+
+      for (int i = 0; i < config->number_of_servers; i++)
+      {
+         if (config->servers[i].tls)
+         {
+            pgagroal_log_fatal("pgagroal: Transaction pipeline does not support TLS to a server");
+            return 1;
          }
       }
 

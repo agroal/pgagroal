@@ -62,9 +62,9 @@
 static int get_auth_type(struct message* msg, int* auth_type);
 static int compare_auth_response(struct message* orig, struct message* response, int auth_type);
 
-static int use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method);
+static int use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, SSL** server_ssl);
 static int use_unpooled_connection(struct message* msg, SSL* c_ssl, int client_fd, int slot,
-                                   char* username, int hba_method);
+                                   char* username, int hba_method, SSL** server_ssl);
 static int client_trust(SSL* c_ssl, int client_fd, char* username, char* password, int slot);
 static int client_password(SSL* c_ssl, int client_fd, char* username, char* password, int slot);
 static int client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot);
@@ -72,11 +72,11 @@ static int client_scram256(SSL* c_ssl, int client_fd, char* username, char* pass
 static int client_ok(SSL* c_ssl, int client_fd, int slot);
 static int server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd, int slot);
 static int server_authenticate(struct message* msg, int auth_type, char* username, char* password,
-                               int slot);
-static int server_trust(int slot);
-static int server_password(char* username, char* password, int slot);
-static int server_md5(char* username, char* password, int slot);
-static int server_scram256(char* username, char* password, int slot);
+                               int slot, SSL* server_ssl);
+static int server_trust(int slot, SSL* server_ssl);
+static int server_password(char* username, char* password, int slot, SSL* server_ssl);
+static int server_md5(char* username, char* password, int slot, SSL* server_ssl);
+static int server_scram256(char* username, char* password, int slot, SSL* server_ssl);
 
 static bool is_allowed(char* username, char* database, char* address, int* hba_method);
 static bool is_allowed_username(char* username, char* entry);
@@ -124,17 +124,19 @@ static bool is_tls_user(char* username, char* database);
 static int  create_ssl_ctx(bool client, SSL_CTX** ctx);
 static int  create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, SSL** ssl);
 static int  create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl);
+static int  establish_client_tls_connection(int server, int fd, SSL** ssl);
+static int  create_client_tls_connection(int fd, SSL** ssl);
 
 static int auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method);
-static int auth_query_get_connection(char* username, char* password, char* database, int* server_fd);
-static int auth_query_server_md5(struct message* startup_response_msg, char* username, char* password, int socket);
-static int auth_query_server_scram256(char* username, char* password, int socket);
-static int auth_query_get_password(int socket, char* username, char* database, char** password);
+static int auth_query_get_connection(char* username, char* password, char* database, int* server_fd, SSL** server_ssl);
+static int auth_query_server_md5(struct message* startup_response_msg, char* username, char* password, int socket, SSL* server_ssl);
+static int auth_query_server_scram256(char* username, char* password, int socket, SSL* server_ssl);
+static int auth_query_get_password(int socket, SSL* server_ssl, char* username, char* database, char** password);
 static int auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int slot);
 static int auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username, char* shadow, int slot);
 
 int
-pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
+pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl, SSL** server_ssl)
 {
    int status = MESSAGE_STATUS_ERROR;
    int ret;
@@ -154,6 +156,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
 
    *slot = -1;
    *client_ssl = NULL;
+   *server_ssl = NULL;
 
    /* Receive client calls - at any point if client exits return AUTH_ERROR */
    status = pgagroal_read_timeout_message(NULL, client_fd, config->authentication_timeout, &msg);
@@ -355,7 +358,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
 
       /* Get connection */
       pgagroal_tracking_event_basic(TRACKER_AUTHENTICATE, username, database);
-      ret = pgagroal_get_connection(username, database, true, false, slot);
+      ret = pgagroal_get_connection(username, database, true, false, slot, server_ssl);
       if (ret != 0)
       {
          if (ret == 1)
@@ -388,7 +391,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
          pgagroal_log_debug("authenticate: getting pooled connection");
          pgagroal_free_message(msg);
 
-         ret = use_pooled_connection(c_ssl, client_fd, *slot, username, database, hba_method);
+         ret = use_pooled_connection(c_ssl, client_fd, *slot, username, database, hba_method, server_ssl);
          if (ret == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
@@ -404,7 +407,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
       {
          pgagroal_log_debug("authenticate: creating pooled connection");
 
-         ret = use_unpooled_connection(request_msg, c_ssl, client_fd, *slot, username, hba_method);
+         ret = use_unpooled_connection(request_msg, c_ssl, client_fd, *slot, username, hba_method, server_ssl);
          if (ret == AUTH_BAD_PASSWORD)
          {
             goto bad_password;
@@ -467,7 +470,7 @@ error:
 }
 
 int
-pgagroal_prefill_auth(char* username, char* password, char* database, int* slot)
+pgagroal_prefill_auth(char* username, char* password, char* database, int* slot, SSL** server_ssl)
 {
    int server_fd = -1;
    int auth_type = -1;
@@ -480,9 +483,12 @@ pgagroal_prefill_auth(char* username, char* password, char* database, int* slot)
 
    config = (struct configuration*)shmem;
 
+   *slot = -1;
+   *server_ssl = NULL;
+
    /* Get connection */
    pgagroal_tracking_event_basic(TRACKER_PREFILL, username, database);
-   ret = pgagroal_get_connection(username, database, false, false, slot);
+   ret = pgagroal_get_connection(username, database, false, false, slot, server_ssl);
    if (ret != 0)
    {
       goto error;
@@ -495,13 +501,13 @@ pgagroal_prefill_auth(char* username, char* password, char* database, int* slot)
       goto error;
    }
 
-   status = pgagroal_write_message(NULL, server_fd, startup_msg);
+   status = pgagroal_write_message(*server_ssl, server_fd, startup_msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   status = pgagroal_read_block_message(NULL, server_fd, &msg);
+   status = pgagroal_read_block_message(*server_ssl, server_fd, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -524,7 +530,7 @@ pgagroal_prefill_auth(char* username, char* password, char* database, int* slot)
       goto error;
    }
 
-   if (server_authenticate(msg, auth_type, username, password, *slot))
+   if (server_authenticate(msg, auth_type, username, password, *slot, *server_ssl))
    {
       goto error;
    }
@@ -533,7 +539,7 @@ pgagroal_prefill_auth(char* username, char* password, char* database, int* slot)
    if (server_state == SERVER_NOTINIT || server_state == SERVER_NOTINIT_PRIMARY)
    {
       pgagroal_log_debug("Verify server mode: %d", config->connections[*slot].server);
-      pgagroal_update_server_state(*slot, server_fd);
+      pgagroal_update_server_state(*slot, server_fd, *server_ssl);
       pgagroal_server_status();
    }
 
@@ -552,10 +558,11 @@ error:
    if (*slot != -1)
    {
       pgagroal_tracking_event_slot(TRACKER_PREFILL_KILL, *slot);
-      pgagroal_kill_connection(*slot);
+      pgagroal_kill_connection(*slot, *server_ssl);
    }
 
    *slot = -1;
+   *server_ssl = NULL;
 
    pgagroal_free_copy_message(startup_msg);
    pgagroal_free_message(msg);
@@ -1141,6 +1148,8 @@ get_auth_type(struct message* msg, int* auth_type)
    int32_t type = -1;
    int offset;
 
+   *auth_type = -1;
+
    if (msg->kind != 'R')
    {
       return 1;
@@ -1154,7 +1163,6 @@ get_auth_type(struct message* msg, int* auth_type)
    {
       if ('E' == pgagroal_read_byte(msg->data + 9))
       {
-         *auth_type = -1;
          return 0;
       }
    }
@@ -1249,7 +1257,7 @@ compare_auth_response(struct message* orig, struct message* response, int auth_t
 }
 
 static int
-use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method)
+use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, SSL** server_ssl)
 {
    int status = MESSAGE_STATUS_ERROR;
    struct configuration* config = NULL;
@@ -1410,7 +1418,7 @@ error:
 
 static int
 use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, int slot,
-                        char* username, int hba_method)
+                        char* username, int hba_method, SSL** server_ssl)
 {
    int status = MESSAGE_STATUS_ERROR;
    int server_fd;
@@ -1439,9 +1447,12 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
       goto error;
    }
 
+   /* TLS support */
+   establish_client_tls_connection(config->connections[slot].server, server_fd, server_ssl);
+
    /* Send auth request to PostgreSQL */
    pgagroal_log_trace("authenticate: client auth request (%d)", client_fd);
-   status = pgagroal_write_message(NULL, server_fd, request_msg);
+   status = pgagroal_write_message(*server_ssl, server_fd, request_msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -1450,7 +1461,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
 
    /* Keep response, and send response to client */
    pgagroal_log_trace("authenticate: server auth request (%d)", server_fd);
-   status = pgagroal_read_block_message(NULL, server_fd, &msg);
+   status = pgagroal_read_block_message(*server_ssl, server_fd, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -1546,7 +1557,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
          goto error;
       }
 
-      if (server_authenticate(auth_msg, auth_type, username, get_password(username), slot))
+      if (server_authenticate(auth_msg, auth_type, username, get_password(username), slot, *server_ssl))
       {
          if (pgagroal_socket_isvalid(client_fd))
          {
@@ -1567,7 +1578,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    if (server_state == SERVER_NOTINIT || server_state == SERVER_NOTINIT_PRIMARY)
    {
       pgagroal_log_debug("Verify server mode: %d", config->connections[slot].server);
-      pgagroal_update_server_state(slot, server_fd);
+      pgagroal_update_server_state(slot, server_fd, *server_ssl);
       pgagroal_server_status();
    }
 
@@ -2251,7 +2262,7 @@ error:
 }
 
 static int
-server_authenticate(struct message* msg, int auth_type, char* username, char* password, int slot)
+server_authenticate(struct message* msg, int auth_type, char* username, char* password, int slot, SSL* server_ssl)
 {
    struct configuration* config = NULL;
 
@@ -2273,19 +2284,19 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
 
    if (auth_type == SECURITY_TRUST)
    {
-      return server_trust(slot);
+      return server_trust(slot, server_ssl);
    }
    else if (auth_type == SECURITY_PASSWORD)
    {
-      return server_password(username, password, slot);
+      return server_password(username, password, slot, server_ssl);
    }
    else if (auth_type == SECURITY_MD5)
    {
-      return server_md5(username, password, slot);
+      return server_md5(username, password, slot, server_ssl);
    }
    else if (auth_type == SECURITY_SCRAM256)
    {
-      return server_scram256(username, password, slot);
+      return server_scram256(username, password, slot, server_ssl);
    }
 
 error:
@@ -2296,7 +2307,7 @@ error:
 }
 
 static int
-server_trust(int slot)
+server_trust(int slot, SSL* server_ssl)
 {
    struct configuration* config = NULL;
 
@@ -2310,7 +2321,7 @@ server_trust(int slot)
 }
 
 static int
-server_password(char* username, char* password, int slot)
+server_password(char* username, char* password, int slot, SSL* server_ssl)
 {
    int status = MESSAGE_STATUS_ERROR;
    int auth_index = 1;
@@ -2331,7 +2342,7 @@ server_password(char* username, char* password, int slot)
       goto error;
    }
 
-   status = pgagroal_write_message(NULL, server_fd, password_msg);
+   status = pgagroal_write_message(server_ssl, server_fd, password_msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -2341,7 +2352,7 @@ server_password(char* username, char* password, int slot)
    memcpy(&config->connections[slot].security_messages[auth_index], password_msg->data, password_msg->length);
    auth_index++;
 
-   status = pgagroal_read_block_message(NULL, server_fd, &auth_msg);
+   status = pgagroal_read_block_message(server_ssl, server_fd, &auth_msg);
    if (auth_msg->length > SECURITY_BUFFER_SIZE)
    {
       pgagroal_log_error("Security message too large: %ld", auth_msg->length);
@@ -2392,7 +2403,7 @@ error:
 }
 
 static int
-server_md5(char* username, char* password, int slot)
+server_md5(char* username, char* password, int slot, SSL* server_ssl)
 {
    int status = MESSAGE_STATUS_ERROR;
    int auth_index = 1;
@@ -2449,7 +2460,7 @@ server_md5(char* username, char* password, int slot)
       goto error;
    }
 
-   status = pgagroal_write_message(NULL, server_fd, md5_msg);
+   status = pgagroal_write_message(server_ssl, server_fd, md5_msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -2459,7 +2470,7 @@ server_md5(char* username, char* password, int slot)
    memcpy(&config->connections[slot].security_messages[auth_index], md5_msg->data, md5_msg->length);
    auth_index++;
 
-   status = pgagroal_read_block_message(NULL, server_fd, &auth_msg);
+   status = pgagroal_read_block_message(server_ssl, server_fd, &auth_msg);
    if (auth_msg->length > SECURITY_BUFFER_SIZE)
    {
       pgagroal_log_error("Security message too large: %ld", auth_msg->length);
@@ -2528,7 +2539,7 @@ error:
 }
 
 static int
-server_scram256(char* username, char* password, int slot)
+server_scram256(char* username, char* password, int slot, SSL* server_ssl)
 {
    int status = MESSAGE_STATUS_ERROR;
    int auth_index = 1;
@@ -2583,13 +2594,13 @@ server_scram256(char* username, char* password, int slot)
    memcpy(&config->connections[slot].security_messages[auth_index], sasl_response->data, sasl_response->length);
    auth_index++;
 
-   status = pgagroal_write_message(NULL, server_fd, sasl_response);
+   status = pgagroal_write_message(server_ssl, server_fd, sasl_response);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   status = pgagroal_read_block_message(NULL, server_fd, &msg);
+   status = pgagroal_read_block_message(server_ssl, server_fd, &msg);
    if (msg->length > SECURITY_BUFFER_SIZE)
    {
       pgagroal_log_error("Security message too large: %ld", msg->length);
@@ -2647,13 +2658,13 @@ server_scram256(char* username, char* password, int slot)
    memcpy(&config->connections[slot].security_messages[auth_index], sasl_continue_response->data, sasl_continue_response->length);
    auth_index++;
 
-   status = pgagroal_write_message(NULL, server_fd, sasl_continue_response);
+   status = pgagroal_write_message(server_ssl, server_fd, sasl_continue_response);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   status = pgagroal_read_block_message(NULL, server_fd, &msg);
+   status = pgagroal_read_block_message(server_ssl, server_fd, &msg);
    if (msg->length > SECURITY_BUFFER_SIZE)
    {
       pgagroal_log_error("Security message too large: %ld", msg->length);
@@ -4314,7 +4325,7 @@ create_ssl_ctx(bool client, SSL_CTX** ctx)
 
    SSL_CTX_set_mode(c, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
    SSL_CTX_set_options(c, SSL_OP_NO_TICKET);
-   SSL_CTX_set_session_cache_mode(c, SSL_SESS_CACHE_OFF);
+   SSL_CTX_set_session_cache_mode(c, SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL_STORE);
 
    *ctx = c;
 
@@ -4337,7 +4348,7 @@ create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, S
    bool have_cert = false;
    bool have_rootcert = false;
 
-   if (strlen(root) > 0)
+   if (root != NULL && strlen(root) > 0)
    {
       if (SSL_CTX_load_verify_locations(ctx, root, NULL) != 1)
       {
@@ -4352,7 +4363,7 @@ create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, S
       have_rootcert = true;
    }
 
-   if (strlen(cert) > 0)
+   if (cert != NULL && strlen(cert) > 0)
    {
       if (SSL_CTX_use_certificate_chain_file(ctx, cert) != 1)
       {
@@ -4533,6 +4544,7 @@ static int
 auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method)
 {
    int su_socket;
+   SSL* su_ssl = NULL;
    char* shadow = NULL;
    int ret;
    struct configuration* config;
@@ -4540,7 +4552,7 @@ auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, 
    config = (struct configuration*)shmem;
 
    /* Get connection to server using the superuser */
-   ret = auth_query_get_connection(config->superuser.username, config->superuser.password, database, &su_socket);
+   ret = auth_query_get_connection(config->superuser.username, config->superuser.password, database, &su_socket, &su_ssl);
    if (ret == AUTH_BAD_PASSWORD)
    {
       pgagroal_write_connection_refused(c_ssl, client_fd);
@@ -4564,7 +4576,7 @@ auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, 
    }
 
    /* Call pgagroal_get_password */
-   if (auth_query_get_password(su_socket, username, database, &shadow))
+   if (auth_query_get_password(su_socket, su_ssl, username, database, &shadow))
    {
       pgagroal_write_connection_refused(c_ssl, client_fd);
       pgagroal_write_empty(c_ssl, client_fd);
@@ -4639,7 +4651,7 @@ error:
 }
 
 static int
-auth_query_get_connection(char* username, char* password, char* database, int* server_fd)
+auth_query_get_connection(char* username, char* password, char* database, int* server_fd, SSL** server_ssl)
 {
    int auth_type = -1;
    int server;
@@ -4719,6 +4731,9 @@ retry:
 
    pgagroal_log_debug("connect: %s:%d using fd %d", config->servers[server].host, config->servers[server].port, *server_fd);
 
+   /* TLS support */
+   establish_client_tls_connection(server, *server_fd, server_ssl);
+
    /* Startup message */
    status = pgagroal_create_startup_message(username, database, &startup_msg);
    if (status != MESSAGE_STATUS_OK)
@@ -4726,13 +4741,13 @@ retry:
       goto error;
    }
 
-   status = pgagroal_write_message(NULL, *server_fd, startup_msg);
+   status = pgagroal_write_message(*server_ssl, *server_fd, startup_msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   status = pgagroal_read_block_message(NULL, *server_fd, &msg);
+   status = pgagroal_read_block_message(*server_ssl, *server_fd, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -4748,7 +4763,7 @@ retry:
    /*   scram256 (10) */
    if (auth_type == SECURITY_MD5)
    {
-      ret = auth_query_server_md5(startup_response_msg, username, password, *server_fd);
+      ret = auth_query_server_md5(startup_response_msg, username, password, *server_fd, *server_ssl);
       if (ret == AUTH_BAD_PASSWORD)
       {
          goto bad_password;
@@ -4760,7 +4775,7 @@ retry:
    }
    else if (auth_type == SECURITY_SCRAM256)
    {
-      ret = auth_query_server_scram256(username, password, *server_fd);
+      ret = auth_query_server_scram256(username, password, *server_fd, *server_ssl);
       if (ret == AUTH_BAD_PASSWORD)
       {
          goto bad_password;
@@ -4846,7 +4861,7 @@ timeout:
 }
 
 static int
-auth_query_server_md5(struct message* startup_response_msg, char* username, char* password, int socket)
+auth_query_server_md5(struct message* startup_response_msg, char* username, char* password, int socket, SSL* server_ssl)
 {
    int status = MESSAGE_STATUS_ERROR;
    int auth_response = -1;
@@ -4897,13 +4912,13 @@ auth_query_server_md5(struct message* startup_response_msg, char* username, char
       goto error;
    }
 
-   status = pgagroal_write_message(NULL, socket, md5_msg);
+   status = pgagroal_write_message(server_ssl, socket, md5_msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   status = pgagroal_read_block_message(NULL, socket, &auth_msg);
+   status = pgagroal_read_block_message(server_ssl, socket, &auth_msg);
    if (auth_msg->length > SECURITY_BUFFER_SIZE)
    {
       pgagroal_log_error("Security message too large: %ld", auth_msg->length);
@@ -4967,7 +4982,7 @@ error:
 }
 
 static int
-auth_query_server_scram256(char* username, char* password, int socket)
+auth_query_server_scram256(char* username, char* password, int socket, SSL* server_ssl)
 {
    int status = MESSAGE_STATUS_ERROR;
    char* salt = NULL;
@@ -5013,13 +5028,13 @@ auth_query_server_scram256(char* username, char* password, int socket)
       goto error;
    }
 
-   status = pgagroal_write_message(NULL, socket, sasl_response);
+   status = pgagroal_write_message(server_ssl, socket, sasl_response);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   status = pgagroal_read_block_message(NULL, socket, &msg);
+   status = pgagroal_read_block_message(server_ssl, socket, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -5068,13 +5083,13 @@ auth_query_server_scram256(char* username, char* password, int socket)
       goto error;
    }
 
-   status = pgagroal_write_message(NULL, socket, sasl_continue_response);
+   status = pgagroal_write_message(server_ssl, socket, sasl_continue_response);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   status = pgagroal_read_block_message(NULL, socket, &msg);
+   status = pgagroal_read_block_message(server_ssl, socket, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -5184,7 +5199,7 @@ error:
 }
 
 static int
-auth_query_get_password(int socket, char* username, char* database, char** password)
+auth_query_get_password(int socket, SSL* server_ssl, char* username, char* database, char** password)
 {
    int status;
    size_t size;
@@ -5213,13 +5228,13 @@ auth_query_get_password(int socket, char* username, char* database, char** passw
    qmsg.length = size;
    qmsg.data = aq;
 
-   status = pgagroal_write_message(NULL, socket, &qmsg);
+   status = pgagroal_write_message(server_ssl, socket, &qmsg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
 
-   status = pgagroal_read_block_message(NULL, socket, &tmsg);
+   status = pgagroal_read_block_message(server_ssl, socket, &tmsg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -5612,6 +5627,130 @@ error:
 
    pgagroal_free_copy_message(sasl_continue);
    pgagroal_free_copy_message(sasl_final);
+
+   return AUTH_ERROR;
+}
+
+static int
+establish_client_tls_connection(int server, int fd, SSL** ssl)
+{
+   bool use_ssl = false;
+   struct configuration* config = NULL;
+   struct message* ssl_msg = NULL;
+   struct message* msg = NULL;
+   int status = -1;
+
+   config = (struct configuration*)shmem;
+
+   use_ssl = config->servers[server].tls;
+
+   if (use_ssl)
+   {
+      status = pgagroal_create_ssl_message(&ssl_msg);
+      if (status != MESSAGE_STATUS_OK)
+      {
+         goto error;
+      }
+
+      status = pgagroal_write_message(NULL, fd, ssl_msg);
+      if (status != MESSAGE_STATUS_OK)
+      {
+         goto error;
+      }
+
+      status = pgagroal_read_block_message(NULL, fd, &msg);
+      if (status != MESSAGE_STATUS_OK)
+      {
+         goto error;
+      }
+
+      if (msg->kind == 'S')
+      {
+         create_client_tls_connection(fd, ssl);
+      }
+   }
+
+   pgagroal_free_copy_message(ssl_msg);
+   pgagroal_free_message(msg);
+
+   return AUTH_SUCCESS;
+
+error:
+
+   pgagroal_free_copy_message(ssl_msg);
+   pgagroal_free_message(msg);
+
+   return AUTH_ERROR;
+}
+
+static int
+create_client_tls_connection(int fd, SSL** ssl)
+{
+   SSL_CTX* ctx = NULL;
+   SSL* s = NULL;
+   int status = -1;
+
+   /* We are acting as a client against the server */
+   if (create_ssl_ctx(true, &ctx))
+   {
+      pgagroal_log_error("CTX failed");
+      goto error;
+   }
+
+   /* Create SSL structure */
+   if (create_ssl_client(ctx, NULL, NULL, NULL, fd, &s))
+   {
+      pgagroal_log_error("Client failed");
+      goto error;
+   }
+
+   do
+   {
+      status = SSL_connect(s);
+
+      if (status != 1)
+      {
+         int err = SSL_get_error(s, status);
+         switch (err)
+         {
+            case SSL_ERROR_ZERO_RETURN:
+            case SSL_ERROR_WANT_READ:
+            case SSL_ERROR_WANT_WRITE:
+            case SSL_ERROR_WANT_CONNECT:
+            case SSL_ERROR_WANT_ACCEPT:
+            case SSL_ERROR_WANT_X509_LOOKUP:
+            case SSL_ERROR_WANT_ASYNC:
+            case SSL_ERROR_WANT_ASYNC_JOB:
+            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+               break;
+            case SSL_ERROR_SYSCALL:
+               pgagroal_log_error("SSL_ERROR_SYSCALL: FD %d", fd);
+               pgagroal_log_error("%s", ERR_error_string(err, NULL));
+               pgagroal_log_error("%s", ERR_lib_error_string(err));
+               pgagroal_log_error("%s", ERR_reason_error_string(err));
+               errno = 0;
+               goto error;
+               break;
+            case SSL_ERROR_SSL:
+               pgagroal_log_error("SSL_ERROR_SSL: FD %d", fd);
+               pgagroal_log_error("%s", ERR_error_string(err, NULL));
+               pgagroal_log_error("%s", ERR_lib_error_string(err));
+               pgagroal_log_error("%s", ERR_reason_error_string(err));
+               errno = 0;
+               goto error;
+               break;
+         }
+         ERR_clear_error();
+      }
+   } while (status != 1);
+
+   *ssl = s;
+
+   return AUTH_SUCCESS;
+
+error:
+
+   *ssl = s;
 
    return AUTH_ERROR;
 }

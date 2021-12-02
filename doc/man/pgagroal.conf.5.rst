@@ -154,6 +154,9 @@ port
 primary
   Identify the instance as the primary instance (hint)
 
+tls
+  Enable Transport Layer Security (TLS) support (Experimental - no pooling). Default is off
+
 REPORTING BUGS
 ==============
 

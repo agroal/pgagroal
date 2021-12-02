@@ -151,6 +151,7 @@ struct worker_io
    int server_fd;        /* The server descriptor */
    int slot;             /* The slot */
    SSL* client_ssl;      /* The client SSL context */
+   SSL* server_ssl;      /* The server SSL context */
    void* shmem;          /* The shared memory segment */
    void* pipeline_shmem; /* The shared memory segment for the pipeline */
 };

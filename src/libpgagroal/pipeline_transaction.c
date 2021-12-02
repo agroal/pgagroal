@@ -134,7 +134,7 @@ transaction_start(struct ev_loop* loop, struct worker_io* w)
    pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION_START, w->slot);
 
    is_new = config->connections[w->slot].new;
-   pgagroal_return_connection(w->slot, true);
+   pgagroal_return_connection(w->slot, w->server_ssl, true);
 
    w->server_fd = -1;
    w->slot = -1;
@@ -176,7 +176,7 @@ transaction_stop(struct ev_loop* loop, struct worker_io* w)
 
       ev_io_stop(loop, (struct ev_io*)&server_io);
       pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION_STOP, w->slot);
-      pgagroal_return_connection(slot, true);
+      pgagroal_return_connection(slot, w->server_ssl, true);
       slot = -1;
    }
 
@@ -197,6 +197,7 @@ static void
 transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
+   SSL* s_ssl = NULL;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
    struct configuration* config = NULL;
@@ -208,13 +209,14 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    if (slot == -1)
    {
       pgagroal_tracking_event_basic(TRACKER_TX_GET_CONNECTION, &username[0], &database[0]);
-      if (pgagroal_get_connection(&username[0], &database[0], true, true, &slot))
+      if (pgagroal_get_connection(&username[0], &database[0], true, true, &slot, &s_ssl))
       {
          pgagroal_write_pool_full(wi->client_ssl, wi->client_fd);
          goto get_error;
       }
 
       wi->server_fd = config->connections[slot].fd;
+      wi->server_ssl = s_ssl;
       wi->slot = slot;
 
       memcpy(&config->connections[slot].appname[0], &appname[0], MAX_APPLICATION_NAME);
@@ -224,6 +226,7 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
       server_io.server_fd = config->connections[slot].fd;
       server_io.slot = slot;
       server_io.client_ssl = wi->client_ssl;
+      server_io.server_ssl = wi->server_ssl;
 
       fatal = false;
 
@@ -292,7 +295,14 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
             }
          }
 
-         status = pgagroal_write_socket_message(wi->server_fd, msg);
+         if (wi->server_ssl == NULL)
+         {
+            status = pgagroal_write_socket_message(wi->server_fd, msg);
+         }
+         else
+         {
+            status = pgagroal_write_ssl_message(wi->server_ssl, msg);
+         }
          if (unlikely(status == MESSAGE_STATUS_ERROR))
          {
             if (config->failover)
@@ -399,7 +409,14 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
       goto client_error;
    }
 
-   status = pgagroal_read_socket_message(wi->server_fd, &msg);
+   if (wi->server_ssl == NULL)
+   {
+      status = pgagroal_read_socket_message(wi->server_fd, &msg);
+   }
+   else
+   {
+      status = pgagroal_read_ssl_message(wi->server_ssl, &msg);
+   }
    if (likely(status == MESSAGE_STATUS_OK))
    {
       pgagroal_prometheus_network_received_add(msg->length);
@@ -474,12 +491,12 @@ transaction_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
             if (deallocate)
             {
-               pgagroal_write_deallocate_all(NULL, wi->server_fd);
+               pgagroal_write_deallocate_all(wi->server_ssl, wi->server_fd);
                deallocate = false;
             }
 
             pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION, slot);
-            if (pgagroal_return_connection(slot, true))
+            if (pgagroal_return_connection(slot, wi->server_ssl, true))
             {
                goto return_error;
             }

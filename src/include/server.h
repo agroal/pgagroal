@@ -36,6 +36,7 @@ extern "C" {
 #include <pgagroal.h>
 
 #include <stdlib.h>
+#include <openssl/ssl.h>
 
 /**
  * Get the primary server
@@ -49,10 +50,11 @@ pgagroal_get_primary(int* server);
  * Update the server state
  * @param slot The slot
  * @param socket The descriptor
+ * @param ssl The SSL connection
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_update_server_state(int slot, int socket);
+pgagroal_update_server_state(int slot, int socket, SSL* ssl);
 
 /**
  * Print the state of the servers

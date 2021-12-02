@@ -45,10 +45,11 @@ extern "C" {
  * @param address The client address
  * @param slot The resulting slot
  * @param client_ssl The client SSL context
+ * @param server_ssl The server SSL context
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl);
+pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl, SSL** server_ssl);
 
 /**
  * Authenticate a prefill connection
@@ -56,10 +57,11 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl)
  * @param password The password
  * @param database The database
  * @param slot The resulting slot
+ * @param server_ssl The server SSL context
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_prefill_auth(char* username, char* password, char* database, int* slot);
+pgagroal_prefill_auth(char* username, char* password, char* database, int* slot, SSL** server_ssl);
 
 /**
  * Authenticate a remote management user

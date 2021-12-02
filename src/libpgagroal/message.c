@@ -1349,11 +1349,17 @@ ssl_write_message(SSL* ssl, struct message* msg)
                keep_write = true;
                break;
             case SSL_ERROR_SYSCALL:
-               pgagroal_log_error("SSL_ERROR_SYSCALL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               pgagroal_log_error("SSL_ERROR_SYSCALL: FD %d", SSL_get_fd(ssl));
+               pgagroal_log_error("%s", ERR_error_string(err, NULL));
+               pgagroal_log_error("%s", ERR_lib_error_string(err));
+               pgagroal_log_error("%s", ERR_reason_error_string(err));
                errno = 0;
                break;
             case SSL_ERROR_SSL:
-               pgagroal_log_error("SSL_ERROR_SSL: %s (%d)", strerror(errno), SSL_get_fd(ssl));
+               pgagroal_log_error("SSL_ERROR_SSL: FD %d", SSL_get_fd(ssl));
+               pgagroal_log_error("%s", ERR_error_string(err, NULL));
+               pgagroal_log_error("%s", ERR_lib_error_string(err));
+               pgagroal_log_error("%s", ERR_reason_error_string(err));
                errno = 0;
                break;
          }

@@ -255,7 +255,7 @@ error:
    if (cmptr)
       free(cmptr);
    pgagroal_disconnect(fd);
-   pgagroal_kill_connection(slot);
+   pgagroal_kill_connection(slot, NULL);
 
    return 1;
 }
@@ -1105,7 +1105,7 @@ unavailable:
 error:
    free(cmptr);
    pgagroal_disconnect(fd);
-   pgagroal_kill_connection(slot);
+   pgagroal_kill_connection(slot, NULL);
 
    return 1;
 }

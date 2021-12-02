@@ -68,6 +68,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    bool tx_pool = false;
    int32_t slot = -1;
    SSL* client_ssl = NULL;
+   SSL* server_ssl = NULL;
 
    pgagroal_start_logging();
    pgagroal_memory_init();
@@ -87,7 +88,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
 
    pgagroal_prometheus_client_wait_add();
    /* Authentication */
-   auth_status = pgagroal_authenticate(client_fd, address, &slot, &client_ssl);
+   auth_status = pgagroal_authenticate(client_fd, address, &slot, &client_ssl, &server_ssl);
    if (auth_status == AUTH_SUCCESS)
    {
       pgagroal_log_debug("pgagroal_worker: Slot %d (%d -> %d)", slot, client_fd, config->connections[slot].fd);
@@ -128,6 +129,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       client_io.server_fd = config->connections[slot].fd;
       client_io.slot = slot;
       client_io.client_ssl = client_ssl;
+      client_io.server_ssl = server_ssl;
       
       if (config->pipeline != PIPELINE_TRANSACTION)
       {
@@ -136,6 +138,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
          server_io.server_fd = config->connections[slot].fd;
          server_io.slot = slot;
          server_io.client_ssl = client_ssl;
+         server_io.server_ssl = server_ssl;
       }
       
       loop = ev_loop_new(pgagroal_libev(config->libev));
@@ -205,14 +208,14 @@ pgagroal_worker(int client_fd, char* address, char** argv)
          if (config->pipeline != PIPELINE_TRANSACTION)
          {
             pgagroal_tracking_event_slot(TRACKER_WORKER_RETURN1, slot);
-            pgagroal_return_connection(slot, tx_pool);
+            pgagroal_return_connection(slot, server_ssl, tx_pool);
          }
       }
       else if (exit_code == WORKER_SERVER_FAILURE || exit_code == WORKER_SERVER_FATAL || exit_code == WORKER_SHUTDOWN || exit_code == WORKER_FAILOVER ||
                (exit_code == WORKER_FAILURE && config->connections[slot].has_security == SECURITY_INVALID))
       {
          pgagroal_tracking_event_slot(TRACKER_WORKER_KILL1, slot);
-         pgagroal_kill_connection(slot);
+         pgagroal_kill_connection(slot, server_ssl);
       }
       else
       {
@@ -221,12 +224,12 @@ pgagroal_worker(int client_fd, char* address, char** argv)
              config->connections[slot].has_security != SECURITY_INVALID)
          {
             pgagroal_tracking_event_slot(TRACKER_WORKER_RETURN2, slot);
-            pgagroal_return_connection(slot, tx_pool);
+            pgagroal_return_connection(slot, server_ssl, tx_pool);
          }
          else
          {
             pgagroal_tracking_event_slot(TRACKER_WORKER_KILL2, slot);
-            pgagroal_kill_connection(slot);
+            pgagroal_kill_connection(slot, server_ssl);
          }
       }
    }

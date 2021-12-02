@@ -73,6 +73,7 @@ __Danger zone__
 | host | | String | Yes | The address of the PostgreSQL instance |
 | port | | Int | Yes | The port of the PostgreSQL instance |
 | primary | | Bool | No | Identify the instance as primary (hint) |
+| tls | `off` | Bool | No | Enable Transport Layer Security (TLS) support (Experimental - no pooling) |
 
 Note, that if `host` starts with a `/` it represents a path and `pgagroal` will connect using a Unix Domain Socket.
 

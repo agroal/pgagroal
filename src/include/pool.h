@@ -37,6 +37,7 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdlib.h>
+#include <openssl/ssl.h>
 
 /**
  * Get a connection
@@ -45,27 +46,30 @@ extern "C" {
  * @param reuse Should a slot be reused
  * @param transaction_mode Obtain a connection in transaction mode
  * @param slot The resulting slot
+ * @param ssl The resulting SSL (can be NULL)
  * @return 0 upon success, 1 if pool is full, otherwise 2
  */
 int
-pgagroal_get_connection(char* username, char* database, bool reuse, bool transaction_mode, int* slot);
+pgagroal_get_connection(char* username, char* database, bool reuse, bool transaction_mode, int* slot, SSL** ssl);
 
 /**
  * Return a connection
  * @param slot The slot
+ * @param ssl The SSL connection (can be NULL)
  * @param transaction_mode Is the connection returned in transaction mode
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_return_connection(int slot, bool transaction_mode);
+pgagroal_return_connection(int slot, SSL* ssl, bool transaction_mode);
 
 /**
  * Kill a connection
  * @param slot The slot
+ * @param ssl The SSL connection (can be NULL)
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_kill_connection(int slot);
+pgagroal_kill_connection(int slot, SSL* ssl);
 
 /**
  * Perform idle timeout

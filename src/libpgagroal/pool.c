@@ -58,7 +58,7 @@ static void connection_details(int slot);
 static bool do_prefill(char* username, char* database, int size);
 
 int
-pgagroal_get_connection(char* username, char* database, bool reuse, bool transaction_mode, int* slot)
+pgagroal_get_connection(char* username, char* database, bool reuse, bool transaction_mode, int* slot, SSL** ssl)
 {
    bool do_init;
    bool has_lock;
@@ -87,6 +87,7 @@ pgagroal_get_connection(char* username, char* database, bool reuse, bool transac
 start:
 
    *slot = -1;
+   *ssl = NULL;
    do_init = false;
    has_lock = false;
 
@@ -249,7 +250,7 @@ start:
 
             pgagroal_log_debug("pgagroal_get_connection: Slot %d FD %d - Error", *slot, config->connections[*slot].fd);
             pgagroal_tracking_event_slot(TRACKER_BAD_CONNECTION, *slot);
-            status = pgagroal_kill_connection(*slot);
+            status = pgagroal_kill_connection(*slot, *ssl);
 
             if (config->number_of_users > 0 && config->number_of_limits > 0)
             {
@@ -369,7 +370,7 @@ error:
 }
 
 int
-pgagroal_return_connection(int slot, bool transaction_mode)
+pgagroal_return_connection(int slot, SSL* ssl, bool transaction_mode)
 {
    int state;
    struct configuration* config;
@@ -387,7 +388,8 @@ pgagroal_return_connection(int slot, bool transaction_mode)
    if (config->connections[slot].has_security != SECURITY_INVALID &&
        (config->connections[slot].has_security != SECURITY_SCRAM256 ||
         (config->connections[slot].has_security == SECURITY_SCRAM256 &&
-         (config->authquery || pgagroal_user_known(config->connections[slot].username)))))
+         (config->authquery || pgagroal_user_known(config->connections[slot].username)))) &&
+       ssl == NULL)
    {
       state = atomic_load(&config->states[slot]);
 
@@ -398,7 +400,7 @@ pgagroal_return_connection(int slot, bool transaction_mode)
 
          if (!transaction_mode)
          {
-            if (pgagroal_write_discard_all(NULL, config->connections[slot].fd))
+            if (pgagroal_write_discard_all(ssl, config->connections[slot].fd))
             {
                goto kill_connection;
             }
@@ -433,7 +435,7 @@ pgagroal_return_connection(int slot, bool transaction_mode)
       }
       else if (state == STATE_GRACEFULLY)
       {
-         pgagroal_write_terminate(NULL, config->connections[slot].fd);
+         pgagroal_write_terminate(ssl, config->connections[slot].fd);
       }
    }
 
@@ -441,12 +443,14 @@ kill_connection:
 
    pgagroal_tracking_event_slot(TRACKER_RETURN_CONNECTION_KILL, slot);
 
-   return pgagroal_kill_connection(slot);
+   return pgagroal_kill_connection(slot, ssl);
 }
 
 int
-pgagroal_kill_connection(int slot)
+pgagroal_kill_connection(int slot, SSL* ssl)
 {
+   SSL_CTX* ctx;
+   int ssl_shutdown;
    int result = 0;
    int fd;
    struct configuration* config;
@@ -463,6 +467,19 @@ pgagroal_kill_connection(int slot)
    if (fd != -1)
    {
       pgagroal_management_kill_connection(slot, fd);
+
+      if (ssl != NULL)
+      {
+         ctx = SSL_get_SSL_CTX(ssl);
+         ssl_shutdown = SSL_shutdown(ssl);
+         if (ssl_shutdown == 0)
+         {
+            SSL_shutdown(ssl);
+         }
+         SSL_free(ssl);
+         SSL_CTX_free(ctx);
+      }
+
       if (!pgagroal_socket_has_error(fd))
       {
          pgagroal_disconnect(fd);
@@ -541,7 +558,7 @@ pgagroal_idle_timeout(void)
          {
             pgagroal_prometheus_connection_idletimeout();
             pgagroal_tracking_event_slot(TRACKER_IDLE_TIMEOUT, i);
-            pgagroal_kill_connection(i);
+            pgagroal_kill_connection(i, NULL);
             prefill = true;
          }
          else
@@ -550,7 +567,7 @@ pgagroal_idle_timeout(void)
             {
                pgagroal_prometheus_connection_idletimeout();
                pgagroal_tracking_event_slot(TRACKER_IDLE_TIMEOUT, i);
-               pgagroal_kill_connection(i);
+               pgagroal_kill_connection(i, NULL);
                prefill = true;
             }
          }
@@ -626,7 +643,7 @@ pgagroal_validation(void)
          {
             pgagroal_prometheus_connection_invalid();
             pgagroal_tracking_event_slot(TRACKER_INVALID_CONNECTION, i);
-            pgagroal_kill_connection(i);
+            pgagroal_kill_connection(i, NULL);
             prefill = true;
          }
          else
@@ -635,7 +652,7 @@ pgagroal_validation(void)
             {
                pgagroal_prometheus_connection_invalid();
                pgagroal_tracking_event_slot(TRACKER_INVALID_CONNECTION, i);
-               pgagroal_kill_connection(i);
+               pgagroal_kill_connection(i, NULL);
                prefill = true;
             }
          }
@@ -700,7 +717,7 @@ pgagroal_flush(int mode)
             }
             pgagroal_prometheus_connection_flush();
             pgagroal_tracking_event_slot(TRACKER_FLUSH, i);
-            pgagroal_kill_connection(i);
+            pgagroal_kill_connection(i, NULL);
             prefill = true;
          }
          else if (mode == FLUSH_ALL || mode == FLUSH_GRACEFULLY)
@@ -712,7 +729,7 @@ pgagroal_flush(int mode)
                   kill(config->connections[i].pid, SIGQUIT);
                   pgagroal_prometheus_connection_flush();
                   pgagroal_tracking_event_slot(TRACKER_FLUSH, i);
-                  pgagroal_kill_connection(i);
+                  pgagroal_kill_connection(i, NULL);
                   prefill = true;
                }
                else if (mode == FLUSH_GRACEFULLY)
@@ -734,7 +751,7 @@ pgagroal_flush(int mode)
                atomic_store(&config->states[i], STATE_GRACEFULLY);
                pgagroal_prometheus_connection_flush();
                pgagroal_tracking_event_slot(TRACKER_FLUSH, i);
-               pgagroal_kill_connection(i);
+               pgagroal_kill_connection(i, NULL);
                prefill = true;
                break;
             case STATE_IN_USE:
@@ -812,9 +829,10 @@ pgagroal_prefill(bool initial)
                while (do_prefill(config->users[user].username, config->limits[i].database, size))
                {
                   int32_t slot = -1;
+                  SSL* ssl = NULL;
 
                   if (pgagroal_prefill_auth(config->users[user].username, config->users[user].password,
-                                            config->limits[i].database, &slot) != AUTH_SUCCESS)
+                                            config->limits[i].database, &slot, &ssl) != AUTH_SUCCESS)
                   {
                      pgagroal_log_warn("Invalid data for user '%s' using limit entry (%d)", config->limits[i].username, i + 1);
 
@@ -828,7 +846,7 @@ pgagroal_prefill(bool initial)
                            }
                         }
                         pgagroal_tracking_event_slot(TRACKER_PREFILL_KILL, slot);
-                        pgagroal_kill_connection(slot);
+                        pgagroal_kill_connection(slot, ssl);
                      }
 
                      break;
@@ -839,7 +857,7 @@ pgagroal_prefill(bool initial)
                      if (config->connections[slot].has_security != SECURITY_INVALID)
                      {
                         pgagroal_tracking_event_slot(TRACKER_PREFILL_RETURN, slot);
-                        pgagroal_return_connection(slot, false);
+                        pgagroal_return_connection(slot, ssl, false);
                      }
                      else
                      {
@@ -852,7 +870,7 @@ pgagroal_prefill(bool initial)
                            }
                         }
                         pgagroal_tracking_event_slot(TRACKER_PREFILL_KILL, slot);
-                        pgagroal_kill_connection(slot);
+                        pgagroal_kill_connection(slot, ssl);
                         break;
                      }
                   }
@@ -1036,14 +1054,14 @@ remove_connection(char* username, char* database)
             {
                pgagroal_prometheus_connection_remove();
                pgagroal_tracking_event_slot(TRACKER_REMOVE_CONNECTION, i);
-               pgagroal_kill_connection(i);
+               pgagroal_kill_connection(i, NULL);
             }
          }
          else
          {
             pgagroal_prometheus_connection_remove();
             pgagroal_tracking_event_slot(TRACKER_REMOVE_CONNECTION, i);
-            pgagroal_kill_connection(i);
+            pgagroal_kill_connection(i, NULL);
          }
 
          return true;
