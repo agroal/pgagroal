@@ -75,7 +75,14 @@ pgagroal_start_logging(void)
    {
       if (strlen(config->log_path) > 0)
       {
-         log_file = fopen(config->log_path, "a");
+         if (config->log_mode == PGAGROAL_LOGGING_MODE_APPEND)
+         {
+            log_file = fopen(config->log_path, "a");
+         }
+         else
+         {
+            log_file = fopen(config->log_path, "w");
+         }
       }
       else
       {
