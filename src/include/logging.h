@@ -49,6 +49,9 @@ extern "C" {
 #define PGAGROAL_LOGGING_LEVEL_ERROR   5
 #define PGAGROAL_LOGGING_LEVEL_FATAL   6
 
+#define PGAGROAL_LOGGING_MODE_CREATE 0
+#define PGAGROAL_LOGGING_MODE_APPEND 1
+
 #define pgagroal_log_trace(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_DEBUG5, __FILE__, __LINE__, __VA_ARGS__)
 #define pgagroal_log_debug(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_DEBUG1, __FILE__, __LINE__, __VA_ARGS__)
 #define pgagroal_log_info(...)  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_INFO,  __FILE__, __LINE__,  __VA_ARGS__)

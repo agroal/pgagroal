@@ -51,6 +51,9 @@ log_level
 log_path
   The log file location. Default is pgagroal.log
 
+log_mode
+  Append to or create the log file (append, create). Default is append
+
 log_connections
   Log connects. Default is off
 

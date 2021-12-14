@@ -30,6 +30,7 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | log_type | console | String | No | The logging type (console, file, syslog) |
 | log_level | info | String | No | The logging level (fatal, error, warn, info, debug1, ..., debug5) |
 | log_path | pgagroal.log | String | No | The log file location |
+| log_mode | append | String | No | Append to or create the log file (append, create) |
 | log_connections | `off` | Bool | No | Log connects |
 | log_disconnections | `off` | Bool | No | Log disconnects |
 | blocking_timeout | 30 | Int | No | The number of seconds the process will be blocking for a connection (disable = 0) |

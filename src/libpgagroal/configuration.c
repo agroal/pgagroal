@@ -57,6 +57,7 @@ static int as_int(char* str, int* i);
 static int as_bool(char* str, bool* b);
 static int as_logging_type(char* str);
 static int as_logging_level(char* str);
+static int as_logging_mode(char* str);
 static int as_validation(char* str);
 static int as_pipeline(char* str);
 static int as_hugepage(char* str);
@@ -119,6 +120,7 @@ pgagroal_init_configuration(void* shm)
    config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;
    config->log_connections = false;
    config->log_disconnections = false;
+   config->log_mode = PGAGROAL_LOGGING_MODE_APPEND;
    atomic_init(&config->log_lock, STATE_FREE);
 
    config->max_connections = 100;
@@ -612,6 +614,17 @@ pgagroal_read_configuration(void* shm, char* filename)
                      {
                         unknown = true;
                      }
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "log_mode"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     config->log_mode = as_logging_mode(value);
                   }
                   else
                   {
@@ -2273,6 +2286,18 @@ as_logging_level(char* str)
 }
 
 static int
+as_logging_mode(char* str)
+{
+   if (!strcasecmp(str, "a") || !strcasecmp(str, "append"))
+      return PGAGROAL_LOGGING_MODE_APPEND;
+
+   if (!strcasecmp(str, "c") || !strcasecmp(str, "create"))
+      return PGAGROAL_LOGGING_MODE_CREATE;
+
+   return PGAGROAL_LOGGING_MODE_APPEND;
+}
+
+static int
 as_validation(char* str)
 {
    if (!strcasecmp(str, "off"))
@@ -2501,6 +2526,7 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    restart_string("log_path", config->log_path, reload->log_path);
    config->log_connections = reload->log_connections;
    config->log_disconnections = reload->log_disconnections;
+   restart_int("log_mode", config->log_mode, reload->log_mode);
    /* log_lock */
 
    config->authquery = reload->authquery;

@@ -301,6 +301,7 @@ struct configuration
    char log_path[MISC_LENGTH]; /**< The logging path */
    bool log_connections;       /**< Log successful logins */
    bool log_disconnections;    /**< Log disconnects */
+   int log_mode;               /**< The logging mode */
    atomic_schar log_lock;      /**< The logging lock */
 
    bool authquery; /**< Is authentication query enabled */
