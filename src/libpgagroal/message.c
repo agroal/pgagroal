@@ -999,6 +999,32 @@ pgagroal_create_startup_message(char* username, char* database, struct message**
    return MESSAGE_STATUS_OK;
 }
 
+int
+pgagroal_create_cancel_request_message(int pid, int secret, struct message** msg)
+{
+   struct message* m = NULL;
+   size_t size;
+
+   size = 16;
+
+   m = (struct message*)malloc(sizeof(struct message));
+   m->data = malloc(size);
+
+   memset(m->data, 0, size);
+
+   m->kind = 0;
+   m->length = size;
+
+   pgagroal_write_int32(m->data, size);
+   pgagroal_write_int32(m->data + 4, 80877102);
+   pgagroal_write_int32(m->data + 8, pid);
+   pgagroal_write_int32(m->data + 12, secret);
+
+   *msg = m;
+
+   return MESSAGE_STATUS_OK;
+}
+
 bool
 pgagroal_connection_isvalid(int socket)
 {

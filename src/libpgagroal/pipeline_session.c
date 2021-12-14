@@ -42,6 +42,7 @@
 /* system */
 #include <errno.h>
 #include <ev.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <netinet/in.h>
@@ -187,6 +188,10 @@ session_periodic(void)
    signed char idle;
    bool do_kill;
    time_t now;
+   int ret;
+   signed char server;
+   int socket;
+   struct message* cancel_msg = NULL;
    struct client_session* client;
    struct configuration* config;
 
@@ -223,13 +228,48 @@ session_periodic(void)
 
                if (do_kill)
                {
+                  pgagroal_create_cancel_request_message(config->connections[i].backend_pid, config->connections[i].backend_secret, &cancel_msg);
+
+                  server = config->connections[i].server;
+
+                  if (config->servers[server].host[0] == '/')
+                  {
+                     char pgsql[MISC_LENGTH];
+
+                     memset(&pgsql, 0, sizeof(pgsql));
+                     snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->servers[server].port);
+                     ret = pgagroal_connect_unix_socket(config->servers[server].host, &pgsql[0], &socket);
+                  }
+                  else
+                  {
+                     ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &socket);
+                  }
+
+                  if (ret == 0)
+                  {
+                     pgagroal_log_debug("Cancel request for %s/%s using slot %d (pid %d secret %d)",
+                                        config->connections[i].database, config->connections[i].username,
+                                        i, config->connections[i].backend_pid, config->connections[i].backend_secret);
+
+                     pgagroal_write_message(NULL, socket, cancel_msg);
+                  }
+
+                  pgagroal_disconnect(socket);
+
+                  atomic_store(&config->states[i], STATE_GRACEFULLY);
+
                   pgagroal_log_info("Disconnect client %s/%s using slot %d (pid %d socket %d)",
                                     config->connections[i].database, config->connections[i].username,
                                     i, config->connections[i].pid, config->connections[i].fd);
                   kill(config->connections[i].pid, SIGQUIT);
-               }
 
-               atomic_store(&client->state, state);
+                  pgagroal_free_copy_message(cancel_msg);
+                  cancel_msg = NULL;
+               }
+               else
+               {
+                  atomic_store(&client->state, state);
+               }
             }
          }
       }

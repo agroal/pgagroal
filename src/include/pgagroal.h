@@ -175,6 +175,9 @@ struct connection
    ssize_t security_lengths[NUMBER_OF_SECURITY_MESSAGES];                     /**< The lengths of the security messages */
    char security_messages[NUMBER_OF_SECURITY_MESSAGES][SECURITY_BUFFER_SIZE]; /**< The security messages */
 
+   int backend_pid;    /**< The backend process id */
+   int backend_secret; /**< The backend secret */
+
    signed char limit_rule; /**< The limit rule used */
    time_t timestamp;       /**< The last used timestamp */
    pid_t pid;              /**< The associated process id */
