@@ -60,6 +60,13 @@ extern "C" {
 #define pgagroal_log_fatal(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_FATAL, __FILE__, __LINE__, __VA_ARGS__)
 
 /**
+ * Initialize the logging system
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_init_logging(void);
+
+/**
  * Start the logging system
  * @return 0 upon success, otherwise 1
  */

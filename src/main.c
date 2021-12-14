@@ -671,6 +671,14 @@ main(int argc, char **argv)
    }
 #endif
 
+   if (pgagroal_init_logging())
+   {
+#ifdef HAVE_LINUX
+      sd_notify(0, "STATUS=Failed to init logging");
+#endif
+      exit(1);
+   }
+
    if (pgagroal_start_logging())
    {
 #ifdef HAVE_LINUX
