@@ -362,6 +362,16 @@ int
 pgagroal_create_startup_message(char* username, char* database, struct message** msg);
 
 /**
+ * Create a cancel request message
+ * @param pid The pid
+ * @param secret The secret
+ * @param msg The resulting message
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_create_cancel_request_message(int pid, int secret, struct message** msg);
+
+/**
  * Is the connection valid
  * @param socket The socket descriptor
  * @return true upon success, otherwise false

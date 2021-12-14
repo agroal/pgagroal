@@ -2107,6 +2107,8 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
    int server_fd;
    int auth_index = 0;
    int auth_response = -1;
+   struct message* smsg = NULL;
+   struct message* kmsg = NULL;
    struct configuration* config = NULL;
 
    config = (struct configuration*)shmem;
@@ -2254,9 +2256,45 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
       config->connections[slot].has_security = SECURITY_TRUST;
    }
 
+   if (config->connections[slot].has_security == SECURITY_TRUST)
+   {
+      pgagroal_create_message(&config->connections[slot].security_messages[0],
+                              config->connections[slot].security_lengths[0],
+                              &smsg);
+   }
+   else if (config->connections[slot].has_security == SECURITY_PASSWORD || config->connections[slot].has_security == SECURITY_MD5)
+   {
+      pgagroal_create_message(&config->connections[slot].security_messages[2],
+                              config->connections[slot].security_lengths[2],
+                              &smsg);
+   }
+   else if (config->connections[slot].has_security == SECURITY_SCRAM256)
+   {
+      pgagroal_create_message(&config->connections[slot].security_messages[4],
+                              config->connections[slot].security_lengths[4],
+                              &smsg);
+   }
+
+   if (smsg != NULL)
+   {
+      pgagroal_extract_message('K', smsg, &kmsg);
+
+      if (kmsg != NULL)
+      {
+         config->connections[slot].backend_pid = pgagroal_read_int32(kmsg->data + 5);
+         config->connections[slot].backend_secret = pgagroal_read_int32(kmsg->data + 9);
+      }
+   }
+
+   pgagroal_free_copy_message(smsg);
+   pgagroal_free_copy_message(kmsg);
+
    return 0;
 
 error:
+
+   pgagroal_free_copy_message(smsg);
+   pgagroal_free_copy_message(kmsg);
 
    return 1;
 }
@@ -2264,6 +2302,9 @@ error:
 static int
 server_authenticate(struct message* msg, int auth_type, char* username, char* password, int slot, SSL* server_ssl)
 {
+   int ret;
+   struct message* smsg = NULL;
+   struct message* kmsg = NULL;
    struct configuration* config = NULL;
 
    config = (struct configuration*)shmem;
@@ -2284,24 +2325,62 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
 
    if (auth_type == SECURITY_TRUST)
    {
-      return server_trust(slot, server_ssl);
+      ret = server_trust(slot, server_ssl);
    }
    else if (auth_type == SECURITY_PASSWORD)
    {
-      return server_password(username, password, slot, server_ssl);
+      ret = server_password(username, password, slot, server_ssl);
    }
    else if (auth_type == SECURITY_MD5)
    {
-      return server_md5(username, password, slot, server_ssl);
+      ret = server_md5(username, password, slot, server_ssl);
    }
    else if (auth_type == SECURITY_SCRAM256)
    {
-      return server_scram256(username, password, slot, server_ssl);
+      ret = server_scram256(username, password, slot, server_ssl);
    }
+
+   if (config->connections[slot].has_security == SECURITY_TRUST)
+   {
+      pgagroal_create_message(&config->connections[slot].security_messages[0],
+                              config->connections[slot].security_lengths[0],
+                              &smsg);
+   }
+   else if (config->connections[slot].has_security == SECURITY_PASSWORD || config->connections[slot].has_security == SECURITY_MD5)
+   {
+      pgagroal_create_message(&config->connections[slot].security_messages[2],
+                              config->connections[slot].security_lengths[2],
+                              &smsg);
+   }
+   else if (config->connections[slot].has_security == SECURITY_SCRAM256)
+   {
+      pgagroal_create_message(&config->connections[slot].security_messages[4],
+                              config->connections[slot].security_lengths[4],
+                              &smsg);
+   }
+
+   if (smsg != NULL)
+   {
+      pgagroal_extract_message('K', smsg, &kmsg);
+
+      if (kmsg != NULL)
+      {
+         config->connections[slot].backend_pid = pgagroal_read_int32(kmsg->data + 5);
+         config->connections[slot].backend_secret = pgagroal_read_int32(kmsg->data + 9);
+      }
+   }
+
+   pgagroal_free_copy_message(smsg);
+   pgagroal_free_copy_message(kmsg);
+
+   return ret;
 
 error:
 
    pgagroal_log_error("server_authenticate: %d", auth_type);
+
+   pgagroal_free_copy_message(smsg);
+   pgagroal_free_copy_message(kmsg);
 
    return AUTH_ERROR;
 }
