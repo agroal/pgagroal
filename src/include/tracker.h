@@ -68,6 +68,11 @@ extern "C" {
 #define TRACKER_TX_GET_CONNECTION          32
 #define TRACKER_TX_RETURN_CONNECTION       33
 
+#define TRACKER_SOCKET_ASSOCIATE_CLIENT    100
+#define TRACKER_SOCKET_ASSOCIATE_SERVER    101
+#define TRACKER_SOCKET_DISASSOCIATE_CLIENT 102
+#define TRACKER_SOCKET_DISASSOCIATE_SERVER 103
+
 /**
  * Tracking event: Basic
  * @param id The event identifier
@@ -84,6 +89,14 @@ pgagroal_tracking_event_basic(int id, char* username, char* database);
  */
 void
 pgagroal_tracking_event_slot(int id, int slot);
+
+/**
+ * Tracking event: Socket
+ * @param id The event identifier
+ * @param socket The socket
+ */
+void
+pgagroal_tracking_event_socket(int id, int socket);
 
 #ifdef __cplusplus
 }

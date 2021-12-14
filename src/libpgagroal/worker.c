@@ -84,6 +84,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    start_time = time(NULL);
 
    pgagroal_tracking_event_basic(TRACKER_CLIENT_START, NULL, NULL);
+   pgagroal_tracking_event_socket(TRACKER_SOCKET_ASSOCIATE_CLIENT, client_fd);
    pgagroal_set_proc_title(1, argv, "authenticating", NULL);
 
    pgagroal_prometheus_client_wait_add();
@@ -92,6 +93,8 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    if (auth_status == AUTH_SUCCESS)
    {
       pgagroal_log_debug("pgagroal_worker: Slot %d (%d -> %d)", slot, client_fd, config->connections[slot].fd);
+
+      pgagroal_tracking_event_socket(TRACKER_SOCKET_ASSOCIATE_SERVER, config->connections[slot].fd);
 
       if (config->log_connections)
       {
@@ -207,6 +210,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       {
          if (config->pipeline != PIPELINE_TRANSACTION)
          {
+            pgagroal_tracking_event_socket(TRACKER_SOCKET_DISASSOCIATE_SERVER, config->connections[slot].fd);
             pgagroal_tracking_event_slot(TRACKER_WORKER_RETURN1, slot);
             pgagroal_return_connection(slot, server_ssl, tx_pool);
          }
@@ -214,6 +218,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       else if (exit_code == WORKER_SERVER_FAILURE || exit_code == WORKER_SERVER_FATAL || exit_code == WORKER_SHUTDOWN || exit_code == WORKER_FAILOVER ||
                (exit_code == WORKER_FAILURE && config->connections[slot].has_security == SECURITY_INVALID))
       {
+         pgagroal_tracking_event_socket(TRACKER_SOCKET_DISASSOCIATE_SERVER, config->connections[slot].fd);
          pgagroal_tracking_event_slot(TRACKER_WORKER_KILL1, slot);
          pgagroal_kill_connection(slot, server_ssl);
       }
@@ -223,11 +228,13 @@ pgagroal_worker(int client_fd, char* address, char** argv)
              pgagroal_connection_isvalid(config->connections[slot].fd) &&
              config->connections[slot].has_security != SECURITY_INVALID)
          {
+            pgagroal_tracking_event_socket(TRACKER_SOCKET_DISASSOCIATE_SERVER, config->connections[slot].fd);
             pgagroal_tracking_event_slot(TRACKER_WORKER_RETURN2, slot);
             pgagroal_return_connection(slot, server_ssl, tx_pool);
          }
          else
          {
+            pgagroal_tracking_event_socket(TRACKER_SOCKET_DISASSOCIATE_SERVER, config->connections[slot].fd);
             pgagroal_tracking_event_slot(TRACKER_WORKER_KILL2, slot);
             pgagroal_kill_connection(slot, server_ssl);
          }
@@ -250,6 +257,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    }
 
    pgagroal_log_debug("client disconnect: %d", client_fd);
+   pgagroal_tracking_event_socket(TRACKER_SOCKET_DISASSOCIATE_CLIENT, client_fd);
    pgagroal_disconnect(client_fd);
 
    pgagroal_prometheus_client_sockets_sub();

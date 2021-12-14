@@ -141,6 +141,29 @@ pgagroal_tracking_event_slot(int id, int slot)
    }
 }
 
+void
+pgagroal_tracking_event_socket(int id, int socket)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (config->tracker)
+   {
+      struct timeval t;
+      long long milliseconds;
+
+      gettimeofday(&t, NULL);
+      milliseconds = t.tv_sec * 1000 + t.tv_usec / 1000;
+
+      pgagroal_log_info("PGAGROAL|%d|%lld|%d|%d|",
+                        id,
+                        milliseconds,
+                        getpid(),
+                        socket);
+   }
+}
+
 static int
 count_connections(void)
 {
