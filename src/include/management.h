@@ -111,10 +111,11 @@ pgagroal_management_kill_connection(int32_t slot, int socket);
  * @param ssl The SSL connection
  * @param socket The socket descriptor
  * @param mode The flush mode
+ * @param database The database
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_flush(SSL* ssl, int socket, int32_t mode);
+pgagroal_management_flush(SSL* ssl, int socket, int32_t mode, char* database);
 
 /**
  * Management operation: Enable database

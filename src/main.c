@@ -1187,7 +1187,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          if (!fork())
          {
             shutdown_ports();
-            pgagroal_flush(FLUSH_GRACEFULLY);
+            pgagroal_flush(FLUSH_GRACEFULLY, "*");
          }
 
          start_io();
@@ -1331,11 +1331,11 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          }
          break;
       case MANAGEMENT_FLUSH:
-         pgagroal_log_debug("pgagroal: Management flush (%d)", payload_i);
+         pgagroal_log_debug("pgagroal: Management flush (%d/%s)", payload_i, payload_s);
          if (!fork())
          {
             shutdown_ports();
-            pgagroal_flush(payload_i);
+            pgagroal_flush(payload_i, payload_s);
          }
          break;
       case MANAGEMENT_ENABLEDB:
@@ -1435,7 +1435,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
             if (!fork())
             {
                shutdown_ports();
-               pgagroal_flush(FLUSH_GRACEFULLY);
+               pgagroal_flush(FLUSH_GRACEFULLY, "*");
             }
             pgagroal_prometheus_failed_servers();
          }

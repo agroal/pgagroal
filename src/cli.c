@@ -63,7 +63,7 @@
 #define ACTION_SWITCH_TO      12
 #define ACTION_RELOAD         13
 
-static int flush(SSL* ssl, int socket, int32_t mode);
+static int flush(SSL* ssl, int socket, int32_t mode, char* database);
 static int enabledb(SSL* ssl, int socket, char* database);
 static int disabledb(SSL* ssl, int socket, char* database);
 static int gracefully(SSL* ssl, int socket);
@@ -293,20 +293,44 @@ main(int argc, char **argv)
 
    if (argc > 0)
    {
-      if (!strcmp("flush-idle", argv[argc - 1]))
+      if (!strcmp("flush-idle", argv[argc - 1]) || !strcmp("flush-idle", argv[argc - 2]))
       {
          mode = FLUSH_IDLE;
          action = ACTION_FLUSH;
+         if (!strcmp("flush-idle", argv[argc - 1]))
+         {
+            database = "*";
+         }
+         else
+         {
+            database = argv[argc - 1];
+         }
       }
-      else if (!strcmp("flush-gracefully", argv[argc - 1]))
+      else if (!strcmp("flush-gracefully", argv[argc - 1]) || !strcmp("flush-gracefully", argv[argc - 2]))
       {
          mode = FLUSH_GRACEFULLY;
          action = ACTION_FLUSH;
+         if (!strcmp("flush-gracefully", argv[argc - 1]))
+         {
+            database = "*";
+         }
+         else
+         {
+            database = argv[argc - 1];
+         }
       }
-      else if (!strcmp("flush-all", argv[argc - 1]))
+      else if (!strcmp("flush-all", argv[argc - 1]) || !strcmp("flush-all", argv[argc - 2]))
       {
          mode = FLUSH_ALL;
          action = ACTION_FLUSH;
+         if (!strcmp("flush-all", argv[argc - 1]))
+         {
+            database = "*";
+         }
+         else
+         {
+            database = argv[argc - 1];
+         }
       }
       else if (!strcmp("enable", argv[argc - 1]) || !strcmp("enable", argv[argc - 2]))
       {
@@ -460,7 +484,7 @@ password:
 
       if (action == ACTION_FLUSH)
       {
-         exit_code = flush(s_ssl, socket, mode);
+         exit_code = flush(s_ssl, socket, mode, database);
       }
       else if (action == ACTION_ENABLEDB)
       {
@@ -567,9 +591,9 @@ done:
 }
 
 static int
-flush(SSL* ssl, int socket, int32_t mode)
+flush(SSL* ssl, int socket, int32_t mode, char* database)
 {
-   if (pgagroal_management_flush(ssl, socket, mode))
+   if (pgagroal_management_flush(ssl, socket, mode, database))
    {
       return 1;
    }

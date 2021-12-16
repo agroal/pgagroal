@@ -19,7 +19,7 @@ Flush idle connections
 Command
 
 ```
-pgagroal-cli flush-idle
+pgagroal-cli flush-idle [*|<database>]
 ```
 
 Example
@@ -34,7 +34,7 @@ Flush all connections gracefully
 Command
 
 ```
-pgagroal-cli flush-gracefully
+pgagroal-cli flush-gracefully [*|<database>]
 ```
 
 Example
@@ -49,13 +49,13 @@ Flush all connections. USE WITH CAUTION !
 Command
 
 ```
-pgagroal-cli flush-all
+pgagroal-cli flush-all [*|<database>]
 ```
 
 Example
 
 ```
-pgagroal-cli flush-all
+pgagroal-cli flush-all mydb
 ```
 
 ## is-alive

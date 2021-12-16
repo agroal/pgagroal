@@ -86,9 +86,10 @@ pgagroal_validation(void);
 /**
  * Flush the pool
  * @param mode The flush mode
+ * @param database The database
  */
 void
-pgagroal_flush(int mode);
+pgagroal_flush(int mode, char* database);
 
 /**
  * Prefill the pool

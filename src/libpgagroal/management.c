@@ -91,6 +91,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
    char* s = NULL;
    char buf2[2];
    char buf4[4];
+   int size;
    struct cmsghdr *cmptr = NULL;
    struct iovec iov[1];
    struct msghdr msg;
@@ -135,6 +136,26 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          free(cmptr);
          break;
       case MANAGEMENT_FLUSH:
+         if (read_complete(NULL, socket, &buf4[0], sizeof(buf4)))
+         {
+            goto error;
+         }
+         *payload_i = pgagroal_read_int32(&buf4);
+
+         if (read_complete(NULL, socket, &buf4[0], sizeof(buf4)))
+         {
+            goto error;
+         }
+         size = pgagroal_read_int32(&buf4);
+
+         s = malloc(size + 1);
+         memset(s, 0, size + 1);
+         if (read_complete(NULL, socket, s, size))
+         {
+            goto error;
+         }
+         *payload_s = s;
+         break;
       case MANAGEMENT_KILL_CONNECTION:
       case MANAGEMENT_CLIENT_DONE:
       case MANAGEMENT_REMOVE_FD:
@@ -334,7 +355,7 @@ error:
 }
 
 int
-pgagroal_management_flush(SSL* ssl, int fd, int32_t mode)
+pgagroal_management_flush(SSL* ssl, int fd, int32_t mode, char* database)
 {
    char buf[4];
 
@@ -353,6 +374,21 @@ pgagroal_management_flush(SSL* ssl, int fd, int32_t mode)
       goto error;
    }
    
+   pgagroal_write_int32(&buf, strlen(database));
+   if (write_complete(ssl, fd, &buf, sizeof(buf)))
+   {
+      pgagroal_log_warn("pgagroal_management_flush: write: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   if (write_complete(ssl, fd, database, strlen(database)))
+   {
+      pgagroal_log_warn("pgagroal_management_flush: write: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
    return 0;
 
 error:
