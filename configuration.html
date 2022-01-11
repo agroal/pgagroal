@@ -83,6 +83,13 @@ layout: default
           <td>The log file location</td>
         </tr>
         <tr>
+          <td>log_mode</td>
+          <td>append</td>
+          <td>String</td>
+          <td>No</td>
+          <td>Append to or create the log file (append, create)</td>
+        </tr>
+        <tr>
           <td>blocking_timeout</td>
           <td>30</td>
           <td>Int</td>
@@ -225,7 +232,7 @@ layout: default
         </tr>
         <tr>
           <td>non_blocking</td>
-          <td>on</td>
+          <td>off</td>
           <td>Bool</td>
           <td>No</td>
           <td>Have O_NONBLOCK on sockets</td>
@@ -289,6 +296,16 @@ layout: default
             This setting <b>DOES NOT</b> take long running transactions into account
           </td>
         </tr>
+        <tr>
+          <td>disconnect_client_force</td>
+          <td>off</td>
+          <td>Bool</td>
+          <td>No</td>
+          <td>
+            Disconnect clients that have been active for more than the specified seconds.
+            This setting <b>DOES NOT</b> take long running transactions into account
+          </td>
+        </tr>
       </tbody>
     </table>
       
@@ -327,9 +344,17 @@ layout: default
           <td>No</td>
           <td>Identify the instance as primary (hint)</td>
         </tr>
+        <tr>
+          <td>tls</td>
+          <td>off</td>
+          <td>Bool</td>
+          <td>No</td>
+          <td>Enable Transport Layer Security (TLS) support (Experimental - no pooling)</td>
+        </tr>
       </tbody>
     </table>
 
+    Note, that if host starts with a / it represents a path and pgagroal will connect using a Unix Domain Socket.
     <p/>
     The configuration is loaded from either the path specified by the -c flag or /etc/pgagroal/pgagroal.conf.
 
