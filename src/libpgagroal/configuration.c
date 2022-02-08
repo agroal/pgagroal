@@ -1297,23 +1297,30 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                      min_size = max_size;
                   }
 
-                  server_max -= max_size;
+		  if ( server_max == 0 )
+		    // already hit lower limit, no need to produce error messages again
+		    max_size = 0;
+		  else
+		    {
+		  
+		      server_max -= max_size;
 
-                  if (server_max < 0)
-                  {
-		    pgagroal_log_debug( "limit entry %d with max_size = %d exceeds remaining available connections %d. Line: %s",
-					index,
-					max_size,
-					max_size + server_max,
-					line );
-                     server_max = 0;
-                     max_size = 0;
-		     pgagroal_log_warn( "max_size greater than remaining available connections at entry %d (line %d of file %s), adjusting max_size to zero for this entry",
-					index + 1,
-					config->limits[index].lineno,
-					filename );
+		      if (server_max < 0)
+			{
+			  pgagroal_log_debug( "limit entry %d with max_size = %d exceeds remaining available connections %d. Line: %s",
+					      index,
+					      max_size,
+					      max_size + server_max,
+					      line );
+			  server_max = 0;
+			  max_size = 0;
+			  pgagroal_log_warn( "max_size greater than remaining available connections at entry %d (line %d of file %s), adjusting max_size to zero for this entry",
+					     index + 1,
+					     config->limits[index].lineno,
+					     filename );
 
-                  }
+			}
+		    }
 
                   memcpy(&(config->limits[index].database), database, strlen(database));
                   memcpy(&(config->limits[index].username), username, strlen(username));
