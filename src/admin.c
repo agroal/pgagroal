@@ -403,6 +403,7 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    fclose(file);
 
    chmod(&buf[0], S_IRUSR | S_IWUSR);
+   printf( "Master Key stored into [%s]\n", &buf[0] );
 
    return 0;
 
