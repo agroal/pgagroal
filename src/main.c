@@ -1913,6 +1913,14 @@ create_pidfile(void)
 
    config = (struct configuration*)shmem;
 
+   if ( strlen( config->pidfile ) == 0 ) {
+     // no pidfile set, use a default one
+     snprintf( config->pidfile, 64, "%s/pgagraol.%d.pid",
+	       config->unix_socket_dir,
+	       config->port );
+     pgagroal_log_info( "Pid file automatically set to: [%s]", config->pidfile );
+   }
+   
    if (strlen(config->pidfile) > 0)
    {
       pid = getpid();
