@@ -1250,19 +1250,25 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
    int min_size;
    int server_max;
    struct configuration* config;
+   int lineno;
 
    file = fopen(filename, "r");
 
    if (!file)
       return 1;
 
-   index = 0;
+   index  = 0;
+   lineno = 0;
    config = (struct configuration*)shm;
 
    server_max = config->max_connections;
 
    while (fgets(line, sizeof(line), file))
    {
+     // set immediatly the line number that can be used in
+     // error messages
+     config->limits[index].lineno = ++lineno;
+       
       if (!is_empty_string(line))
       {
          if (line[0] == '#' || line[0] == ';')
@@ -1302,7 +1308,10 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 					line );
                      server_max = 0;
                      max_size = 0;
-		     pgagroal_log_warn( "max_size greater than remaining available connections at entry %d, adjusting max_size to zero for this entry", index );
+		     pgagroal_log_warn( "max_size greater than remaining available connections at entry %d (line %d of file %s), adjusting max_size to zero for this entry",
+					index + 1,
+					config->limits[index].lineno,
+					filename );
 
                   }
 
