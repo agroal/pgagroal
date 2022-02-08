@@ -352,6 +352,8 @@ master_key(char* password, bool generate_pwd, int pwd_length)
 
    if (password == NULL)
    {
+     int loops = 0; /* keep track about how many times the user has tried */
+     
       if (!generate_pwd)
       {
          while (!is_valid_key(password))
@@ -362,9 +364,15 @@ master_key(char* password, bool generate_pwd, int pwd_length)
                password = NULL;
             }
 
-            printf("Master key: ");
+	    // if the user has tried with an invalid
+	    // password, warn her!
+	    if ( loops > 0 )
+	      printf( "Invalid master key, try again\n" );
+	    
+            printf("Master key (will not echo): ");
             password = pgagroal_get_password();
             printf("\n");
+	    loops++;
          }
       }
       else
