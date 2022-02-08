@@ -1295,8 +1295,15 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 
                   if (server_max < 0)
                   {
+		    pgagroal_log_debug( "limit entry %d with max_size = %d exceeds remaining available connections %d. Line: %s",
+					index,
+					max_size,
+					max_size + server_max,
+					line );
                      server_max = 0;
                      max_size = 0;
+		     pgagroal_log_warn( "max_size greater than remaining available connections at entry %d, adjusting max_size to zero for this entry", index );
+
                   }
 
                   memcpy(&(config->limits[index].database), database, strlen(database));
