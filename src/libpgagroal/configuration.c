@@ -1251,6 +1251,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
    int server_max;
    struct configuration* config;
    int lineno;
+   int required_max;
 
    file = fopen(filename, "r");
 
@@ -1261,7 +1262,8 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
    lineno = 0;
    config = (struct configuration*)shm;
 
-   server_max = config->max_connections;
+   server_max   = config->max_connections;
+   required_max = 0;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1298,7 +1300,8 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                   }
 
 		  
-		  server_max -= max_size;
+		  server_max   -= max_size;
+		  required_max += max_size;
 
 		  if (server_max < 0)
 		    {
@@ -1354,6 +1357,14 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
       }
    }
 
+
+   // check if the number of max connections can be satisfied
+   if ( config->max_connections < required_max )
+     pgagroal_log_warn( "server_max = %d is less than required %d max connections defined in limit file %s. Adjust your configuration.",
+			config->max_connections,
+			 required_max,
+			 filename );
+   
    config->number_of_limits = index;
 
    fclose(file);
