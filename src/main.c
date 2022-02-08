@@ -1915,7 +1915,7 @@ create_pidfile(void)
 
    if ( strlen( config->pidfile ) == 0 ) {
      // no pidfile set, use a default one
-     snprintf( config->pidfile, 64, "%s/pgagraol.%d.pid",
+     snprintf( config->pidfile, sizeof( config->pidfile ) + sizeof( config->unix_socket_dir ), "%s/pgagraol.%d.pid",
 	       config->unix_socket_dir,
 	       config->port );
      pgagroal_log_info( "Pid file automatically set to: [%s]", config->pidfile );
