@@ -43,6 +43,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <signal.h>
 
 #define DEFAULT_PASSWORD_LENGTH 64
 
@@ -66,6 +67,22 @@ static int update_user(char* users_path, char* username, char* password, bool ge
 static int remove_user(char* users_path, char* username);
 static int list_users(char* users_path);
 static char* generate_password(int pwd_length);
+
+/**
+ * Function to catch the SIGINT
+ * when editing the Master Key
+ */
+void master_key_sig_handler(int signo)
+{
+  if (signo == SIGINT) {
+    printf( "\nAborting...\n" );
+    char buf[MISC_LENGTH];
+    snprintf(&buf[0], sizeof(buf), "%s/.pgagroal/master.key", pgagroal_get_home_directory());
+    chmod(&buf[0], S_IRUSR | S_IWUSR);
+    exit( 1 );
+  }
+}
+
 
 static void
 version(void)
@@ -196,6 +213,9 @@ main(int argc, char **argv)
 
       if (action == ACTION_MASTER_KEY)
       {
+	// turn on signal handler
+	signal( SIGINT, master_key_sig_handler );
+	
          if (master_key(password, generate_pwd, pwd_length))
          {
             printf("Error for master key\n");
