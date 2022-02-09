@@ -52,6 +52,9 @@ extern "C" {
 #define PGAGROAL_LOGGING_MODE_CREATE 0
 #define PGAGROAL_LOGGING_MODE_APPEND 1
 
+#define PGAGROAL_LOGGING_ROTATION_DISABLED -1
+
+  
 #define pgagroal_log_trace(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_DEBUG5, __FILE__, __LINE__, __VA_ARGS__)
 #define pgagroal_log_debug(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_DEBUG1, __FILE__, __LINE__, __VA_ARGS__)
 #define pgagroal_log_info(...)  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_INFO,  __FILE__, __LINE__,  __VA_ARGS__)
@@ -85,6 +88,22 @@ pgagroal_log_line(int level, char *file, int line, char *fmt, ...);
 
 void
 pgagroal_log_mem(void* data, size_t size);
+
+  
+bool
+log_rotation_enabled(void);
+
+void
+log_rotation_disable(void);
+
+bool
+log_rotation_required(void);
+
+bool
+log_rotation_set_next_rotation_age(void);  
+
+int
+log_file_open(void);  
 
 #ifdef __cplusplus
 }

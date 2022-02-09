@@ -304,6 +304,9 @@ struct configuration
    bool log_disconnections;    /**< Log disconnects */
    int log_mode;               /**< The logging mode */
    atomic_schar log_lock;      /**< The logging lock */
+   int log_rotation_size;      /**< bytes to force log rotation */
+   int log_rotation_age;       /**< minutes for log rotation */
+   bool log_truncate;          /**< Truncate an existing log on rotation */
 
    bool authquery; /**< Is authentication query enabled */
 

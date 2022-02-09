@@ -30,7 +30,9 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | log_type | console | String | No | The logging type (console, file, syslog) |
 | log_level | info | String | No | The logging level (fatal, error, warn, info, debug1, ..., debug5) |
 | log_path | pgagroal.log | String | No | The log file location |
-| log_mode | append | String | No | Append to or create the log file (append, create) |
+| log_rotation_age | -1 | String | No | The age that will trigger a log file rotation. If expressed as a positive number, is managed as minutes. Supports suffixes: 'H' (hours), 'D' (days), 'W' (weeks), 'M' (months) and 'Y' (years) |
+| log_rotation_size | -1 | String | No | The size of the log file that will trigger a log rotation. Supports suffixes: 'B' (bytes), the default if omitted, 'K' (kilobytes), 'M' (megabytes), 'G' (gigabytes). |
+| log_mode | append | String | No | Append to or create the log file (append, create). The create option truncates an already existing file. |
 | log_connections | `off` | Bool | No | Log connects |
 | log_disconnections | `off` | Bool | No | Log disconnects |
 | blocking_timeout | 30 | Int | No | The number of seconds the process will be blocking for a connection (disable = 0) |
