@@ -55,12 +55,6 @@
 #define ACTION_REMOVE_USER 4
 #define ACTION_LIST_USERS  5
 
-static char CHARS[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-                       'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-                       '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-                       '!', '@', '#', '$', '%', '^', '&',  '*', '(', ')', '-', '_', '=', '+', '[', '{', ']', '}', '\\', '|', ';', ':',
-                       '\'', '\"', ',', '<', '.',  '>', '/', '?'};
-
 static char ALPHA_UC[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z' };
 static char ALPHA_LC[] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z' };
 static char DIGITS[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };
@@ -933,6 +927,23 @@ generate_password(int pwd_length)
    char* pwd;
    size_t s;
    time_t t;
+   char* alphabet;
+
+   // the alphabet array is the "cat" of all available chars
+   alphabet = malloc(sizeof(char) * (sizeof(ALPHA_UC)
+                                     + sizeof(ALPHA_LC)
+                                     + sizeof(DIGITS)
+                                     + sizeof(SPECIALS) ));
+   int offset = 0;
+   memcpy(alphabet + offset, ALPHA_UC, sizeof(ALPHA_UC) );
+   offset += sizeof(ALPHA_UC);
+   memcpy(alphabet + offset, ALPHA_LC, sizeof(ALPHA_LC) );
+   offset += sizeof(ALPHA_LC);
+   memcpy(alphabet + offset, DIGITS, sizeof(DIGITS) );
+   offset += sizeof(DIGITS);
+   memcpy(alphabet + offset, SPECIALS, sizeof(SPECIALS) );
+   offset = 0;
+
 
    s = pwd_length + 1;
 
@@ -943,10 +954,11 @@ generate_password(int pwd_length)
 
    for (int i = 0; i < s; i++)
    {
-      *((char*)(pwd + i)) = CHARS[rand() % sizeof(CHARS)];
+     *((char*)(pwd + i)) = alphabet[rand() % sizeof(alphabet)];
    }
    *((char*)(pwd + pwd_length)) = '\0';
 
+   free(alphabet);
    return pwd;
 }
 
