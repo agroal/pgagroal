@@ -61,12 +61,19 @@ static char CHARS[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L
                        '!', '@', '#', '$', '%', '^', '&',  '*', '(', ')', '-', '_', '=', '+', '[', '{', ']', '}', '\\', '|', ';', ':',
                        '\'', '\"', ',', '<', '.',  '>', '/', '?'};
 
+static char ALPHA_UC[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z' };
+static char ALPHA_LC[] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z' };
+static char DIGITS[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };
+static char SPECIALS[] = { '!', '@', '#', '$', '%', '^', '&',  '*', '(', ')', '-', '_', '=', '+', '[', '{', ']', '}', '\\', '|', ';', ':',
+                       '\'', '\"', ',', '<', '.',  '>', '/', '?'};
+
 static int master_key(char* password, bool generate_pwd, int pwd_length);
 static int add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int remove_user(char* users_path, char* username);
 static int list_users(char* users_path);
 static char* generate_password(int pwd_length);
+static bool do_check_master_key(char* password, bool verbose);
 
 /**
  * Function to catch the SIGINT
@@ -305,6 +312,7 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    char* encoded = NULL;
    struct stat st = {0};
    bool do_free = true;
+   bool be_verbose = false;
 
    if (pgagroal_get_home_directory() == NULL)
    {
@@ -374,18 +382,12 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    {
       if (!generate_pwd)
       {
-	     while( password == NULL )
+	     while( !do_check_master_key(password, be_verbose) )
         {
-          printf("Master key (will not echo): ");
+          printf("\nPlease enter the Master Key (will not echo) : ");
           password = pgagroal_get_password();
           printf("\n");
-
-          if (password != NULL && strlen(password) < MIN_PASSWORD_LENGTH )
-          {
-            printf("Invalid key length, must be at least %d chars.\n", MIN_PASSWORD_LENGTH );
-            free(password);
-            password = NULL;
-          }
+          be_verbose = true;
         }
       }
       else
@@ -946,4 +948,96 @@ generate_password(int pwd_length)
    *((char*)(pwd + pwd_length)) = '\0';
 
    return pwd;
+}
+
+
+/**
+ * Check the specified password.
+ * The password must have the right size, one upper case letter
+ * one lower case letter, one digit
+ * and one special char.
+ * If @verbose is specified, then the function will print out
+ * a message to warn what is missing from the password.
+ */
+static bool
+do_check_master_key(char* password, bool verbose)
+{
+  if (password == NULL || strlen(password) < MIN_PASSWORD_LENGTH )
+  {
+    if (verbose)
+      printf("Master key must be at least %d characters", MIN_PASSWORD_LENGTH);
+    
+    return false;
+  }
+
+  bool has_one_uc_letter = false;
+  bool has_one_lc_letter = false;
+  bool has_one_digit     = false;
+  bool has_one_special   = false;
+
+  for (int i = 0; ! has_one_uc_letter && i < strlen(password); i++)
+  {
+    for (int j = 0; j < sizeof( ALPHA_UC ); j++ )
+    {
+      if ( ALPHA_UC[j] == password[i] )
+      {
+        has_one_uc_letter = true;
+        break;
+      }
+    }
+  }
+
+  for (int i = 0; ! has_one_lc_letter && i < strlen(password); i++)
+  {
+    for (int j = 0; j < sizeof( ALPHA_LC ); j++ )
+    {
+      if ( ALPHA_LC[j] == password[i] )
+      {
+        has_one_lc_letter = true;
+        break;
+      }
+    }
+  }
+
+  for (int i = 0; ! has_one_digit && i < strlen(password); i++)
+  {
+    for (int j = 0; j < sizeof( DIGITS ); j++ )
+    {
+      if ( DIGITS[j] == password[i] )
+      {
+        has_one_digit = true;
+        break;
+      }
+    }
+  }
+
+  for (int i = 0; ! has_one_special && i < strlen(password); i++)
+  {
+    for (int j = 0; j < sizeof( SPECIALS ); j++ )
+    {
+      if ( SPECIALS[j] == password[i] )
+      {
+        has_one_special = true;
+        break;
+      }
+    }
+  }
+
+
+  if (verbose)
+  {
+    if (!has_one_uc_letter)
+      printf("Missing at least one capital letter\n");
+    if (!has_one_lc_letter)
+      printf("Missing at least one lower case letter\n");
+    if (!has_one_digit)
+      printf("Missing at least one digit\n");
+    if (!has_one_special)
+      printf("Missing at least one special character\n");
+  }
+  
+  return has_one_uc_letter
+    && has_one_lc_letter
+    && has_one_digit
+    && has_one_special;
 }
