@@ -1962,7 +1962,7 @@ static void remove_pidfile(void)
 
    config = (struct configuration*)shmem;
 
-   if (strlen(config->pidfile) > 0)
+   if (strlen(config->pidfile) > 0 && access(config->pidfile, F_OK) == 0 )
    {
       unlink(config->pidfile);
    }
