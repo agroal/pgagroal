@@ -929,22 +929,6 @@ generate_password(int pwd_length)
    time_t t;
    char* alphabet;
 
-   // the alphabet array is the "cat" of all available chars
-   alphabet = malloc(sizeof(char) * (sizeof(ALPHA_UC)
-                                     + sizeof(ALPHA_LC)
-                                     + sizeof(DIGITS)
-                                     + sizeof(SPECIALS) ));
-   int offset = 0;
-   memcpy(alphabet + offset, ALPHA_UC, sizeof(ALPHA_UC) );
-   offset += sizeof(ALPHA_UC);
-   memcpy(alphabet + offset, ALPHA_LC, sizeof(ALPHA_LC) );
-   offset += sizeof(ALPHA_LC);
-   memcpy(alphabet + offset, DIGITS, sizeof(DIGITS) );
-   offset += sizeof(DIGITS);
-   memcpy(alphabet + offset, SPECIALS, sizeof(SPECIALS) );
-   offset = 0;
-
-
    s = pwd_length + 1;
 
    pwd = malloc(s);
@@ -954,11 +938,19 @@ generate_password(int pwd_length)
 
    for (int i = 0; i < s; i++)
    {
+     if (i % 2 == 0 )
+       alphabet = ALPHA_UC;
+     else if ( i % 3 == 0 )
+       alphabet = ALPHA_LC;
+     else if ( i % 4 == 0 )
+       alphabet = DIGITS;
+     else
+       alphabet = SPECIALS;
+     
      *((char*)(pwd + i)) = alphabet[rand() % sizeof(alphabet)];
    }
    *((char*)(pwd + pwd_length)) = '\0';
 
-   free(alphabet);
    return pwd;
 }
 
