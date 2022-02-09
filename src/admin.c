@@ -45,6 +45,7 @@
 #include <sys/stat.h>
 
 #define DEFAULT_PASSWORD_LENGTH 64
+#define MIN_PASSWORD_LENGTH 8
 
 #define ACTION_UNKNOWN     0
 #define ACTION_MASTER_KEY  1
@@ -60,7 +61,6 @@ static char CHARS[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L
                        '\'', '\"', ',', '<', '.',  '>', '/', '?'};
 
 static int master_key(char* password, bool generate_pwd, int pwd_length);
-static bool is_valid_key(char* key);
 static int add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int remove_user(char* users_path, char* username);
@@ -354,18 +354,19 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    {
       if (!generate_pwd)
       {
-         while (!is_valid_key(password))
-         {
-            if (password != NULL)
-            {
-               free(password);
-               password = NULL;
-            }
+        while( password == NULL )
+        {
+          printf("Master key (will not echo): ");
+          password = pgagroal_get_password();
+          printf("\n");
 
-            printf("Master key: ");
-            password = pgagroal_get_password();
-            printf("\n");
-         }
+          if (password != NULL && strlen(password) < MIN_PASSWORD_LENGTH )
+          {
+            printf("Invalid key length, must be at least %d chars.\n", MIN_PASSWORD_LENGTH );
+            free(password);
+            password = NULL;
+          }
+        }
       }
       else
       {
@@ -376,11 +377,6 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    else
    {
       do_free = false;
-
-      if (!is_valid_key(password))
-      {
-         goto error;
-      }
    }
 
    pgagroal_base64_encode(password, strlen(password), &encoded);
@@ -413,35 +409,6 @@ error:
    }
 
    return 1;
-}
-
-static bool
-is_valid_key(char* key)
-{
-   char c;
-   
-   if (!key)
-   {
-      return false;
-   }
-
-   if (strlen(key) < 8)
-   {
-      return false;
-   }
-
-   for (int i = 0; i < strlen(key); i++)
-   {
-      c = *(key + i);
-
-      /* Only support ASCII for now */
-      if ((unsigned char)c & 0x80)
-      {
-         return false;
-      }
-   }
-
-   return true;
 }
 
 static int
