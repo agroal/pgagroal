@@ -1926,7 +1926,11 @@ create_pidfile(void)
    {
        // check pidfile is not there
       if (access(config->pidfile, F_OK) == 0)
-        goto error;
+      {
+          pgagroal_log_fatal("Pid file [%s] existing, is there another instance running?", config->pidfile);
+          goto error;
+      }
+
 
       pid = getpid();
 
