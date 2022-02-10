@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2022 Red Hat
- * 
+ *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this list
  * of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this
  * list of conditions and the following disclaimer in the documentation and/or other
  * materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its contributors may
  * be used to endorse or promote products derived from this software without specific
  * prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -86,7 +86,7 @@ pgagroal_init_configuration(void* shm)
    config = (struct configuration*)shm;
 
    atomic_init(&config->active_connections, 0);
-   
+
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
       atomic_init(&config->servers[i].state, SERVER_NOTINIT);
@@ -152,7 +152,7 @@ pgagroal_read_configuration(void* shm, char* filename)
 
    if (!file)
       return 1;
-    
+
    memset(&section, 0, LINE_LENGTH);
    config = (struct configuration*)shm;
 
@@ -1270,7 +1270,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
      // set immediatly the line number that can be used in
      // error messages
      config->limits[index].lineno = ++lineno;
-       
+
       if (!is_empty_string(line))
       {
          if (line[0] == '#' || line[0] == ';')
@@ -1299,25 +1299,15 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                      min_size = max_size;
                   }
 
-		  
+
 		  server_max   -= max_size;
 		  required_max += max_size;
 
 		  if (server_max < 0)
-		    {
-		      pgagroal_log_debug( "limit entry %d with max_size = %d exceeds remaining available connections %d. Line: %s",
-					  index,
-					  max_size,
-					  max_size + server_max,
-					  line );
+		  {
 		      server_max = 0;
 		      max_size = 0;
-		      pgagroal_log_warn( "max_size greater than remaining available connections at entry %d (line %d of file %s), adjusting max_size to zero for this entry",
-					 index + 1,
-					 config->limits[index].lineno,
-					 filename );
-
-		    }
+		  }
 
                   memcpy(&(config->limits[index].database), database, strlen(database));
                   memcpy(&(config->limits[index].username), username, strlen(username));
@@ -1359,12 +1349,12 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 
 
    // check if the number of max connections can be satisfied
-   if ( config->max_connections < required_max )
-     pgagroal_log_warn( "server_max = %d is less than required %d max connections defined in limit file %s. Adjust your configuration.",
-			config->max_connections,
-			 required_max,
-			 filename );
-   
+   if (config->max_connections < required_max)
+     pgagroal_log_warn("server_max = %d is less than required %d max connections defined in limit file %s. Adjust your configuration.",
+                       config->max_connections,
+                       required_max,
+                       filename);
+
    config->number_of_limits = index;
 
    fclose(file);
@@ -1391,6 +1381,7 @@ pgagroal_validate_limit_configuration(void* shm)
       if (config->limits[i].max_size <= 0)
       {
          pgagroal_log_fatal("max_size must be greater than 0 for limit entry %d", i + 1);
+         pgagroal_log_warn("Limit entry %d (line %d) not handled", i + 1, config->limits[i].lineno);
          return 1;
       }
 
