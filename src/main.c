@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2021 Red Hat
- *
+ * 
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
  *
@@ -1919,7 +1919,7 @@ create_pidfile(void)
       snprintf(config->pidfile, sizeof( config->pidfile ), "%s/pgagraol.%d.pid",
                config->unix_socket_dir,
                config->port);
-      pgagroal_log_info("Pid file automatically set to: [%s]", config->pidfile);
+      pgagroal_log_debug("PID file automatically set to: [%s]", config->pidfile);
    }
 
    if (strlen(config->pidfile) > 0)
@@ -1927,10 +1927,9 @@ create_pidfile(void)
        // check pidfile is not there
       if (access(config->pidfile, F_OK) == 0)
       {
-          pgagroal_log_fatal("Pid file [%s] existing, is there another instance running?", config->pidfile);
+          pgagroal_log_fatal("PID file [%s] exists, is there another instance running ?", config->pidfile);
           goto error;
       }
-
 
       pid = getpid();
 
