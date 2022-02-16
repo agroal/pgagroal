@@ -324,7 +324,7 @@ struct configuration
    int authentication_timeout;   /**< The authentication timeout in seconds */
    int disconnect_client;        /**< Disconnect client if idle for more than the specified seconds */
    bool disconnect_client_force; /**< Force a disconnect client if active for more than the specified seconds */
-   char pidfile[MISC_LENGTH];    /**< File containing the PID */
+   char pidfile[MAX_PATH];       /**< File containing the PID */
 
    char libev[MISC_LENGTH]; /**< Name of libev mode */
    int buffer_size;         /**< Socket buffer size */
