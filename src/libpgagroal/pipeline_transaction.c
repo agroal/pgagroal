@@ -73,6 +73,7 @@ static int unix_socket = -1;
 static int deallocate;
 static bool fatal;
 static int fds[MAX_NUMBER_OF_CONNECTIONS];
+static bool saw_x = false;
 static struct ev_io io_mgt;
 static struct worker_io server_io;
 
@@ -321,7 +322,7 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
       }
       else if (msg->kind == 'X')
       {
-         exit_code = WORKER_SUCCESS;
+         saw_x = true;
          running = 0;
       }
    }
@@ -343,7 +344,15 @@ client_done:
                       strerror(errno), wi->client_fd, status);
    errno = 0;
 
-   exit_code = WORKER_CLIENT_FAILURE;
+   if (saw_x)
+   {
+      exit_code = WORKER_SUCCESS;
+   }
+   else
+   {
+      exit_code = WORKER_SERVER_FAILURE;
+   }
+
    running = 0;
    ev_break(loop, EVBREAK_ALL);
    return;

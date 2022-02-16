@@ -52,6 +52,8 @@ static void performance_stop(struct ev_loop *loop, struct worker_io*);
 static void performance_destroy(void*, size_t);
 static void performance_periodic(void);
 
+static bool saw_x = false;
+
 struct pipeline performance_pipeline(void)
 {
    struct pipeline pipeline;
@@ -136,7 +138,7 @@ performance_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
       }
       else if (msg->kind == 'X')
       {
-         exit_code = WORKER_SUCCESS;
+         saw_x = true;
          running = 0;
       }
    }
@@ -159,7 +161,15 @@ client_done:
                       strerror(errno), wi->client_fd, status);
    errno = 0;
 
-   exit_code = WORKER_CLIENT_FAILURE;
+   if (saw_x)
+   {
+      exit_code = WORKER_SUCCESS;
+   }
+   else
+   {
+      exit_code = WORKER_SERVER_FAILURE;
+   }
+
    running = 0;
    ev_break(loop, EVBREAK_ALL);
    return;
