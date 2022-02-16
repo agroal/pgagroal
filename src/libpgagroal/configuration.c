@@ -1283,7 +1283,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
             min_size = 0;
 
             extract_limit(line, server_max, &database, &username, &max_size, &initial_size, &min_size);
-
+	    
             if (database && username)
             {
                if (strlen(database) < MAX_DATABASE_LENGTH &&
@@ -1304,20 +1304,19 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 		  required_max += max_size;
 
 		  if (server_max < 0)
-		    {
-		      pgagroal_log_debug( "limit entry %d with max_size = %d exceeds remaining available connections %d. Line: %s",
-					  index,
-					  max_size,
-					  max_size + server_max,
-					  line );
-		      server_max = 0;
-		      max_size = 0;
-		      pgagroal_log_warn( "max_size greater than remaining available connections at entry %d (line %d of file %s), adjusting max_size to zero for this entry",
-					 index + 1,
-					 config->limits[index].lineno,
-					 filename );
-
-		    }
+		  {
+		    pgagroal_log_debug( "limit entry %d with max_size = %d exceeds remaining available connections %d. Line: %s",
+					index,
+					max_size,
+					max_size + server_max,
+					line );
+		    server_max = 0;
+		    max_size = 0;
+		    pgagroal_log_warn( "max_size greater than remaining available connections at entry %d (line %d of file %s), adjusting max_size to zero for this entry",
+				       index + 1,
+				       config->limits[index].lineno,
+				       filename );
+		  }
 
                   memcpy(&(config->limits[index].database), database, strlen(database));
                   memcpy(&(config->limits[index].username), username, strlen(username));
@@ -1360,15 +1359,16 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 
    // check if the number of max connections can be satisfied
    if ( config->max_connections < required_max )
+   {
      pgagroal_log_warn( "server_max = %d is less than required %d max connections defined in limit file %s. Adjust your configuration.",
 			config->max_connections,
-			 required_max,
-			 filename );
+			required_max,
+			filename );
+   }
    
    config->number_of_limits = index;
 
    fclose(file);
-
    return 0;
 }
 
