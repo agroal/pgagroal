@@ -808,7 +808,7 @@ pgagroal_prefill(bool initial)
 
    config = (struct configuration*)shmem;
 
-   pgagroal_log_debug("pgagroal_prefill with %d limits", config->number_of_limits );
+   pgagroal_log_debug("pgagroal_prefill");
 
    for (int i = 0; i < config->number_of_limits; i++)
    {
