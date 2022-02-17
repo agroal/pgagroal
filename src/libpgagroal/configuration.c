@@ -1260,7 +1260,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
    {
       return 1;
    }
-   
+
    index  = 0;
    lineno = 0;
    config = (struct configuration*)shm;
@@ -1297,14 +1297,14 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                      min_size = max_size;
                   }
 
-		  server_max -= max_size;
+                  server_max -= max_size;
 
                   memcpy(&(config->limits[index].database), database, strlen(database));
                   memcpy(&(config->limits[index].username), username, strlen(username));
                   config->limits[index].max_size = max_size;
                   config->limits[index].initial_size = initial_size;
                   config->limits[index].min_size = min_size;
-		  config->limits[index].lineno = ++lineno;
+                  config->limits[index].lineno = ++lineno;
                   atomic_init(&config->limits[index].active_connections, 0);
 
                   index++;
@@ -1397,7 +1397,7 @@ pgagroal_validate_limit_configuration(void* shm)
 
          if (config->limits[i].initial_size < config->limits[i].min_size)
          {
-	   pgagroal_log_warn("initial_size smaller than min_size for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
+            pgagroal_log_warn("initial_size smaller than min_size for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
             config->limits[i].initial_size = config->limits[i].min_size;
          }
       }
