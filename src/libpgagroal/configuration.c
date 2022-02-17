@@ -1360,19 +1360,19 @@ pgagroal_validate_limit_configuration(void* shm)
 
       if (config->limits[i].max_size <= 0)
       {
-         pgagroal_log_fatal("max_size must be greater than 0 for limit entry %d (line %d)", i + 1, config->limits[i].lineno);
+         pgagroal_log_fatal("max_size must be greater than 0 for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
          return 1;
       }
 
       if (config->limits[i].initial_size < 0)
       {
-         pgagroal_log_fatal("initial_size must be greater or equal to 0 for limit entry %d (line %d)", i + 1, config->limits[i].lineno);
+         pgagroal_log_fatal("initial_size must be greater or equal to 0 for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
          return 1;
       }
 
       if (config->limits[i].min_size < 0)
       {
-         pgagroal_log_fatal("min_size must be greater or equal to 0 for limit entry %d (line %d)", i + 1, config->limits[i].lineno);
+         pgagroal_log_fatal("min_size must be greater or equal to 0 for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
          return 1;
       }
 
@@ -1390,13 +1390,13 @@ pgagroal_validate_limit_configuration(void* shm)
 
          if (!user_found)
          {
-            pgagroal_log_fatal("Unknown user '%s' for limit entry %d (line %d)", config->limits[i].username, i + 1, config->limits[i].lineno);
+            pgagroal_log_fatal("Unknown user '%s' for limit entry %d (%s:%d)", config->limits[i].username, i + 1, config->limit_path, config->limits[i].lineno);
             return 1;
          }
 
          if (config->limits[i].initial_size < config->limits[i].min_size)
          {
-            pgagroal_log_warn("initial_size smaller than min_size for limit entry %d (line %d)", i + 1, config->limits[i].lineno);
+	   pgagroal_log_warn("initial_size smaller than min_size for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
             config->limits[i].initial_size = config->limits[i].min_size;
          }
       }
