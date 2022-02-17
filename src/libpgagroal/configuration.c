@@ -1251,7 +1251,6 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
    int server_max;
    struct configuration* config;
    int lineno;
-   int required_max;
 
    file = fopen(filename, "r");
 
@@ -1263,7 +1262,6 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
    config = (struct configuration*)shm;
 
    server_max   = config->max_connections;
-   required_max = 0;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1299,19 +1297,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                      min_size = max_size;
                   }
 
-
-		  server_max   -= max_size;
-		  required_max += max_size;
-
-		  if (server_max < 0)
-		  {
-		    pgagroal_log_warn("max_size greater than remaining available connections at entry %d (line %d of file %s), adjusting max_size to zero for this entry",
-				       index + 1,
-				       config->limits[index].lineno,
-				       filename);
-		      server_max = 0;
-		      max_size = 0;
-		  }
+		  server_max -= max_size;
 
                   memcpy(&(config->limits[index].database), database, strlen(database));
                   memcpy(&(config->limits[index].username), username, strlen(username));
@@ -1351,16 +1337,6 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
       }
    }
 
-
-   // check if the number of max connections can be satisfied
-   if (config->max_connections < required_max)
-   {
-     pgagroal_log_warn("server_max = %d is less than required %d max connections defined in limit file %s. Adjust your configuration.",
-                       config->max_connections,
-                       required_max,
-                       filename);
-   }
-
    config->number_of_limits = index;
    fclose(file);
    return 0;
@@ -1384,20 +1360,19 @@ pgagroal_validate_limit_configuration(void* shm)
 
       if (config->limits[i].max_size <= 0)
       {
-         pgagroal_log_fatal("max_size must be greater than 0 for limit entry %d", i + 1);
-         pgagroal_log_warn("Limit entry %d (line %d) not handled", i + 1, config->limits[i].lineno);
+         pgagroal_log_fatal("max_size must be greater than 0 for limit entry %d (line %d)", i + 1, config->limits[i].lineno);
          return 1;
       }
 
       if (config->limits[i].initial_size < 0)
       {
-         pgagroal_log_fatal("initial_size must be greater or equal to 0 for limit entry %d", i + 1);
+         pgagroal_log_fatal("initial_size must be greater or equal to 0 for limit entry %d (line %d)", i + 1, config->limits[i].lineno);
          return 1;
       }
 
       if (config->limits[i].min_size < 0)
       {
-         pgagroal_log_fatal("min_size must be greater or equal to 0 for limit entry %d", i + 1);
+         pgagroal_log_fatal("min_size must be greater or equal to 0 for limit entry %d (line %d)", i + 1, config->limits[i].lineno);
          return 1;
       }
 
@@ -1415,13 +1390,13 @@ pgagroal_validate_limit_configuration(void* shm)
 
          if (!user_found)
          {
-            pgagroal_log_fatal("Unknown user '%s' for limit entry %d", config->limits[i].username, i + 1);
+            pgagroal_log_fatal("Unknown user '%s' for limit entry %d (line %d)", config->limits[i].username, i + 1, config->limits[i].lineno);
             return 1;
          }
 
          if (config->limits[i].initial_size < config->limits[i].min_size)
          {
-            pgagroal_log_warn("initial_size smaller than min_size for limit entry (%d)", i + 1);
+            pgagroal_log_warn("initial_size smaller than min_size for limit entry %d (line %d)", i + 1, config->limits[i].lineno);
             config->limits[i].initial_size = config->limits[i].min_size;
          }
       }
@@ -1429,7 +1404,7 @@ pgagroal_validate_limit_configuration(void* shm)
 
    if (total_connections > config->max_connections)
    {
-      pgagroal_log_fatal("pgagroal: LIMIT: Too many connections defined %d (max %d)", total_connections, config->max_connections);
+      pgagroal_log_fatal("pgagroal: LIMIT: Too many connections defined %d (max_connections = %d)", total_connections, config->max_connections);
       return 1;
    }
 
