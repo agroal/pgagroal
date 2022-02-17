@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2022 Red Hat
- *
+ * 
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- *
+ * 
  * 1. Redistributions of source code must retain the above copyright notice, this list
  * of conditions and the following disclaimer.
- *
+ * 
  * 2. Redistributions in binary form must reproduce the above copyright notice, this
  * list of conditions and the following disclaimer in the documentation and/or other
  * materials provided with the distribution.
- *
+ * 
  * 3. Neither the name of the copyright holder nor the names of its contributors may
  * be used to endorse or promote products derived from this software without specific
  * prior written permission.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -151,7 +151,9 @@ pgagroal_read_configuration(void* shm, char* filename)
    file = fopen(filename, "r");
 
    if (!file)
+   {
       return 1;
+   }
 
    memset(&section, 0, LINE_LENGTH);
    config = (struct configuration*)shm;
@@ -1255,20 +1257,18 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
    file = fopen(filename, "r");
 
    if (!file)
+   {
       return 1;
-
+   }
+   
    index  = 0;
    lineno = 0;
    config = (struct configuration*)shm;
 
-   server_max   = config->max_connections;
+   server_max = config->max_connections;
 
    while (fgets(line, sizeof(line), file))
    {
-     // set immediatly the line number that can be used in
-     // error messages
-     config->limits[index].lineno = ++lineno;
-
       if (!is_empty_string(line))
       {
          if (line[0] == '#' || line[0] == ';')
@@ -1281,7 +1281,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
             min_size = 0;
 
             extract_limit(line, server_max, &database, &username, &max_size, &initial_size, &min_size);
-	    
+
             if (database && username)
             {
                if (strlen(database) < MAX_DATABASE_LENGTH &&
@@ -1304,6 +1304,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                   config->limits[index].max_size = max_size;
                   config->limits[index].initial_size = initial_size;
                   config->limits[index].min_size = min_size;
+		  config->limits[index].lineno = ++lineno;
                   atomic_init(&config->limits[index].active_connections, 0);
 
                   index++;
