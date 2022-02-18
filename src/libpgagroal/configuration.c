@@ -151,8 +151,10 @@ pgagroal_read_configuration(void* shm, char* filename)
    file = fopen(filename, "r");
 
    if (!file)
+   {
       return 1;
-    
+   }
+
    memset(&section, 0, LINE_LENGTH);
    config = (struct configuration*)shm;
 
@@ -1112,7 +1114,9 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
    file = fopen(filename, "r");
 
    if (!file)
+   {
       return 1;
+   }
 
    index = 0;
    config = (struct configuration*)shm;
@@ -1249,14 +1253,18 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
    int initial_size;
    int min_size;
    int server_max;
+   int lineno;
    struct configuration* config;
 
    file = fopen(filename, "r");
 
    if (!file)
+   {
       return 1;
+   }
 
    index = 0;
+   lineno = 0;
    config = (struct configuration*)shm;
 
    server_max = config->max_connections;
@@ -1293,17 +1301,12 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 
                   server_max -= max_size;
 
-                  if (server_max < 0)
-                  {
-                     server_max = 0;
-                     max_size = 0;
-                  }
-
                   memcpy(&(config->limits[index].database), database, strlen(database));
                   memcpy(&(config->limits[index].username), username, strlen(username));
                   config->limits[index].max_size = max_size;
                   config->limits[index].initial_size = initial_size;
                   config->limits[index].min_size = min_size;
+                  config->limits[index].lineno = ++lineno;
                   atomic_init(&config->limits[index].active_connections, 0);
 
                   index++;
@@ -1362,19 +1365,19 @@ pgagroal_validate_limit_configuration(void* shm)
 
       if (config->limits[i].max_size <= 0)
       {
-         pgagroal_log_fatal("max_size must be greater than 0 for limit entry %d", i + 1);
+         pgagroal_log_fatal("max_size must be greater than 0 for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
          return 1;
       }
 
       if (config->limits[i].initial_size < 0)
       {
-         pgagroal_log_fatal("initial_size must be greater or equal to 0 for limit entry %d", i + 1);
+         pgagroal_log_fatal("initial_size must be greater or equal to 0 for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
          return 1;
       }
 
       if (config->limits[i].min_size < 0)
       {
-         pgagroal_log_fatal("min_size must be greater or equal to 0 for limit entry %d", i + 1);
+         pgagroal_log_fatal("min_size must be greater or equal to 0 for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
          return 1;
       }
 
@@ -1392,13 +1395,13 @@ pgagroal_validate_limit_configuration(void* shm)
 
          if (!user_found)
          {
-            pgagroal_log_fatal("Unknown user '%s' for limit entry %d", config->limits[i].username, i + 1);
+            pgagroal_log_fatal("Unknown user '%s' for limit entry %d (%s:%d)", config->limits[i].username, i + 1, config->limit_path, config->limits[i].lineno);
             return 1;
          }
 
          if (config->limits[i].initial_size < config->limits[i].min_size)
          {
-            pgagroal_log_warn("initial_size smaller than min_size for limit entry (%d)", i + 1);
+            pgagroal_log_warn("initial_size smaller than min_size for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
             config->limits[i].initial_size = config->limits[i].min_size;
          }
       }
@@ -1406,7 +1409,7 @@ pgagroal_validate_limit_configuration(void* shm)
 
    if (total_connections > config->max_connections)
    {
-      pgagroal_log_fatal("pgagroal: LIMIT: Too many connections defined %d (max %d)", total_connections, config->max_connections);
+      pgagroal_log_fatal("pgagroal: LIMIT: Too many connections defined %d (max_connections = %d)", total_connections, config->max_connections);
       return 1;
    }
 
