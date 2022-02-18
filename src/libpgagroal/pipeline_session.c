@@ -60,6 +60,7 @@ static void session_periodic(void);
 static bool in_tx;
 static int next_client_message;
 static int next_server_message;
+static bool saw_x = false;
 
 #define CLIENT_INIT   0
 #define CLIENT_IDLE   1
@@ -366,7 +367,7 @@ session_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
       }
       else if (msg->kind == 'X')
       {
-         exit_code = WORKER_SUCCESS;
+         saw_x = true;
          running = 0;
       }
    }
@@ -392,7 +393,15 @@ client_done:
 
    client_inactive(wi->slot);
 
-   exit_code = WORKER_CLIENT_FAILURE;
+   if (saw_x)
+   {
+      exit_code = WORKER_SUCCESS;
+   }
+   else
+   {
+      exit_code = WORKER_SERVER_FAILURE;
+   }
+
    running = 0;
    ev_break(loop, EVBREAK_ALL);
    return;
