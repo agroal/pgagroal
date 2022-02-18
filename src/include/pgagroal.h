@@ -208,6 +208,7 @@ struct limit
    int max_size;                       /**< The maximum pool size */
    int initial_size;                   /**< The initial pool size */
    int min_size;                       /**< The minimum pool size */
+   int lineno;                         /**< The line number within the configuration file */
 } __attribute__ ((aligned (64)));
 
 /** @struct
