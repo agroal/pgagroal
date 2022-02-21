@@ -354,19 +354,19 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    {
       if (!generate_pwd)
       {
-        while( password == NULL )
-        {
-          printf("Master key (will not echo): ");
-          password = pgagroal_get_password();
-          printf("\n");
+         while( password == NULL )
+         {
+            printf("Master key (will not echo): ");
+            password = pgagroal_get_password();
+            printf("\n");
 
-          if (password != NULL && strlen(password) < MIN_PASSWORD_LENGTH )
-          {
-            printf("Invalid key length, must be at least %d chars.\n", MIN_PASSWORD_LENGTH );
-            free(password);
-            password = NULL;
-          }
-        }
+            if (password != NULL && strlen(password) < MIN_PASSWORD_LENGTH )
+            {
+               printf("Invalid key length, must be at least %d chars.\n", MIN_PASSWORD_LENGTH );
+               free(password);
+               password = NULL;
+            }
+         }
       }
       else
       {
