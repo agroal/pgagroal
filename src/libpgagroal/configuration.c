@@ -627,15 +627,15 @@ pgagroal_read_configuration(void* shm, char* filename)
                  }
 
                }
-	       else if (!strcmp(key, "log_line_prefix"))
+               else if (!strcmp(key, "log_line_prefix"))
                {
                  if (!strcmp(section, "pgagroal"))
                  {
                     max = strlen(value);
-		    if (max > MISC_LENGTH - 1)
-		      max = MISC_LENGTH - 1;
+                    if (max > MISC_LENGTH - 1)
+                      max = MISC_LENGTH - 1;
 
-		    memcpy(config->log_line_prefix, value, max);
+                    memcpy(config->log_line_prefix, value, max);
                  }
                  else
                  {
