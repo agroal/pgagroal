@@ -2258,20 +2258,29 @@ as_logging_type(char* str)
 static int
 as_logging_level(char* str)
 {
-   if (!strcasecmp(str, "debug5"))
-      return PGAGROAL_LOGGING_LEVEL_DEBUG5;
+    int debug_level = 1;
+    char* debug_value = NULL;
 
-   if (!strcasecmp(str, "debug4"))
-      return PGAGROAL_LOGGING_LEVEL_DEBUG4;
+   if (!strncasecmp(str, "debug", strlen("debug")))
+   {
+      if (strlen(str) > strlen("debug"))
+      {
+         debug_value = (char *) malloc( (strlen(str) - strlen("debug")) * sizeof(char));
+         memcpy(debug_value, str + sizeof("debug") - 1, strlen(str) - strlen("debug") + 1);
+         debug_level = atoi(debug_value);
+     }
 
-   if (!strcasecmp(str, "debug3"))
-      return PGAGROAL_LOGGING_LEVEL_DEBUG3;
-
-   if (!strcasecmp(str, "debug2"))
-      return PGAGROAL_LOGGING_LEVEL_DEBUG2;
-
-   if (!strcasecmp(str, "debug1"))
-      return PGAGROAL_LOGGING_LEVEL_DEBUG1;
+     if (debug_level <= 1)
+       return PGAGROAL_LOGGING_LEVEL_DEBUG1;
+     else if (debug_level == 2)
+       return PGAGROAL_LOGGING_LEVEL_DEBUG2;
+     else if (debug_level == 3)
+       return PGAGROAL_LOGGING_LEVEL_DEBUG3;
+     else if (debug_level == 4)
+       return PGAGROAL_LOGGING_LEVEL_DEBUG4;
+     else if (debug_level >= 5)
+       return PGAGROAL_LOGGING_LEVEL_DEBUG5;
+   }
 
    if (!strcasecmp(str, "info"))
       return PGAGROAL_LOGGING_LEVEL_INFO;
