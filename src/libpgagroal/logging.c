@@ -86,6 +86,7 @@ log_rotation_enabled(void)
   // logging is not to a file
   if (config->log_type != PGAGROAL_LOGGING_TYPE_FILE)
   {
+    log_rotation_disable();
     return false;
   }
 
@@ -140,7 +141,7 @@ log_rotation_required(void)
     return true;
   }
 
-  if (config->log_rotation_age > 0 && next_log_rotation_age > 0 && next_log_rotation_age >= log_stat.st_ctime)
+  if (config->log_rotation_age > 0 && next_log_rotation_age > 0 && next_log_rotation_age <= log_stat.st_ctime)
   {
     return true;
   }
@@ -165,14 +166,14 @@ log_rotation_set_next_rotation_age(void)
 
    if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE && config->log_rotation_age > 0)
    {
-      now = time( NULL );
+      now = time(NULL);
       if (!now)
       {
 	config->log_rotation_age = PGAGROAL_LOGGING_ROTATION_DISABLED;
 	return false;
       }
       
-      next_log_rotation_age = now + config->log_rotation_age * 60;
+      next_log_rotation_age = now + config->log_rotation_age;
       return true;
    }
    else
@@ -205,10 +206,6 @@ pgagroal_init_logging(void)
 	 log_rotation_disable();
          return 1;
       }
-      else
-      {
-	log_rotation_set_next_rotation_age();
-      }
    }
 
    return 0;
@@ -224,7 +221,7 @@ pgagroal_start_logging(void)
 
    config = (struct configuration*)shmem;
 
-   if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
+   if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE && !log_file)
    {
       log_file_open();
 
@@ -253,6 +250,13 @@ pgagroal_start_logging(void)
  * to open.
  *
  * It sets the global variable 'log_file'.
+ *
+ * If it succeed in opening the log file, it calls
+ * the log_rotation_set_next_rotation_age() function to
+ * determine the next instant at which the log file
+ * must be rotated. Calling such function is safe
+ * because if the log rotation is disabled, the function
+ * does nothing.
  *
  * Returns 0 on success, 1 on error.
  */
@@ -290,6 +294,20 @@ log_file_open(void)
 
     log_file = fopen(current_log_path,
 		     config->log_mode == PGAGROAL_LOGGING_MODE_APPEND ? "a" : "w");
+
+    if (!log_file)
+      return 1;
+
+    log_rotation_set_next_rotation_age();
+    /*    printf("\n\nLog file %s initialized %d, rotation %sable (every %d bytes or %d seconds or so, next estimated at %ld epoch, now is %d)\n\n",
+	   current_log_path,
+	   config->log_level,
+		       log_rotation_enabled() ? "en" : "dis",
+		       config->log_rotation_size,
+		       config->log_rotation_age,
+	   (long) next_log_rotation_age,
+	   (long) htime);
+    */
     return 0;
   }
 
@@ -405,7 +423,8 @@ retry:
 
 	    if (log_rotation_required())
 	    {
-	      log_file_rotate();
+	      printf("\nLOG ROTATION\n\n");
+	       log_file_rotate();
 	    }
          }
          else if (config->log_type == PGAGROAL_LOGGING_TYPE_SYSLOG)

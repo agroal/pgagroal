@@ -2870,13 +2870,13 @@ as_logging_rotation_size(char* str, int* size)
 /**
  * Parses the log_rotation_age string.
  * The string accepts
+ * - s for seconds
+ * - m for minutes
  * - h for hours
  * - d for days
  * - w for weeks
- * - m for months
- * - y for years
  *
- * The default is expressed in minutes.
+ * The default is expressed in seconds.
  * The function sets the number of rotationg age as minutes.
  * Returns 1 for errors, 0 for correct parsing.
  */
@@ -2908,29 +2908,29 @@ as_logging_rotation_age(char* str, int* age)
     }
     else if (isalpha(str[i]) && ! multiplier_set)
     {
-      if (str[i] == 'h' || str[i] == 'H')
+      if (str[i] == 's' || str[i] == 'S')
       {
-        multiplier = 60;
-        multiplier_set = true;
-      }
-      else if (str[i] == 'd' || str[i] == 'D')
-      {
-        multiplier = 24 * 60;
-        multiplier_set = true;
-      }
-      else if (str[i] == 'w' || str[i] == 'W')
-      {
-        multiplier = 24 * 60 * 7;
+        multiplier = 1;
         multiplier_set = true;
       }
       else if (str[i] == 'm' || str[i] == 'M')
       {
-        multiplier = 24 * 60 * 7 * 31;
+        multiplier = 60;
         multiplier_set = true;
       }
-      else if (str[i] == 'y' || str[i] == 'Y')
+      else if (str[i] == 'h' || str[i] == 'H')
       {
-        multiplier = 24 * 60 * 365;
+        multiplier = 3600;
+        multiplier_set = true;
+      }
+      else if (str[i] == 'd' || str[i] == 'D')
+      {
+        multiplier = 24 * 3600;
+        multiplier_set = true;
+      }
+      else if (str[i] == 'w' || str[i] == 'W')
+      {
+        multiplier = 24 * 3600 * 7;
         multiplier_set = true;
       }
     }
