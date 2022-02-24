@@ -30,6 +30,7 @@
 #include <pgagroal.h>
 #include <logging.h>
 #include <message.h>
+#include <pool.h>
 #include <server.h>
 #include <utils.h>
 
@@ -216,7 +217,8 @@ int
 pgagroal_server_failover(int slot)
 {
    signed char primary;
-   int old_primary;
+   signed char old_primary;
+   int ret = 1;
    struct configuration* config = NULL;
 
    config = (struct configuration*)shmem;
@@ -227,10 +229,15 @@ pgagroal_server_failover(int slot)
 
    if (atomic_compare_exchange_strong(&config->servers[old_primary].state, &primary, SERVER_FAILOVER))
    {
-      return failover(config->connections[slot].server);
+      ret = failover(old_primary);
+
+      if (!fork())
+      {
+         pgagroal_flush_server(old_primary);
+      }
    }
 
-   return 1;
+   return ret;
 }
 
 int
