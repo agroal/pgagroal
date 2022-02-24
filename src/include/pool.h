@@ -92,6 +92,13 @@ void
 pgagroal_flush(int mode, char* database);
 
 /**
+ * Flush the pool for a specific server
+ * @param server The server
+ */
+void
+pgagroal_flush_server(signed char server);
+
+/**
  * Prefill the pool
  * @param initial Use initial size
  */

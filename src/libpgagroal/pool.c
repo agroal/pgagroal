@@ -193,7 +193,7 @@ start:
 
             if (!fork())
             {
-               pgagroal_flush(FLUSH_GRACEFULLY, "*");
+               pgagroal_flush_server(server);
             }
 
             if (config->failover)
@@ -784,6 +784,68 @@ pgagroal_flush(int mode, char* database)
    }
    
    if (prefill && config->number_of_users > 0 && config->number_of_limits > 0)
+   {
+      if (!fork())
+      {
+         pgagroal_prefill(false);
+      }
+   }
+
+   pgagroal_pool_status();
+   pgagroal_memory_destroy();
+   pgagroal_stop_logging();
+
+   exit(0);
+}
+
+void
+pgagroal_flush_server(signed char server)
+{
+   struct configuration* config;
+
+   pgagroal_start_logging();
+   pgagroal_memory_init();
+
+   config = (struct configuration*)shmem;
+
+   pgagroal_log_debug("pgagroal_flush_server");
+   for (int i = 0; i < config->max_connections; i++)
+   {
+      if (config->connections[i].server == server)
+      {
+         switch (atomic_load(&config->states[i]))
+         {
+            case STATE_NOTINIT:
+            case STATE_INIT:
+               /* Do nothing */
+               break;
+            case STATE_FREE:
+               atomic_store(&config->states[i], STATE_GRACEFULLY);
+               if (pgagroal_socket_isvalid(config->connections[i].fd))
+               {
+                  pgagroal_write_terminate(NULL, config->connections[i].fd);
+               }
+               pgagroal_prometheus_connection_flush();
+               pgagroal_tracking_event_slot(TRACKER_FLUSH, i);
+               pgagroal_kill_connection(i, NULL);
+               break;
+            case STATE_IN_USE:
+            case STATE_GRACEFULLY:
+            case STATE_FLUSH:
+               atomic_store(&config->states[i], STATE_GRACEFULLY);
+               break;
+            case STATE_IDLE_CHECK:
+            case STATE_VALIDATION:
+            case STATE_REMOVE:
+               atomic_store(&config->states[i], STATE_GRACEFULLY);
+               break;
+            default:
+               break;
+         }
+      }
+   }
+
+   if (config->number_of_users > 0 && config->number_of_limits > 0)
    {
       if (!fork())
       {

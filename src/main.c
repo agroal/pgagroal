@@ -1430,12 +1430,30 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
          break;
       case MANAGEMENT_SWITCH_TO:
          pgagroal_log_debug("pgagroal: Management switch to");
+         int old_primary = -1;
+         signed char server_state;
+         for (int i = 0; old_primary == -1 && i < config->number_of_servers; i++)
+         {
+            server_state = atomic_load(&config->servers[i].state);
+            if (server_state == SERVER_PRIMARY)
+            {
+               old_primary = i;
+            }
+         }
+
          if (!pgagroal_server_switch(payload_s))
          {
             if (!fork())
             {
                shutdown_ports();
-               pgagroal_flush(FLUSH_GRACEFULLY, "*");
+               if (old_primary != -1)
+               {
+                  pgagroal_flush_server(old_primary);
+               }
+               else
+               {
+                  pgagroal_flush(FLUSH_GRACEFULLY, "*");
+               }
             }
             pgagroal_prometheus_failed_servers();
          }
