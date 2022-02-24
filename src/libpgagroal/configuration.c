@@ -2252,7 +2252,7 @@ as_logging_type(char* str)
    if (!strcasecmp(str, "syslog"))
       return PGAGROAL_LOGGING_TYPE_SYSLOG;
 
-   return 0;
+   return PGAGROAL_LOGGING_TYPE_CONSOLE;
 }
 
 static int
