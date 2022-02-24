@@ -28,7 +28,7 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | metrics | 0 | Int | No | The metrics port (disable = 0) |
 | management | 0 | Int | No | The remote management port (disable = 0) |
 | log_type | console | String | No | The logging type (console, file, syslog) |
-| log_level | info | String | No | The logging level (fatal, error, warn, info, debug1, ..., debug5) |
+| log_level | info | String | No | The logging level (fatal, error, warn, info, debug, debug1 thru debug5). Debug level greater than 5 will be set to `debug5`. Not recognized values will make the log_level be `info` |
 | log_path | pgagroal.log | String | No | The log file location |
 | log_mode | append | String | No | Append to or create the log file (append, create) |
 | log_connections | `off` | Bool | No | Log connects |
