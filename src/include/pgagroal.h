@@ -306,7 +306,7 @@ struct configuration
    atomic_schar log_lock;      /**< The logging lock */
    int log_rotation_size;      /**< bytes to force log rotation */
    int log_rotation_age;       /**< minutes for log rotation */
-   bool log_truncate;          /**< Truncate an existing log on rotation */
+   char log_line_prefix[MISC_LENGTH]; /**< The logging prefix */
 
    bool authquery; /**< Is authentication query enabled */
 

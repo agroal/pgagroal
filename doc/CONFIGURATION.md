@@ -29,7 +29,8 @@ See a [sample](./etc/pgagroal/pgagroal.conf) configuration for running `pgagroal
 | management | 0 | Int | No | The remote management port (disable = 0) |
 | log_type | console | String | No | The logging type (console, file, syslog) |
 | log_level | info | String | No | The logging level (fatal, error, warn, info, debug1, ..., debug5) |
-| log_path | pgagroal.log | String | No | The log file location |
+| log_line_prefix | %Y-%m-%d %H:%M:%S | String | No | A prefix to place on every log entry, accepts escape sequences that strftime(3) can parse. No spaces between the string parts are allowed. |
+| log_path | pgagroal.log | String | No | The log file location. Can include escape sequences that strftime(3) accepts, e.g., pgagroal-%Y-%m-%d-%H-%M-%S.log |
 | log_rotation_age | -1 | String | No | The age that will trigger a log file rotation. If expressed as a positive number, is managed as seconds. Supports suffixes: 'S' (seconds, the default), 'M' (minutes), 'H' (hours), 'D' (days), 'W' (weeks) |
 | log_rotation_size | -1 | String | No | The size of the log file that will trigger a log rotation. Supports suffixes: 'B' (bytes), the default if omitted, 'K' (kilobytes), 'M' (megabytes), 'G' (gigabytes). |
 | log_mode | append | String | No | Append to or create the log file (append, create). The create option truncates an already existing file. |

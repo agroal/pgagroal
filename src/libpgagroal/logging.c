@@ -86,8 +86,8 @@ log_rotation_enabled(void)
   // logging is not to a file
   if (config->log_type != PGAGROAL_LOGGING_TYPE_FILE)
   {
-    log_rotation_disable();
-    return false;
+     log_rotation_disable();
+     return false;
   }
 
   // log rotation is enabled if either log_rotation_age or
@@ -203,7 +203,7 @@ pgagroal_init_logging(void)
       {
          printf("Failed to open log file %s due to %s\n", strlen(config->log_path) > 0 ? config->log_path : "pgagroal.log", strerror(errno));
          errno = 0;
-	 log_rotation_disable();
+         log_rotation_disable();
          return 1;
       }
    }
@@ -299,15 +299,6 @@ log_file_open(void)
       return 1;
 
     log_rotation_set_next_rotation_age();
-    /*    printf("\n\nLog file %s initialized %d, rotation %sable (every %d bytes or %d seconds or so, next estimated at %ld epoch, now is %d)\n\n",
-	   current_log_path,
-	   config->log_level,
-		       log_rotation_enabled() ? "en" : "dis",
-		       config->log_rotation_size,
-		       config->log_rotation_age,
-	   (long) next_log_rotation_age,
-	   (long) htime);
-    */
     return 0;
   }
 
@@ -400,11 +391,16 @@ retry:
             filename = file;
          }
 
+	 if (config->log_line_prefix == NULL || strlen(config->log_line_prefix) == 0)
+	 {
+	    memcpy(config->log_line_prefix,PGAGROAL_LOGGING_DEFAULT_LOG_LINE_PREFIX,strlen(PGAGROAL_LOGGING_DEFAULT_LOG_LINE_PREFIX));
+	 }
+
          va_start(vl, fmt);
 
          if (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
          {
-            buf[strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm)] = '\0';
+            buf[strftime(buf, sizeof(buf), config->log_line_prefix, tm)] = '\0';
             fprintf(stdout, "%s %s%-5s\x1b[0m \x1b[90m%s:%d\x1b[0m ",
                     buf, colors[level - 1], levels[level - 1],
                     filename, line);
@@ -414,7 +410,7 @@ retry:
          }
          else if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
          {
-            buf[strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm)] = '\0';
+            buf[strftime(buf, sizeof(buf), config->log_line_prefix, tm)] = '\0';
             fprintf(log_file, "%s %-5s %s:%d ",
                     buf, levels[level - 1], filename, line);
             vfprintf(log_file, fmt, vl);
@@ -423,7 +419,6 @@ retry:
 
 	    if (log_rotation_required())
 	    {
-	      printf("\nLOG ROTATION\n\n");
 	       log_file_rotate();
 	    }
          }

@@ -54,6 +54,7 @@ extern "C" {
 
 #define PGAGROAL_LOGGING_ROTATION_DISABLED -1
 
+#define PGAGROAL_LOGGING_DEFAULT_LOG_LINE_PREFIX "%Y-%m-%d %H:%M:%S"
   
 #define pgagroal_log_trace(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_DEBUG5, __FILE__, __LINE__, __VA_ARGS__)
 #define pgagroal_log_debug(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_DEBUG1, __FILE__, __LINE__, __VA_ARGS__)
