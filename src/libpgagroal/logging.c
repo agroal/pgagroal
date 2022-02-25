@@ -71,91 +71,70 @@ static const char* colors[] =
 };
 
 
-/**
- * Utility function to understand if log rotation
- * is enabled or not.
- * Returns `true` if the rotation is enabled.
- */
+
 bool
 log_rotation_enabled(void)
 {
-  struct configuration* config;
-  config = (struct configuration*)shmem;
+   struct configuration* config;
+   config = (struct configuration*)shmem;
 
-  // disable log rotation in the case
-  // logging is not to a file
-  if (config->log_type != PGAGROAL_LOGGING_TYPE_FILE)
-  {
-     log_rotation_disable();
-     return false;
-  }
+   // disable log rotation in the case
+   // logging is not to a file
+   if (config->log_type != PGAGROAL_LOGGING_TYPE_FILE)
+   {
+      log_rotation_disable();
+      return false;
+   }
 
-  // log rotation is enabled if either log_rotation_age or
-  // log_rotation_size is enabled
-  return config->log_rotation_age != PGAGROAL_LOGGING_ROTATION_DISABLED
-      || config->log_rotation_size != PGAGROAL_LOGGING_ROTATION_DISABLED;
+   // log rotation is enabled if either log_rotation_age or
+   // log_rotation_size is enabled
+   return config->log_rotation_age != PGAGROAL_LOGGING_ROTATION_DISABLED
+       || config->log_rotation_size != PGAGROAL_LOGGING_ROTATION_DISABLED;
 }
 
-/**
- * Forces a disabling of the log rotation.
- * Useful when the system cannot determine how to rotate logs.
- */
+
 void
 log_rotation_disable(void)
 {
-  struct configuration* config;
-  config = (struct configuration*)shmem;
+   struct configuration* config;
+   config = (struct configuration*)shmem;
 
-  config->log_rotation_age  = PGAGROAL_LOGGING_ROTATION_DISABLED;
-  config->log_rotation_size = PGAGROAL_LOGGING_ROTATION_DISABLED;
-  next_log_rotation_age = 0;
+   config->log_rotation_age  = PGAGROAL_LOGGING_ROTATION_DISABLED;
+   config->log_rotation_size = PGAGROAL_LOGGING_ROTATION_DISABLED;
+   next_log_rotation_age     = 0;
 }
 
-/**
- * Checks if there are the requirements to perform a log rotation.
- * It returns true in either the case of the size exceeded or
- * the age exceeded. The age is contained into a global
- * variable 'next_log_rotation_age' that express the number
- * of seconds at which the next rotation will be performed.
- */
 bool
 log_rotation_required(void)
 {
-  struct stat log_stat;
-  struct configuration* config;
+   struct stat log_stat;
+   struct configuration* config;
   
-  config = (struct configuration*)shmem;
+   config = (struct configuration*)shmem;
 
-  if (!log_rotation_enabled())
-  {
-    return false;
-  }
+   if (!log_rotation_enabled())
+   {
+      return false;
+   }
 
-  if (stat(current_log_path, &log_stat))
-  {
-    return false;
-  }
+   if (stat(current_log_path, &log_stat))
+   {
+      return false;
+   }
 
-  if (config->log_rotation_size > 0 && log_stat.st_size >= config->log_rotation_size)
-  {
-    return true;
-  }
+   if (config->log_rotation_size > 0 && log_stat.st_size >= config->log_rotation_size)
+   {
+      return true;
+   }
 
-  if (config->log_rotation_age > 0 && next_log_rotation_age > 0 && next_log_rotation_age <= log_stat.st_ctime)
-  {
-    return true;
-  }
+   if (config->log_rotation_age > 0 && next_log_rotation_age > 0 && next_log_rotation_age <= log_stat.st_ctime)
+   {
+      return true;
+   }
 
-  return false;
+   return false;
 }
 
-/**
- * Function to compute the next instant at which a log rotation
- * will happen. It computes only if the logging is to a file
- * and only if the configuration tells to compute the rotation
- * age.
- * Returns true on success.
- */
 bool
 log_rotation_set_next_rotation_age(void)
 {
@@ -169,8 +148,8 @@ log_rotation_set_next_rotation_age(void)
       now = time(NULL);
       if (!now)
       {
-	config->log_rotation_age = PGAGROAL_LOGGING_ROTATION_DISABLED;
-	return false;
+	 config->log_rotation_age = PGAGROAL_LOGGING_ROTATION_DISABLED;
+         return false;
       }
       
       next_log_rotation_age = now + config->log_rotation_age;
@@ -178,10 +157,9 @@ log_rotation_set_next_rotation_age(void)
    }
    else
    {
-     config->log_rotation_age = PGAGROAL_LOGGING_ROTATION_DISABLED;
-     return false;
+      config->log_rotation_age = PGAGROAL_LOGGING_ROTATION_DISABLED;
+      return false;
    }
-
 }
 
 
@@ -240,88 +218,61 @@ pgagroal_start_logging(void)
    return 0;
 }
 
-/**
- * Opens the log file defined in the configuration.
- * Works only for a real log file, i.e., the configuration
- * must be set up to log to a file, not console.
- *
- * The function considers the settings in the configuration
- * to determine the mode (append, create) and the filename
- * to open.
- *
- * It sets the global variable 'log_file'.
- *
- * If it succeed in opening the log file, it calls
- * the log_rotation_set_next_rotation_age() function to
- * determine the next instant at which the log file
- * must be rotated. Calling such function is safe
- * because if the log rotation is disabled, the function
- * does nothing.
- *
- * Returns 0 on success, 1 on error.
- */
+
 int
 log_file_open(void)
 {
-  struct configuration* config;
-  time_t htime;
-  struct tm *tm;
+   struct configuration* config;
+   time_t htime;
+   struct tm *tm;
   
-  config = (struct configuration*)shmem;
+   config = (struct configuration*)shmem;
 
-  if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
-  {
-    htime = time( NULL );
-    if (!htime)
-    {
-      log_file = NULL;
-      return 1;
-    }
+   if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
+   {
+      htime = time( NULL );
+      if (!htime)
+      {
+         log_file = NULL;
+         return 1;
+      }
       
-    tm = localtime(&htime);
-    if (tm == NULL )
-    {
-      log_file = NULL;
-      return 1;
-    }
+      tm = localtime(&htime);
+      if (tm == NULL )
+      {
+         log_file = NULL;
+         return 1;
+      }
 
-    if (strftime(current_log_path, sizeof(current_log_path), config->log_path, tm) <= 0 )
-    {
-      // cannot parse the format string, fallback to default logging
-      memcpy(current_log_path, "pgagroal.log", strlen("pgagroal.log"));
-      log_rotation_disable();
-    }
+      if (strftime(current_log_path, sizeof(current_log_path), config->log_path, tm) <= 0 )
+      {
+         // cannot parse the format string, fallback to default logging
+         memcpy(current_log_path, "pgagroal.log", strlen("pgagroal.log"));
+         log_rotation_disable();
+      }
 
-    log_file = fopen(current_log_path,
-		     config->log_mode == PGAGROAL_LOGGING_MODE_APPEND ? "a" : "w");
+      log_file = fopen(current_log_path,
+                       config->log_mode == PGAGROAL_LOGGING_MODE_APPEND ? "a" : "w");
 
-    if (!log_file)
-      return 1;
+      if (!log_file)
+        return 1;
 
-    log_rotation_set_next_rotation_age();
-    return 0;
-  }
+      log_rotation_set_next_rotation_age();
+      return 0;
+   }
 
-  return 1;
+   return 1;
 }
 
-/**
- * Performs a log file rotation.
- * It flushes and closes the current log file,
- * then re-opens it.
- *
- * DO NOT LOG WITHIN THIS FUNCTION as long as this
- * is invoked by log_line
- */
 void
 log_file_rotate(void)
 {
-  if (log_rotation_enabled())
-  {
-    fflush(log_file);
-    fclose(log_file);
-    log_file_open();
-  }
+   if (log_rotation_enabled())
+   {
+      fflush(log_file);
+      fclose(log_file);
+      log_file_open();
+   }
 }
 
 
