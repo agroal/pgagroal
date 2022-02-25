@@ -2258,8 +2258,8 @@ as_logging_type(char* str)
 static int
 as_logging_level(char* str)
 {
-    int debug_level = 1;
-    char* debug_value = NULL;
+   int debug_level = 1;
+   char* debug_value = NULL;
 
    if (!strncasecmp(str, "debug", strlen("debug")))
    {
@@ -2271,15 +2271,15 @@ as_logging_level(char* str)
      }
 
      if (debug_level <= 1)
-       return PGAGROAL_LOGGING_LEVEL_DEBUG1;
+        return PGAGROAL_LOGGING_LEVEL_DEBUG1;
      else if (debug_level == 2)
-       return PGAGROAL_LOGGING_LEVEL_DEBUG2;
+        return PGAGROAL_LOGGING_LEVEL_DEBUG2;
      else if (debug_level == 3)
-       return PGAGROAL_LOGGING_LEVEL_DEBUG3;
+        return PGAGROAL_LOGGING_LEVEL_DEBUG3;
      else if (debug_level == 4)
-       return PGAGROAL_LOGGING_LEVEL_DEBUG4;
+        return PGAGROAL_LOGGING_LEVEL_DEBUG4;
      else if (debug_level >= 5)
-       return PGAGROAL_LOGGING_LEVEL_DEBUG5;
+        return PGAGROAL_LOGGING_LEVEL_DEBUG5;
    }
 
    if (!strcasecmp(str, "info"))
