@@ -71,7 +71,6 @@ static const char* colors[] =
 };
 
 
-
 bool
 log_rotation_enabled(void)
 {
@@ -274,7 +273,6 @@ log_file_rotate(void)
       log_file_open();
    }
 }
-
 
 /**
  *
