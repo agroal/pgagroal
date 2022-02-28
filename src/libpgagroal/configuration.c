@@ -36,6 +36,7 @@
 #include <utils.h>
 
 /* system */
+#include <ctype.h>
 #include <errno.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -58,6 +59,8 @@ static int as_bool(char* str, bool* b);
 static int as_logging_type(char* str);
 static int as_logging_level(char* str);
 static int as_logging_mode(char* str);
+static int as_logging_rotation_size(char* str, int* size);
+static int as_logging_rotation_age(char* str, int* age);
 static int as_validation(char* str);
 static int as_pipeline(char* str);
 static int as_hugepage(char* str);
@@ -588,6 +591,51 @@ pgagroal_read_configuration(void* shm, char* filename)
                      if (max > MISC_LENGTH - 1)
                         max = MISC_LENGTH - 1;
                      memcpy(config->log_path, value, max);
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (!strcmp(key, "log_rotation_size"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     if (as_logging_rotation_size(value, &config->log_rotation_size))
+                     {
+                        unknown = true;
+                     }
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+
+               }
+               else if (!strcmp(key, "log_rotation_age"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     if (as_logging_rotation_age(value, &config->log_rotation_age))
+                     {
+                        unknown = true;
+                     }
+                  }
+                  else
+                  {
+                     unknown = true;
+                  }
+
+               }
+               else if (!strcmp(key, "log_line_prefix"))
+               {
+                  if (!strcmp(section, "pgagroal"))
+                  {
+                     max = strlen(value);
+                     if (max > MISC_LENGTH - 1)
+                        max = MISC_LENGTH - 1;
+
+                     memcpy(config->log_line_prefix, value, max);
                   }
                   else
                   {
@@ -2757,4 +2805,170 @@ is_empty_string(char* s)
    }
 
    return true;
+}
+
+/**
+ * Parses a string to see if it contains
+ * a valid value for log rotation size.
+ * Returns 0 if parsing ok, 1 otherwise.
+ *
+ * Valid strings have one of the suffixes:
+ * - k for kilobytes
+ * - m for megabytes
+ * - g for gigabytes
+ *
+ * The default is expressed always as kilobytes. The functions sets the
+ * rotation size in kilobytes.
+ */
+static int
+as_logging_rotation_size(char* str, int* size)
+{
+   int multiplier = 1;
+   int index;
+   char value[MISC_LENGTH];
+   bool multiplier_set = false;
+
+   if (is_empty_string(str))
+   {
+      *size = PGAGROAL_LOGGING_ROTATION_DISABLED;
+      return 0;
+   }
+
+   index = 0;
+   for (int i = 0; i < strlen(str); i++)
+   {
+      if (isdigit(str[i]))
+      {
+         value[index++] = str[i];
+      }
+      else if (isalpha(str[i]) && multiplier_set)
+      {
+         *size = PGAGROAL_LOGGING_ROTATION_DISABLED;
+         return 1;
+      }
+      else if (isalpha(str[i]) && ! multiplier_set)
+      {
+         if (str[i] == 'M' || str[i] == 'm')
+         {
+            multiplier = 1024 * 1024;
+            multiplier_set = true;
+         }
+         else if(str[i] == 'G' || str[i] == 'g')
+         {
+            multiplier = 1024 * 1024 * 1024;
+            multiplier_set = true;
+         }
+         else if(str[i] == 'K' || str[i] == 'k')
+         {
+            multiplier = 1024;
+            multiplier_set = true;
+         }
+         else if(str[i] == 'B' || str[i] == 'b')
+         {
+            multiplier = 1;
+            multiplier_set = true;
+         }
+      }
+      else
+        // ignore alien chars
+        continue;
+   }
+
+   value[index] = '\0';
+   if (!as_int(value, size))
+   {
+      *size = *size * multiplier;
+      return 0;
+   }
+   else
+   {
+      *size = PGAGROAL_LOGGING_ROTATION_DISABLED;
+      return 1;
+   }
+}
+
+/**
+ * Parses the log_rotation_age string.
+ * The string accepts
+ * - s for seconds
+ * - m for minutes
+ * - h for hours
+ * - d for days
+ * - w for weeks
+ *
+ * The default is expressed in seconds.
+ * The function sets the number of rotationg age as minutes.
+ * Returns 1 for errors, 0 for correct parsing.
+ */
+static int
+as_logging_rotation_age(char* str, int* age)
+{
+   int multiplier = 1;
+   int index;
+   char value[MISC_LENGTH];
+   bool multiplier_set = false;
+
+   if (is_empty_string(str))
+   {
+      *age = PGAGROAL_LOGGING_ROTATION_DISABLED;
+      return 0;
+   }
+
+   index = 0;
+   for (int i = 0; i < strlen(str); i++)
+   {
+      if (isdigit(str[i]))
+      {
+         value[index++] = str[i];
+      }
+      else if (isalpha(str[i]) && multiplier_set)
+      {
+         *age = PGAGROAL_LOGGING_ROTATION_DISABLED;
+         return 1;
+      }
+      else if (isalpha(str[i]) && ! multiplier_set)
+      {
+         if (str[i] == 's' || str[i] == 'S')
+         {
+            multiplier = 1;
+            multiplier_set = true;
+         }
+         else if (str[i] == 'm' || str[i] == 'M')
+         {
+            multiplier = 60;
+            multiplier_set = true;
+         }
+         else if (str[i] == 'h' || str[i] == 'H')
+         {
+            multiplier = 3600;
+            multiplier_set = true;
+         }
+         else if (str[i] == 'd' || str[i] == 'D')
+         {
+            multiplier = 24 * 3600;
+            multiplier_set = true;
+         }
+         else if (str[i] == 'w' || str[i] == 'W')
+         {
+            multiplier = 24 * 3600 * 7;
+            multiplier_set = true;
+         }
+      }
+      else
+      {
+         continue;
+      }
+   }
+
+   value[index] = '\0';
+   if (!as_int(value, age))
+   {
+      *age = *age * multiplier;
+      return 0;
+   }
+   else
+   {
+      *age = PGAGROAL_LOGGING_ROTATION_DISABLED;
+      return 1;
+   }
 }

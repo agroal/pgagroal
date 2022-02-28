@@ -35,11 +35,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <syslog.h>
+#include <time.h>
+#include <unistd.h>
 
 #define LINE_LENGTH 32
 
 FILE *log_file;
+
+time_t next_log_rotation_age;  /* number of seconds at which the next location will happen */
+
+char current_log_path[MAX_PATH]; /* the current log file */
 
 static const char* levels[] =
 {
@@ -61,6 +69,97 @@ static const char* colors[] =
   "\x1b[35m"
 };
 
+bool
+log_rotation_enabled(void)
+{
+   struct configuration* config;
+   config = (struct configuration*)shmem;
+
+   // disable log rotation in the case
+   // logging is not to a file
+   if (config->log_type != PGAGROAL_LOGGING_TYPE_FILE)
+   {
+      log_rotation_disable();
+      return false;
+   }
+
+   // log rotation is enabled if either log_rotation_age or
+   // log_rotation_size is enabled
+   return config->log_rotation_age != PGAGROAL_LOGGING_ROTATION_DISABLED
+      || config->log_rotation_size != PGAGROAL_LOGGING_ROTATION_DISABLED;
+}
+
+void
+log_rotation_disable(void)
+{
+   struct configuration* config;
+   config = (struct configuration*)shmem;
+
+   config->log_rotation_age  = PGAGROAL_LOGGING_ROTATION_DISABLED;
+   config->log_rotation_size = PGAGROAL_LOGGING_ROTATION_DISABLED;
+   next_log_rotation_age = 0;
+}
+
+bool
+log_rotation_required(void)
+{
+   struct stat log_stat;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (!log_rotation_enabled())
+   {
+      return false;
+   }
+
+   if (stat(current_log_path, &log_stat))
+   {
+      return false;
+   }
+
+   if (config->log_rotation_size > 0 && log_stat.st_size >= config->log_rotation_size)
+   {
+      return true;
+   }
+
+   if (config->log_rotation_age > 0 && next_log_rotation_age > 0 && next_log_rotation_age <= log_stat.st_ctime)
+   {
+      return true;
+   }
+
+   return false;
+}
+
+
+bool
+log_rotation_set_next_rotation_age(void)
+{
+   struct configuration* config;
+   time_t now;
+
+   config = (struct configuration*)shmem;
+
+   if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE && config->log_rotation_age > 0)
+   {
+      now = time(NULL);
+      if (!now)
+      {
+         config->log_rotation_age = PGAGROAL_LOGGING_ROTATION_DISABLED;
+         return false;
+      }
+
+      next_log_rotation_age = now + config->log_rotation_age;
+      return true;
+   }
+   else
+   {
+      config->log_rotation_age = PGAGROAL_LOGGING_ROTATION_DISABLED;
+      return false;
+   }
+}
+
+
 /**
  *
  */
@@ -73,33 +172,13 @@ pgagroal_init_logging(void)
 
    if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
    {
-      if (strlen(config->log_path) > 0)
-      {
-         if (config->log_mode == PGAGROAL_LOGGING_MODE_APPEND)
-         {
-            log_file = fopen(config->log_path, "a");
-         }
-         else
-         {
-            log_file = fopen(config->log_path, "w");
-         }
-      }
-      else
-      {
-         if (config->log_mode == PGAGROAL_LOGGING_MODE_APPEND)
-         {
-            log_file = fopen("pgagroal.log", "a");
-         }
-         else
-         {
-            log_file = fopen("pgagroal.log", "w");
-         }
-      }
+      log_file_open();
 
       if (!log_file)
       {
          printf("Failed to open log file %s due to %s\n", strlen(config->log_path) > 0 ? config->log_path : "pgagroal.log", strerror(errno));
          errno = 0;
+         log_rotation_disable();
          return 1;
       }
    }
@@ -117,16 +196,9 @@ pgagroal_start_logging(void)
 
    config = (struct configuration*)shmem;
 
-   if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
+   if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE && !log_file)
    {
-      if (strlen(config->log_path) > 0)
-      {
-         log_file = fopen(config->log_path, "a");
-      }
-      else
-      {
-         log_file = fopen("pgagroal.log", "a");
-      }
+      log_file_open();
 
       if (!log_file)
       {
@@ -142,6 +214,62 @@ pgagroal_start_logging(void)
 
    return 0;
 }
+
+int
+log_file_open(void)
+{
+   struct configuration* config;
+   time_t htime;
+   struct tm *tm;
+
+   config = (struct configuration*)shmem;
+
+   if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
+   {
+      htime = time( NULL );
+      if (!htime)
+      {
+         log_file = NULL;
+         return 1;
+      }
+
+      tm = localtime(&htime);
+      if (tm == NULL )
+      {
+         log_file = NULL;
+         return 1;
+      }
+
+      if (strftime(current_log_path, sizeof(current_log_path), config->log_path, tm) <= 0 )
+      {
+         // cannot parse the format string, fallback to default logging
+         memcpy(current_log_path, "pgagroal.log", strlen("pgagroal.log"));
+         log_rotation_disable();
+      }
+
+      log_file = fopen(current_log_path, config->log_mode == PGAGROAL_LOGGING_MODE_APPEND ? "a" : "w");
+
+      if (!log_file)
+         return 1;
+
+      log_rotation_set_next_rotation_age();
+      return 0;
+   }
+
+   return 1;
+}
+
+void
+log_file_rotate(void)
+{
+   if (log_rotation_enabled())
+   {
+      fflush(log_file);
+      fclose(log_file);
+      log_file_open();
+   }
+}
+
 
 /**
  *
@@ -209,11 +337,16 @@ retry:
             filename = file;
          }
 
+	 if (config->log_line_prefix == NULL || strlen(config->log_line_prefix) == 0)
+	 {
+	    memcpy(config->log_line_prefix,PGAGROAL_LOGGING_DEFAULT_LOG_LINE_PREFIX,strlen(PGAGROAL_LOGGING_DEFAULT_LOG_LINE_PREFIX));
+	 }
+
          va_start(vl, fmt);
 
          if (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
          {
-            buf[strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm)] = '\0';
+            buf[strftime(buf, sizeof(buf), config->log_line_prefix, tm)] = '\0';
             fprintf(stdout, "%s %s%-5s\x1b[0m \x1b[90m%s:%d\x1b[0m ",
                     buf, colors[level - 1], levels[level - 1],
                     filename, line);
@@ -223,12 +356,17 @@ retry:
          }
          else if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
          {
-            buf[strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm)] = '\0';
+            buf[strftime(buf, sizeof(buf), config->log_line_prefix, tm)] = '\0';
             fprintf(log_file, "%s %-5s %s:%d ",
                     buf, levels[level - 1], filename, line);
             vfprintf(log_file, fmt, vl);
             fprintf(log_file, "\n");
             fflush(log_file);
+
+            if (log_rotation_required())
+            {
+               log_file_rotate();
+            }
          }
          else if (config->log_type == PGAGROAL_LOGGING_TYPE_SYSLOG)
          {
