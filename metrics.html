@@ -1,0 +1,158 @@
+---
+layout: default
+---
+
+<div id="home">
+  <h1>
+    {% for header in site.headers %}
+    <a class="header" href="{{ header.url }}">{{ header.name }}</a>
+    {% endfor %}
+  </h1>
+  <p/>
+
+  <h2>Metrics</h2>
+
+  <table border="1">
+    <thead>
+      <th align="left">Metric</th>
+      <th align="left">Description</th>
+    </thead>
+    <tbody>
+      <tr>
+        <td>pgagroal_state</td>
+        <td>The state of pgagroal</td>
+      </tr>
+      <tr>
+        <td>pgagroal_pipeline_mode</td>
+        <td>The pipeline mode</td>
+      </tr>
+      <tr>
+        <td>pgagroal_server_error(name, state)</td>
+        <td>The number of errors for servers</td>
+      </tr>
+      <tr>
+        <td>pgagroal_failed_servers</td>
+        <td>The number of failed servers</td>
+      </tr>
+      <tr>
+        <td>pgagroal_wait_time</td>
+        <td>The waiting time of clients</td>
+      </tr>
+      <tr>
+        <td>pgagroal_query_count</td>
+        <td>The number of queries</td>
+      </tr>
+      <tr>
+        <td>pgagroal_connection_query_count(id, user, database, application_name)</td>
+        <td>The number of queries per connection</td>
+      </tr>
+      <tr>
+        <td>pgagroal_tx_count</td>
+        <td>The number of transactions</td>
+      </tr>
+      <tr>
+        <td>pgagroal_active_connections</td>
+        <td>The number of active connections</td>
+      </tr>
+      <tr>
+        <td>pgagroal_total_connections</td>
+        <td>The total number of connections</td>
+      </tr>
+      <tr>
+        <td>pgagroal_max_connections</td>
+        <td>The maximum number of connections</td>
+      </tr>
+      <tr>
+        <td>pgagroal_connection(id, user, database, application_name, state)</td>
+        <td>The connection information</td>
+      </tr>
+      <tr>
+        <td>pgagroal_limit(user, database, type)</td>
+        <td>The limit information</td>
+      </tr>
+      <tr>
+        <td>pgagroal_session_time_seconds</td>
+        <td>The session times</td>
+      </tr>
+      <tr>
+        <td>pgagroal_connection_error</td>
+        <td>Number of connection errors</td>
+      </tr>
+      <tr>
+        <td>pgagroal_connection_kill</td>
+        <td>Number of connection kills</td>
+      </tr>
+      <tr>
+        <td>pgagroal_connection_remove</td>
+        <td>Number of connection removes</td>
+      </tr>
+      <tr>
+        <td>pgagroal_connection_timeout</td>
+        <td>Number of connection time outs</td>
+      </tr>
+      <tr>
+        <td>pgagroal_connection_return</td>
+        <td>Number of connection returns</td>
+      </tr>
+      <tr>
+        <td>pgagroal_connection_invalid</td>
+        <td>Number of connection invalids</td>
+      </tr>
+      <tr>
+        <td>pgagroal_connection_get</td>
+        <td>Number of connection gets</td>
+      </tr>
+      <tr>
+        <td>pgagroal_connection_idletimeout</td>
+        <td>Number of connection idle timeouts</td>
+      </tr>
+      <tr>
+        <td>pgagroal_connection_flush</td>
+        <td>Number of connection flushes</td>
+      </tr>
+      <tr>
+        <td>pgagroal_connection_success</td>
+        <td>Number of connection successes</td>
+      </tr>
+      <tr>
+        <td>pgagroal_auth_user_success</td>
+        <td>Number of successful user authentications</td>
+      </tr>
+      <tr>
+        <td>pgagroal_auth_user_bad_password</td>
+        <td>Number of bad passwords during user authentication</td>
+      </tr>
+      <tr>
+        <td>pgagroal_auth_user_error</td>
+        <td>Number of errors during user authentication</td>
+      </tr>
+      <tr>
+        <td>pgagroal_client_wait</td>
+        <td>Number of waiting clients</td>
+      </tr>
+      <tr>
+        <td>pgagroal_client_active</td>
+        <td>Number of active clients</td>
+      </tr>
+      <tr>
+        <td>pgagroal_network_sent</td>
+        <td>Bytes sent by clients</td>
+      </tr>
+      <tr>
+        <td>pgagroal_network_received</td>
+        <td>Bytes received from servers</td>
+      </tr>
+      <tr>
+        <td>pgagroal_client_sockets</td>
+        <td>Number of sockets the client used</td>
+      </tr>
+      <tr>
+        <td>pgagroal_self_sockets</td>
+        <td>Number of sockets used by pgagroal itself</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p/>
+  
+</div>
