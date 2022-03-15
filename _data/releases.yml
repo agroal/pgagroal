@@ -88,3 +88,6 @@
 - name: pgagroal 1.4.0
   date: 2022-01-11
   announce: release/announcement/2022/01/11/pgagroal-1.4.0.html
+- name: pgagroal 1.4.1
+  date: 2022-03-15
+  announce: release/announcement/2022/03/15/pgagroal-1.4.1.html
