@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2022 Red Hat
- * 
+ *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this list
  * of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this
  * list of conditions and the following disclaimer in the documentation and/or other
  * materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its contributors may
  * be used to endorse or promote products derived from this software without specific
  * prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -51,12 +51,12 @@
 volatile int running = 1;
 volatile int exit_code = WORKER_FAILURE;
 
-static void signal_cb(struct ev_loop *loop, ev_signal *w, int revents);
+static void signal_cb(struct ev_loop* loop, ev_signal* w, int revents);
 
 void
 pgagroal_worker(int client_fd, char* address, char** argv)
 {
-   struct ev_loop *loop = NULL;
+   struct ev_loop* loop = NULL;
    struct signal_info signal_watcher;
    struct worker_io client_io;
    struct worker_io server_io;
@@ -133,7 +133,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       client_io.slot = slot;
       client_io.client_ssl = client_ssl;
       client_io.server_ssl = server_ssl;
-      
+
       if (config->pipeline != PIPELINE_TRANSACTION)
       {
          ev_io_init((struct ev_io*)&server_io, p.server, config->connections[slot].fd, EV_READ);
@@ -143,7 +143,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
          server_io.client_ssl = client_ssl;
          server_io.server_ssl = server_ssl;
       }
-      
+
       loop = ev_loop_new(pgagroal_libev(config->libev));
 
       ev_signal_init((struct ev_signal*)&signal_watcher, signal_cb, SIGQUIT);
@@ -290,7 +290,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
 }
 
 static void
-signal_cb(struct ev_loop *loop, ev_signal *w, int revents)
+signal_cb(struct ev_loop* loop, ev_signal* w, int revents)
 {
    struct signal_info* si;
 

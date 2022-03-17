@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2022 Red Hat
- * 
+ *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this list
  * of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this
  * list of conditions and the following disclaimer in the documentation and/or other
  * materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its contributors may
  * be used to endorse or promote products derived from this software without specific
  * prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -73,7 +73,7 @@ pgagroal_management_read_header(int socket, signed char* id, int32_t* slot)
 
    *id = pgagroal_read_byte(&(header));
    *slot = pgagroal_read_int32(&(header[1]));
-   
+
    return 0;
 
 error:
@@ -92,7 +92,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
    char buf2[2];
    char buf4[4];
    int size;
-   struct cmsghdr *cmptr = NULL;
+   struct cmsghdr* cmptr = NULL;
    struct iovec iov[1];
    struct msghdr msg;
 
@@ -131,7 +131,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
             goto error;
          }
 
-         *payload_i = *(int *)CMSG_DATA(cmptr);
+         *payload_i = *(int*)CMSG_DATA(cmptr);
 
          free(cmptr);
          break;
@@ -203,7 +203,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
       default:
          goto error;
          break;
-   }   
+   }
 
    return 0;
 
@@ -211,7 +211,7 @@ error:
 
    if (cmptr)
       free(cmptr);
-   
+
    return 1;
 }
 
@@ -220,7 +220,7 @@ pgagroal_management_transfer_connection(int32_t slot)
 {
    int fd;
    struct configuration* config;
-   struct cmsghdr *cmptr = NULL;
+   struct cmsghdr* cmptr = NULL;
    struct iovec iov[1];
    struct msghdr msg;
    char buf2[2];
@@ -260,13 +260,13 @@ pgagroal_management_transfer_connection(int32_t slot)
    msg.msg_control    = cmptr;
    msg.msg_controllen = CMSG_SPACE(sizeof(int));
    msg.msg_flags = 0;
-   *(int *)CMSG_DATA(cmptr) = config->connections[slot].fd;
+   *(int*)CMSG_DATA(cmptr) = config->connections[slot].fd;
 
    if (sendmsg(fd, &msg, 0) != 2)
    {
       goto error;
    }
-   
+
    free(cmptr);
    pgagroal_disconnect(fd);
 
@@ -373,7 +373,7 @@ pgagroal_management_flush(SSL* ssl, int fd, int32_t mode, char* database)
       errno = 0;
       goto error;
    }
-   
+
    pgagroal_write_int32(&buf, strlen(database));
    if (write_complete(ssl, fd, &buf, sizeof(buf)))
    {
@@ -1080,7 +1080,7 @@ pgagroal_management_client_fd(int32_t slot, pid_t pid)
    char p[MISC_LENGTH];
    int fd;
    struct configuration* config;
-   struct cmsghdr *cmptr = NULL;
+   struct cmsghdr* cmptr = NULL;
    struct iovec iov[1];
    struct msghdr msg;
    char buf[2]; /* send_fd()/recv_fd() 2-byte protocol */
@@ -1118,7 +1118,7 @@ pgagroal_management_client_fd(int32_t slot, pid_t pid)
    cmptr->cmsg_len    = CMSG_LEN(sizeof(int));
    msg.msg_control    = cmptr;
    msg.msg_controllen = CMSG_LEN(sizeof(int));
-   *(int *)CMSG_DATA(cmptr) = config->connections[slot].fd;
+   *(int*)CMSG_DATA(cmptr) = config->connections[slot].fd;
    buf[1] = 0; /* zero status means OK */
    buf[0] = 0; /* null byte flag to recv_fd() */
 
