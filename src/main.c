@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2021 Red Hat
- * 
+ *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this list
  * of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this
  * list of conditions and the following disclaimer in the documentation and/or other
  * materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its contributors may
  * be used to endorse or promote products derived from this software without specific
  * prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -67,17 +67,17 @@
 
 #define MAX_FDS 64
 
-static void accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents);
-static void reload_cb(struct ev_loop *loop, ev_signal *w, int revents);
-static void graceful_cb(struct ev_loop *loop, ev_signal *w, int revents);
-static void coredump_cb(struct ev_loop *loop, ev_signal *w, int revents);
-static void idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents);
-static void validation_cb(struct ev_loop *loop, ev_periodic *w, int revents);
-static void disconnect_client_cb(struct ev_loop *loop, ev_periodic *w, int revents);
+static void accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
+static void accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
+static void accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
+static void accept_management_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
+static void shutdown_cb(struct ev_loop* loop, ev_signal* w, int revents);
+static void reload_cb(struct ev_loop* loop, ev_signal* w, int revents);
+static void graceful_cb(struct ev_loop* loop, ev_signal* w, int revents);
+static void coredump_cb(struct ev_loop* loop, ev_signal* w, int revents);
+static void idle_timeout_cb(struct ev_loop* loop, ev_periodic* w, int revents);
+static void validation_cb(struct ev_loop* loop, ev_periodic* w, int revents);
+static void disconnect_client_cb(struct ev_loop* loop, ev_periodic* w, int revents);
 static bool accept_fatal(int error);
 static void add_client(pid_t pid);
 static void remove_client(pid_t pid);
@@ -283,7 +283,7 @@ usage(void)
 }
 
 int
-main(int argc, char **argv)
+main(int argc, char** argv)
 {
    char* configuration_path = NULL;
    char* hba_path = NULL;
@@ -881,7 +881,7 @@ main(int argc, char **argv)
    if (!main_loop)
    {
       pgagroal_log_fatal("pgagroal: No loop implementation (%x) (%x)",
-              pgagroal_libev(config->libev), ev_supported_backends());
+                         pgagroal_libev(config->libev), ev_supported_backends());
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=No loop implementation (%x) (%x)", pgagroal_libev(config->libev), ev_supported_backends());
 #endif
@@ -1124,7 +1124,7 @@ main(int argc, char **argv)
 }
 
 static void
-accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
    struct sockaddr_in6 client_addr;
    socklen_t client_addr_length;
@@ -1147,7 +1147,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    memset(&address, 0, sizeof(address));
 
    client_addr_length = sizeof(client_addr);
-   client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
+   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
    if (client_fd == -1)
    {
       if (accept_fatal(errno) && keep_running)
@@ -1209,7 +1209,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
    pgagroal_prometheus_client_sockets_add();
 
-   pgagroal_get_address((struct sockaddr *)&client_addr, (char*)&address, sizeof(address));
+   pgagroal_get_address((struct sockaddr*)&client_addr, (char*)&address, sizeof(address));
 
    pgagroal_log_trace("accept_main_cb: client address: %s", address);
 
@@ -1239,7 +1239,7 @@ accept_main_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 }
 
 static void
-accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
    struct sockaddr_in6 client_addr;
    socklen_t client_addr_length;
@@ -1259,7 +1259,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    config = (struct configuration*)shmem;
 
    client_addr_length = sizeof(client_addr);
-   client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
+   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
 
    pgagroal_prometheus_self_sockets_add();
 
@@ -1483,7 +1483,7 @@ accept_mgt_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 }
 
 static void
-accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
    struct sockaddr_in6 client_addr;
    socklen_t client_addr_length;
@@ -1500,7 +1500,7 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    config = (struct configuration*)shmem;
 
    client_addr_length = sizeof(client_addr);
-   client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
+   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
 
    pgagroal_prometheus_self_sockets_add();
 
@@ -1556,7 +1556,7 @@ accept_metrics_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 }
 
 static void
-accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+accept_management_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
    struct sockaddr_in6 client_addr;
    socklen_t client_addr_length;
@@ -1576,7 +1576,7 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
    config = (struct configuration*)shmem;
 
    client_addr_length = sizeof(client_addr);
-   client_fd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_addr_length);
+   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
 
    pgagroal_prometheus_self_sockets_add();
 
@@ -1619,7 +1619,7 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
       return;
    }
 
-   pgagroal_get_address((struct sockaddr *)&client_addr, (char*)&address, sizeof(address));
+   pgagroal_get_address((struct sockaddr*)&client_addr, (char*)&address, sizeof(address));
 
    if (!fork())
    {
@@ -1638,7 +1638,7 @@ accept_management_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 }
 
 static void
-shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents)
+shutdown_cb(struct ev_loop* loop, ev_signal* w, int revents)
 {
    pgagroal_log_debug("pgagroal: shutdown requested");
    pgagroal_pool_status();
@@ -1647,14 +1647,14 @@ shutdown_cb(struct ev_loop *loop, ev_signal *w, int revents)
 }
 
 static void
-reload_cb(struct ev_loop *loop, ev_signal *w, int revents)
+reload_cb(struct ev_loop* loop, ev_signal* w, int revents)
 {
    pgagroal_log_debug("pgagroal: reload requested");
    reload_configuration();
 }
 
 static void
-graceful_cb(struct ev_loop *loop, ev_signal *w, int revents)
+graceful_cb(struct ev_loop* loop, ev_signal* w, int revents)
 {
    struct configuration* config;
 
@@ -1674,7 +1674,7 @@ graceful_cb(struct ev_loop *loop, ev_signal *w, int revents)
 }
 
 static void
-coredump_cb(struct ev_loop *loop, ev_signal *w, int revents)
+coredump_cb(struct ev_loop* loop, ev_signal* w, int revents)
 {
    pgagroal_log_info("pgagroal: core dump requested");
    pgagroal_pool_status();
@@ -1682,7 +1682,7 @@ coredump_cb(struct ev_loop *loop, ev_signal *w, int revents)
 }
 
 static void
-idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents)
+idle_timeout_cb(struct ev_loop* loop, ev_periodic* w, int revents)
 {
    if (EV_ERROR & revents)
    {
@@ -1699,7 +1699,7 @@ idle_timeout_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 }
 
 static void
-validation_cb(struct ev_loop *loop, ev_periodic *w, int revents)
+validation_cb(struct ev_loop* loop, ev_periodic* w, int revents)
 {
    if (EV_ERROR & revents)
    {
@@ -1716,7 +1716,7 @@ validation_cb(struct ev_loop *loop, ev_periodic *w, int revents)
 }
 
 static void
-disconnect_client_cb(struct ev_loop *loop, ev_periodic *w, int revents)
+disconnect_client_cb(struct ev_loop* loop, ev_periodic* w, int revents)
 {
    if (EV_ERROR & revents)
    {
@@ -1942,11 +1942,11 @@ create_pidfile(void)
 
    if (strlen(config->pidfile) > 0)
    {
-       // check pidfile is not there
+      // check pidfile is not there
       if (access(config->pidfile, F_OK) == 0)
       {
-          pgagroal_log_fatal("PID file [%s] exists, is there another instance running ?", config->pidfile);
-          goto error;
+         pgagroal_log_fatal("PID file [%s] exists, is there another instance running ?", config->pidfile);
+         goto error;
       }
 
       pid = getpid();
@@ -1977,7 +1977,8 @@ error:
    return 1;
 }
 
-static void remove_pidfile(void)
+static void
+remove_pidfile(void)
 {
    struct configuration* config;
 

@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2022 Red Hat
- * 
+ *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this list
  * of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this
  * list of conditions and the following disclaimer in the documentation and/or other
  * materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its contributors may
  * be used to endorse or promote products derived from this software without specific
  * prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -168,7 +168,7 @@ start:
          }
 
          pgagroal_log_debug("connect: server %d", server);
-         
+
          if (config->servers[server].host[0] == '/')
          {
             char pgsql[MISC_LENGTH];
@@ -207,7 +207,7 @@ start:
          }
 
          pgagroal_log_debug("connect: %s:%d using slot %d fd %d", config->servers[server].host, config->servers[server].port, *slot, fd);
-         
+
          config->connections[*slot].server = server;
 
          memset(&config->connections[*slot].username, 0, MAX_USERNAME_LENGTH);
@@ -458,8 +458,8 @@ pgagroal_kill_connection(int slot, SSL* ssl)
    config = (struct configuration*)shmem;
 
    pgagroal_log_debug("pgagroal_kill_connection: Slot %d FD %d State %d PID %d",
-           slot, config->connections[slot].fd, atomic_load(&config->states[slot]),
-           config->connections[slot].pid);
+                      slot, config->connections[slot].fd, atomic_load(&config->states[slot]),
+                      config->connections[slot].pid);
 
    pgagroal_tracking_event_slot(TRACKER_KILL_CONNECTION, slot);
 
@@ -576,7 +576,7 @@ pgagroal_idle_timeout(void)
          }
       }
    }
-   
+
    if (prefill && config->number_of_users > 0 && config->number_of_limits > 0)
    {
       if (!fork())
@@ -782,7 +782,7 @@ pgagroal_flush(int mode, char* database)
          }
       }
    }
-   
+
    if (prefill && config->number_of_users > 0 && config->number_of_limits > 0)
    {
       if (!fork())

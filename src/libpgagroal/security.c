@@ -1181,10 +1181,10 @@ get_auth_type(struct message* msg, int* auth_type)
       case 5:
          pgagroal_log_trace("Backend: R - MD5Password");
          pgagroal_log_trace("             Salt %02hhx%02hhx%02hhx%02hhx",
-                 (signed char)(pgagroal_read_byte(msg->data + 9) & 0xFF),
-                 (signed char)(pgagroal_read_byte(msg->data + 10) & 0xFF),
-                 (signed char)(pgagroal_read_byte(msg->data + 11) & 0xFF),
-                 (signed char)(pgagroal_read_byte(msg->data + 12) & 0xFF));
+                            (signed char)(pgagroal_read_byte(msg->data + 9) & 0xFF),
+                            (signed char)(pgagroal_read_byte(msg->data + 10) & 0xFF),
+                            (signed char)(pgagroal_read_byte(msg->data + 11) & 0xFF),
+                            (signed char)(pgagroal_read_byte(msg->data + 12) & 0xFF));
          break;
       case 6:
          pgagroal_log_trace("Backend: R - SCMCredential");
@@ -3267,7 +3267,7 @@ pgagroal_md5(char* str, int length, char** md5)
    int n;
    MD5_CTX c;
    unsigned char digest[16];
-   char *out;
+   char* out;
 
    out = malloc(33);
 
@@ -3418,7 +3418,7 @@ error:
 }
 
 static int
-derive_key_iv(char *password, unsigned char *key, unsigned char *iv)
+derive_key_iv(char* password, unsigned char* key, unsigned char* iv)
 {
 
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L)
@@ -3426,7 +3426,7 @@ derive_key_iv(char *password, unsigned char *key, unsigned char *iv)
 #endif
 
    if (!EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha1(), NULL,
-                       (unsigned char *) password, strlen(password), 1,
+                       (unsigned char*) password, strlen(password), 1,
                        key, iv))
    {
       return 1;
@@ -3438,7 +3438,7 @@ derive_key_iv(char *password, unsigned char *key, unsigned char *iv)
 static int
 aes_encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphertext, int* ciphertext_length)
 {
-   EVP_CIPHER_CTX *ctx = NULL;
+   EVP_CIPHER_CTX* ctx = NULL;
    int length;
    size_t size;
    unsigned char* ct = NULL;
@@ -3495,7 +3495,7 @@ error:
 static int
 aes_decrypt(char* ciphertext, int ciphertext_length, unsigned char* key, unsigned char* iv, char** plaintext)
 {
-   EVP_CIPHER_CTX *ctx = NULL;
+   EVP_CIPHER_CTX* ctx = NULL;
    int plaintext_length;
    int length;
    size_t size;
@@ -3779,9 +3779,9 @@ error:
    if (ctx != NULL)
    {
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
-   HMAC_CTX_free(ctx);
+      HMAC_CTX_free(ctx);
 #else
-   HMAC_CTX_cleanup(ctx);
+      HMAC_CTX_cleanup(ctx);
 #endif
    }
 
@@ -3903,9 +3903,9 @@ error:
    if (ctx != NULL)
    {
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
-   HMAC_CTX_free(ctx);
+      HMAC_CTX_free(ctx);
 #else
-   HMAC_CTX_cleanup(ctx);
+      HMAC_CTX_cleanup(ctx);
 #endif
    }
 
@@ -3960,12 +3960,12 @@ salted_password(char* password, char* salt, int salt_length, int iterations, uns
       goto error;
    }
 
-   if (HMAC_Update(ctx, (unsigned char *)salt, salt_length) != 1)
+   if (HMAC_Update(ctx, (unsigned char*)salt, salt_length) != 1)
    {
       goto error;
    }
 
-   if (HMAC_Update(ctx, (unsigned char *)&one, sizeof(one)) != 1)
+   if (HMAC_Update(ctx, (unsigned char*)&one, sizeof(one)) != 1)
    {
       goto error;
    }
@@ -4064,7 +4064,7 @@ salted_password_key(unsigned char* salted_password, int salted_password_length, 
       goto error;
    }
 
-   if (HMAC_Update(ctx, (unsigned char *)key, strlen(key)) != 1)
+   if (HMAC_Update(ctx, (unsigned char*)key, strlen(key)) != 1)
    {
       goto error;
    }

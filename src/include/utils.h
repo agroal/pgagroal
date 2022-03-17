@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2022 Red Hat
- * 
+ *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this list
  * of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this
  * list of conditions and the following disclaimer in the documentation and/or other
  * materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its contributors may
  * be used to endorse or promote products derived from this software without specific
  * prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -252,7 +252,7 @@ pgagroal_base64_decode(char* encoded, size_t encoded_length, char** raw, int* ra
  * @param s2 The second string
  */
 void
-pgagroal_set_proc_title(int argc, char** argv, char* s1, char *s2);
+pgagroal_set_proc_title(int argc, char** argv, char* s1, char* s2);
 
 #ifdef DEBUG
 

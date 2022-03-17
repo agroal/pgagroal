@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2022 Red Hat
- * 
+ *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this list
  * of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this
  * list of conditions and the following disclaimer in the documentation and/or other
  * materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its contributors may
  * be used to endorse or promote products derived from this software without specific
  * prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -45,16 +45,17 @@
 #include <sys/socket.h>
 
 static int  performance_initialize(void*, void**, size_t*);
-static void performance_start(struct ev_loop *loop, struct worker_io*);
-static void performance_client(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void performance_server(struct ev_loop *loop, struct ev_io *watcher, int revents);
-static void performance_stop(struct ev_loop *loop, struct worker_io*);
+static void performance_start(struct ev_loop* loop, struct worker_io*);
+static void performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents);
+static void performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents);
+static void performance_stop(struct ev_loop* loop, struct worker_io*);
 static void performance_destroy(void*, size_t);
 static void performance_periodic(void);
 
 static bool saw_x = false;
 
-struct pipeline performance_pipeline(void)
+struct pipeline
+performance_pipeline(void)
 {
    struct pipeline pipeline;
 
@@ -76,7 +77,7 @@ performance_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shme
 }
 
 static void
-performance_start(struct ev_loop *loop, struct worker_io* w)
+performance_start(struct ev_loop* loop, struct worker_io* w)
 {
    struct configuration* config;
 
@@ -94,7 +95,7 @@ performance_start(struct ev_loop *loop, struct worker_io* w)
 }
 
 static void
-performance_stop(struct ev_loop *loop, struct worker_io* w)
+performance_stop(struct ev_loop* loop, struct worker_io* w)
 {
 }
 
@@ -109,7 +110,7 @@ performance_periodic(void)
 }
 
 static void
-performance_client(struct ev_loop *loop, struct ev_io *watcher, int revents)
+performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
@@ -202,7 +203,7 @@ server_error:
 }
 
 static void
-performance_server(struct ev_loop *loop, struct ev_io *watcher, int revents)
+performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    bool fatal = false;

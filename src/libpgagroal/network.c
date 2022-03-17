@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2022 Red Hat
- * 
+ *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this list
  * of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this
  * list of conditions and the following disclaimer in the documentation and/or other
  * materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its contributors may
  * be used to endorse or promote products derived from this software without specific
  * prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -59,9 +59,9 @@ static int bind_host(const char* hostname, int port, int** fds, int* length);
 int
 pgagroal_bind(const char* hostname, int port, int** fds, int* length)
 {
-   struct ifaddrs *ifaddr, *ifa;
-   struct sockaddr_in *sa4;
-   struct sockaddr_in6 *sa6;
+   struct ifaddrs* ifaddr, * ifa;
+   struct sockaddr_in* sa4;
+   struct sockaddr_in6* sa6;
    char addr[50];
    int* star_fds = NULL;
    int star_length = 0;
@@ -93,7 +93,7 @@ pgagroal_bind(const char* hostname, int port, int** fds, int* length)
             }
             else
             {
-               sa6 = (struct sockaddr_in6 *) ifa->ifa_addr;
+               sa6 = (struct sockaddr_in6*) ifa->ifa_addr;
                inet_ntop(AF_INET6, &sa6->sin6_addr, addr, sizeof(addr));
             }
 
@@ -134,7 +134,7 @@ pgagroal_bind(const char* hostname, int port, int** fds, int* length)
  *
  */
 int
-pgagroal_bind_unix_socket(const char* directory, const char* file, int *fd)
+pgagroal_bind_unix_socket(const char* directory, const char* file, int* fd)
 {
    int status;
    char buf[107];
@@ -222,7 +222,7 @@ pgagroal_remove_unix_socket(const char* directory, const char* file)
 int
 pgagroal_connect(const char* hostname, int port, int* fd)
 {
-   struct addrinfo hints, *servinfo, *p;
+   struct addrinfo hints, * servinfo, * p;
    int yes = 1;
    socklen_t optlen = sizeof(int);
    int rv;
@@ -410,7 +410,7 @@ pgagroal_disconnect(int fd)
 }
 
 void*
-pgagroal_get_sockaddr(struct sockaddr *sa)
+pgagroal_get_sockaddr(struct sockaddr* sa)
 {
    if (sa->sa_family == AF_INET)
    {
@@ -421,15 +421,15 @@ pgagroal_get_sockaddr(struct sockaddr *sa)
 }
 
 void
-pgagroal_get_address(struct sockaddr *sa, char* address, size_t length)
+pgagroal_get_address(struct sockaddr* sa, char* address, size_t length)
 {
    if (sa->sa_family == AF_INET)
    {
-      inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr), address, length);
+      inet_ntop(AF_INET, &(((struct sockaddr_in*)sa)->sin_addr), address, length);
    }
    else
    {
-      inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)sa)->sin6_addr), address, length);
+      inet_ntop(AF_INET6, &(((struct sockaddr_in6*)sa)->sin6_addr), address, length);
    }
 }
 
@@ -542,10 +542,10 @@ pgagroal_socket_buffers(int fd)
 static int
 bind_host(const char* hostname, int port, int** fds, int* length)
 {
-   int *result = NULL;
+   int* result = NULL;
    int index, size;
    int sockfd;
-   struct addrinfo hints, *servinfo, *addr;
+   struct addrinfo hints, * servinfo, * addr;
    int yes = 1;
    int rv;
    char* sport;

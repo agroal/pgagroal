@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2022 Red Hat
- * 
+ *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this list
  * of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this
  * list of conditions and the following disclaimer in the documentation and/or other
  * materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its contributors may
  * be used to endorse or promote products derived from this software without specific
  * prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -86,7 +86,7 @@ pgagroal_init_configuration(void* shm)
    config = (struct configuration*)shm;
 
    atomic_init(&config->active_connections, 0);
-   
+
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
       atomic_init(&config->servers[i].state, SERVER_NOTINIT);
@@ -2265,21 +2265,21 @@ as_logging_level(char* str)
    {
       if (strlen(str) > strlen("debug"))
       {
-         debug_value = (char *) malloc( (strlen(str) - strlen("debug")) * sizeof(char));
+         debug_value = (char*) malloc( (strlen(str) - strlen("debug")) * sizeof(char));
          memcpy(debug_value, str + sizeof("debug") - 1, strlen(str) - strlen("debug") + 1);
          debug_level = atoi(debug_value);
-     }
+      }
 
-     if (debug_level <= 1)
-        return PGAGROAL_LOGGING_LEVEL_DEBUG1;
-     else if (debug_level == 2)
-        return PGAGROAL_LOGGING_LEVEL_DEBUG2;
-     else if (debug_level == 3)
-        return PGAGROAL_LOGGING_LEVEL_DEBUG3;
-     else if (debug_level == 4)
-        return PGAGROAL_LOGGING_LEVEL_DEBUG4;
-     else if (debug_level >= 5)
-        return PGAGROAL_LOGGING_LEVEL_DEBUG5;
+      if (debug_level <= 1)
+         return PGAGROAL_LOGGING_LEVEL_DEBUG1;
+      else if (debug_level == 2)
+         return PGAGROAL_LOGGING_LEVEL_DEBUG2;
+      else if (debug_level == 3)
+         return PGAGROAL_LOGGING_LEVEL_DEBUG3;
+      else if (debug_level == 4)
+         return PGAGROAL_LOGGING_LEVEL_DEBUG4;
+      else if (debug_level >= 5)
+         return PGAGROAL_LOGGING_LEVEL_DEBUG5;
    }
 
    if (!strcasecmp(str, "info"))
