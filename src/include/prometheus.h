@@ -246,4 +246,3 @@ pgagroal_prometheus_failed_servers(void);
 #endif
 
 #endif
-

@@ -57,8 +57,8 @@
 static char CHARS[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
                        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
                        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-                       '!', '@', '#', '$', '%', '^', '&',  '*', '(', ')', '-', '_', '=', '+', '[', '{', ']', '}', '\\', '|', ';', ':',
-                       '\'', '\"', ',', '<', '.',  '>', '/', '?'};
+                       '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '[', '{', ']', '}', '\\', '|', ';', ':',
+                       '\'', '\"', ',', '<', '.', '>', '/', '?'};
 
 static int master_key(char* password, bool generate_pwd, int pwd_length);
 static int add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
@@ -121,11 +121,11 @@ main(int argc, char** argv)
    {
       static struct option long_options[] =
       {
-         {"user",  required_argument, 0, 'U'},
-         {"password",  required_argument, 0, 'P'},
-         {"file",  required_argument, 0, 'f'},
-         {"generate",  no_argument, 0, 'g'},
-         {"length",  required_argument, 0, 'l'},
+         {"user", required_argument, 0, 'U'},
+         {"password", required_argument, 0, 'P'},
+         {"file", required_argument, 0, 'f'},
+         {"generate", no_argument, 0, 'g'},
+         {"length", required_argument, 0, 'l'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
@@ -342,7 +342,6 @@ master_key(char* password, bool generate_pwd, int pwd_length)
       }
    }
 
-
    file = fopen(&buf[0], "w+");
    if (file == NULL)
    {
@@ -354,13 +353,13 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    {
       if (!generate_pwd)
       {
-         while( password == NULL )
+         while (password == NULL)
          {
             printf("Master key (will not echo): ");
             password = pgagroal_get_password();
             printf("\n");
 
-            if (password != NULL && strlen(password) < MIN_PASSWORD_LENGTH )
+            if (password != NULL && strlen(password) < MIN_PASSWORD_LENGTH)
             {
                printf("Invalid key length, must be at least %d chars.\n", MIN_PASSWORD_LENGTH );
                free(password);

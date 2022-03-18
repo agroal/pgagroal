@@ -107,7 +107,8 @@ pgagroal_remote_management(int client_fd, char* address)
                }
 
                status = pgagroal_write_message(client_ssl, client_fd, msg);
-            } while (status == MESSAGE_STATUS_OK);
+            }
+            while (status == MESSAGE_STATUS_OK);
             break;
          case MANAGEMENT_FLUSH:
          case MANAGEMENT_RESET_SERVER:

@@ -319,7 +319,7 @@ main(int argc, char** argv)
    {
       static struct option long_options[] =
       {
-         {"config",  required_argument, 0, 'c'},
+         {"config", required_argument, 0, 'c'},
          {"hba", required_argument, 0, 'a'},
          {"limit", required_argument, 0, 'l'},
          {"users", required_argument, 0, 'u'},
@@ -1934,7 +1934,7 @@ create_pidfile(void)
    if (strlen(config->pidfile) == 0)
    {
       // no pidfile set, use a default one
-      snprintf(config->pidfile, sizeof( config->pidfile ), "%s/pgagraol.%d.pid",
+      snprintf(config->pidfile, sizeof(config->pidfile), "%s/pgagraol.%d.pid",
                config->unix_socket_dir,
                config->port);
       pgagroal_log_debug("PID file automatically set to: [%s]", config->pidfile);

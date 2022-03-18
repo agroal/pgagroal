@@ -52,7 +52,6 @@
 
 #define MANAGEMENT_HEADER_SIZE 5
 
-
 static int read_complete(SSL* ssl, int socket, void* buf, size_t size);
 static int write_complete(SSL* ssl, int socket, void* buf, size_t size);
 static int write_socket(int socket, void* buf, size_t size);
@@ -118,7 +117,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          msg.msg_namelen = 0;
          msg.msg_iov = iov;
          msg.msg_iovlen = 1;
-         msg.msg_control    = cmptr;
+         msg.msg_control = cmptr;
          msg.msg_controllen = CMSG_SPACE(sizeof(int));
          msg.msg_flags = 0;
 
@@ -245,19 +244,19 @@ pgagroal_management_transfer_connection(int32_t slot)
    memset(&buf2[0], 0, sizeof(buf2));
 
    iov[0].iov_base = &buf2[0];
-   iov[0].iov_len  = sizeof(buf2);
+   iov[0].iov_len = sizeof(buf2);
 
    cmptr = malloc(CMSG_SPACE(sizeof(int)));
    memset(cmptr, 0, CMSG_SPACE(sizeof(int)));
-   cmptr->cmsg_level  = SOL_SOCKET;
-   cmptr->cmsg_type   = SCM_RIGHTS;
-   cmptr->cmsg_len    = CMSG_LEN(sizeof(int));
+   cmptr->cmsg_level = SOL_SOCKET;
+   cmptr->cmsg_type = SCM_RIGHTS;
+   cmptr->cmsg_len = CMSG_LEN(sizeof(int));
 
-   msg.msg_name    = NULL;
+   msg.msg_name = NULL;
    msg.msg_namelen = 0;
-   msg.msg_iov     = iov;
-   msg.msg_iovlen  = 1;
-   msg.msg_control    = cmptr;
+   msg.msg_iov = iov;
+   msg.msg_iovlen = 1;
+   msg.msg_control = cmptr;
    msg.msg_controllen = CMSG_SPACE(sizeof(int));
    msg.msg_flags = 0;
    *(int*)CMSG_DATA(cmptr) = config->connections[slot].fd;
@@ -1106,17 +1105,17 @@ pgagroal_management_client_fd(int32_t slot, pid_t pid)
 
    /* Write file descriptor */
    iov[0].iov_base = buf;
-   iov[0].iov_len  = 2;
-   msg.msg_iov     = iov;
-   msg.msg_iovlen  = 1;
-   msg.msg_name    = NULL;
+   iov[0].iov_len = 2;
+   msg.msg_iov = iov;
+   msg.msg_iovlen = 1;
+   msg.msg_name = NULL;
    msg.msg_namelen = 0;
 
    cmptr = malloc(CMSG_LEN(sizeof(int)));
-   cmptr->cmsg_level  = SOL_SOCKET;
-   cmptr->cmsg_type   = SCM_RIGHTS;
-   cmptr->cmsg_len    = CMSG_LEN(sizeof(int));
-   msg.msg_control    = cmptr;
+   cmptr->cmsg_level = SOL_SOCKET;
+   cmptr->cmsg_type = SCM_RIGHTS;
+   cmptr->cmsg_len = CMSG_LEN(sizeof(int));
+   msg.msg_control = cmptr;
    msg.msg_controllen = CMSG_LEN(sizeof(int));
    *(int*)CMSG_DATA(cmptr) = config->connections[slot].fd;
    buf[1] = 0; /* zero status means OK */
@@ -1368,7 +1367,8 @@ write_socket(int socket, void* buf, size_t size)
                break;
          }
       }
-   } while (keep_write);
+   }
+   while (keep_write);
 
    return 1;
 }
@@ -1450,7 +1450,8 @@ write_ssl(SSL* ssl, void* buf, size_t size)
             return 1;
          }
       }
-   } while (keep_write);
+   }
+   while (keep_write);
 
    return 1;
 }

@@ -286,7 +286,7 @@ pgagroal_read_int16(void* data)
                             *((unsigned char*)(data + 1))};
 
    int16_t res = (int16_t)((bytes[0] << 8)) |
-                 ((bytes[1]     ));
+                 ((bytes[1]));
 
    return res;
 }
@@ -301,8 +301,8 @@ pgagroal_read_int32(void* data)
 
    int32_t res = (int32_t)((bytes[0] << 24)) |
                  ((bytes[1] << 16)) |
-                 ((bytes[2] <<  8)) |
-                 ((bytes[3]      ));
+                 ((bytes[2] << 8)) |
+                 ((bytes[3]));
 
    return res;
 }
@@ -325,8 +325,8 @@ pgagroal_read_long(void* data)
               (((long)bytes[3]) << 32) |
               (((long)bytes[4]) << 24) |
               (((long)bytes[5]) << 16) |
-              (((long)bytes[6]) <<  8) |
-              (((long)bytes[7])      );
+              (((long)bytes[6]) << 8) |
+              (((long)bytes[7]));
 
    return res;
 }
@@ -336,7 +336,6 @@ pgagroal_read_string(void* data)
 {
    return (char*)data;
 }
-
 
 void
 pgagroal_write_byte(void* data, signed char b)
@@ -398,8 +397,8 @@ unsigned int
 pgagroal_swap(unsigned int i)
 {
    return ((i << 24) & 0xff000000) |
-          ((i << 8)  & 0x00ff0000) |
-          ((i >> 8)  & 0x0000ff00) |
+          ((i << 8) & 0x00ff0000) |
+          ((i >> 8) & 0x0000ff00) |
           ((i >> 24) & 0x000000ff);
 }
 
@@ -690,7 +689,7 @@ pgagroal_base64_decode(char* encoded, size_t encoded_length, char** raw, int* ra
    BIO_set_flags(b64_bio, BIO_FLAGS_BASE64_NO_NL);
 
    index = 0;
-   while (0 < BIO_read(b64_bio, decoded + index, 1) )
+   while (0 < BIO_read(b64_bio, decoded + index, 1))
    {
       index++;
    }

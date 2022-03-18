@@ -2265,7 +2265,7 @@ as_logging_level(char* str)
    {
       if (strlen(str) > strlen("debug"))
       {
-         debug_value = (char*) malloc( (strlen(str) - strlen("debug")) * sizeof(char));
+         debug_value = (char*) malloc((strlen(str) - strlen("debug")) * sizeof(char));
          memcpy(debug_value, str + sizeof("debug") - 1, strlen(str) - strlen("debug") + 1);
          debug_level = atoi(debug_value);
       }

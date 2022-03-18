@@ -920,7 +920,8 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
                         }
                         ERR_clear_error();
                      }
-                  } while (status != 1);
+                  }
+                  while (status != 1);
                }
             }
          }
@@ -4517,7 +4518,7 @@ static int
 create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl)
 {
    SSL* s = NULL;
-   STACK_OF(X509_NAME) *root_cert_list = NULL;
+   STACK_OF(X509_NAME) * root_cert_list = NULL;
    struct configuration* config;
 
    config = (struct configuration*)shmem;
@@ -5360,7 +5361,6 @@ error:
    return 1;
 }
 
-
 static int
 auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int slot)
 {
@@ -5821,7 +5821,8 @@ create_client_tls_connection(int fd, SSL** ssl)
          }
          ERR_clear_error();
       }
-   } while (status != 1);
+   }
+   while (status != 1);
 
    *ssl = s;
 
