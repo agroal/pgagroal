@@ -1156,7 +1156,8 @@ read_message(int socket, bool block, int timeout, struct message** msg)
             errno = 0;
          }
       }
-   } while (keep_read);
+   }
+   while (keep_read);
 
    if (unlikely(timeout > 0))
    {
@@ -1224,7 +1225,8 @@ write_message(int socket, struct message* msg)
                break;
          }
       }
-   } while (keep_write);
+   }
+   while (keep_write);
 
    return MESSAGE_STATUS_ERROR;
 }
@@ -1304,7 +1306,8 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
          }
          ERR_clear_error();
       }
-   } while (keep_read);
+   }
+   while (keep_read);
 
    return MESSAGE_STATUS_ERROR;
 }
@@ -1396,7 +1399,8 @@ ssl_write_message(SSL* ssl, struct message* msg)
             return MESSAGE_STATUS_ERROR;
          }
       }
-   } while (keep_write);
+   }
+   while (keep_write);
 
    return MESSAGE_STATUS_ERROR;
 }

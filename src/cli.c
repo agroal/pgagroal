@@ -155,12 +155,12 @@ main(int argc, char** argv)
    {
       static struct option long_options[] =
       {
-         {"config",  required_argument, 0, 'c'},
-         {"host",  required_argument, 0, 'h'},
-         {"port",  required_argument, 0, 'p'},
-         {"user",  required_argument, 0, 'U'},
-         {"password",  required_argument, 0, 'P'},
-         {"logfile",  required_argument, 0, 'L'},
+         {"config", required_argument, 0, 'c'},
+         {"host", required_argument, 0, 'h'},
+         {"port", required_argument, 0, 'p'},
+         {"user", required_argument, 0, 'U'},
+         {"password", required_argument, 0, 'P'},
+         {"logfile", required_argument, 0, 'L'},
          {"verbose", no_argument, 0, 'v'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}

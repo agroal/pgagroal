@@ -95,7 +95,7 @@ log_rotation_disable(void)
    struct configuration* config;
    config = (struct configuration*)shmem;
 
-   config->log_rotation_age  = PGAGROAL_LOGGING_ROTATION_DISABLED;
+   config->log_rotation_age = PGAGROAL_LOGGING_ROTATION_DISABLED;
    config->log_rotation_size = PGAGROAL_LOGGING_ROTATION_DISABLED;
    next_log_rotation_age = 0;
 }
@@ -131,7 +131,6 @@ log_rotation_required(void)
    return false;
 }
 
-
 bool
 log_rotation_set_next_rotation_age(void)
 {
@@ -158,7 +157,6 @@ log_rotation_set_next_rotation_age(void)
       return false;
    }
 }
-
 
 /**
  *
@@ -234,13 +232,13 @@ log_file_open(void)
       }
 
       tm = localtime(&htime);
-      if (tm == NULL )
+      if (tm == NULL)
       {
          log_file = NULL;
          return 1;
       }
 
-      if (strftime(current_log_path, sizeof(current_log_path), config->log_path, tm) <= 0 )
+      if (strftime(current_log_path, sizeof(current_log_path), config->log_path, tm) <= 0)
       {
          // cannot parse the format string, fallback to default logging
          memcpy(current_log_path, "pgagroal.log", strlen("pgagroal.log"));
@@ -269,7 +267,6 @@ log_file_rotate(void)
       log_file_open();
    }
 }
-
 
 /**
  *
@@ -339,7 +336,7 @@ retry:
 
          if (config->log_line_prefix == NULL || strlen(config->log_line_prefix) == 0)
          {
-            memcpy(config->log_line_prefix,PGAGROAL_LOGGING_DEFAULT_LOG_LINE_PREFIX,strlen(PGAGROAL_LOGGING_DEFAULT_LOG_LINE_PREFIX));
+            memcpy(config->log_line_prefix, PGAGROAL_LOGGING_DEFAULT_LOG_LINE_PREFIX, strlen(PGAGROAL_LOGGING_DEFAULT_LOG_LINE_PREFIX));
          }
 
          va_start(vl, fmt);

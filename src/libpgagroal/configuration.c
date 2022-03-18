@@ -2313,7 +2313,7 @@ as_logging_level(char* str)
    {
       if (strlen(str) > strlen("debug"))
       {
-         debug_value = (char*) malloc( (strlen(str) - strlen("debug")) * sizeof(char));
+         debug_value = (char*) malloc((strlen(str) - strlen("debug")) * sizeof(char));
          memcpy(debug_value, str + sizeof("debug") - 1, strlen(str) - strlen("debug") + 1);
          debug_level = atoi(debug_value);
       }
@@ -2853,17 +2853,17 @@ as_logging_rotation_size(char* str, int* size)
             multiplier = 1024 * 1024;
             multiplier_set = true;
          }
-         else if(str[i] == 'G' || str[i] == 'g')
+         else if (str[i] == 'G' || str[i] == 'g')
          {
             multiplier = 1024 * 1024 * 1024;
             multiplier_set = true;
          }
-         else if(str[i] == 'K' || str[i] == 'k')
+         else if (str[i] == 'K' || str[i] == 'k')
          {
             multiplier = 1024;
             multiplier_set = true;
          }
-         else if(str[i] == 'B' || str[i] == 'b')
+         else if (str[i] == 'B' || str[i] == 'b')
          {
             multiplier = 1;
             multiplier_set = true;

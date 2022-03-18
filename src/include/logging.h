@@ -58,8 +58,8 @@ extern "C" {
 
 #define pgagroal_log_trace(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_DEBUG5, __FILE__, __LINE__, __VA_ARGS__)
 #define pgagroal_log_debug(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_DEBUG1, __FILE__, __LINE__, __VA_ARGS__)
-#define pgagroal_log_info(...)  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_INFO,  __FILE__, __LINE__,  __VA_ARGS__)
-#define pgagroal_log_warn(...)  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_WARN,  __FILE__, __LINE__, __VA_ARGS__)
+#define pgagroal_log_info(...)  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_INFO, __FILE__, __LINE__, __VA_ARGS__)
+#define pgagroal_log_warn(...)  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_WARN, __FILE__, __LINE__, __VA_ARGS__)
 #define pgagroal_log_error(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_ERROR, __FILE__, __LINE__, __VA_ARGS__)
 #define pgagroal_log_fatal(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_FATAL, __FILE__, __LINE__, __VA_ARGS__)
 
@@ -179,4 +179,3 @@ log_file_rotate(void);
 #endif
 
 #endif
-

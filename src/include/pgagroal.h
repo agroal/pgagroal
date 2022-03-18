@@ -228,7 +228,6 @@ struct prometheus_connection
    atomic_ullong query_count;           /**< The number of queries per connection */
 } __attribute__ ((aligned (64)));
 
-
 /** @struct
  * Defines the Prometheus metrics
  */

@@ -49,4 +49,3 @@ pgagroal_remote_management(int fd, char* address);
 #endif
 
 #endif
-

@@ -255,7 +255,7 @@ pgagroal_server_force_failover(int server)
    {
       prev_state = atomic_exchange(&config->servers[server].state, SERVER_FAILOVER);
 
-      if (prev_state == SERVER_NOTINIT || prev_state == SERVER_NOTINIT_PRIMARY || prev_state == SERVER_PRIMARY  || prev_state == SERVER_REPLICA)
+      if (prev_state == SERVER_NOTINIT || prev_state == SERVER_NOTINIT_PRIMARY || prev_state == SERVER_PRIMARY || prev_state == SERVER_REPLICA)
       {
          return failover(server);
       }

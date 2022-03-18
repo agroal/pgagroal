@@ -76,4 +76,3 @@ pgagroal_worker(int fd, char* address, char** argv);
 #endif
 
 #endif
-
