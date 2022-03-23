@@ -2303,7 +2303,7 @@ error:
 static int
 server_authenticate(struct message* msg, int auth_type, char* username, char* password, int slot, SSL* server_ssl)
 {
-   int ret;
+   int ret = AUTH_ERROR;
    struct message* smsg = NULL;
    struct message* kmsg = NULL;
    struct configuration* config = NULL;
