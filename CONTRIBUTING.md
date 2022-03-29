@@ -131,6 +131,10 @@ git rebase -i upstream/master
 git push -f origin mywork
 ```
 
+as all pull requests should be squashed and rebased.
+
+In your first pull request you need to add yourself to the `AUTHORS` file.
+
 ## Code Style
 
 Please, follow the coding style of the project.
