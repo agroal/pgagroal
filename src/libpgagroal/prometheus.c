@@ -48,6 +48,7 @@
 #define PAGE_UNKNOWN 0
 #define PAGE_HOME    1
 #define PAGE_METRICS 2
+#define BAD_REQUEST  3
 
 #define FIVE_SECONDS           5
 #define TEN_SECONDS           10
@@ -71,6 +72,7 @@ static int resolve_page(struct message* msg);
 static int unknown_page(int client_fd);
 static int home_page(int client_fd);
 static int metrics_page(int client_fd);
+static int bad_request(int client_fd);
 
 static void general_information(int client_fd);
 static void connection_information(int client_fd);
@@ -117,9 +119,13 @@ pgagroal_prometheus(int client_fd)
    {
       metrics_page(client_fd);
    }
-   else
+   else if (page == PAGE_UNKNOWN)
    {
       unknown_page(client_fd);
+   }
+   else
+   {
+      bad_request(client_fd);
    }
 
    pgagroal_disconnect(client_fd);
@@ -667,10 +673,10 @@ resolve_page(struct message* msg)
    char* from = NULL;
    int index;
 
-   if (strncmp((char*)msg->data, "GET", 3) != 0)
+   if (msg->length < 3 || strncmp((char*)msg->data, "GET", 3) != 0)
    {
       pgagroal_log_debug("Promethus: Not a GET request");
-      return PAGE_UNKNOWN;
+      return BAD_REQUEST;
    }
 
    index = 4;
@@ -1097,6 +1103,40 @@ error:
    free(data);
 
    return 1;
+}
+
+static int
+bad_request(int client_fd)
+{
+   char* data = NULL;
+   time_t now;
+   char time_buf[32];
+   int status;
+   struct message msg;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&data, 0, sizeof(data));
+
+   now = time(NULL);
+
+   memset(&time_buf, 0, sizeof(time_buf));
+   ctime_r(&now, &time_buf[0]);
+   time_buf[strlen(time_buf) - 1] = 0;
+
+   data = append(data, "HTTP/1.1 400 Bad Request\r\n");
+   data = append(data, "Date: ");
+   data = append(data, &time_buf[0]);
+   data = append(data, "\r\n");
+
+   msg.kind = 0;
+   msg.length = strlen(data);
+   msg.data = data;
+
+   status = pgagroal_write_message(NULL, client_fd, &msg);
+
+   free(data);
+
+   return status;
 }
 
 static void
