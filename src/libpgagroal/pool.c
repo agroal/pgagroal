@@ -193,7 +193,7 @@ start:
 
             if (!fork())
             {
-               pgagroal_flush_server(server);
+               pgagroal_flush_server(server, false);
             }
 
             if (config->failover)
@@ -799,7 +799,7 @@ pgagroal_flush(int mode, char* database)
 }
 
 void
-pgagroal_flush_server(signed char server)
+pgagroal_flush_server(signed char server, bool prefillNextServer)
 {
    struct configuration* config;
 
@@ -808,7 +808,7 @@ pgagroal_flush_server(signed char server)
 
    config = (struct configuration*)shmem;
 
-   pgagroal_log_debug("pgagroal_flush_server");
+   pgagroal_log_debug("pgagroal_flush_server %s (prefill next server = %d)", config->servers[server].name, prefillNextServer);
    for (int i = 0; i < config->max_connections; i++)
    {
       if (config->connections[i].server == server)
@@ -849,7 +849,7 @@ pgagroal_flush_server(signed char server)
    {
       if (!fork())
       {
-         pgagroal_prefill(false);
+         pgagroal_prefill(prefillNextServer);
       }
    }
 

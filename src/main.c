@@ -1448,7 +1448,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
                shutdown_ports();
                if (old_primary != -1)
                {
-                  pgagroal_flush_server(old_primary);
+                  pgagroal_flush_server(old_primary, true);
                }
                else
                {

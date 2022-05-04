@@ -233,7 +233,7 @@ pgagroal_server_failover(int slot)
 
       if (!fork())
       {
-         pgagroal_flush_server(old_primary);
+         pgagroal_flush_server(old_primary, true);
       }
    }
 

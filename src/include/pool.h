@@ -94,9 +94,11 @@ pgagroal_flush(int mode, char* database);
 /**
  * Flush the pool for a specific server
  * @param server The server
+ * @param prefillNextServer true if the next selected server must be prefilled.
+ *                          (.e.g, when doing a switch-to)   
  */
 void
-pgagroal_flush_server(signed char server);
+pgagroal_flush_server(signed char server, bool prefillNextServer);
 
 /**
  * Prefill the pool
