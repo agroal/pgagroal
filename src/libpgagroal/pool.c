@@ -802,13 +802,14 @@ void
 pgagroal_flush_server(signed char server)
 {
    struct configuration* config;
+   int primary = -1;
 
    pgagroal_start_logging();
    pgagroal_memory_init();
 
    config = (struct configuration*)shmem;
 
-   pgagroal_log_debug("pgagroal_flush_server");
+   pgagroal_log_debug("pgagroal_flush_server %s", config->servers[server].name);
    for (int i = 0; i < config->max_connections; i++)
    {
       if (config->connections[i].server == server)
@@ -845,11 +846,16 @@ pgagroal_flush_server(signed char server)
       }
    }
 
-   if (config->number_of_users > 0 && config->number_of_limits > 0)
+   if (pgagroal_get_primary(&primary))
+      pgagroal_log_debug("No primary defined");
+   else
    {
-      if (!fork())
+      if (config->number_of_users > 0 && config->number_of_limits > 0 && server != (unsigned char)primary && primary != -1)
       {
-         pgagroal_prefill(false);
+         if (!fork())
+         {
+            pgagroal_prefill(true);
+         }
       }
    }
 
