@@ -2698,7 +2698,7 @@ copy_server(struct server* dst, struct server* src)
    memcpy(&dst->name[0], &src->name[0], MISC_LENGTH);
    memcpy(&dst->host[0], &src->host[0], MISC_LENGTH);
    dst->port = src->port;
-   atomic_init(&dst->state, SERVER_NOTINIT);
+   atomic_init(&dst->state, src->state);
 }
 
 static void
