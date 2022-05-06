@@ -1166,6 +1166,10 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       }
    }
 
+   // do some last initialization here, since the configuration
+   // looks good so far
+   pgagroal_init_pidfile_if_needed(config);
+
    return 0;
 }
 
@@ -3065,4 +3069,17 @@ as_logging_rotation_age(char* str, int* age)
       *age = PGAGROAL_LOGGING_ROTATION_DISABLED;
       return 1;
    }
+}
+
+void
+pgagroal_init_pidfile_if_needed(struct configuration* config)
+{
+    if (strlen(config->pidfile) == 0)
+    {
+        // no pidfile set, use a default one
+        snprintf(config->pidfile, sizeof(config->pidfile), "%s/pgagraol.%d.pid",
+                 config->unix_socket_dir,
+                 config->port);
+        pgagroal_log_debug("PID file automatically set to: [%s]", config->pidfile);
+    }
 }
