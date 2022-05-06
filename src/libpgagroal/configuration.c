@@ -2201,7 +2201,7 @@ extract_key_value(char* str, char** key, char** value)
       while (str[c] != ' ' && str[c] != '\r' && str[c] != '\n' && c < length)
          c++;
 
-      if (c < length)
+      if (c <= length)
       {
          v = malloc((c - offset) + 1);
          memset(v, 0, (c - offset) + 1);
@@ -2584,7 +2584,7 @@ extract_value(char* str, int offset, char** value)
       while ((str[offset] != ' ' && str[offset] != '\t' && str[offset] != '\r' && str[offset] != '\n') && offset < length)
          offset++;
 
-      if (offset < length)
+      if (offset <= length)
       {
          to = offset;
 
