@@ -173,7 +173,9 @@ pgagroal_read_configuration(void* shm, char* filename)
                memset(&section, 0, LINE_LENGTH);
                max = ptr - line - 1;
                if (max > MISC_LENGTH - 1)
+               {
                   max = MISC_LENGTH - 1;
+               }
                memcpy(&section, line + 1, max);
                if (strcmp(section, "pgagroal"))
                {
@@ -213,18 +215,24 @@ pgagroal_read_configuration(void* shm, char* filename)
                   {
                      max = strlen(value);
                      if (max > MISC_LENGTH - 1)
+                     {
                         max = MISC_LENGTH - 1;
+                     }
                      memcpy(config->host, value, max);
                   }
                   else if (strlen(section) > 0)
                   {
                      max = strlen(section);
                      if (max > MISC_LENGTH - 1)
+                     {
                         max = MISC_LENGTH - 1;
+                     }
                      memcpy(&srv.name, section, max);
                      max = strlen(value);
                      if (max > MISC_LENGTH - 1)
+                     {
                         max = MISC_LENGTH - 1;
+                     }
                      memcpy(&srv.host, value, max);
                      atomic_store(&srv.state, SERVER_NOTINIT);
                   }
@@ -312,8 +320,8 @@ pgagroal_read_configuration(void* shm, char* filename)
                   if (!strcmp(section, "pgagroal"))
                   {
                      config->pipeline = as_pipeline(value);
-
                   }
+
                   else
                   {
                      unknown = true;
@@ -339,7 +347,9 @@ pgagroal_read_configuration(void* shm, char* filename)
                   {
                      max = strlen(value);
                      if (max > MISC_LENGTH - 1)
+                     {
                         max = MISC_LENGTH - 1;
+                     }
                      memcpy(config->failover_script, value, max);
                   }
                   else
@@ -388,7 +398,9 @@ pgagroal_read_configuration(void* shm, char* filename)
                   {
                      max = strlen(value);
                      if (max > MISC_LENGTH - 1)
+                     {
                         max = MISC_LENGTH - 1;
+                     }
                      memcpy(config->tls_ca_file, value, max);
                   }
                   else
@@ -402,7 +414,9 @@ pgagroal_read_configuration(void* shm, char* filename)
                   {
                      max = strlen(value);
                      if (max > MISC_LENGTH - 1)
+                     {
                         max = MISC_LENGTH - 1;
+                     }
                      memcpy(config->tls_cert_file, value, max);
                   }
                   else
@@ -416,7 +430,9 @@ pgagroal_read_configuration(void* shm, char* filename)
                   {
                      max = strlen(value);
                      if (max > MISC_LENGTH - 1)
+                     {
                         max = MISC_LENGTH - 1;
+                     }
                      memcpy(config->tls_key_file, value, max);
                   }
                   else
@@ -539,7 +555,9 @@ pgagroal_read_configuration(void* shm, char* filename)
                   {
                      max = strlen(value);
                      if (max > MISC_LENGTH - 1)
+                     {
                         max = MISC_LENGTH - 1;
+                     }
                      memcpy(config->pidfile, value, max);
                   }
                   else
@@ -589,7 +607,9 @@ pgagroal_read_configuration(void* shm, char* filename)
                   {
                      max = strlen(value);
                      if (max > MISC_LENGTH - 1)
+                     {
                         max = MISC_LENGTH - 1;
+                     }
                      memcpy(config->log_path, value, max);
                   }
                   else
@@ -633,7 +653,9 @@ pgagroal_read_configuration(void* shm, char* filename)
                   {
                      max = strlen(value);
                      if (max > MISC_LENGTH - 1)
+                     {
                         max = MISC_LENGTH - 1;
+                     }
 
                      memcpy(config->log_line_prefix, value, max);
                   }
@@ -701,7 +723,9 @@ pgagroal_read_configuration(void* shm, char* filename)
                   {
                      max = strlen(value);
                      if (max > MISC_LENGTH - 1)
+                     {
                         max = MISC_LENGTH - 1;
+                     }
                      memcpy(config->unix_socket_dir, value, max);
                   }
                   else
@@ -715,7 +739,9 @@ pgagroal_read_configuration(void* shm, char* filename)
                   {
                      max = strlen(value);
                      if (max > MISC_LENGTH - 1)
+                     {
                         max = MISC_LENGTH - 1;
+                     }
                      memcpy(config->libev, value, max);
                   }
                   else
@@ -802,8 +828,8 @@ pgagroal_read_configuration(void* shm, char* filename)
                   if (!strcmp(section, "pgagroal"))
                   {
                      config->hugepage = as_hugepage(value);
-
                   }
+
                   else
                   {
                      unknown = true;
@@ -2292,13 +2318,19 @@ static int
 as_logging_type(char* str)
 {
    if (!strcasecmp(str, "console"))
+   {
       return PGAGROAL_LOGGING_TYPE_CONSOLE;
+   }
 
    if (!strcasecmp(str, "file"))
+   {
       return PGAGROAL_LOGGING_TYPE_FILE;
+   }
 
    if (!strcasecmp(str, "syslog"))
+   {
       return PGAGROAL_LOGGING_TYPE_SYSLOG;
+   }
 
    return PGAGROAL_LOGGING_TYPE_CONSOLE;
 }
@@ -2319,28 +2351,46 @@ as_logging_level(char* str)
       }
 
       if (debug_level <= 1)
+      {
          return PGAGROAL_LOGGING_LEVEL_DEBUG1;
+      }
       else if (debug_level == 2)
+      {
          return PGAGROAL_LOGGING_LEVEL_DEBUG2;
+      }
       else if (debug_level == 3)
+      {
          return PGAGROAL_LOGGING_LEVEL_DEBUG3;
+      }
       else if (debug_level == 4)
+      {
          return PGAGROAL_LOGGING_LEVEL_DEBUG4;
+      }
       else if (debug_level >= 5)
+      {
          return PGAGROAL_LOGGING_LEVEL_DEBUG5;
+      }
    }
 
    if (!strcasecmp(str, "info"))
+   {
       return PGAGROAL_LOGGING_LEVEL_INFO;
+   }
 
    if (!strcasecmp(str, "warn"))
+   {
       return PGAGROAL_LOGGING_LEVEL_WARN;
+   }
 
    if (!strcasecmp(str, "error"))
+   {
       return PGAGROAL_LOGGING_LEVEL_ERROR;
+   }
 
    if (!strcasecmp(str, "fatal"))
+   {
       return PGAGROAL_LOGGING_LEVEL_FATAL;
+   }
 
    return PGAGROAL_LOGGING_LEVEL_INFO;
 }
@@ -2349,10 +2399,14 @@ static int
 as_logging_mode(char* str)
 {
    if (!strcasecmp(str, "a") || !strcasecmp(str, "append"))
+   {
       return PGAGROAL_LOGGING_MODE_APPEND;
+   }
 
    if (!strcasecmp(str, "c") || !strcasecmp(str, "create"))
+   {
       return PGAGROAL_LOGGING_MODE_CREATE;
+   }
 
    return PGAGROAL_LOGGING_MODE_APPEND;
 }
@@ -2361,13 +2415,19 @@ static int
 as_validation(char* str)
 {
    if (!strcasecmp(str, "off"))
+   {
       return VALIDATION_OFF;
+   }
 
    if (!strcasecmp(str, "foreground"))
+   {
       return VALIDATION_FOREGROUND;
+   }
 
    if (!strcasecmp(str, "background"))
+   {
       return VALIDATION_BACKGROUND;
+   }
 
    return VALIDATION_OFF;
 }
@@ -2376,16 +2436,24 @@ static int
 as_pipeline(char* str)
 {
    if (!strcasecmp(str, "auto"))
+   {
       return PIPELINE_AUTO;
+   }
 
    if (!strcasecmp(str, "performance"))
+   {
       return PIPELINE_PERFORMANCE;
+   }
 
    if (!strcasecmp(str, "session"))
+   {
       return PIPELINE_SESSION;
+   }
 
    if (!strcasecmp(str, "transaction"))
+   {
       return PIPELINE_TRANSACTION;
+   }
 
    return PIPELINE_AUTO;
 }
@@ -2394,13 +2462,19 @@ static int
 as_hugepage(char* str)
 {
    if (!strcasecmp(str, "off"))
+   {
       return HUGEPAGE_OFF;
+   }
 
    if (!strcasecmp(str, "try"))
+   {
       return HUGEPAGE_TRY;
+   }
 
    if (!strcasecmp(str, "on"))
+   {
       return HUGEPAGE_ON;
+   }
 
    return HUGEPAGE_OFF;
 }
@@ -2414,22 +2488,30 @@ extract_hba(char* str, char** type, char** database, char** user, char** address
    offset = extract_value(str, offset, type);
 
    if (offset == -1 || offset >= length)
+   {
       return;
+   }
 
    offset = extract_value(str, offset, database);
 
    if (offset == -1 || offset >= length)
+   {
       return;
+   }
 
    offset = extract_value(str, offset, user);
 
    if (offset == -1 || offset >= length)
+   {
       return;
+   }
 
    offset = extract_value(str, offset, address);
 
    if (offset == -1 || offset >= length)
+   {
       return;
+   }
 
    extract_value(str, offset, method);
 }
@@ -2448,17 +2530,23 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    offset = extract_value(str, offset, database);
 
    if (offset == -1 || offset >= length)
+   {
       return;
+   }
 
    offset = extract_value(str, offset, user);
 
    if (offset == -1 || offset >= length)
+   {
       return;
+   }
 
    offset = extract_value(str, offset, &value);
 
    if (offset == -1)
+   {
       return;
+   }
 
    if (!strcasecmp("all", value))
    {
@@ -2479,7 +2567,9 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    offset = extract_value(str, offset, &value);
 
    if (offset == -1)
+   {
       return;
+   }
 
    if (value != NULL && strcmp("", value) != 0)
    {
@@ -2503,7 +2593,9 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
    offset = extract_value(str, offset, &value);
 
    if (offset == -1)
+   {
       return;
+   }
 
    if (value != NULL && strcmp("", value) != 0)
    {
@@ -2870,8 +2962,10 @@ as_logging_rotation_size(char* str, int* size)
          }
       }
       else
+      {
          // ignore alien chars
          continue;
+      }
    }
 
    value[index] = '\0';

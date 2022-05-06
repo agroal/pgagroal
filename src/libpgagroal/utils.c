@@ -90,7 +90,9 @@ pgagroal_extract_username_database(struct message* msg, char** username, char** 
    {
       c = pgagroal_read_byte(msg->data + i);
       if (c == 0)
+      {
          counter++;
+      }
    }
 
    array = (char**)malloc(sizeof(char*) * counter);
@@ -146,13 +148,17 @@ pgagroal_extract_username_database(struct message* msg, char** username, char** 
    }
 
    if (*database == NULL)
+   {
       *database = *username;
+   }
 
    pgagroal_log_trace("Username: %s", *username);
    pgagroal_log_trace("Database: %s", *database);
 
    for (int i = 0; i < counter; i++)
+   {
       free(array[i]);
+   }
    free(array);
 
    return 0;
@@ -788,6 +794,7 @@ pgagroal_set_proc_title(int argc, char** argv, char* s1, char* s2)
    {
       setproctitle("-pgagroal: %s", s1);
    }
+
 #endif
 }
 

@@ -248,7 +248,9 @@ log_file_open(void)
       log_file = fopen(current_log_path, config->log_mode == PGAGROAL_LOGGING_MODE_APPEND ? "a" : "w");
 
       if (!log_file)
+      {
          return 1;
+      }
 
       log_rotation_set_next_rotation_age();
       return 0;
@@ -306,7 +308,9 @@ pgagroal_log_line(int level, char* file, int line, char* fmt, ...)
    config = (struct configuration*)shmem;
 
    if (config == NULL)
+   {
       return;
+   }
 
    if (level >= config->log_level)
    {
@@ -419,7 +423,9 @@ pgagroal_log_mem(void* data, size_t size)
    config = (struct configuration*)shmem;
 
    if (config == NULL)
+   {
       return;
+   }
 
    if (config->log_level == PGAGROAL_LOGGING_LEVEL_DEBUG5 &&
        size > 0 &&

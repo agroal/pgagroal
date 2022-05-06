@@ -495,7 +495,9 @@ pgagroal_write_deallocate_all(SSL* ssl, int socket)
 
 error:
    if (reply)
+   {
       pgagroal_free_message(reply);
+   }
 
    return 1;
 }
@@ -558,7 +560,9 @@ pgagroal_write_discard_all(SSL* ssl, int socket)
 
 error:
    if (reply)
+   {
       pgagroal_free_message(reply);
+   }
 
    return 1;
 }
@@ -694,7 +698,9 @@ pgagroal_write_rollback(SSL* ssl, int socket)
 
 error:
    if (reply)
+   {
       pgagroal_free_message(reply);
+   }
 
    return 1;
 }
@@ -1069,7 +1075,9 @@ pgagroal_connection_isvalid(int socket)
 
 error:
    if (reply)
+   {
       pgagroal_free_message(reply);
+   }
 
    return false;
 }

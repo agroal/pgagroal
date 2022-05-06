@@ -53,6 +53,7 @@ pgagroal_create_shared_memory(size_t size, unsigned char hp, void** shmem)
    {
       visibility = visibility | MAP_HUGETLB;
    }
+
 #endif
 
    s = mmap(NULL, size, protection, visibility, -1, 0);
