@@ -171,6 +171,17 @@ pgagroal_validate_superuser_configuration(void* shmem);
 int
 pgagroal_reload_configuration(void);
 
+/**
+ * Automatically initialize the 'pidfile'
+ * if none has been specified.
+ * This function is called as last step
+ * from pgagroal_validate_configuration
+ * because it builds the pidfile on the value
+ * of unix_socket_dir.
+ */
+void
+pgagroal_init_pidfile_if_needed(struct configuration* config);
+
 #ifdef __cplusplus
 }
 #endif
