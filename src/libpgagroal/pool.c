@@ -847,7 +847,9 @@ pgagroal_flush_server(signed char server)
    }
 
    if (pgagroal_get_primary(&primary))
+   {
       pgagroal_log_debug("No primary defined");
+   }
    else
    {
       if (config->number_of_users > 0 && config->number_of_limits > 0 && server != (unsigned char)primary && primary != -1)

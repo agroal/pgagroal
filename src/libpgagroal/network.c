@@ -404,7 +404,9 @@ int
 pgagroal_disconnect(int fd)
 {
    if (fd == -1)
+   {
       return 1;
+   }
 
    return close(fd);
 }

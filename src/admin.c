@@ -134,7 +134,9 @@ main(int argc, char** argv)
                       long_options, &option_index);
 
       if (c == -1)
+      {
          break;
+      }
 
       switch (c)
       {

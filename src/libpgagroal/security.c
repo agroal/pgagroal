@@ -3054,22 +3054,34 @@ get_hba_method(int index)
    config = (struct configuration*)shmem;
 
    if (!strcasecmp(config->hbas[index].method, "reject"))
+   {
       return SECURITY_REJECT;
+   }
 
    if (!strcasecmp(config->hbas[index].method, "trust"))
+   {
       return SECURITY_TRUST;
+   }
 
    if (!strcasecmp(config->hbas[index].method, "password"))
+   {
       return SECURITY_PASSWORD;
+   }
 
    if (!strcasecmp(config->hbas[index].method, "md5"))
+   {
       return SECURITY_MD5;
+   }
 
    if (!strcasecmp(config->hbas[index].method, "scram-sha-256"))
+   {
       return SECURITY_SCRAM256;
+   }
 
    if (!strcasecmp(config->hbas[index].method, "all"))
+   {
       return SECURITY_ALL;
+   }
 
    return SECURITY_REJECT;
 }

@@ -209,7 +209,9 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
 error:
 
    if (cmptr)
+   {
       free(cmptr);
+   }
 
    return 1;
 }
@@ -273,7 +275,9 @@ pgagroal_management_transfer_connection(int32_t slot)
 
 error:
    if (cmptr)
+   {
       free(cmptr);
+   }
    pgagroal_disconnect(fd);
    pgagroal_kill_connection(slot, NULL);
 
