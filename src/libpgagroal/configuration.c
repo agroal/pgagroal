@@ -72,9 +72,10 @@ static void copy_user(struct user* dst, struct user* src);
 static int restart_int(char* name, int e, int n);
 static int restart_string(char* name, char* e, char* n);
 static int restart_limit(char* name, struct configuration* config, struct configuration* reload);
+static int restart_server(struct server* src, struct server* dst);
 
 static bool is_empty_string(char* s);
-
+static bool is_same_server(struct server* s1, struct server* s2);
 /**
  *
  */
@@ -2686,12 +2687,22 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
 
    /* states */
 
-   memset(&config->servers[0], 0, sizeof(struct server) * NUMBER_OF_SERVERS);
+   // decreasing the number of servers is probably a bad idea
+   if (config->number_of_servers > reload->number_of_servers)
+   {
+      restart_int("decreasing number of servers", config->number_of_servers, reload->number_of_servers);
+   }
+
    for (int i = 0; i < reload->number_of_servers; i++)
    {
+      restart_server(&reload->servers[i], &config->servers[i]);
       copy_server(&config->servers[i], &reload->servers[i]);
    }
    config->number_of_servers = reload->number_of_servers;
+
+   // zero fill remaining memory that is unused
+   memset(&config->servers[config->number_of_servers], 0,
+          sizeof(struct server) * (NUMBER_OF_SERVERS - config->number_of_servers));
 
    memset(&config->hbas[0], 0, sizeof(struct hba) * NUMBER_OF_HBAS);
    for (int i = 0; i < reload->number_of_hbas; i++)
@@ -2738,13 +2749,49 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    return 0;
 }
 
+/**
+ * Checks if the configuration of the first server
+ * is the same as the configuration of the second server.
+ * So far it tests for the same connection string, meaning
+ * that the hostname and the port must be the same (i.e.,
+ * pointing to the same endpoint).
+ * It does not resolve the hostname, therefore 'localhost' and '127.0.0.1'
+ * are considered as different hosts.
+ * @return true if the server configurations look the same
+ */
+static bool
+is_same_server(struct server* s1, struct server* s2)
+{
+   if (!strncmp(s1->host, s2->host, MISC_LENGTH) && s1->port == s2->port)
+   {
+      return true;
+   }
+   else
+   {
+      return false;
+   }
+}
+
 static void
 copy_server(struct server* dst, struct server* src)
 {
+   atomic_schar state;
+
+   // check the server cloned "seems" the same
+   if (is_same_server(dst, src))
+   {
+      state = atomic_load(&dst->state);
+   }
+   else
+   {
+      state = SERVER_NOTINIT;
+   }
+
+   memset(dst, 0, sizeof(struct server));
    memcpy(&dst->name[0], &src->name[0], MISC_LENGTH);
    memcpy(&dst->host[0], &src->host[0], MISC_LENGTH);
    dst->port = src->port;
-   atomic_init(&dst->state, SERVER_NOTINIT);
+   atomic_init(&dst->state, state);
 }
 
 static void
@@ -2825,6 +2872,23 @@ error:
    return 1;
 }
 
+static int
+restart_server(struct server* src, struct server* dst)
+{
+   char restart_message[MISC_LENGTH];
+
+   if (!is_same_server(src, dst))
+   {
+      snprintf(restart_message, MISC_LENGTH, "Server <%s>, parameter <host>", src->name);
+      restart_string(restart_message, dst->host, src->host);
+      snprintf(restart_message, MISC_LENGTH, "Server <%s>, parameter <port>", src->name);
+      restart_int(restart_message, dst->port, src->port);
+      return 1;
+   }
+
+   return 0;
+}
+
 static bool
 is_empty_string(char* s)
 {
@@ -2856,12 +2920,12 @@ is_empty_string(char* s)
 void
 pgagroal_init_pidfile_if_needed(struct configuration* config)
 {
-    if (strlen(config->pidfile) == 0)
-    {
-        // no pidfile set, use a default one
-        snprintf(config->pidfile, sizeof(config->pidfile), "%s/pgagraol.%d.pid",
-                 config->unix_socket_dir,
-                 config->port);
-        pgagroal_log_debug("PID file automatically set to: [%s]", config->pidfile);
-    }
+   if (strlen(config->pidfile) == 0)
+   {
+      // no pidfile set, use a default one
+      snprintf(config->pidfile, sizeof(config->pidfile), "%s/pgagraol.%d.pid",
+               config->unix_socket_dir,
+               config->port);
+      pgagroal_log_debug("PID file automatically set to: [%s]", config->pidfile);
+   }
 }
