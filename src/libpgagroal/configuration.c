@@ -2738,7 +2738,7 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    /* states */
 
    // decreasing the number of servers is probably a bad idea
-   if ( config->number_of_servers > reload->number_of_servers)
+   if (config->number_of_servers > reload->number_of_servers)
       restart_int("decreasing number of servers", config->number_of_servers, reload->number_of_servers);
 
    for (int i = 0; i < reload->number_of_servers; i++)
