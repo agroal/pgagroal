@@ -78,7 +78,7 @@ static int restart_limit(char* name, struct configuration* config, struct config
 static int restart_server(struct server* src, struct server* dst);
 
 static bool is_empty_string(char* s);
-static bool is_same_connection(struct server* s1, struct server* s2);
+static bool is_same_server(struct server* s1, struct server* s2);
 /**
  *
  */
@@ -2797,14 +2797,28 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    return 0;
 }
 
+/**
+ * Checks if the configuration of the first server
+ * is the same as the configuration of the second server.
+ * So far it tests for the same connection string, meaning
+ * that the hostname and the port must be the same (i.e.,
+ * pointing to the same endpoint).
+ * It does not resolve the hostname, therefore 'localhost' and '127.0.0.1'
+ * are considered as different hosts.
+ * @return true if the server configurations look the same
+ */
 static bool
-is_same_connection(struct server* s1, struct server* s2)
+is_same_server(struct server* s1, struct server* s2)
 {
 
    if(!strncmp(s1->host, s2->host, MISC_LENGTH) && s1->port == s2->port)
+   {
       return true;
-
-   return false;
+   }
+   else
+   {
+      return false;
+   }
 }
 
 static void
@@ -2813,7 +2827,7 @@ copy_server(struct server* dst, struct server* src)
    atomic_schar state;
 
    // check the server cloned "seems" the same
-   if (is_same_connection(dst,src))
+   if (is_same_server(dst,src))
    {
       state = atomic_load(&dst->state);
    }
@@ -2912,9 +2926,9 @@ restart_server(struct server* src, struct server* dst)
 {
    char restart_message[MISC_LENGTH];
 
-   if (!is_same_connection(src, dst))
+   if (!is_same_server(src, dst))
    {
-      snprintf(restart_message, MISC_LENGTH, "Server <%s>, parameter  <host>", src->name);
+      snprintf(restart_message, MISC_LENGTH, "Server <%s>, parameter <host>", src->name);
       restart_string(restart_message, dst->host, src->host);
       snprintf(restart_message, MISC_LENGTH, "Server <%s>, parameter <port>", src->name);
       restart_int(restart_message, dst->port, src->port);
