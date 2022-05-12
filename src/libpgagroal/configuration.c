@@ -2745,7 +2745,12 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
 
    for (int i = 0; i < reload->number_of_servers; i++)
    {
-      restart_server(&reload->servers[i], &config->servers[i]);
+      // check and emit restart warning only for not-added servers
+      if (i < config->number_of_servers)
+      {
+         restart_server(&reload->servers[i], &config->servers[i]);
+      }
+
       copy_server(&config->servers[i], &reload->servers[i]);
    }
    config->number_of_servers = reload->number_of_servers;
