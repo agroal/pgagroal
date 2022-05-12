@@ -2679,11 +2679,28 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    /* log_type */
    restart_int("log_type", config->log_type, reload->log_type);
    config->log_level = reload->log_level;
+
    /* log_path */
-   restart_string("log_path", config->log_path, reload->log_path);
+   // if the log main parameters have changed, we need
+   // to restart the logging system
+   if (strncmp(config->log_path, reload->log_path, MISC_LENGTH)
+       || config->log_rotation_size != reload->log_rotation_size
+       || config->log_rotation_age != reload->log_rotation_age
+       || config->log_mode != reload->log_mode)
+   {
+      pgagroal_log_debug("Log restart triggered!");
+      pgagroal_stop_logging();
+      config->log_rotation_size = reload->log_rotation_size;
+      config->log_rotation_age = reload->log_rotation_age;
+      config->log_mode = reload->log_mode;
+      memcpy(config->log_line_prefix, reload->log_line_prefix, MISC_LENGTH);
+      memcpy(config->log_path, reload->log_path, MISC_LENGTH);
+      pgagroal_start_logging();
+   }
+
    config->log_connections = reload->log_connections;
    config->log_disconnections = reload->log_disconnections;
-   restart_int("log_mode", config->log_mode, reload->log_mode);
+
    /* log_lock */
 
    config->authquery = reload->authquery;
