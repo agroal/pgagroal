@@ -338,7 +338,7 @@ retry:
             filename = file;
          }
 
-         if (config->log_line_prefix == NULL || strlen(config->log_line_prefix) == 0)
+         if (strlen(config->log_line_prefix) == 0)
          {
             memcpy(config->log_line_prefix, PGAGROAL_LOGGING_DEFAULT_LOG_LINE_PREFIX, strlen(PGAGROAL_LOGGING_DEFAULT_LOG_LINE_PREFIX));
          }
