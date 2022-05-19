@@ -126,6 +126,24 @@ pgagroal_pool_shutdown(void);
 int
 pgagroal_pool_status(void);
 
+/**
+ * This function wraps around the logic to call `pgagroal_prefill()`.
+ * In order to avoid code repetition, this function can be used safely
+ * wherever there is the possibility to activate the prefill. The function
+ * does check if the configuration allows for a prefill, and in such case
+ * tries to `fork(2)` and executes the prefill.
+ * Also, the function checks for the presence of a primary with
+ * `pgagroal_get_primary()` and refuses to do a prefill if there
+ * is no primary at all.
+ *
+ * @param initial true if the prefill has to be done with the INITIAL
+ *        value of the pgagroal_database.conf file, false if it has
+ *        to be done with the MINIMAL value.
+ *
+ */
+void
+pgagroal_prefill_if_can(bool initial);
+
 #ifdef __cplusplus
 }
 #endif

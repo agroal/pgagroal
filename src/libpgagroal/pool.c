@@ -39,6 +39,7 @@
 #include <server.h>
 #include <tracker.h>
 #include <utils.h>
+#include <configuration.h>
 
 /* system */
 #include <assert.h>
@@ -252,13 +253,7 @@ start:
             pgagroal_tracking_event_slot(TRACKER_BAD_CONNECTION, *slot);
             status = pgagroal_kill_connection(*slot, *ssl);
 
-            if (config->number_of_users > 0 && config->number_of_limits > 0)
-            {
-               if (!fork())
-               {
-                  pgagroal_prefill(false);
-               }
-            }
+            pgagroal_prefill_if_can(false);
 
             if (status == 0)
             {
@@ -577,12 +572,9 @@ pgagroal_idle_timeout(void)
       }
    }
 
-   if (prefill && config->number_of_users > 0 && config->number_of_limits > 0)
+   if (prefill)
    {
-      if (!fork())
-      {
-         pgagroal_prefill(false);
-      }
+      pgagroal_prefill_if_can(false);
    }
 
    pgagroal_pool_status();
@@ -662,12 +654,9 @@ pgagroal_validation(void)
       }
    }
 
-   if (prefill && config->number_of_users > 0 && config->number_of_limits > 0)
+   if (prefill)
    {
-      if (!fork())
-      {
-         pgagroal_prefill(false);
-      }
+      pgagroal_prefill_if_can(false);
    }
 
    pgagroal_pool_status();
@@ -783,12 +772,9 @@ pgagroal_flush(int mode, char* database)
       }
    }
 
-   if (prefill && config->number_of_users > 0 && config->number_of_limits > 0)
+   if (prefill)
    {
-      if (!fork())
-      {
-         pgagroal_prefill(false);
-      }
+      pgagroal_prefill_if_can(false);
    }
 
    pgagroal_pool_status();
@@ -852,12 +838,9 @@ pgagroal_flush_server(signed char server)
    }
    else
    {
-      if (config->number_of_users > 0 && config->number_of_limits > 0 && server != (unsigned char)primary && primary != -1)
+      if (server != (unsigned char)primary && primary != -1)
       {
-         if (!fork())
-         {
-            pgagroal_prefill(true);
-         }
+         pgagroal_prefill_if_can(true);
       }
    }
 
@@ -1358,4 +1341,27 @@ do_prefill(char* username, char* database, int size)
    }
 
    return connections < size && free > 0;
+}
+
+void
+pgagroal_prefill_if_can(bool initial)
+{
+   int primary;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (pgagroal_can_prefill(config))
+   {
+      if (pgagroal_get_primary(&primary))
+      {
+         pgagroal_log_warn("No primary detected, cannot try to prefill!");
+         return;
+      }
+
+      if (!fork())
+      {
+         pgagroal_prefill(initial);
+      }
+   }
 }

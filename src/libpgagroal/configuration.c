@@ -3169,3 +3169,16 @@ pgagroal_init_pidfile_if_needed(struct configuration* config)
       pgagroal_log_debug("PID file automatically set to: [%s]", config->pidfile);
    }
 }
+
+bool
+pgagroal_can_prefill(struct configuration* config)
+{
+   if (config->number_of_users > 0 && config->number_of_limits > 0)
+   {
+      return true;
+   }
+   else
+   {
+      return false;
+   }
+}

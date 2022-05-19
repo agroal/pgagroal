@@ -1060,12 +1060,12 @@ main(int argc, char** argv)
       pgagroal_log_warn("No users allowed");
    }
 
-   if (config->number_of_users > 0)
+   if (pgagroal_can_prefill(config))
    {
       if (!fork())
       {
          shutdown_ports();
-         pgagroal_prefill(true);
+         pgagroal_prefill_if_can(true);
       }
    }
 

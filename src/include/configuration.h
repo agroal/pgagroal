@@ -182,6 +182,17 @@ pgagroal_reload_configuration(void);
 void
 pgagroal_init_pidfile_if_needed(struct configuration* config);
 
+/**
+ * Checks if the configuration has a min set of values to
+ * take into account doing a prefill. For example, there must
+ * be users and limits set, otherwise it does not
+ * make any sense to attempt a prefill.
+ * This can be used to wrap the condituion before calling
+ * other prefill functions, e.g., `pgagroal_prefill()`.
+ */
+bool
+pgagroal_can_prefill(struct configuration* config);
+
 #ifdef __cplusplus
 }
 #endif
