@@ -1060,7 +1060,7 @@ main(int argc, char** argv)
       pgagroal_log_warn("No users allowed");
    }
 
-   if (pgagroal_can_prefill(config))
+   if (pgagroal_can_prefill())
    {
       if (!fork())
       {

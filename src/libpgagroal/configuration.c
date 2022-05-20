@@ -3171,8 +3171,12 @@ pgagroal_init_pidfile_if_needed(struct configuration* config)
 }
 
 bool
-pgagroal_can_prefill(struct configuration* config)
+pgagroal_can_prefill(void)
 {
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
    if (config->number_of_users > 0 && config->number_of_limits > 0)
    {
       return true;

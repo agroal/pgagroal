@@ -1347,11 +1347,8 @@ void
 pgagroal_prefill_if_can(bool initial)
 {
    int primary;
-   struct configuration* config;
 
-   config = (struct configuration*)shmem;
-
-   if (pgagroal_can_prefill(config))
+   if (pgagroal_can_prefill())
    {
       if (pgagroal_get_primary(&primary))
       {

@@ -191,7 +191,7 @@ pgagroal_init_pidfile_if_needed(struct configuration* config);
  * other prefill functions, e.g., `pgagroal_prefill()`.
  */
 bool
-pgagroal_can_prefill(struct configuration* config);
+pgagroal_can_prefill(void);
 
 #ifdef __cplusplus
 }
