@@ -186,7 +186,7 @@ pgagroal_reload_configuration(void);
  * of unix_socket_dir.
  */
 void
-pgagroal_init_pidfile_if_needed(struct configuration* config);
+pgagroal_init_pidfile_if_needed(void);
 
 /**
  * Checks if the configuration has a min set of values to

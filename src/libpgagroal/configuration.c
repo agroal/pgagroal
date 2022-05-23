@@ -861,7 +861,7 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
 
    // do some last initialization here, since the configuration
    // looks good so far
-   pgagroal_init_pidfile_if_needed(config);
+   pgagroal_init_pidfile_if_needed();
 
    return 0;
 }
@@ -2808,8 +2808,12 @@ as_logging_rotation_age(char* str, int* age)
 }
 
 void
-pgagroal_init_pidfile_if_needed(struct configuration* config)
+pgagroal_init_pidfile_if_needed(void)
 {
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
    if (strlen(config->pidfile) == 0)
    {
       // no pidfile set, use a default one
