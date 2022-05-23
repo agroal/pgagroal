@@ -67,6 +67,7 @@ add_compile_options(-std=c17)
 add_compile_options(-D__USE_ISOC11)
 add_compile_options(-D_GNU_SOURCE)
 add_compile_options(-Wno-deprecated)
+add_compile_options(-Wno-deprecated-declarations)
 
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
 
