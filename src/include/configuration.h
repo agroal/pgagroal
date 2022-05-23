@@ -35,6 +35,12 @@ extern "C" {
 
 #include <stdlib.h>
 
+/*
+ * The main section that must be present in the `pgagroal.conf`
+ * configuration file.
+ */
+#define PGAGROAL_MAIN_INI_SECTION "pgagroal"
+
 /**
  * Initialize the configuration structure
  * @param shmem The shared memory segment

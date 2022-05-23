@@ -79,6 +79,11 @@ static int restart_server(struct server* src, struct server* dst);
 
 static bool is_empty_string(char* s);
 static bool is_same_server(struct server* s1, struct server* s2);
+
+static bool key_in_section( char* wanted, char* section, char* key, bool global, bool* unknown);
+static bool is_comment_line(char* line);
+static bool section_line(char* line, char* section);
+
 /**
  *
  */
@@ -146,7 +151,6 @@ pgagroal_read_configuration(void* shm, char* filename)
    char line[LINE_LENGTH];
    char* key = NULL;
    char* value = NULL;
-   char* ptr = NULL;
    size_t max;
    struct configuration* config;
    int idx_server = 0;
@@ -164,41 +168,26 @@ pgagroal_read_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (!is_empty_string(line))
+      if (!is_empty_string(line) && !is_comment_line(line))
       {
-         if (line[0] == '[')
+         if (section_line(line, section))
          {
-            ptr = strchr(line, ']');
-            if (ptr)
+            if (strcmp(section, PGAGROAL_MAIN_INI_SECTION))
             {
-               memset(&section, 0, LINE_LENGTH);
-               max = ptr - line - 1;
-               if (max > MISC_LENGTH - 1)
+               if (idx_server > 0 && idx_server <= NUMBER_OF_SERVERS)
                {
-                  max = MISC_LENGTH - 1;
+                  memcpy(&(config->servers[idx_server - 1]), &srv, sizeof(struct server));
                }
-               memcpy(&section, line + 1, max);
-               if (strcmp(section, "pgagroal"))
+               else if (idx_server > NUMBER_OF_SERVERS)
                {
-                  if (idx_server > 0 && idx_server <= NUMBER_OF_SERVERS)
-                  {
-                     memcpy(&(config->servers[idx_server - 1]), &srv, sizeof(struct server));
-                  }
-                  else if (idx_server > NUMBER_OF_SERVERS)
-                  {
-                     printf("Maximum number of servers exceeded\n");
-                  }
+                  printf("Maximum number of servers exceeded\n");
+               }
 
-                  memset(&srv, 0, sizeof(struct server));
-                  atomic_init(&srv.state, SERVER_NOTINIT);
-                  memcpy(&srv.name, &section, strlen(section));
-                  idx_server++;
-               }
+               memset(&srv, 0, sizeof(struct server));
+               atomic_init(&srv.state, SERVER_NOTINIT);
+               memcpy(&srv.name, &section, strlen(section));
+               idx_server++;
             }
-         }
-         else if (line[0] == '#' || line[0] == ';')
-         {
-            /* Comment, so ignore */
          }
          else
          {
@@ -208,658 +197,357 @@ pgagroal_read_configuration(void* shm, char* filename)
             {
                bool unknown = false;
 
-               /* printf("|%s|%s|\n", key, value); */
+               //printf("\nSection <%s> key <%s> = <%s>", section, key, value);
 
-               if (!strcmp(key, "host"))
+               if (key_in_section( "host", section, key, true, &unknown))
                {
-                  if (!strcmp(section, "pgagroal"))
+                  max = strlen(value);
+                  if (max > MISC_LENGTH - 1)
                   {
-                     max = strlen(value);
-                     if (max > MISC_LENGTH - 1)
-                     {
-                        max = MISC_LENGTH - 1;
-                     }
-                     memcpy(config->host, value, max);
+                     max = MISC_LENGTH - 1;
                   }
-                  else if (strlen(section) > 0)
+                  memcpy(config->host, value, max);
+               }
+               else if (key_in_section("host", section, key, false, &unknown))
+               {
+                  max = strlen(section);
+                  if (max > MISC_LENGTH - 1)
                   {
-                     max = strlen(section);
-                     if (max > MISC_LENGTH - 1)
-                     {
-                        max = MISC_LENGTH - 1;
-                     }
-                     memcpy(&srv.name, section, max);
-                     max = strlen(value);
-                     if (max > MISC_LENGTH - 1)
-                     {
-                        max = MISC_LENGTH - 1;
-                     }
-                     memcpy(&srv.host, value, max);
+                     max = MISC_LENGTH - 1;
+                  }
+                  memcpy(&srv.name, section, max);
+                  max = strlen(value);
+                  if (max > MISC_LENGTH - 1)
+                  {
+                     max = MISC_LENGTH - 1;
+                  }
+                  memcpy(&srv.host, value, max);
+                  atomic_store(&srv.state, SERVER_NOTINIT);
+               }
+               else if (key_in_section("port", section, key, true, &unknown))
+               {
+                  if (as_int(value, &config->port))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("port", section, key, false, &unknown))
+               {
+                  memcpy(&srv.name, section, strlen(section));
+                  if (as_int(value, &srv.port))
+                  {
+                     unknown = true;
+                  }
+                  atomic_store(&srv.state, SERVER_NOTINIT);
+               }
+               else if (key_in_section( "primary", section, key, false, &unknown))
+               {
+                  bool b = false;
+                  if (as_bool(value, &b))
+                  {
+                     unknown = true;
+                  }
+                  if (b)
+                  {
+                     atomic_store(&srv.state, SERVER_NOTINIT_PRIMARY);
+                  }
+                  else
+                  {
                      atomic_store(&srv.state, SERVER_NOTINIT);
                   }
-                  else
+               }
+               else if (key_in_section("metrics", section, key, true, &unknown))
+               {
+                  if (as_int(value, &config->metrics))
                   {
                      unknown = true;
                   }
                }
-               else if (!strcmp(key, "port"))
+               else if (key_in_section("management", section, key, true, &unknown))
                {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_int(value, &config->port))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else if (strlen(section) > 0)
-                  {
-                     memcpy(&srv.name, section, strlen(section));
-                     if (as_int(value, &srv.port))
-                     {
-                        unknown = true;
-                     }
-                     atomic_store(&srv.state, SERVER_NOTINIT);
-                  }
-                  else
+                  if (as_int(value, &config->management))
                   {
                      unknown = true;
                   }
                }
-               else if (!strcmp(key, "primary"))
+               else if (key_in_section("pipeline", section, key, true, &unknown))
                {
-                  if (strcmp(section, "pgagroal") && strlen(section) > 0)
-                  {
-                     bool b = false;
-                     if (as_bool(value, &b))
-                     {
-                        unknown = true;
-                     }
-                     if (b)
-                     {
-                        atomic_store(&srv.state, SERVER_NOTINIT_PRIMARY);
-                     }
-                     else
-                     {
-                        atomic_store(&srv.state, SERVER_NOTINIT);
-                     }
-                  }
-                  else
+                  config->pipeline = as_pipeline(value);
+               }
+               else if (key_in_section("failover", section, key, true, &unknown))
+               {
+                  if (as_bool(value, &config->failover))
                   {
                      unknown = true;
                   }
                }
-               else if (!strcmp(key, "metrics"))
+               else if (key_in_section("failover_script", section, key, true, &unknown))
                {
-                  if (!strcmp(section, "pgagroal"))
+
+                  max = strlen(value);
+                  if (max > MISC_LENGTH - 1)
                   {
-                     if (as_int(value, &config->metrics))
-                     {
-                        unknown = true;
-                     }
+                     max = MISC_LENGTH - 1;
                   }
-                  else
+                  memcpy(config->failover_script, value, max);
+               }
+               else if (key_in_section("auth_query", section, key, true, &unknown))
+               {
+                  if (as_bool(value, &config->authquery))
                   {
                      unknown = true;
                   }
                }
-               else if (!strcmp(key, "management"))
+               else if (key_in_section("tls", section, key, true, &unknown))
                {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_int(value, &config->management))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
+                  if (as_bool(value, &config->tls))
                   {
                      unknown = true;
                   }
                }
-               else if (!strcmp(key, "pipeline"))
+               else if (key_in_section("tls", section, key, false, &unknown))
                {
-                  if (!strcmp(section, "pgagroal"))
+                  if (as_bool(value, &srv.tls))
                   {
-                     config->pipeline = as_pipeline(value);
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("tls_ca_file", section, key, true, &unknown))
+               {
+                  max = strlen(value);
+                  if (max > MISC_LENGTH - 1)
+                  {
+                     max = MISC_LENGTH - 1;
+                  }
+                  memcpy(config->tls_ca_file, value, max);
+               }
+               else if (key_in_section("tls_cert_file", section, key, true, &unknown))
+               {
+                  max = strlen(value);
+                  if (max > MISC_LENGTH - 1)
+                  {
+                     max = MISC_LENGTH - 1;
+                  }
+                  memcpy(config->tls_cert_file, value, max);
+               }
+               else if (key_in_section("tls_key_file", section, key, true, &unknown))
+               {
+                  max = strlen(value);
+                  if (max > MISC_LENGTH - 1)
+                  {
+                     max = MISC_LENGTH - 1;
+                  }
+                  memcpy(config->tls_key_file, value, max);
+               }
+               else if (key_in_section("blocking_timeout", section, key, true, &unknown))
+               {
+
+                  if (as_int(value, &config->blocking_timeout))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("idle_tiemout", section, key, true, &unknown))
+               {
+                  if (as_int(value, &config->idle_timeout))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("validation", section, key, true, &unknown))
+               {
+                  config->validation = as_validation(value);
+               }
+               else if (key_in_section("background_interval", section, key, true, &unknown))
+               {
+                  if (as_int(value, &config->background_interval))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("max_retries", section, key, true, &unknown))
+               {
+                  if (as_int(value, &config->max_retries))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("authentication_timeout", section, key, true, &unknown))
+               {
+                  if (as_int(value, &config->authentication_timeout))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("disconnect_client", section, key, true, &unknown))
+               {
+                  if (as_int(value, &config->disconnect_client))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("disconnect_client_force", section, key, true, &unknown))
+               {
+                  if (as_bool(value, &config->disconnect_client_force))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("pidfile", section, key, true, &unknown))
+               {
+                  max = strlen(value);
+                  if (max > MISC_LENGTH - 1)
+                  {
+                     max = MISC_LENGTH - 1;
+                  }
+                  memcpy(config->pidfile, value, max);
+               }
+               else if (key_in_section("allow_unknown_users", section, key, true, &unknown))
+               {
+                  if (as_bool(value, &config->allow_unknown_users))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("log_type", section, key, true, &unknown))
+               {
+                  config->log_type = as_logging_type(value);
+               }
+               else if (key_in_section("log_level", section, key, true, &unknown))
+               {
+                  config->log_level = as_logging_level(value);
+               }
+               else if (key_in_section("log_path", section, key, true, &unknown))
+               {
+                  max = strlen(value);
+                  if (max > MISC_LENGTH - 1)
+                  {
+                     max = MISC_LENGTH - 1;
+                  }
+                  memcpy(config->log_path, value, max);
+               }
+               else if (key_in_section("log_rotation_size", section, key, true, &unknown))
+               {
+                  if (as_logging_rotation_size(value, &config->log_rotation_size))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("log_rotation_age", section, key, true, &unknown))
+               {
+                  if (as_logging_rotation_age(value, &config->log_rotation_age))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("log_line_prefix", section, key, true, &unknown))
+               {
+                  max = strlen(value);
+                  if (max > MISC_LENGTH - 1)
+                  {
+                     max = MISC_LENGTH - 1;
                   }
 
-                  else
-                  {
-                     unknown = true;
-                  }
+                  memcpy(config->log_line_prefix, value, max);
                }
-               else if (!strcmp(key, "failover"))
+               else if (key_in_section("log_connections", section, key, true, &unknown))
                {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_bool(value, &config->failover))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "failover_script"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     max = strlen(value);
-                     if (max > MISC_LENGTH - 1)
-                     {
-                        max = MISC_LENGTH - 1;
-                     }
-                     memcpy(config->failover_script, value, max);
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "auth_query"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_bool(value, &config->authquery))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "tls"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_bool(value, &config->tls))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else if (strlen(section) > 0)
-                  {
-                     if (as_bool(value, &srv.tls))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "tls_ca_file"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     max = strlen(value);
-                     if (max > MISC_LENGTH - 1)
-                     {
-                        max = MISC_LENGTH - 1;
-                     }
-                     memcpy(config->tls_ca_file, value, max);
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "tls_cert_file"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     max = strlen(value);
-                     if (max > MISC_LENGTH - 1)
-                     {
-                        max = MISC_LENGTH - 1;
-                     }
-                     memcpy(config->tls_cert_file, value, max);
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "tls_key_file"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     max = strlen(value);
-                     if (max > MISC_LENGTH - 1)
-                     {
-                        max = MISC_LENGTH - 1;
-                     }
-                     memcpy(config->tls_key_file, value, max);
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "blocking_timeout"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_int(value, &config->blocking_timeout))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "idle_timeout"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_int(value, &config->idle_timeout))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "validation"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     config->validation = as_validation(value);
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "background_interval"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_int(value, &config->background_interval))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "max_retries"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_int(value, &config->max_retries))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "authentication_timeout"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_int(value, &config->authentication_timeout))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "disconnect_client"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_int(value, &config->disconnect_client))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "disconnect_client_force"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_bool(value, &config->disconnect_client_force))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "pidfile"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     max = strlen(value);
-                     if (max > MISC_LENGTH - 1)
-                     {
-                        max = MISC_LENGTH - 1;
-                     }
-                     memcpy(config->pidfile, value, max);
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "allow_unknown_users"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_bool(value, &config->allow_unknown_users))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "log_type"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     config->log_type = as_logging_type(value);
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "log_level"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     config->log_level = as_logging_level(value);
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "log_path"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     max = strlen(value);
-                     if (max > MISC_LENGTH - 1)
-                     {
-                        max = MISC_LENGTH - 1;
-                     }
-                     memcpy(config->log_path, value, max);
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "log_rotation_size"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_logging_rotation_size(value, &config->log_rotation_size))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
 
-               }
-               else if (!strcmp(key, "log_rotation_age"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_logging_rotation_age(value, &config->log_rotation_age))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
+                  if (as_bool(value, &config->log_connections))
                   {
                      unknown = true;
                   }
+               }
+               else if (key_in_section("log_disconnections", section, key, true, &unknown))
+               {
+                  if (as_bool(value, &config->log_disconnections))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("log_mode", section, key, true, &unknown ))
+               {
+                  config->log_mode = as_logging_mode(value);
+               }
+               else if (key_in_section("max_connections", section, key, true, &unknown))
+               {
+                  if (as_int(value, &config->max_connections))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("unix_socket_dir", section, key, true, &unknown))
+               {
+                  max = strlen(value);
+                  if (max > MISC_LENGTH - 1)
+                  {
+                     max = MISC_LENGTH - 1;
+                  }
+                  memcpy(config->unix_socket_dir, value, max);
+               }
+               else if (key_in_section("libev", section, key, true, &unknown))
+               {
 
-               }
-               else if (!strcmp(key, "log_line_prefix"))
-               {
-                  if (!strcmp(section, "pgagroal"))
+                  max = strlen(value);
+                  if (max > MISC_LENGTH - 1)
                   {
-                     max = strlen(value);
-                     if (max > MISC_LENGTH - 1)
-                     {
-                        max = MISC_LENGTH - 1;
-                     }
-
-                     memcpy(config->log_line_prefix, value, max);
+                     max = MISC_LENGTH - 1;
                   }
-                  else
+                  memcpy(config->libev, value, max);
+               }
+               else if (key_in_section("buffer_size", section, key, true, &unknown))
+               {
+                  if (as_int(value, &config->buffer_size))
+                  {
+                     unknown = true;
+                  }
+                  if (config->buffer_size > MAX_BUFFER_SIZE)
+                  {
+                     config->buffer_size = MAX_BUFFER_SIZE;
+                  }
+               }
+               else if (key_in_section("keep_alive", section, key, true, &unknown))
+               {
+                  if (as_bool(value, &config->keep_alive))
                   {
                      unknown = true;
                   }
                }
-               else if (!strcmp(key, "log_connections"))
+               else if (key_in_section("nodelay", section, key, true, &unknown))
                {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_bool(value, &config->log_connections))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
+                  if (as_bool(value, &config->nodelay))
                   {
                      unknown = true;
                   }
                }
-               else if (!strcmp(key, "log_disconnections"))
+               else if (key_in_section("non_blocking", section, key, true, &unknown))
                {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_bool(value, &config->log_disconnections))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
+                  if (as_bool(value, &config->non_blocking))
                   {
                      unknown = true;
                   }
                }
-               else if (!strcmp(key, "log_mode"))
+               else if (key_in_section("backlog", section, key, true, &unknown))
                {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     config->log_mode = as_logging_mode(value);
-                  }
-                  else
+                  if (as_int(value, &config->backlog))
                   {
                      unknown = true;
                   }
                }
-               else if (!strcmp(key, "max_connections"))
+               else if (key_in_section("hugepage", section, key, true, &unknown))
                {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_int(value, &config->max_connections))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
+                  config->hugepage = as_hugepage(value);
+               }
+               else if (key_in_section("tracker", section, key, true, &unknown))
+               {
+                  if (as_bool(value, &config->tracker))
                   {
                      unknown = true;
                   }
                }
-               else if (!strcmp(key, "unix_socket_dir"))
+               else if (key_in_section("track_prepared_statements", section, key, true, &unknown))
                {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     max = strlen(value);
-                     if (max > MISC_LENGTH - 1)
-                     {
-                        max = MISC_LENGTH - 1;
-                     }
-                     memcpy(config->unix_socket_dir, value, max);
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "libev"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     max = strlen(value);
-                     if (max > MISC_LENGTH - 1)
-                     {
-                        max = MISC_LENGTH - 1;
-                     }
-                     memcpy(config->libev, value, max);
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "buffer_size"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_int(value, &config->buffer_size))
-                     {
-                        unknown = true;
-                     }
-                     if (config->buffer_size > MAX_BUFFER_SIZE)
-                     {
-                        config->buffer_size = MAX_BUFFER_SIZE;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "keep_alive"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_bool(value, &config->keep_alive))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "nodelay"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_bool(value, &config->nodelay))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "non_blocking"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_bool(value, &config->non_blocking))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "backlog"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_int(value, &config->backlog))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "hugepage"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     config->hugepage = as_hugepage(value);
-                  }
-
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "tracker"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_bool(value, &config->tracker))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
-                  {
-                     unknown = true;
-                  }
-               }
-               else if (!strcmp(key, "track_prepared_statements"))
-               {
-                  if (!strcmp(section, "pgagroal"))
-                  {
-                     if (as_bool(value, &config->track_prepared_statements))
-                     {
-                        unknown = true;
-                     }
-                  }
-                  else
+                  if (as_bool(value, &config->track_prepared_statements))
                   {
                      unknown = true;
                   }
@@ -871,7 +559,11 @@ pgagroal_read_configuration(void* shm, char* filename)
 
                if (unknown)
                {
-                  printf("Unknown: Section=%s, Key=%s, Value=%s\n", strlen(section) > 0 ? section : "<unknown>", key, value);
+                  // we cannot use logging here...
+                  fprintf(stderr, "\nUnknown key <%s> with value <%s> in section [%s]",
+                          key,
+                          value,
+                          strlen(section) > 0 ? section : "<unknown>" );
                }
 
                free(key);
@@ -1202,43 +894,31 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (!is_empty_string(line))
+      if (!is_empty_string(line) && !is_comment_line(line))
       {
-         if (line[0] == '#' || line[0] == ';')
-         {
-            /* Comment, so ignore */
-         }
-         else
-         {
-            extract_hba(line, &type, &database, &username, &address, &method);
+         extract_hba(line, &type, &database, &username, &address, &method);
 
-            if (type && database && username && address && method)
+         if (type && database && username && address && method)
+         {
+            if (strlen(type) < MAX_TYPE_LENGTH &&
+                strlen(database) < MAX_DATABASE_LENGTH &&
+                strlen(username) < MAX_USERNAME_LENGTH &&
+                strlen(address) < MAX_ADDRESS_LENGTH &&
+                strlen(method) < MAX_ADDRESS_LENGTH)
             {
-               if (strlen(type) < MAX_TYPE_LENGTH &&
-                   strlen(database) < MAX_DATABASE_LENGTH &&
-                   strlen(username) < MAX_USERNAME_LENGTH &&
-                   strlen(address) < MAX_ADDRESS_LENGTH &&
-                   strlen(method) < MAX_ADDRESS_LENGTH)
-               {
-                  memcpy(&(config->hbas[index].type), type, strlen(type));
-                  memcpy(&(config->hbas[index].database), database, strlen(database));
-                  memcpy(&(config->hbas[index].username), username, strlen(username));
-                  memcpy(&(config->hbas[index].address), address, strlen(address));
-                  memcpy(&(config->hbas[index].method), method, strlen(method));
+               memcpy(&(config->hbas[index].type), type, strlen(type));
+               memcpy(&(config->hbas[index].database), database, strlen(database));
+               memcpy(&(config->hbas[index].username), username, strlen(username));
+               memcpy(&(config->hbas[index].address), address, strlen(address));
+               memcpy(&(config->hbas[index].method), method, strlen(method));
 
-                  index++;
+               index++;
 
-                  if (index >= NUMBER_OF_HBAS)
-                  {
-                     printf("pgagroal: Too many HBA entries (%d)\n", NUMBER_OF_HBAS);
-                     fclose(file);
-                     return 2;
-                  }
-               }
-               else
+               if (index >= NUMBER_OF_HBAS)
                {
-                  printf("pgagroal: Invalid HBA entry\n");
-                  printf("%s\n", line);
+                  printf("pgagroal: Too many HBA entries (%d)\n", NUMBER_OF_HBAS);
+                  fclose(file);
+                  return 2;
                }
             }
             else
@@ -1246,19 +926,24 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
                printf("pgagroal: Invalid HBA entry\n");
                printf("%s\n", line);
             }
-
-            free(type);
-            free(database);
-            free(username);
-            free(address);
-            free(method);
-
-            type = NULL;
-            database = NULL;
-            username = NULL;
-            address = NULL;
-            method = NULL;
          }
+         else
+         {
+            printf("pgagroal: Invalid HBA entry\n");
+            printf("%s\n", line);
+         }
+
+         free(type);
+         free(database);
+         free(username);
+         free(address);
+         free(method);
+
+         type = NULL;
+         database = NULL;
+         username = NULL;
+         address = NULL;
+         method = NULL;
       }
    }
 
@@ -1350,57 +1035,45 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (!is_empty_string(line))
+      if (!is_empty_string(line) && !is_comment_line(line))
       {
-         if (line[0] == '#' || line[0] == ';')
-         {
-            /* Comment, so ignore */
-         }
-         else
-         {
-            initial_size = 0;
-            min_size = 0;
+         initial_size = 0;
+         min_size = 0;
 
-            extract_limit(line, server_max, &database, &username, &max_size, &initial_size, &min_size);
+         extract_limit(line, server_max, &database, &username, &max_size, &initial_size, &min_size);
 
-            if (database && username)
+         if (database && username)
+         {
+            if (strlen(database) < MAX_DATABASE_LENGTH &&
+                strlen(username) < MAX_USERNAME_LENGTH)
             {
-               if (strlen(database) < MAX_DATABASE_LENGTH &&
-                   strlen(username) < MAX_USERNAME_LENGTH)
+               if (initial_size > max_size)
                {
-                  if (initial_size > max_size)
-                  {
-                     initial_size = max_size;
-                  }
-
-                  if (min_size > max_size)
-                  {
-                     min_size = max_size;
-                  }
-
-                  server_max -= max_size;
-
-                  memcpy(&(config->limits[index].database), database, strlen(database));
-                  memcpy(&(config->limits[index].username), username, strlen(username));
-                  config->limits[index].max_size = max_size;
-                  config->limits[index].initial_size = initial_size;
-                  config->limits[index].min_size = min_size;
-                  config->limits[index].lineno = ++lineno;
-                  atomic_init(&config->limits[index].active_connections, 0);
-
-                  index++;
-
-                  if (index >= NUMBER_OF_LIMITS)
-                  {
-                     printf("pgagroal: Too many LIMIT entries (%d)\n", NUMBER_OF_LIMITS);
-                     fclose(file);
-                     return 2;
-                  }
+                  initial_size = max_size;
                }
-               else
+
+               if (min_size > max_size)
                {
-                  printf("pgagroal: Invalid LIMIT entry\n");
-                  printf("%s\n", line);
+                  min_size = max_size;
+               }
+
+               server_max -= max_size;
+
+               memcpy(&(config->limits[index].database), database, strlen(database));
+               memcpy(&(config->limits[index].username), username, strlen(username));
+               config->limits[index].max_size = max_size;
+               config->limits[index].initial_size = initial_size;
+               config->limits[index].min_size = min_size;
+               config->limits[index].lineno = ++lineno;
+               atomic_init(&config->limits[index].active_connections, 0);
+
+               index++;
+
+               if (index >= NUMBER_OF_LIMITS)
+               {
+                  printf("pgagroal: Too many LIMIT entries (%d)\n", NUMBER_OF_LIMITS);
+                  fclose(file);
+                  return 2;
                }
             }
             else
@@ -1408,14 +1081,19 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                printf("pgagroal: Invalid LIMIT entry\n");
                printf("%s\n", line);
             }
-
-            free(database);
-            free(username);
-
-            database = NULL;
-            username = NULL;
-            max_size = 0;
          }
+         else
+         {
+            printf("pgagroal: Invalid LIMIT entry\n");
+            printf("%s\n", line);
+         }
+
+         free(database);
+         free(username);
+
+         database = NULL;
+         username = NULL;
+         max_size = 0;
       }
    }
 
@@ -1529,50 +1207,43 @@ pgagroal_read_users_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (!is_empty_string(line))
+      if (!is_empty_string(line) && !is_comment_line(line))
       {
-         if (line[0] == '#' || line[0] == ';')
+         ptr = strtok(line, ":");
+
+         username = ptr;
+
+         ptr = strtok(NULL, ":");
+
+         if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
          {
-            /* Comment, so ignore */
+            goto error;
+         }
+
+         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+         {
+            goto error;
+         }
+
+         if (strlen(username) < MAX_USERNAME_LENGTH &&
+             strlen(password) < MAX_PASSWORD_LENGTH)
+         {
+            memcpy(&config->users[index].username, username, strlen(username));
+            memcpy(&config->users[index].password, password, strlen(password));
          }
          else
          {
-            ptr = strtok(line, ":");
-
-            username = ptr;
-
-            ptr = strtok(NULL, ":");
-
-            if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
-            {
-               goto error;
-            }
-
-            if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
-            {
-               goto error;
-            }
-
-            if (strlen(username) < MAX_USERNAME_LENGTH &&
-                strlen(password) < MAX_PASSWORD_LENGTH)
-            {
-               memcpy(&config->users[index].username, username, strlen(username));
-               memcpy(&config->users[index].password, password, strlen(password));
-            }
-            else
-            {
-               printf("pgagroal: Invalid USER entry\n");
-               printf("%s\n", line);
-            }
-
-            free(password);
-            free(decoded);
-
-            password = NULL;
-            decoded = NULL;
-
-            index++;
+            printf("pgagroal: Invalid USER entry\n");
+            printf("%s\n", line);
          }
+
+         free(password);
+         free(decoded);
+
+         password = NULL;
+         decoded = NULL;
+
+         index++;
       }
    }
 
@@ -1672,50 +1343,43 @@ pgagroal_read_frontend_users_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (!is_empty_string(line))
+      if (!is_empty_string(line) && !is_comment_line(line))
       {
-         if (line[0] == '#' || line[0] == ';')
+         ptr = strtok(line, ":");
+
+         username = ptr;
+
+         ptr = strtok(NULL, ":");
+
+         if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
          {
-            /* Comment, so ignore */
+            goto error;
+         }
+
+         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+         {
+            goto error;
+         }
+
+         if (strlen(username) < MAX_USERNAME_LENGTH &&
+             strlen(password) < MAX_PASSWORD_LENGTH)
+         {
+            memcpy(&config->frontend_users[index].username, username, strlen(username));
+            memcpy(&config->frontend_users[index].password, password, strlen(password));
          }
          else
          {
-            ptr = strtok(line, ":");
-
-            username = ptr;
-
-            ptr = strtok(NULL, ":");
-
-            if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
-            {
-               goto error;
-            }
-
-            if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
-            {
-               goto error;
-            }
-
-            if (strlen(username) < MAX_USERNAME_LENGTH &&
-                strlen(password) < MAX_PASSWORD_LENGTH)
-            {
-               memcpy(&config->frontend_users[index].username, username, strlen(username));
-               memcpy(&config->frontend_users[index].password, password, strlen(password));
-            }
-            else
-            {
-               printf("pgagroal: Invalid FRONTEND USER entry\n");
-               printf("%s\n", line);
-            }
-
-            free(password);
-            free(decoded);
-
-            password = NULL;
-            decoded = NULL;
-
-            index++;
+            printf("pgagroal: Invalid FRONTEND USER entry\n");
+            printf("%s\n", line);
          }
+
+         free(password);
+         free(decoded);
+
+         password = NULL;
+         decoded = NULL;
+
+         index++;
       }
    }
 
@@ -1840,50 +1504,43 @@ pgagroal_read_admins_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (!is_empty_string(line))
+      if (!is_empty_string(line) && !is_comment_line(line))
       {
-         if (line[0] == '#' || line[0] == ';')
+         ptr = strtok(line, ":");
+
+         username = ptr;
+
+         ptr = strtok(NULL, ":");
+
+         if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
          {
-            /* Comment, so ignore */
+            goto error;
+         }
+
+         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+         {
+            goto error;
+         }
+
+         if (strlen(username) < MAX_USERNAME_LENGTH &&
+             strlen(password) < MAX_PASSWORD_LENGTH)
+         {
+            memcpy(&config->admins[index].username, username, strlen(username));
+            memcpy(&config->admins[index].password, password, strlen(password));
          }
          else
          {
-            ptr = strtok(line, ":");
-
-            username = ptr;
-
-            ptr = strtok(NULL, ":");
-
-            if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
-            {
-               goto error;
-            }
-
-            if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
-            {
-               goto error;
-            }
-
-            if (strlen(username) < MAX_USERNAME_LENGTH &&
-                strlen(password) < MAX_PASSWORD_LENGTH)
-            {
-               memcpy(&config->admins[index].username, username, strlen(username));
-               memcpy(&config->admins[index].password, password, strlen(password));
-            }
-            else
-            {
-               printf("pgagroal: Invalid ADMIN entry\n");
-               printf("%s\n", line);
-            }
-
-            free(password);
-            free(decoded);
-
-            password = NULL;
-            decoded = NULL;
-
-            index++;
+            printf("pgagroal: Invalid ADMIN entry\n");
+            printf("%s\n", line);
          }
+
+         free(password);
+         free(decoded);
+
+         password = NULL;
+         decoded = NULL;
+
+         index++;
       }
    }
 
@@ -1989,55 +1646,48 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
-      if (!is_empty_string(line))
+      if (!is_empty_string(line) && !is_comment_line(line))
       {
-         if (line[0] == '#' || line[0] == ';')
+         if (index > 0)
          {
-            /* Comment, so ignore */
+            goto above;
+         }
+
+         ptr = strtok(line, ":");
+
+         username = ptr;
+
+         ptr = strtok(NULL, ":");
+
+         if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
+         {
+            goto error;
+         }
+
+         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+         {
+            goto error;
+         }
+
+         if (strlen(username) < MAX_USERNAME_LENGTH &&
+             strlen(password) < MAX_PASSWORD_LENGTH)
+         {
+            memcpy(&config->superuser.username, username, strlen(username));
+            memcpy(&config->superuser.password, password, strlen(password));
          }
          else
          {
-            if (index > 0)
-            {
-               goto above;
-            }
-
-            ptr = strtok(line, ":");
-
-            username = ptr;
-
-            ptr = strtok(NULL, ":");
-
-            if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
-            {
-               goto error;
-            }
-
-            if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
-            {
-               goto error;
-            }
-
-            if (strlen(username) < MAX_USERNAME_LENGTH &&
-                strlen(password) < MAX_PASSWORD_LENGTH)
-            {
-               memcpy(&config->superuser.username, username, strlen(username));
-               memcpy(&config->superuser.password, password, strlen(password));
-            }
-            else
-            {
-               printf("pgagroal: Invalid SUPERUSER entry\n");
-               printf("%s\n", line);
-            }
-
-            free(password);
-            free(decoded);
-
-            password = NULL;
-            decoded = NULL;
-
-            index++;
+            printf("pgagroal: Invalid SUPERUSER entry\n");
+            printf("%s\n", line);
          }
+
+         free(password);
+         free(decoded);
+
+         password = NULL;
+         decoded = NULL;
+
+         index++;
       }
    }
 
@@ -3185,4 +2835,113 @@ pgagroal_can_prefill(void)
    {
       return false;
    }
+}
+
+/**
+ * Function to check if the specified key belongs to the right section.
+ * The idea is to pass all the values read from the configuration file,
+ * and a boolean parameter to check if the section the parameter belongs is global or not.
+ * A global section is the main `pgagroal` section, while a local section
+ * is a custom user section, i.e., a server section.
+ *
+ * @param wanted the key we want to match against
+ * @param section the section in which the key has been found
+ * @param key the key read from the configuration file
+ * @param global true if the `section` has to be `pgagroal`
+ * @param unknown set to true if the key does match but the section does not.
+ *        For instance the key `host` found in a local section while required
+ *        to be global will set `unknown` to true.
+ *        This parameter can be omitted.
+ *
+ * @returns true if the key matches and the section is of the specified type.
+ *
+ * Example:
+ *  key_in_section("host", section, key, true, &unknown); // search for [pgagroal] -> host
+ *  key_in_section("port", section, key, false, &unknown); // search for server section -> port
+ */
+static bool
+key_in_section( char* wanted, char* section, char* key, bool global, bool* unknown)
+{
+
+   // first of all, look for a key match
+   if (strncmp( wanted, key, MISC_LENGTH ))
+   {
+      // no match at all
+      return false;
+   }
+
+   // if here there is a match on the key, ensure the section is
+   // appropriate
+   if (global && !strncmp(section, PGAGROAL_MAIN_INI_SECTION, MISC_LENGTH))
+   {
+      return true;
+   }
+   else if (!global && strlen( section ) > 0)
+   {
+      return true;
+   }
+   else
+   {
+      if (unknown)
+      {
+         *unknown = true;
+      }
+
+      return false;
+   }
+}
+
+/**
+ * Function to see if the specified line starts with a comment
+ * symbol.
+ *
+ * @param line the line read from the file
+ * @return true if the line starts with a comment symbol
+ */
+static bool
+is_comment_line(char* line)
+{
+   return line[0] == '#' || line[0] == ';';
+}
+
+/**
+ * Function to inspect a configuration line and detect if it handles a section.
+ * If the line handles a section name, like `[pgagroal]` the function does set
+ * the `section` argument, otherwise it does nothing.
+ *
+ * @param line the line to inspect
+ * @param section the pointer to the string that will contain
+ *        the section name, only if the line handles a section, otherwise
+ *        the pointer will not be changed.
+ *
+ * @returns true if the line handles a section and the `section` pointer
+ *          has been changed
+ */
+static bool
+section_line(char* line, char* section)
+{
+   size_t max;
+   char* ptr = NULL;
+
+   // if does not appear to be a section line do nothing!
+   if (line[0] != '[')
+   {
+      return false;
+   }
+
+   ptr = strchr(line, ']');
+   if (ptr)
+   {
+      memset(section, 0, LINE_LENGTH);
+      max = ptr - line - 1;
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(section, line + 1, max);
+      return true;
+   }
+
+   return false;
+
 }
