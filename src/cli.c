@@ -438,7 +438,11 @@ username:
                printf("User name: ");
 
                memset(&un, 0, sizeof(un));
-               fgets(&un[0], sizeof(un), stdin);
+               if (fgets(&un[0], sizeof(un), stdin) == NULL)
+               {
+                  exit_code = 1;
+                  goto done;
+               }
                un[strlen(un) - 1] = 0;
                username = &un[0];
             }
