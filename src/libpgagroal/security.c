@@ -4805,11 +4805,15 @@ retry:
    {
       if (config->blocking_timeout > 0)
       {
+          pgagroal_prometheus_connection_awaiting();
+
          /* Sleep for 100ms */
          struct timespec ts;
          ts.tv_sec = 0;
          ts.tv_nsec = 100000000L;
          nanosleep(&ts, NULL);
+
+         pgagroal_prometheus_connection_unawaiting();
 
          double diff = difftime(time(NULL), start_time);
          if (diff >= (double)config->blocking_timeout)

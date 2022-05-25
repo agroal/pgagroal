@@ -1726,7 +1726,7 @@ pool_information(int client_fd)
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_connection_awaiting Number of connection awaiting\n");
-   data = append(data, "#TYPE pgagroal_connection_awaiting counter\n");
+   data = append(data, "#TYPE pgagroal_connection_awaiting gauge\n");
    data = append(data, "pgagroal_connection_awaiting ");
    data = append_ulong(data, atomic_load(&prometheus->connection_awaiting));
    data = append(data, "\n\n");
