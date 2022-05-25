@@ -13,10 +13,23 @@ instance.
 
 All properties are in the format `key = value`.
 
-The characters `#` and `;` can be used for comments; must be the first character on the line.
+The characters `#` and `;` can be used for comments. A line is totally ignored if the
+very first non-space character is a comment one, but it is possible to put a comment at the end of a line.
 The `Bool` data type supports the following values: `on`, `1`, `true`, `off`, `0` and `false`.
 
-See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `localhost`.
+Each value can be quoted by means of `"` or `'`. Quoted strings must begin and end with the very same quoting character. It is possible to nest quotes.
+As an example of configuration snippet including quoting and comments:
+
+```
+# This line is ignored since it starts with '#'
+# and so is this one
+log_line_prefix = "PGAGROAL #%Y-%m-%d-%H:%M:%S" # quoted because it contains spaces
+log_type= console#log to stdout
+pipeline = 'performance' # no need to quote since it does not contain any spaces
+
+```
+
+See a more complete [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `localhost`.
 
 ## [pgagroal]
 
@@ -32,7 +45,7 @@ See a [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `loc
 | log_path | pgagroal.log | String | No | The log file location. Can be a strftime(3) compatible string. |
 | log_rotation_age | -1 | String | No | The age that will trigger a log file rotation. If expressed as a positive number, is managed as seconds. Supports suffixes: 'S' (seconds, the default), 'M' (minutes), 'H' (hours), 'D' (days), 'W' (weeks) |
 | log_rotation_size | -1 | String | No | The size of the log file that will trigger a log rotation. Supports suffixes: 'B' (bytes), the default if omitted, 'K' (kilobytes), 'M' (megabytes), 'G' (gigabytes). |
-| log_line_prefix | %Y-%m-%d %H:%M:%S | String | No | A strftime(3) compatible string to use as prefix for every log line. Must not contain any space. |
+| log_line_prefix | %Y-%m-%d %H:%M:%S | String | No | A strftime(3) compatible string to use as prefix for every log line. Must be quoted if contains spaces. |
 | log_mode | append | String | No | Append to or create the log file (append, create) |
 | log_connections | `off` | Bool | No | Log connects |
 | log_disconnections | `off` | Bool | No | Log disconnects |
