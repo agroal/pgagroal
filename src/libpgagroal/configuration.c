@@ -347,7 +347,7 @@ pgagroal_read_configuration(void* shm, char* filename)
                      unknown = true;
                   }
                }
-               else if (key_in_section("idle_tiemout", section, key, true, &unknown))
+               else if (key_in_section("idle_timeout", section, key, true, &unknown))
                {
                   if (as_int(value, &config->idle_timeout))
                   {
