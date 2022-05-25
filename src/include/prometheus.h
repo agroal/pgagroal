@@ -105,6 +105,31 @@ void
 pgagroal_prometheus_connection_idletimeout(void);
 
 /**
+ * Connection awaiting due to `blocking_timeout`.
+ * Tracks the total awaiting connections and also the
+ * per-limit ones.
+ *
+ * @param limit_index if greater or equal to zero
+ * tracks the awaiting connection for the limits entry
+ * (i.e., per user and database)
+ */
+void
+pgagroal_prometheus_connection_awaiting(int limit_index);
+
+/**
+ * An awaiting conection, i.e., one holded by `blocking_timeout`
+ * that is no more on hold and can restart its workflo.
+ *
+ * The function decreases the total counter of the awaiting connections as
+ * well as the per-limit ones.
+ *
+ * @param limit_entry if greater or equal to zero
+ * it untracks the corresponding limit entry
+ */
+void
+pgagroal_prometheus_connection_unawaiting(int limit_index);
+
+/**
  * Connection flush
  */
 void

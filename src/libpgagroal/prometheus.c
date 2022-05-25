@@ -184,6 +184,15 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
    atomic_init(&prometheus->connection_flush, 0);
    atomic_init(&prometheus->connection_success, 0);
 
+   // awating connections are those on hold due to
+   // the `blocking_timeout` setting
+   atomic_init(&prometheus->connections_awaiting_total, 0);
+
+   for (int i = 0; i < NUMBER_OF_LIMITS; i++)
+   {
+      atomic_init(&prometheus->connections_awaiting[i], 0);
+   }
+
    atomic_init(&prometheus->auth_user_success, 0);
    atomic_init(&prometheus->auth_user_bad_password, 0);
    atomic_init(&prometheus->auth_user_error, 0);
@@ -387,6 +396,39 @@ pgagroal_prometheus_connection_idletimeout(void)
    prometheus = (struct prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_idletimeout, 1);
+}
+
+void
+pgagroal_prometheus_connection_awaiting(int limit_index)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   if (limit_index >= 0)
+   {
+      atomic_fetch_add(&prometheus->connections_awaiting[ limit_index ], 1);
+   }
+
+   atomic_fetch_add(&prometheus->connections_awaiting_total, 1);
+}
+
+void
+pgagroal_prometheus_connection_unawaiting(int limit_index)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   if (limit_index >= 0 && atomic_load(&prometheus->connections_awaiting[limit_index]) > 0)
+   {
+      atomic_fetch_sub(&prometheus->connections_awaiting[limit_index], 1);
+   }
+
+   if (atomic_load(&prometheus->connections_awaiting_total) > 0)
+   {
+      atomic_fetch_sub(&prometheus->connections_awaiting_total, 1);
+   }
 }
 
 void
@@ -604,6 +646,13 @@ pgagroal_prometheus_reset(void)
    atomic_store(&prometheus->connection_idletimeout, 0);
    atomic_store(&prometheus->connection_flush, 0);
    atomic_store(&prometheus->connection_success, 0);
+
+   // awaiting connections are on hold due to `blocking_timeout`
+   atomic_store(&prometheus->connections_awaiting_total, 0);
+   for (int i = 0; i < NUMBER_OF_LIMITS; i++)
+   {
+      atomic_store(&prometheus->connections_awaiting[i], 0);
+   }
 
    atomic_store(&prometheus->auth_user_success, 0);
    atomic_store(&prometheus->auth_user_bad_password, 0);
@@ -942,6 +991,7 @@ home_page(int client_fd)
    data = append(data, "            <li>initial</li>\n");
    data = append(data, "            <li>max</li>\n");
    data = append(data, "            <li>active</li>\n");
+   data = append(data, "            <li>awaiting (on hold due to <i>blocking_timeout</i>)</li>\n");
    data = append(data, "          </ul>\n");
    data = append(data, "        </td>\n");
    data = append(data, "      </tr>\n");
@@ -980,6 +1030,9 @@ home_page(int client_fd)
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_connection_success</h2>\n");
    data = append(data, "  Number of connection successes\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_awaiting</h2>\n");
+   data = append(data, "  Number of connection suspended due to <i>blocking_timeout</i>\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_auth_user_success</h2>\n");
    data = append(data, "  Number of successful user authentications\n");
@@ -1428,8 +1481,10 @@ limit_information(int client_fd)
 {
    char* data = NULL;
    struct configuration* config;
+   struct prometheus* prometheus;
 
    config = (struct configuration*)shmem;
+   prometheus = (struct prometheus*)prometheus_shmem;
 
    if (config->number_of_limits > 0)
    {
@@ -1491,6 +1546,20 @@ limit_information(int client_fd)
 
          data = append(data, "type=\"active\"} ");
          data = append_int(data, config->limits[i].active_connections);
+         data = append(data, "\n");
+
+         data = append(data, "pgagroal_limit{");
+
+         data = append(data, "user=\"");
+         data = append(data, config->limits[i].username);
+         data = append(data, "\",");
+
+         data = append(data, "database=\"");
+         data = append(data, config->limits[i].database);
+         data = append(data, "\",");
+
+         data = append(data, "type=\"awaiting\"} ");
+         data = append_int(data, prometheus->connections_awaiting[i]);
          data = append(data, "\n");
 
          if (strlen(data) > CHUNK_SIZE)
@@ -1695,6 +1764,12 @@ pool_information(int client_fd)
    data = append(data, "#TYPE pgagroal_connection_success counter\n");
    data = append(data, "pgagroal_connection_success ");
    data = append_ulong(data, atomic_load(&prometheus->connection_success));
+   data = append(data, "\n\n");
+
+   data = append(data, "#HELP pgagroal_connection_awaiting Number of connection awaiting\n");
+   data = append(data, "#TYPE pgagroal_connection_awaiting gauge\n");
+   data = append(data, "pgagroal_connection_awaiting ");
+   data = append_ulong(data, atomic_load(&prometheus->connections_awaiting_total));
    data = append(data, "\n\n");
 
    send_chunk(client_fd, data);
