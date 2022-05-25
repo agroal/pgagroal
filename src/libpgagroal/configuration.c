@@ -53,7 +53,7 @@
 
 #define LINE_LENGTH 512
 
-static void extract_key_value(char* str, char** key, char** value);
+static int extract_key_value(char* str, char** key, char** value);
 static int as_int(char* str, int* i);
 static int as_bool(char* str, bool* b);
 static int as_logging_type(char* str);
@@ -1879,7 +1879,36 @@ error:
    return 1;
 }
 
-static void
+/**
+ * Given a line of text extracts the key part and the value.
+ * Valid lines must have the form <key> = <value>.
+ *
+ * The key must be unquoted and cannot have any spaces
+ * in front of it.
+ *
+ * Comments on the right side of a value are allowed.
+ *
+ * The value can be quoted, and this allows for inserting spaces
+ * and comment signs. Quotes are '""' and '\''.
+ * Example of valid lines are:
+ * <code>
+ * foo = bar
+ * foo=bar
+ * foo=  bar
+ * foo = "bar"
+ * foo = 'bar'
+ * foo = "#bar"
+ * foo = '#bar'
+ * foo = bar # bar set!
+ * foo = bar# bar set!
+ * </code>
+ *
+ * @param str the line of text incoming from the configuration file
+ * @param key the pointer to where to store the key extracted from the line
+ * @param value the pointer to where to store the value (unquoted)
+ * @returns 1 if unable to parse the line, 0 if everything is ok
+ */
+static int
 extract_key_value(char* str, char** key, char** value)
 {
    int c = 0;
@@ -1887,7 +1916,11 @@ extract_key_value(char* str, char** key, char** value)
    int length = strlen(str);
    char* k;
    char* v;
+   char quoting_begin = '\0';
+   char quoting_end = '\0';
 
+   // the key does not allow spaces and is whatever is
+   // on the left of the '='
    while (str[c] != ' ' && str[c] != '=' && c < length)
       c++;
 
@@ -1903,8 +1936,48 @@ extract_key_value(char* str, char** key, char** value)
 
       offset = c;
 
-      while (str[c] != ' ' && str[c] != '\r' && str[c] != '\n' && c < length)
+      // the value of the parameter starts from offset 'offset'
+      while (str[c] != '\r' && str[c] != '\n' && c < length)
+      {
+         if (str[c] == '\'' || str[c] == '"')
+         {
+            if (quoting_begin == '\0')
+            {
+               quoting_begin = str[c];
+               offset = c + 1;    // start at the very first character after the quote
+            }
+            else if (str[c] == quoting_begin && quoting_end == '\0')
+            {
+               quoting_end = str[c];
+               // end at the last character before the quote
+               break;
+            }
+         }
+         else if (str[c] == '#' || str[c] == ';')
+         {
+            if (quoting_begin == '\0' || (quoting_begin != '\0' && quoting_end != '\0'))
+            {
+               // a comment outside of quoted string, ignore anything else
+               break;
+            }
+         }
+         else if (str[c] == ' ')
+         {
+            if (quoting_begin == '\0' || (quoting_begin != '\0' && quoting_end != '\0'))
+            {
+               // space outside a quoted string, stop here
+               break;
+            }
+         }
+
          c++;
+      }
+
+      // quotes must be the same!
+      if (quoting_begin != '\0' && quoting_begin != quoting_end)
+      {
+         goto error;
+      }
 
       if (c <= length)
       {
@@ -1912,8 +1985,11 @@ extract_key_value(char* str, char** key, char** value)
          memset(v, 0, (c - offset) + 1);
          memcpy(v, str + offset, (c - offset));
          *value = v;
+         return 0;
       }
    }
+error:
+   return 1;
 }
 
 static int
@@ -2880,7 +2956,7 @@ key_in_section( char* wanted, char* section, char* key, bool global, bool* unkno
    {
       return true;
    }
-   else if (!global && strlen( section ) > 0)
+   else if (!global && strlen(section) > 0)
    {
       return true;
    }
@@ -2896,16 +2972,35 @@ key_in_section( char* wanted, char* section, char* key, bool global, bool* unkno
 }
 
 /**
- * Function to see if the specified line starts with a comment
- * symbol.
+ * Function to see if the specified line is a comment line
+ * and has to be ignored.
+ * A comment line is a line that starts with '#' or ';' or
+ * with spaces (or tabs) and a comment sign.
  *
  * @param line the line read from the file
- * @return true if the line starts with a comment symbol
+ * @return true if the line is a full comment line
  */
 static bool
 is_comment_line(char* line)
 {
-   return line[0] == '#' || line[0] == ';';
+   int c = 0;
+   int length = strlen( line );
+
+   while (c < length)
+   {
+      if (line[c] == '#' || line[c] == ';')
+      {
+         return true;
+      }
+      else if (line[c] != ' ' && line[c] != '\t')
+      {
+         break;
+      }
+
+      c++;
+   }
+
+   return false;
 }
 
 /**
