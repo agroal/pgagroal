@@ -247,6 +247,10 @@ struct prometheus
    atomic_ulong connection_flush;       /**< The number of flush calls */
    atomic_ulong connection_success;     /**< The number of success calls */
 
+   /**< The number of connection awaiting due to `blocking_timeout` */
+   atomic_ulong connections_awaiting[NUMBER_OF_LIMITS];
+   atomic_ulong connections_awaiting_total;
+
    atomic_ulong auth_user_success;      /**< The number of AUTH_SUCCESS calls */
    atomic_ulong auth_user_bad_password; /**< The number of AUTH_BAD_PASSWORD calls */
    atomic_ulong auth_user_error;        /**< The number of AUTH_ERROR calls */

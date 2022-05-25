@@ -4765,6 +4765,8 @@ auth_query_get_connection(char* username, char* password, char* database, int* s
 
    *server_fd = -1;
 
+   pgagroal_prometheus_connection_awaiting(-1);
+
    /* We need to find the server for the connection */
    if (pgagroal_get_primary(&server))
    {
@@ -4805,6 +4807,7 @@ retry:
    {
       if (config->blocking_timeout > 0)
       {
+
          /* Sleep for 100ms */
          struct timespec ts;
          ts.tv_sec = 0;
@@ -4897,6 +4900,8 @@ retry:
 
    free(error);
 
+   pgagroal_prometheus_connection_unawaiting(-1);
+
    pgagroal_free_copy_message(startup_msg);
    pgagroal_free_copy_message(startup_response_msg);
    pgagroal_free_message(msg);
@@ -4904,7 +4909,7 @@ retry:
    return AUTH_SUCCESS;
 
 bad_password:
-
+   pgagroal_prometheus_connection_unawaiting(-1);
    pgagroal_log_debug("auth_query_get_connection: BAD_PASSWORD");
 
    if (*server_fd != -1)
@@ -4923,7 +4928,7 @@ bad_password:
    return AUTH_BAD_PASSWORD;
 
 error:
-
+   pgagroal_prometheus_connection_unawaiting(-1);
    pgagroal_log_debug("auth_query_get_connection: ERROR (%d)", auth_type);
 
    if (*server_fd != -1)
@@ -4942,6 +4947,7 @@ error:
    return AUTH_ERROR;
 
 timeout:
+   pgagroal_prometheus_connection_unawaiting(-1);
 
    pgagroal_log_debug("auth_query_get_connection: TIMEOUT");
 

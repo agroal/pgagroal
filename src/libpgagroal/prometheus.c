@@ -82,6 +82,7 @@ static void pool_information(int client_fd);
 static void auth_information(int client_fd);
 static void client_information(int client_fd);
 static void internal_information(int client_fd);
+static void connection_awaiting_information(int client_fd);
 
 static int send_chunk(int client_fd, char* data);
 
@@ -183,6 +184,15 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
    atomic_init(&prometheus->connection_idletimeout, 0);
    atomic_init(&prometheus->connection_flush, 0);
    atomic_init(&prometheus->connection_success, 0);
+
+   // awating connections are those on hold due to
+   // the `blocking_timeout` setting
+   atomic_init(&prometheus->connections_awaiting_total, 0);
+
+   for (int i = 0; i < NUMBER_OF_LIMITS; i++)
+   {
+      atomic_init(&prometheus->connections_awaiting[i], 0);
+   }
 
    atomic_init(&prometheus->auth_user_success, 0);
    atomic_init(&prometheus->auth_user_bad_password, 0);
@@ -387,6 +397,39 @@ pgagroal_prometheus_connection_idletimeout(void)
    prometheus = (struct prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_idletimeout, 1);
+}
+
+void
+pgagroal_prometheus_connection_awaiting(int limit_index)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   if (limit_index >= 0)
+   {
+      atomic_fetch_add(&prometheus->connections_awaiting[ limit_index ], 1);
+   }
+
+   atomic_fetch_add(&prometheus->connections_awaiting_total, 1);
+}
+
+void
+pgagroal_prometheus_connection_unawaiting(int limit_index)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   if (limit_index >= 0 && atomic_load(&prometheus->connections_awaiting[limit_index]) > 0)
+   {
+      atomic_fetch_sub(&prometheus->connections_awaiting[limit_index], 1);
+   }
+
+   if (atomic_load(&prometheus->connections_awaiting_total) > 0)
+   {
+      atomic_fetch_sub(&prometheus->connections_awaiting_total, 1);
+   }
 }
 
 void
@@ -604,6 +647,13 @@ pgagroal_prometheus_reset(void)
    atomic_store(&prometheus->connection_idletimeout, 0);
    atomic_store(&prometheus->connection_flush, 0);
    atomic_store(&prometheus->connection_success, 0);
+
+   // awaiting connections are on hold due to `blocking_timeout`
+   atomic_store(&prometheus->connections_awaiting_total, 0);
+   for (int i = 0; i < NUMBER_OF_LIMITS; i++)
+   {
+      atomic_store(&prometheus->connections_awaiting[i], 0);
+   }
 
    atomic_store(&prometheus->auth_user_success, 0);
    atomic_store(&prometheus->auth_user_bad_password, 0);
@@ -948,6 +998,21 @@ home_page(int client_fd)
    data = append(data, "    </tbody>\n");
    data = append(data, "  </table>\n");
    data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_limit_awaiting</h2>\n");
+   data = append(data, "  Connections awaiting on hold reported by limit entries\n");
+   data = append(data, "  <table border=\"1\">\n");
+   data = append(data, "    <tbody>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>user</td>\n");
+   data = append(data, "        <td>The user name</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>database</td>\n");
+   data = append(data, "        <td>The database</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "    </tbody>\n");
+   data = append(data, "  </table>\n");
+   data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_session_time</h2>\n");
    data = append(data, "  Histogram of session times\n");
    data = append(data, "  <p>\n");
@@ -980,6 +1045,9 @@ home_page(int client_fd)
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_connection_success</h2>\n");
    data = append(data, "  Number of connection successes\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_connection_awaiting</h2>\n");
+   data = append(data, "  Number of connection suspended due to <i>blocking_timeout</i>\n");
    data = append(data, "  <p>\n");
    data = append(data, "  <h2>pgagroal_auth_user_success</h2>\n");
    data = append(data, "  Number of successful user authentications\n");
@@ -1080,6 +1148,7 @@ metrics_page(int client_fd)
    auth_information(client_fd);
    client_information(client_fd);
    internal_information(client_fd);
+   connection_awaiting_information(client_fd);
 
    /* Footer */
    data = append(data, "0\r\n\r\n");
@@ -1793,6 +1862,67 @@ internal_information(int client_fd)
    send_chunk(client_fd, data);
    free(data);
    data = NULL;
+}
+
+/**
+ * Provides information about the connection awaiting.
+ *
+ * Prints the total connection awaiting counter
+ * and also one line per limit if there are limits.
+ */
+static void
+connection_awaiting_information(int client_fd)
+{
+   char* data = NULL;
+   struct configuration* config;
+   struct prometheus* prometheus;
+
+   config = (struct configuration*)shmem;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   data = append(data, "#HELP pgagroal_connection_awaiting Number of connection on-hold (awaiting)\n");
+   data = append(data, "#TYPE pgagroal_connection_awaiting gauge\n");
+   data = append(data, "pgagroal_connection_awaiting ");
+   data = append_ulong(data, atomic_load(&prometheus->connections_awaiting_total));
+   data = append(data, "\n\n");
+
+   if (config->number_of_limits > 0)
+   {
+      data = append(data, "#HELP pgagroal_limit_awaiting The connections on-hold (awaiting) information\n");
+      data = append(data, "#TYPE pgagroal_limit_awaiting gauge\n");
+      for (int i = 0; i < config->number_of_limits; i++)
+      {
+
+         data = append(data, "pgagroal_limit_awaiting{");
+
+         data = append(data, "user=\"");
+         data = append(data, config->limits[i].username);
+         data = append(data, "\",");
+
+         data = append(data, "database=\"");
+         data = append(data, config->limits[i].database);
+         data = append(data, "\"} ");
+
+         data = append_int(data, prometheus->connections_awaiting[i]);
+
+         if (strlen(data) > CHUNK_SIZE)
+         {
+            send_chunk(client_fd, data);
+            free(data);
+            data = NULL;
+         }
+
+      }
+   }
+
+   if (data != NULL)
+   {
+      data = append(data, "\n");
+      send_chunk(client_fd, data);
+      free(data);
+      data = NULL;
+   }
 }
 
 static int

@@ -84,6 +84,7 @@ pgagroal_get_connection(char* username, char* database, bool reuse, bool transac
    best_rule = find_best_rule(username, database);
    retries = 0;
    start_time = time(NULL);
+   pgagroal_prometheus_connection_awaiting(best_rule);
 
 start:
 
@@ -271,7 +272,7 @@ start:
       atomic_store(&prometheus->client_wait_time, difftime(time(NULL), start_time));
       pgagroal_prometheus_connection_success();
       pgagroal_tracking_event_slot(TRACKER_GET_CONNECTION_SUCCESS, *slot);
-
+      pgagroal_prometheus_connection_unawaiting(best_rule);
       return 0;
    }
    else
@@ -288,6 +289,7 @@ retry:
 retry2:
       if (config->blocking_timeout > 0)
       {
+
          /* Sleep for 500ms */
          struct timespec ts;
          ts.tv_sec = 0;
@@ -348,7 +350,7 @@ timeout:
    atomic_store(&prometheus->client_wait_time, difftime(time(NULL), start_time));
    pgagroal_prometheus_connection_timeout();
    pgagroal_tracking_event_basic(TRACKER_GET_CONNECTION_TIMEOUT, username, database);
-
+   pgagroal_prometheus_connection_unawaiting(best_rule);
    return 1;
 
 error:
@@ -359,6 +361,7 @@ error:
    atomic_fetch_sub(&config->active_connections, 1);
    atomic_store(&prometheus->client_wait_time, difftime(time(NULL), start_time));
    pgagroal_prometheus_connection_error();
+   pgagroal_prometheus_connection_unawaiting(best_rule);
    pgagroal_tracking_event_basic(TRACKER_GET_CONNECTION_ERROR, username, database);
 
    return 2;
