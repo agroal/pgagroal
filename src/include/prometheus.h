@@ -105,6 +105,18 @@ void
 pgagroal_prometheus_connection_idletimeout(void);
 
 /**
+ * Connection awaiting due to `blocking_timeout`.
+ */
+void
+pgagroal_prometheus_connection_awaiting(void);
+
+/**
+ * An awaiting conection that restarts.
+ */
+void
+pgagroal_prometheus_connection_unawaiting(void);
+
+/**
  * Connection flush
  */
 void
