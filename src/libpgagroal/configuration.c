@@ -199,7 +199,7 @@ pgagroal_read_configuration(void* shm, char* filename)
 
                //printf("\nSection <%s> key <%s> = <%s>", section, key, value);
 
-               if (key_in_section( "host", section, key, true, &unknown))
+               if (key_in_section( "host", section, key, true, NULL))
                {
                   max = strlen(value);
                   if (max > MISC_LENGTH - 1)
@@ -224,7 +224,7 @@ pgagroal_read_configuration(void* shm, char* filename)
                   memcpy(&srv.host, value, max);
                   atomic_store(&srv.state, SERVER_NOTINIT);
                }
-               else if (key_in_section("port", section, key, true, &unknown))
+               else if (key_in_section("port", section, key, true, NULL))
                {
                   if (as_int(value, &config->port))
                   {
