@@ -224,7 +224,7 @@ log_file_open(void)
 
    if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
    {
-      htime = time( NULL );
+      htime = time(NULL);
       if (!htime)
       {
          log_file = NULL;

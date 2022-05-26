@@ -408,7 +408,7 @@ pgagroal_prometheus_connection_awaiting(int limit_index)
 
    if (limit_index >= 0)
    {
-      atomic_fetch_add(&prometheus->connections_awaiting[ limit_index ], 1);
+      atomic_fetch_add(&prometheus->connections_awaiting[limit_index], 1);
    }
 
    atomic_fetch_add(&prometheus->connections_awaiting_total, 1);

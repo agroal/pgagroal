@@ -363,7 +363,7 @@ master_key(char* password, bool generate_pwd, int pwd_length)
 
             if (password != NULL && strlen(password) < MIN_PASSWORD_LENGTH)
             {
-               printf("Invalid key length, must be at least %d chars.\n", MIN_PASSWORD_LENGTH );
+               printf("Invalid key length, must be at least %d chars.\n", MIN_PASSWORD_LENGTH);
                free(password);
                password = NULL;
             }

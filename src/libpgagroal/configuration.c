@@ -80,7 +80,7 @@ static int restart_server(struct server* src, struct server* dst);
 static bool is_empty_string(char* s);
 static bool is_same_server(struct server* s1, struct server* s2);
 
-static bool key_in_section( char* wanted, char* section, char* key, bool global, bool* unknown);
+static bool key_in_section(char* wanted, char* section, char* key, bool global, bool* unknown);
 static bool is_comment_line(char* line);
 static bool section_line(char* line, char* section);
 
@@ -199,7 +199,7 @@ pgagroal_read_configuration(void* shm, char* filename)
 
                //printf("\nSection <%s> key <%s> = <%s>", section, key, value);
 
-               if (key_in_section( "host", section, key, true, NULL))
+               if (key_in_section("host", section, key, true, NULL))
                {
                   max = strlen(value);
                   if (max > MISC_LENGTH - 1)
@@ -240,7 +240,7 @@ pgagroal_read_configuration(void* shm, char* filename)
                   }
                   atomic_store(&srv.state, SERVER_NOTINIT);
                }
-               else if (key_in_section( "primary", section, key, false, &unknown))
+               else if (key_in_section("primary", section, key, false, &unknown))
                {
                   bool b = false;
                   if (as_bool(value, &b))
@@ -465,7 +465,7 @@ pgagroal_read_configuration(void* shm, char* filename)
                      unknown = true;
                   }
                }
-               else if (key_in_section("log_mode", section, key, true, &unknown ))
+               else if (key_in_section("log_mode", section, key, true, &unknown))
                {
                   config->log_mode = as_logging_mode(value);
                }
@@ -563,7 +563,7 @@ pgagroal_read_configuration(void* shm, char* filename)
                   fprintf(stderr, "\nUnknown key <%s> with value <%s> in section [%s]",
                           key,
                           value,
-                          strlen(section) > 0 ? section : "<unknown>" );
+                          strlen(section) > 0 ? section : "<unknown>");
                }
 
                free(key);
@@ -2940,11 +2940,11 @@ pgagroal_can_prefill(void)
  *  key_in_section("port", section, key, false, &unknown); // search for server section -> port
  */
 static bool
-key_in_section( char* wanted, char* section, char* key, bool global, bool* unknown)
+key_in_section(char* wanted, char* section, char* key, bool global, bool* unknown)
 {
 
    // first of all, look for a key match
-   if (strncmp( wanted, key, MISC_LENGTH ))
+   if (strncmp(wanted, key, MISC_LENGTH))
    {
       // no match at all
       return false;
@@ -2984,7 +2984,7 @@ static bool
 is_comment_line(char* line)
 {
    int c = 0;
-   int length = strlen( line );
+   int length = strlen(line);
 
    while (c < length)
    {
