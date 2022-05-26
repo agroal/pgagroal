@@ -82,6 +82,7 @@ static void pool_information(int client_fd);
 static void auth_information(int client_fd);
 static void client_information(int client_fd);
 static void internal_information(int client_fd);
+static void connection_awaiting_information(int client_fd);
 
 static int send_chunk(int client_fd, char* data);
 
@@ -991,9 +992,23 @@ home_page(int client_fd)
    data = append(data, "            <li>initial</li>\n");
    data = append(data, "            <li>max</li>\n");
    data = append(data, "            <li>active</li>\n");
-   data = append(data, "            <li>awaiting (on hold due to <i>blocking_timeout</i>)</li>\n");
    data = append(data, "          </ul>\n");
    data = append(data, "        </td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "    </tbody>\n");
+   data = append(data, "  </table>\n");
+   data = append(data, "  <p>\n");
+   data = append(data, "  <h2>pgagroal_limit_awaiting</h2>\n");
+   data = append(data, "  Connections awaiting on hold reported by limit entries\n");
+   data = append(data, "  <table border=\"1\">\n");
+   data = append(data, "    <tbody>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>user</td>\n");
+   data = append(data, "        <td>The user name</td>\n");
+   data = append(data, "      </tr>\n");
+   data = append(data, "      <tr>\n");
+   data = append(data, "        <td>database</td>\n");
+   data = append(data, "        <td>The database</td>\n");
    data = append(data, "      </tr>\n");
    data = append(data, "    </tbody>\n");
    data = append(data, "  </table>\n");
@@ -1133,6 +1148,7 @@ metrics_page(int client_fd)
    auth_information(client_fd);
    client_information(client_fd);
    internal_information(client_fd);
+   connection_awaiting_information(client_fd);
 
    /* Footer */
    data = append(data, "0\r\n\r\n");
@@ -1481,10 +1497,8 @@ limit_information(int client_fd)
 {
    char* data = NULL;
    struct configuration* config;
-   struct prometheus* prometheus;
 
    config = (struct configuration*)shmem;
-   prometheus = (struct prometheus*)prometheus_shmem;
 
    if (config->number_of_limits > 0)
    {
@@ -1546,20 +1560,6 @@ limit_information(int client_fd)
 
          data = append(data, "type=\"active\"} ");
          data = append_int(data, config->limits[i].active_connections);
-         data = append(data, "\n");
-
-         data = append(data, "pgagroal_limit{");
-
-         data = append(data, "user=\"");
-         data = append(data, config->limits[i].username);
-         data = append(data, "\",");
-
-         data = append(data, "database=\"");
-         data = append(data, config->limits[i].database);
-         data = append(data, "\",");
-
-         data = append(data, "type=\"awaiting\"} ");
-         data = append_int(data, prometheus->connections_awaiting[i]);
          data = append(data, "\n");
 
          if (strlen(data) > CHUNK_SIZE)
@@ -1766,12 +1766,6 @@ pool_information(int client_fd)
    data = append_ulong(data, atomic_load(&prometheus->connection_success));
    data = append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_connection_awaiting Number of connection awaiting\n");
-   data = append(data, "#TYPE pgagroal_connection_awaiting gauge\n");
-   data = append(data, "pgagroal_connection_awaiting ");
-   data = append_ulong(data, atomic_load(&prometheus->connections_awaiting_total));
-   data = append(data, "\n\n");
-
    send_chunk(client_fd, data);
    free(data);
    data = NULL;
@@ -1868,6 +1862,67 @@ internal_information(int client_fd)
    send_chunk(client_fd, data);
    free(data);
    data = NULL;
+}
+
+/**
+ * Provides information about the connection awaiting.
+ *
+ * Prints the total connection awaiting counter
+ * and also one line per limit if there are limits.
+ */
+static void
+connection_awaiting_information(int client_fd)
+{
+   char* data = NULL;
+   struct configuration* config;
+   struct prometheus* prometheus;
+
+   config = (struct configuration*)shmem;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   data = append(data, "#HELP pgagroal_connection_awaiting Number of connection on-hold (awaiting)\n");
+   data = append(data, "#TYPE pgagroal_connection_awaiting gauge\n");
+   data = append(data, "pgagroal_connection_awaiting ");
+   data = append_ulong(data, atomic_load(&prometheus->connections_awaiting_total));
+   data = append(data, "\n\n");
+
+   if (config->number_of_limits > 0)
+   {
+      data = append(data, "#HELP pgagroal_limit_awaiting The connections on-hold (awaiting) information\n");
+      data = append(data, "#TYPE pgagroal_limit_awaiting gauge\n");
+      for (int i = 0; i < config->number_of_limits; i++)
+      {
+
+         data = append(data, "pgagroal_limit_awaiting{");
+
+         data = append(data, "user=\"");
+         data = append(data, config->limits[i].username);
+         data = append(data, "\",");
+
+         data = append(data, "database=\"");
+         data = append(data, config->limits[i].database);
+         data = append(data, "\"} ");
+
+         data = append_int(data, prometheus->connections_awaiting[i]);
+
+         if (strlen(data) > CHUNK_SIZE)
+         {
+            send_chunk(client_fd, data);
+            free(data);
+            data = NULL;
+         }
+
+      }
+   }
+
+   if (data != NULL)
+   {
+      data = append(data, "\n");
+      send_chunk(client_fd, data);
+      free(data);
+      data = NULL;
+   }
 }
 
 static int

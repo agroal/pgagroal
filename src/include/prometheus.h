@@ -109,6 +109,12 @@ pgagroal_prometheus_connection_idletimeout(void);
  * Tracks the total awaiting connections and also the
  * per-limit ones.
  *
+ * <b>
+ * Every call to this function should be paired
+ * by the same number of calls
+ * to `pgagroal_prometheus_connection_unawaiting()`
+ * </b>
+ *
  * @param limit_index if greater or equal to zero
  * tracks the awaiting connection for the limits entry
  * (i.e., per user and database)
@@ -119,6 +125,13 @@ pgagroal_prometheus_connection_awaiting(int limit_index);
 /**
  * An awaiting conection, i.e., one holded by `blocking_timeout`
  * that is no more on hold and can restart its workflo.
+ *
+ *
+ * <b>
+ * Every call to this function should be after
+ * the call
+ * to `pgagroal_prometheus_connection_awaiting()`
+ * </b>
  *
  * The function decreases the total counter of the awaiting connections as
  * well as the per-limit ones.
