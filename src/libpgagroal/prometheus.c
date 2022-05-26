@@ -1905,6 +1905,7 @@ connection_awaiting_information(int client_fd)
          data = append(data, "\"} ");
 
          data = append_int(data, prometheus->connections_awaiting[i]);
+         data = append(data, "\n");
 
          if (strlen(data) > CHUNK_SIZE)
          {
