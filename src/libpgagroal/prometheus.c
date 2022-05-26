@@ -1480,7 +1480,6 @@ static void
 limit_information(int client_fd)
 {
    char* data = NULL;
-   char limit_info[MISC_LENGTH];
    struct configuration* config;
    struct prometheus* prometheus;
 
@@ -1493,45 +1492,75 @@ limit_information(int client_fd)
       data = append(data, "#TYPE pgagroal_limit gauge\n");
       for (int i = 0; i < config->number_of_limits; i++)
       {
-         snprintf( limit_info, MISC_LENGTH,
-                   "pgagroal_limit{user=\"%s\",database=\"%s\",type=\"%s\"} %d\n",
-                   config->limits[i].username,
-                   config->limits[i].database,
-                   "min",
-                   config->limits[i].min_size);
-         data = append(data, limit_info);
+         data = append(data, "pgagroal_limit{");
 
-         snprintf( limit_info, MISC_LENGTH,
-                   "pgagroal_limit{user=\"%s\",database=\"%s\",type=\"%s\"} %d\n",
-                   config->limits[i].username,
-                   config->limits[i].database,
-                   "initial",
-                   config->limits[i].initial_size);
-         data = append(data, limit_info);
+         data = append(data, "user=\"");
+         data = append(data, config->limits[i].username);
+         data = append(data, "\",");
 
-         snprintf( limit_info, MISC_LENGTH,
-                   "pgagroal_limit{user=\"%s\",database=\"%s\",type=\"%s\"} %d\n",
-                   config->limits[i].username,
-                   config->limits[i].database,
-                   "max",
-                   config->limits[i].max_size);
-         data = append(data, limit_info);
+         data = append(data, "database=\"");
+         data = append(data, config->limits[i].database);
+         data = append(data, "\",");
 
-         snprintf( limit_info, MISC_LENGTH,
-                   "pgagroal_limit{user=\"%s\",database=\"%s\",type=\"%s\"} %d\n",
-                   config->limits[i].username,
-                   config->limits[i].database,
-                   "active",
-                   config->limits[i].active_connections);
-         data = append(data, limit_info);
+         data = append(data, "type=\"min\"} ");
+         data = append_int(data, config->limits[i].min_size);
+         data = append(data, "\n");
 
-         snprintf( limit_info, MISC_LENGTH,
-                   "pgagroal_limit{user=\"%s\",database=\"%s\",type=\"%s\"} %lu\n",
-                   config->limits[i].username,
-                   config->limits[i].database,
-                   "awaiting",
-                   prometheus->connections_awaiting[i]);
-         data = append(data, limit_info);
+         data = append(data, "pgagroal_limit{");
+
+         data = append(data, "user=\"");
+         data = append(data, config->limits[i].username);
+         data = append(data, "\",");
+
+         data = append(data, "database=\"");
+         data = append(data, config->limits[i].database);
+         data = append(data, "\",");
+
+         data = append(data, "type=\"initial\"} ");
+         data = append_int(data, config->limits[i].initial_size);
+         data = append(data, "\n");
+
+         data = append(data, "pgagroal_limit{");
+
+         data = append(data, "user=\"");
+         data = append(data, config->limits[i].username);
+         data = append(data, "\",");
+
+         data = append(data, "database=\"");
+         data = append(data, config->limits[i].database);
+         data = append(data, "\",");
+
+         data = append(data, "type=\"max\"} ");
+         data = append_int(data, config->limits[i].max_size);
+         data = append(data, "\n");
+
+         data = append(data, "pgagroal_limit{");
+
+         data = append(data, "user=\"");
+         data = append(data, config->limits[i].username);
+         data = append(data, "\",");
+
+         data = append(data, "database=\"");
+         data = append(data, config->limits[i].database);
+         data = append(data, "\",");
+
+         data = append(data, "type=\"active\"} ");
+         data = append_int(data, config->limits[i].active_connections);
+         data = append(data, "\n");
+
+         data = append(data, "pgagroal_limit{");
+
+         data = append(data, "user=\"");
+         data = append(data, config->limits[i].username);
+         data = append(data, "\",");
+
+         data = append(data, "database=\"");
+         data = append(data, config->limits[i].database);
+         data = append(data, "\",");
+
+         data = append(data, "type=\"awaiting\"} ");
+         data = append_int(data, prometheus->connections_awaiting[i]);
+         data = append(data, "\n");
 
          if (strlen(data) > CHUNK_SIZE)
          {
