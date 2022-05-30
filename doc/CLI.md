@@ -13,8 +13,16 @@ pgagroal-cli [ -c CONFIG_FILE ] [ COMMAND ]
 -V, --version            Display version information
 -?, --help               Display help
 ```
+
+Commands are described in the following sections.
+Several commands work against an optional specified database.
+It is possible to specify *all database* at once by means of the special string `*` (take care of shell expansion!).
+If no database name is specified, the command is automatically run against all databases (i.e., as if `*` has been specified).
+
 ## flush-idle
-Flush idle connections
+Flush idle connections.
+Without any argument, or with `*` as only argument,
+works against all configured databases.
 
 Command
 
@@ -29,7 +37,9 @@ pgagroal-cli flush-idle
 ```
 
 ## flush-gracefully
-Flush all connections gracefully
+Flush all connections gracefully.
+Without any argument, or with `*` as only argument,
+works against all configured databases.
 
 Command
 
@@ -44,7 +54,9 @@ pgagroal-cli flush-gracefully
 ```
 
 ## flush-all
-Flush all connections. USE WITH CAUTION !
+Flush all connections. **USE WITH CAUTION !**
+Without any argument, or with `*` as only argument,
+works against all configured databases.
 
 Command
 
@@ -74,7 +86,9 @@ pgagroal-cli is-alive
 ```
 
 ## enable
-Enable a database
+Enables the specified database.
+Without any argument, or with `*` as only argument,
+works against all configured databases.
 
 Command
 
@@ -89,7 +103,10 @@ pgagroal-cli enable
 ```
 
 ## disable
-Disable a database
+Disables a database specified by its name.
+Without any argument, or with `*` as only argument,
+works against all configured databases.
+
 
 Command
 
