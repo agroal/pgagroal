@@ -59,14 +59,16 @@ static int as_bool(char* str, bool* b);
 static int as_logging_type(char* str);
 static int as_logging_level(char* str);
 static int as_logging_mode(char* str);
-static int as_logging_rotation_size(char* str, int* size);
-static int as_logging_rotation_age(char* str, int* age);
+static int as_logging_rotation_size(char* str, unsigned int* size);
+static int as_logging_rotation_age(char* str, unsigned int* age);
 static int as_validation(char* str);
 static int as_pipeline(char* str);
 static int as_hugepage(char* str);
 static int extract_value(char* str, int offset, char** value);
 static void extract_hba(char* str, char** type, char** database, char** user, char** address, char** method);
 static void extract_limit(char* str, int server_max, char** database, char** user, int* max_size, int* initial_size, int* min_size);
+static unsigned int as_seconds(char* str, unsigned int* age, unsigned int default_age);
+static unsigned int as_bytes(char* str, unsigned int* bytes, unsigned int default_bytes);
 
 static int transfer_configuration(struct configuration* config, struct configuration* reload);
 static void copy_server(struct server* dst, struct server* src);
@@ -2720,81 +2722,11 @@ is_empty_string(char* s)
  * a valid value for log rotation size.
  * Returns 0 if parsing ok, 1 otherwise.
  *
- * Valid strings have one of the suffixes:
- * - k for kilobytes
- * - m for megabytes
- * - g for gigabytes
- *
- * The default is expressed always as kilobytes. The functions sets the
- * rotation size in kilobytes.
  */
 static int
-as_logging_rotation_size(char* str, int* size)
+as_logging_rotation_size(char* str, unsigned int* size)
 {
-   int multiplier = 1;
-   int index;
-   char value[MISC_LENGTH];
-   bool multiplier_set = false;
-
-   if (is_empty_string(str))
-   {
-      *size = PGAGROAL_LOGGING_ROTATION_DISABLED;
-      return 0;
-   }
-
-   index = 0;
-   for (int i = 0; i < strlen(str); i++)
-   {
-      if (isdigit(str[i]))
-      {
-         value[index++] = str[i];
-      }
-      else if (isalpha(str[i]) && multiplier_set)
-      {
-         *size = PGAGROAL_LOGGING_ROTATION_DISABLED;
-         return 1;
-      }
-      else if (isalpha(str[i]) && !multiplier_set)
-      {
-         if (str[i] == 'M' || str[i] == 'm')
-         {
-            multiplier = 1024 * 1024;
-            multiplier_set = true;
-         }
-         else if (str[i] == 'G' || str[i] == 'g')
-         {
-            multiplier = 1024 * 1024 * 1024;
-            multiplier_set = true;
-         }
-         else if (str[i] == 'K' || str[i] == 'k')
-         {
-            multiplier = 1024;
-            multiplier_set = true;
-         }
-         else if (str[i] == 'B' || str[i] == 'b')
-         {
-            multiplier = 1;
-            multiplier_set = true;
-         }
-      }
-      else
-      {
-         // ignore alien chars
-         continue;
-      }
-   }
-
-   value[index] = '\0';
-   if (!as_int(value, size))
-   {
-      *size = *size * multiplier;
-      return 0;
-   }
-   else
-   {
-      *size = PGAGROAL_LOGGING_ROTATION_DISABLED;
-      return 1;
-   }
+   return as_bytes(str, size, PGAGROAL_LOGGING_ROTATION_DISABLED);
 }
 
 /**
@@ -2811,76 +2743,9 @@ as_logging_rotation_size(char* str, int* size)
  * Returns 1 for errors, 0 for correct parsing.
  */
 static int
-as_logging_rotation_age(char* str, int* age)
+as_logging_rotation_age(char* str, unsigned int* age)
 {
-   int multiplier = 1;
-   int index;
-   char value[MISC_LENGTH];
-   bool multiplier_set = false;
-
-   if (is_empty_string(str))
-   {
-      *age = PGAGROAL_LOGGING_ROTATION_DISABLED;
-      return 0;
-   }
-
-   index = 0;
-   for (int i = 0; i < strlen(str); i++)
-   {
-      if (isdigit(str[i]))
-      {
-         value[index++] = str[i];
-      }
-      else if (isalpha(str[i]) && multiplier_set)
-      {
-         *age = PGAGROAL_LOGGING_ROTATION_DISABLED;
-         return 1;
-      }
-      else if (isalpha(str[i]) && !multiplier_set)
-      {
-         if (str[i] == 's' || str[i] == 'S')
-         {
-            multiplier = 1;
-            multiplier_set = true;
-         }
-         else if (str[i] == 'm' || str[i] == 'M')
-         {
-            multiplier = 60;
-            multiplier_set = true;
-         }
-         else if (str[i] == 'h' || str[i] == 'H')
-         {
-            multiplier = 3600;
-            multiplier_set = true;
-         }
-         else if (str[i] == 'd' || str[i] == 'D')
-         {
-            multiplier = 24 * 3600;
-            multiplier_set = true;
-         }
-         else if (str[i] == 'w' || str[i] == 'W')
-         {
-            multiplier = 24 * 3600 * 7;
-            multiplier_set = true;
-         }
-      }
-      else
-      {
-         continue;
-      }
-   }
-
-   value[index] = '\0';
-   if (!as_int(value, age))
-   {
-      *age = *age * multiplier;
-      return 0;
-   }
-   else
-   {
-      *age = PGAGROAL_LOGGING_ROTATION_DISABLED;
-      return 1;
-   }
+   return as_seconds(str, age, PGAGROAL_LOGGING_ROTATION_DISABLED);
 }
 
 void
@@ -3043,4 +2908,205 @@ section_line(char* line, char* section)
 
    return false;
 
+}
+
+/**
+ * Parses an age string, providing the resulting value as seconds.
+ * An age string is expressed by a number and a suffix that indicates
+ * the multiplier. Accepted suffixes, case insensitive, are:
+ * - s for seconds
+ * - m for minutes
+ * - h for hours
+ * - d for days
+ * - w for weeks
+ *
+ * The default is expressed in seconds.
+ *
+ * @param str the value to parse as retrieved from the configuration
+ * @param age a pointer to the value that is going to store
+ *        the resulting number of seconds
+ * @param default_age a value to set when the parsing is unsuccesful
+
+ */
+static unsigned int
+as_seconds(char* str, unsigned int* age, unsigned int default_age)
+{
+   int multiplier = 1;
+   int index;
+   char value[MISC_LENGTH];
+   bool multiplier_set = false;
+   int i_value = default_age;
+
+   if (is_empty_string(str))
+   {
+      *age = default_age;
+      return 0;
+   }
+
+   index = 0;
+   for (int i = 0; i < strlen(str); i++)
+   {
+      if (isdigit(str[i]))
+      {
+         value[index++] = str[i];
+      }
+      else if (isalpha(str[i]) && multiplier_set)
+      {
+         // another extra char not allowed
+         goto error;
+      }
+      else if (isalpha(str[i]) && !multiplier_set)
+      {
+         if (str[i] == 's' || str[i] == 'S')
+         {
+            multiplier = 1;
+            multiplier_set = true;
+         }
+         else if (str[i] == 'm' || str[i] == 'M')
+         {
+            multiplier = 60;
+            multiplier_set = true;
+         }
+         else if (str[i] == 'h' || str[i] == 'H')
+         {
+            multiplier = 3600;
+            multiplier_set = true;
+         }
+         else if (str[i] == 'd' || str[i] == 'D')
+         {
+            multiplier = 24 * 3600;
+            multiplier_set = true;
+         }
+         else if (str[i] == 'w' || str[i] == 'W')
+         {
+            multiplier = 24 * 3600 * 7;
+            multiplier_set = true;
+         }
+      }
+      else
+      {
+         // do not allow alien chars
+         goto error;
+      }
+   }
+
+   value[index] = '\0';
+   if (!as_int(value, &i_value))
+   {
+      // sanity check: the value
+      // must be a positive number!
+      if (i_value >= 0)
+      {
+         *age = i_value * multiplier;
+      }
+      else
+      {
+         goto error;
+      }
+
+      return 0;
+   }
+   else
+   {
+error:
+      *age = default_age;
+      return 1;
+   }
+}
+
+/**
+ * Converts a "size string" into the number of bytes.
+ *
+ * Valid strings have one of the suffixes:
+ * - k for kilobytes
+ * - m for megabytes
+ * - g for gigabytes
+ *
+ * The default is expressed always as bytes.
+ *
+ * @param str the string to parse (e.g., "2M")
+ * @param bytes the value to set as result of the parsing stage
+ * @param default_bytes the default value to set when the parsing cannot proceed
+ * @return 1 if parsing is unable to understand the string, 0 is parsing is
+ *         performed correctly (or almost correctly, e.g., empty string)
+ */
+static unsigned int
+as_bytes(char* str, unsigned int* bytes, unsigned int default_bytes)
+{
+   int multiplier = 1;
+   int index;
+   char value[MISC_LENGTH];
+   bool multiplier_set = false;
+   int i_value = default_bytes;
+
+   if (is_empty_string(str))
+   {
+      *bytes = default_bytes;
+      return 0;
+   }
+
+   index = 0;
+   for (int i = 0; i < strlen(str); i++)
+   {
+      if (isdigit(str[i]))
+      {
+         value[index++] = str[i];
+      }
+      else if (isalpha(str[i]) && multiplier_set)
+      {
+         // another non-digit char not allowed
+         goto error;
+      }
+      else if (isalpha(str[i]) && !multiplier_set)
+      {
+         if (str[i] == 'M' || str[i] == 'm')
+         {
+            multiplier = 1024 * 1024;
+            multiplier_set = true;
+         }
+         else if (str[i] == 'G' || str[i] == 'g')
+         {
+            multiplier = 1024 * 1024 * 1024;
+            multiplier_set = true;
+         }
+         else if (str[i] == 'K' || str[i] == 'k')
+         {
+            multiplier = 1024;
+            multiplier_set = true;
+         }
+         else if (str[i] == 'B' || str[i] == 'b')
+         {
+            multiplier = 1;
+            multiplier_set = true;
+         }
+      }
+      else
+      {
+         // do not allow alien chars
+         goto error;
+      }
+   }
+
+   value[index] = '\0';
+   if (!as_int(value, &i_value))
+   {
+      // sanity check: the value
+      // must be a positive number!
+      if (i_value >= 0)
+      {
+         *bytes = i_value * multiplier;
+      }
+      else
+      {
+         goto error;
+      }
+
+      return 0;
+   }
+   else
+   {
+error:
+      *bytes = default_bytes;
+      return 1;
+   }
 }
