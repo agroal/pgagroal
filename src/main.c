@@ -404,7 +404,7 @@ main(int argc, char** argv)
 
    if (configuration_path != NULL)
    {
-      if (pgagroal_read_configuration(shmem, configuration_path))
+      if (pgagroal_read_configuration(shmem, configuration_path, true))
       {
          printf("pgagroal: Configuration not found: %s\n", configuration_path);
 #ifdef HAVE_LINUX
@@ -415,7 +415,7 @@ main(int argc, char** argv)
    }
    else
    {
-      if (pgagroal_read_configuration(shmem, "/etc/pgagroal/pgagroal.conf"))
+      if (pgagroal_read_configuration(shmem, "/etc/pgagroal/pgagroal.conf", true))
       {
          printf("pgagroal: Configuration not found: /etc/pgagroal/pgagroal.conf\n");
 #ifdef HAVE_LINUX
