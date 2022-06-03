@@ -237,7 +237,7 @@ main(int argc, char** argv)
 
    if (configuration_path != NULL)
    {
-      ret = pgagroal_read_configuration(shmem, configuration_path);
+      ret = pgagroal_read_configuration(shmem, configuration_path, false);
       if (ret)
       {
          printf("pgagroal-cli: Configuration not found: %s\n", configuration_path);
@@ -262,7 +262,7 @@ main(int argc, char** argv)
    }
    else
    {
-      ret = pgagroal_read_configuration(shmem, "/etc/pgagroal/pgagroal.conf");
+      ret = pgagroal_read_configuration(shmem, "/etc/pgagroal/pgagroal.conf", false);
       if (ret)
       {
          if (host == NULL || port == NULL)

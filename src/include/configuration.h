@@ -53,10 +53,12 @@ pgagroal_init_configuration(void* shmem);
  * Read the configuration from a file
  * @param shmem The shared memory segment
  * @param filename The file name
+ * @param emitWarnings true if unknown parameters have to
+ *        reported on stderr
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_read_configuration(void* shmem, char* filename);
+pgagroal_read_configuration(void* shmem, char* filename, bool emitWarnings);
 
 /**
  * Validate the configuration

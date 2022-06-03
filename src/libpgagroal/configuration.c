@@ -144,7 +144,7 @@ pgagroal_init_configuration(void* shm)
  *
  */
 int
-pgagroal_read_configuration(void* shm, char* filename)
+pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
 {
    FILE* file;
    char section[LINE_LENGTH];
@@ -557,7 +557,7 @@ pgagroal_read_configuration(void* shm, char* filename)
                   unknown = true;
                }
 
-               if (unknown)
+               if (unknown && emitWarnings)
                {
                   // we cannot use logging here...
                   fprintf(stderr, "\nUnknown key <%s> with value <%s> in section [%s]",
@@ -1772,7 +1772,7 @@ pgagroal_reload_configuration(void)
 
    pgagroal_init_configuration((void*)reload);
 
-   if (pgagroal_read_configuration((void*)reload, config->configuration_path))
+   if (pgagroal_read_configuration((void*)reload, config->configuration_path, true))
    {
       goto error;
    }
