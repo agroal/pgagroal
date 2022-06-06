@@ -228,6 +228,28 @@ struct prometheus_connection
    atomic_ullong query_count;           /**< The number of queries per connection */
 } __attribute__ ((aligned (64)));
 
+/**
+ * A structure to handle the Prometheus response
+ * so that it is possible to serve the very same
+ * response over and over depending on the cache
+ * settings.
+ *
+ * The `valid_until` field stores the result
+ * of `time(2)`.
+ *
+ * The cache is protected by the `lock` field.
+ *
+ * The `size` field stores the size of the allocated
+ * `data` payload.
+ */
+struct prometheus_cache
+{
+   time_t valid_until;   /**< when the cache will become not valid */
+   atomic_schar lock;    /**< lock to protect the cache */
+   size_t size;          /**< size of the cache */
+   char* data;           /**< the payload */
+} __attribute__ ((aligned (64)));
+
 /** @struct
  * Defines the Prometheus metrics
  */
@@ -270,7 +292,10 @@ struct prometheus
 
    atomic_ulong server_error[NUMBER_OF_SERVERS]; /**< The number of errors for a server */
    atomic_ulong failed_servers;                  /**< The number of failed servers */
-   struct prometheus_connection prometheus_connections[];  /**< The number of prometheus connections (FMA) */
+
+   struct prometheus_cache cache;   /**< The cache for the response */
+
+   struct prometheus_connection prometheus_connections[];   /**< The number of prometheus connections (FMA) */
 
 } __attribute__ ((aligned (64)));
 
@@ -290,6 +315,8 @@ struct configuration
    char host[MISC_LENGTH]; /**< The host */
    int port;               /**< The port */
    int metrics;            /**< The metrics port */
+   unsigned int metrics_cache_max_age;      /**< Number of seconds to cache the Prometheus response */
+   unsigned int metrics_cache_max_size;     /**< Number of bytes max to cache the Prometheus response */
    int management;         /**< The management port */
    bool gracefully;        /**< Is pgagroal in gracefully mode */
 

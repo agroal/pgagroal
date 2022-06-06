@@ -36,6 +36,27 @@ extern "C" {
 #include <ev.h>
 #include <stdlib.h>
 
+/*
+ * Value to disable the Prometheus cache,
+ * it is equivalent to set `metrics_cache`
+ * to 0 (seconds).
+ */
+#define PGAGROAL_PROMETHEUS_CACHE_DISABLED 0
+
+/**
+ * Max size of the cache (in bytes).
+ * If the cache request exceeds this size
+ * the caching should be aborted in some way.
+ */
+#define PROMETHEUS_MAX_CACHE_SIZE (1024 * 1024)
+
+/**
+ * The default cache size in the case
+ * the user did not set any particular
+ * configuration option.
+ */
+#define PROMETHEUS_DEFAULT_CACHE_SIZE (256 * 1024)
+
 /**
  * Create a prometheus instance
  * @param fd The client descriptor

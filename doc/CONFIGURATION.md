@@ -39,6 +39,8 @@ See a more complete [sample](./etc/pgagroal.conf) configuration for running `pga
 | port | | Int | Yes | The bind port for pgagroal |
 | unix_socket_dir | | String | Yes | The Unix Domain Socket location |
 | metrics | 0 | Int | No | The metrics port (disable = 0) |
+| metrics_cache_max_age | 0 | String | No | The number of seconds to cache the metrics response. Can be a string including a modifier suffix, e.g., `2M` for two minutes. A value of zero disables caching. |
+| metrics_cache_max_size | 256k | String | No | An optional value, in bytes, to control the metrics cache. If a single responses is greater than this value, the cache will be temporarely disabled. Changing this parameter will change the way the cache memory is allocated. The maximum value is 1 Megabyte |
 | management | 0 | Int | No | The remote management port (disable = 0) |
 | log_type | console | String | No | The logging type (console, file, syslog) |
 | log_level | info | String | No | The logging level (fatal, error, warn, info, debug, debug1 thru debug5). Debug level greater than 5 will be set to `debug5`. Not recognized values will make the log_level be `info` |
