@@ -308,6 +308,7 @@ main(int argc, char** argv)
    size_t shmem_size;
    size_t pipeline_shmem_size = 0;
    size_t prometheus_shmem_size = 0;
+   size_t prometheus_cache_shmem_size = 0;
    size_t tmp_size;
    struct configuration* config = NULL;
    int ret;
@@ -762,6 +763,15 @@ main(int argc, char** argv)
       exit(1);
    }
 
+   if (pgagroal_init_prometheus_cache(&prometheus_cache_shmem_size, &prometheus_cache_shmem))
+   {
+      printf("pgagroal: Error in creating and initializing prometheus cache shared memory\n");
+#ifdef HAVE_LINUX
+      sd_notifyf(0, "STATUS=Error in creating and initializing prometheus cache shared memory");
+#endif
+      exit(1);
+   }
+
    if (getrlimit(RLIMIT_NOFILE, &flimit) == -1)
    {
       printf("pgagroal: Unable to find limit due to %s\n", strerror(errno));
@@ -1120,6 +1130,7 @@ main(int argc, char** argv)
 
    pgagroal_stop_logging();
    pgagroal_destroy_shared_memory(prometheus_shmem, prometheus_shmem_size);
+   pgagroal_destroy_shared_memory(prometheus_cache_shmem, prometheus_cache_shmem_size);
    pgagroal_destroy_shared_memory(shmem, shmem_size);
 
    return 0;

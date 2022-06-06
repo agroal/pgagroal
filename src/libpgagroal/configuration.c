@@ -34,6 +34,7 @@
 #include <security.h>
 #include <shmem.h>
 #include <utils.h>
+#include <prometheus.h>
 
 /* system */
 #include <ctype.h>
@@ -59,6 +60,7 @@ static int as_bool(char* str, bool* b);
 static int as_logging_type(char* str);
 static int as_logging_level(char* str);
 static int as_logging_mode(char* str);
+
 static int as_logging_rotation_size(char* str, unsigned int* size);
 static int as_logging_rotation_age(char* str, unsigned int* age);
 static int as_validation(char* str);
@@ -261,6 +263,20 @@ pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
                else if (key_in_section("metrics", section, key, true, &unknown))
                {
                   if (as_int(value, &config->metrics))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("metrics_cache_max_age", section, key, true, &unknown))
+               {
+                  if (as_seconds(value, &config->metrics_cache_max_age, PGAGROAL_PROMETHEUS_CACHE_DISABLED))
+                  {
+                     unknown = true;
+                  }
+               }
+               else if (key_in_section("metrics_cache_max_size", section, key, true, &unknown))
+               {
+                  if (as_bytes(value, &config->metrics_cache_max_size, PROMETHEUS_DEFAULT_CACHE_SIZE))
                   {
                      unknown = true;
                   }
@@ -2397,6 +2413,8 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    memcpy(config->host, reload->host, MISC_LENGTH);
    config->port = reload->port;
    config->metrics = reload->metrics;
+   config->metrics_cache_max_age = reload->metrics_cache_max_age;
+   restart_int("metrics_cache_max_size", config->metrics_cache_max_size, reload->metrics_cache_max_size);
    config->management = reload->management;
    /* gracefully */
 
@@ -2745,6 +2763,7 @@ as_logging_rotation_size(char* str, unsigned int* size)
  * The default is expressed in seconds.
  * The function sets the number of rotationg age as minutes.
  * Returns 1 for errors, 0 for correct parsing.
+ *
  */
 static int
 as_logging_rotation_age(char* str, unsigned int* age)
