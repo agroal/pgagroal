@@ -2293,6 +2293,7 @@ as_logging_type(char* str)
 static int
 as_logging_level(char* str)
 {
+   size_t size = 0;
    int debug_level = 1;
    char* debug_value = NULL;
 
@@ -2300,9 +2301,12 @@ as_logging_level(char* str)
    {
       if (strlen(str) > strlen("debug"))
       {
-         debug_value = (char*) malloc((strlen(str) - strlen("debug")) * sizeof(char));
-         memcpy(debug_value, str + sizeof("debug") - 1, strlen(str) - strlen("debug") + 1);
+         size = strlen(str) - strlen("debug");
+         debug_value = (char*)malloc(size + 1);
+         memset(debug_value, 0, size + 1);
+         memcpy(debug_value, str + 5, size);
          debug_level = atoi(debug_value);
+         free(debug_value);
       }
 
       if (debug_level <= 1)
