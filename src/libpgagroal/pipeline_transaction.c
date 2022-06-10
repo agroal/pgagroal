@@ -144,10 +144,7 @@ transaction_start(struct ev_loop* loop, struct worker_io* w)
    if (is_new)
    {
       /* Sleep for 5ms */
-      struct timespec ts;
-      ts.tv_sec = 0;
-      ts.tv_nsec = 5000000L;
-      nanosleep(&ts, NULL);
+      SLEEP(5000000L)
    }
 
    return;

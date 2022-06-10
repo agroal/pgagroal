@@ -1278,7 +1278,6 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
             case SSL_ERROR_ZERO_RETURN:
                if (timeout > 0)
                {
-                  struct timespec ts;
 
                   if (difftime(time(NULL), start_time) >= timeout)
                   {
@@ -1286,9 +1285,8 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
                   }
 
                   /* Sleep for 100ms */
-                  ts.tv_sec = 0;
-                  ts.tv_nsec = 100000000L;
-                  nanosleep(&ts, NULL);
+                  SLEEP(100000000L)
+
                }
             case SSL_ERROR_WANT_READ:
             case SSL_ERROR_WANT_WRITE:

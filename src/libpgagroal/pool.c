@@ -289,12 +289,8 @@ retry:
 retry2:
       if (config->blocking_timeout > 0)
       {
-
          /* Sleep for 500ms */
-         struct timespec ts;
-         ts.tv_sec = 0;
-         ts.tv_nsec = 500000000L;
-         nanosleep(&ts, NULL);
+         SLEEP(500000000L)
 
          double diff = difftime(time(NULL), start_time);
          if (diff >= (double)config->blocking_timeout)
@@ -334,15 +330,9 @@ retry2:
             }
          }
          else
-         {
             /* Sleep for 1000 nanos */
-            struct timespec ts;
-            ts.tv_sec = 0;
-            ts.tv_nsec = 1000L;
-            nanosleep(&ts, NULL);
+            SLEEP_AND_GOTO(1000L,start)
 
-            goto start;
-         }
       }
    }
 

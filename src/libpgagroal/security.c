@@ -1653,15 +1653,8 @@ retry:
       if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
-         {
             /* Sleep for 100ms */
-            struct timespec ts;
-            ts.tv_sec = 0;
-            ts.tv_nsec = 100000000L;
-            nanosleep(&ts, NULL);
-
-            goto retry;
-         }
+            SLEEP_AND_GOTO(100000000L,retry)
       }
    }
 
@@ -1742,15 +1735,9 @@ retry:
       if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
-         {
             /* Sleep for 100ms */
-            struct timespec ts;
-            ts.tv_sec = 0;
-            ts.tv_nsec = 100000000L;
-            nanosleep(&ts, NULL);
+            SLEEP_AND_GOTO(100000000L,retry)
 
-            goto retry;
-         }
       }
    }
 
@@ -1875,15 +1862,9 @@ retry:
       if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
-         {
             /* Sleep for 100ms */
-            struct timespec ts;
-            ts.tv_sec = 0;
-            ts.tv_nsec = 100000000L;
-            nanosleep(&ts, NULL);
+            SLEEP_AND_GOTO(100000000L,retry)
 
-            goto retry;
-         }
       }
    }
 
@@ -4809,10 +4790,7 @@ retry:
       {
 
          /* Sleep for 100ms */
-         struct timespec ts;
-         ts.tv_sec = 0;
-         ts.tv_nsec = 100000000L;
-         nanosleep(&ts, NULL);
+         SLEEP(100000000L)
 
          double diff = difftime(time(NULL), start_time);
          if (diff >= (double)config->blocking_timeout)
@@ -5421,15 +5399,9 @@ retry:
       if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
-         {
             /* Sleep for 100ms */
-            struct timespec ts;
-            ts.tv_sec = 0;
-            ts.tv_nsec = 100000000L;
-            nanosleep(&ts, NULL);
+            SLEEP_AND_GOTO(100000000L,retry)
 
-            goto retry;
-         }
       }
    }
 
@@ -5545,15 +5517,9 @@ retry:
       if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
-         {
             /* Sleep for 100ms */
-            struct timespec ts;
-            ts.tv_sec = 0;
-            ts.tv_nsec = 100000000L;
-            nanosleep(&ts, NULL);
+            SLEEP_AND_GOTO(100000000L,retry)
 
-            goto retry;
-         }
       }
    }
 
