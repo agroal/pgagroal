@@ -402,15 +402,7 @@ retry:
          atomic_store(&config->log_lock, STATE_FREE);
       }
       else
-      {
-         /* Sleep for 1ms */
-         struct timespec ts;
-         ts.tv_sec = 0;
-         ts.tv_nsec = 1000000L;
-         nanosleep(&ts, NULL);
-
-         goto retry;
-      }
+        SLEEP_AND_GOTO(1000000L,retry)
    }
 }
 
@@ -496,14 +488,6 @@ retry:
          atomic_store(&config->log_lock, STATE_FREE);
       }
       else
-      {
-         /* Sleep for 1ms */
-         struct timespec ts;
-         ts.tv_sec = 0;
-         ts.tv_nsec = 1000000L;
-         nanosleep(&ts, NULL);
-
-         goto retry;
-      }
+        SLEEP_AND_GOTO(1000000L,retry)
    }
 }

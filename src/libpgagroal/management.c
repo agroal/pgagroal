@@ -1281,11 +1281,7 @@ read:
    }
    else if (r < needs)
    {
-      /* Sleep for 10ms */
-      struct timespec ts;
-      ts.tv_sec = 0;
-      ts.tv_nsec = 10000000L;
-      nanosleep(&ts, NULL);
+      SLEEP(10000000L)
 
       pgagroal_log_trace("Got: %ld, needs: %ld", r, needs);
 
