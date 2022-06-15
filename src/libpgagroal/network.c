@@ -222,7 +222,9 @@ pgagroal_remove_unix_socket(const char* directory, const char* file)
 int
 pgagroal_connect(const char* hostname, int port, int* fd)
 {
-   struct addrinfo hints, * servinfo, * p;
+   struct addrinfo hints = {0};
+   struct addrinfo* servinfo = NULL;
+   struct addrinfo* p = NULL;
    int yes = 1;
    socklen_t optlen = sizeof(int);
    int rv;
@@ -243,6 +245,10 @@ pgagroal_connect(const char* hostname, int port, int* fd)
    if ((rv = getaddrinfo(hostname, &sport[0], &hints, &servinfo)) != 0)
    {
       pgagroal_log_debug("getaddrinfo: %s", gai_strerror(rv));
+      if (servinfo != NULL)
+      {
+         freeaddrinfo(servinfo);
+      }
       return 1;
    }
 
@@ -333,6 +339,12 @@ pgagroal_connect(const char* hostname, int port, int* fd)
 error:
 
    pgagroal_log_debug("pgagroal_connect: %s", strerror(error));
+
+   if (servinfo != NULL)
+   {
+      freeaddrinfo(servinfo);
+   }
+
    return 1;
 }
 
