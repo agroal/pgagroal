@@ -136,13 +136,14 @@ pgagroal_pool_status(void);
  * `pgagroal_get_primary()` and refuses to do a prefill if there
  * is no primary at all.
  *
+ * @param do_fork Run the prefill in a separate process
  * @param initial true if the prefill has to be done with the INITIAL
  *        value of the pgagroal_database.conf file, false if it has
  *        to be done with the MINIMAL value.
  *
  */
 void
-pgagroal_prefill_if_can(bool initial);
+pgagroal_prefill_if_can(bool do_fork, bool initial);
 
 #ifdef __cplusplus
 }

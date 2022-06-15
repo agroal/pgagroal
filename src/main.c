@@ -1075,7 +1075,7 @@ main(int argc, char** argv)
       if (!fork())
       {
          shutdown_ports();
-         pgagroal_prefill_if_can(true);
+         pgagroal_prefill_if_can(false, true);
       }
    }
 

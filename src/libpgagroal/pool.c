@@ -254,7 +254,7 @@ start:
             pgagroal_tracking_event_slot(TRACKER_BAD_CONNECTION, *slot);
             status = pgagroal_kill_connection(*slot, *ssl);
 
-            pgagroal_prefill_if_can(false);
+            pgagroal_prefill_if_can(true, false);
 
             if (status == 0)
             {
@@ -567,7 +567,7 @@ pgagroal_idle_timeout(void)
 
    if (prefill)
    {
-      pgagroal_prefill_if_can(false);
+      pgagroal_prefill_if_can(true, false);
    }
 
    pgagroal_pool_status();
@@ -649,7 +649,7 @@ pgagroal_validation(void)
 
    if (prefill)
    {
-      pgagroal_prefill_if_can(false);
+      pgagroal_prefill_if_can(true, false);
    }
 
    pgagroal_pool_status();
@@ -767,7 +767,7 @@ pgagroal_flush(int mode, char* database)
 
    if (prefill)
    {
-      pgagroal_prefill_if_can(false);
+      pgagroal_prefill_if_can(true, false);
    }
 
    pgagroal_pool_status();
@@ -833,7 +833,7 @@ pgagroal_flush_server(signed char server)
    {
       if (server != (unsigned char)primary && primary != -1)
       {
-         pgagroal_prefill_if_can(true);
+         pgagroal_prefill_if_can(true, true);
       }
    }
 
@@ -1337,7 +1337,7 @@ do_prefill(char* username, char* database, int size)
 }
 
 void
-pgagroal_prefill_if_can(bool initial)
+pgagroal_prefill_if_can(bool do_fork, bool initial)
 {
    int primary;
 
@@ -1349,7 +1349,14 @@ pgagroal_prefill_if_can(bool initial)
          return;
       }
 
-      if (!fork())
+      if (do_fork)
+      {
+         if (!fork())
+         {
+            pgagroal_prefill(initial);
+         }
+      }
+      else
       {
          pgagroal_prefill(initial);
       }
