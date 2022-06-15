@@ -143,12 +143,13 @@ extern "C" {
  *
  */
 #define SLEEP(zzz)                  \
+   do                               \
    {                                \
       struct timespec ts_private;   \
       ts_private.tv_sec = 0;        \
       ts_private.tv_nsec = zzz;     \
       nanosleep(&ts_private, NULL); \
-   }
+   } while (0);
 
 /*
  * Commonly used block of code to sleep
@@ -162,16 +163,17 @@ extern "C" {
  *
      ...
      else
-       SLEEP_AND_GOTO(100000L,retru)
+       SLEEP_AND_GOTO(100000L, retry)
  */
 #define SLEEP_AND_GOTO(zzz, goto_to)    \
+   do                                   \
    {                                    \
       struct timespec ts_private;       \
       ts_private.tv_sec = 0;            \
       ts_private.tv_nsec = zzz;         \
       nanosleep(&ts_private, NULL);     \
       goto goto_to;                     \
-   }
+   } while (0);
 
 /**
  * The shared memory segment
