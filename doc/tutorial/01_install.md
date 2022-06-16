@@ -148,7 +148,7 @@ host   mydb   myuser   all   all
 and press `Ctrl-D`
 
 
-(`postgres` user)
+(`pgagroal` user)
 
 ## Start pgagroal
 
