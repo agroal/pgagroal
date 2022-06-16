@@ -1918,6 +1918,9 @@ retry:
 
    sasl_continue = pgagroal_copy_message(msg);
 
+   pgagroal_free_copy_message(msg);
+   msg = NULL;
+
    status = pgagroal_write_message(c_ssl, client_fd, sasl_continue);
    if (status != MESSAGE_STATUS_OK)
    {
@@ -1974,6 +1977,9 @@ retry:
 
    sasl_final = pgagroal_copy_message(msg);
 
+   pgagroal_free_copy_message(msg);
+   msg = NULL;
+
    status = pgagroal_write_message(c_ssl, client_fd, sasl_final);
    if (status != MESSAGE_STATUS_OK)
    {
@@ -2022,7 +2028,6 @@ bad_password:
    return AUTH_BAD_PASSWORD;
 
 error:
-
    free(password_prep);
    free(client_first_message_bare);
    free(server_first_message);
