@@ -150,6 +150,7 @@ main(int argc, char** argv)
    char un[MAX_USERNAME_LENGTH];
    char* server = NULL;
    struct configuration* config = NULL;
+   bool remote_connection = false;
 
    while (1)
    {
@@ -215,7 +216,21 @@ main(int argc, char** argv)
       exit(1);
    }
 
-   if (configuration_path != NULL && (host != NULL || port != NULL))
+   // if the user has specified the host and port
+   // options, she wants a remote connection
+   // but both remote connection parameters have to be set
+   if (host != NULL || port != NULL)
+   {
+      remote_connection = host != NULL && port != NULL;
+      if (!remote_connection)
+      {
+         printf("pgagroal-cli: you need both -h and -p options to perform a remote connection\n");
+         exit(1);
+      }
+   }
+
+   // and she cannot use "local" and "remote" connections at the same time
+   if (configuration_path != NULL && remote_connection)
    {
       printf("pgagroal-cli: Use either -c or -h/-p to define endpoint\n");
       exit(1);
@@ -265,9 +280,9 @@ main(int argc, char** argv)
       ret = pgagroal_read_configuration(shmem, "/etc/pgagroal/pgagroal.conf");
       if (ret)
       {
-         if (host == NULL || port == NULL)
+         if (!remote_connection)
          {
-            printf("pgagroal-cli: Host and port must be specified\n");
+            printf("pgagroal-cli: Host (-h) and port (-p) must be specified to connect to the remote host\n");
             exit(1);
          }
       }
@@ -413,7 +428,7 @@ main(int argc, char** argv)
 
       if (action != ACTION_UNKNOWN)
       {
-         if (configuration_path != NULL)
+         if (!remote_connection)
          {
             /* Local connection */
             if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &socket))
