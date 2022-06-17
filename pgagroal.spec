@@ -60,6 +60,7 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/02_prefill.md %{buildroot}%{_docdir}/%{name}/tutorial/02_prefill.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/03_remote_management.md %{buildroot}%{_docdir}/%{name}/tutorial/03_remote_management.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/04_prometheus.md %{buildroot}%{_docdir}/%{name}/tutorial/04_prometheus.md
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/05_split_security.md %{buildroot}%{_docdir}/%{name}/tutorial/05_split_security.md
 
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/etc/pgagroal.conf %{buildroot}%{_sysconfdir}/pgagroal/pgagroal.conf
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/etc/pgagroal_hba.conf %{buildroot}%{_sysconfdir}/pgagroal/pgagroal_hba.conf
@@ -106,6 +107,12 @@ cd %{buildroot}%{_libdir}/
 %{_docdir}/%{name}/images/perf-prepared.png
 %{_docdir}/%{name}/images/perf-readonly.png
 %{_docdir}/%{name}/images/perf-simple.png
+%{_docdir}/%{name}/images/perf-simple.png
+%{_docdir}/%{name}/tutorial/01_install.md
+%{_docdir}/%{name}/tutorial/02_prefill.md
+%{_docdir}/%{name}/tutorial/03_remote_management.md
+%{_docdir}/%{name}/tutorial/04_prometheus.md
+%{_docdir}/%{name}/tutorial/05_split_security.md
 %{_mandir}/man1/pgagroal.1*
 %{_mandir}/man1/pgagroal-admin.1*
 %{_mandir}/man1/pgagroal-cli.1*
