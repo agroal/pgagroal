@@ -229,6 +229,14 @@ main(int argc, char** argv)
       }
    }
 
+   // if the user has specified either a username or a password
+   // there must be all the other pieces for a remote connection
+   if ((username != NULL || password != NULL) && !remote_connection)
+   {
+      printf("pgagroal-cli: you need also -h and -p options to perform a remote connection\n");
+      exit(1);
+   }
+
    // and she cannot use "local" and "remote" connections at the same time
    if (configuration_path != NULL && remote_connection)
    {
