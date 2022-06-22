@@ -244,6 +244,15 @@ Next steps in improving pgagroal's configuration could be
 
 See [Configuration](./CONFIGURATION.md) for more information on these subjects.
 
+## Tutorials
+
+There are a few short tutorials available to help you better understand and configure `pgagroal`:
+- [Installing pgagroal](https://github.com/pgagroal/pgagroal/blob/main/doc/tutorial/01_install.md)
+- [Enabling prefill](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/02_prefill.md)
+- [Enabling remote management](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/03_remote_management.md)
+- [Enabling Prometheus metrics](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/04_prometheus.md)
+- [Enabling split security](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/05_split_security.md)
+
 ## Closing
 
 The [pgagroal](https://github.com/agroal/pgagroal) community hopes that you find

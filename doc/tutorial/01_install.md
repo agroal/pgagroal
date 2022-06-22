@@ -1,32 +1,57 @@
 # Install pgagroal
 
-This tutorial will show you how to do a simple installation of pgagroal.
-
-At the end of this tutorial you will have a running connection pool.
+This tutorial will show you how to do a simple installation of `pgagroal`,
+in order to get a running connection pool.
 
 ## Preface
 
-This tutorial assumes that you have an installation of PostgreSQL 10+ and pgagroal.
+This tutorial assumes that you already have an installation of PostgreSQL 10 (or higher).
 
 For RPM based distributions such as Fedora and RHEL you can add the
-[PostgreSQL YUM repository](https://yum.postgresql.org/) and do the install via
+[PostgreSQL YUM repository](https://yum.postgresql.org/){:target="_blank"}
+and do the install via the distribution package manager `dnf`:
 
 ```
-dnf install -y postgresql10 postgresql10-server pgagroal
+dnf install -y pgagroal
 ```
 
-## Initialize cluster
+If you don't have PostgreSQL already installed, you can install both PostgreSQL and `pgagroal`
+in a single pass:
 
 ```
-export PATH=/usr/pgsql-10/bin:$PATH
-initdb /tmp/pgsql
+dnf install -y postgresql14 postgresql14-server pgagroal
+```
+
+(assuming you want to install version 14 of PostgreSQL).
+
+## PostgreSQL setup
+
+In the case you don't have yet a PostgreSQL running instance, you need to initialize the cluster the connection pooler will connect to. The followings are simple and quick steps to get a cluster up and running as soon as possible.
+
+It is assumed that you run an RPM based distribution, like Fedora or RHEL. Some commands could be in different paths depending on the operating system distribution you are using.
+
+### Initialize cluster
+
+You need to define a `PGDATA` data directory where PostgreSQL will store the data in.
+In the following, it is assumed that the PostgreSQL directory is `/postgres/14/data`, then
+you can do the following commands in a shell as the operating system user `postgres`:
+
+```
+export PATH=/usr/pgsql-14/bin:$PATH
+mkdir -p /postgres/14/data
+export PGDATA=/postgres/14/data
+initdb $PGDATA
 ```
 
 (`postgres` user)
 
-## Remove default access
 
-Remove
+### Remove default accesses
+
+By default, PostgreSQL allows trusted accesses from the local machine to any database within the cluster.
+It is better to harden your cluster, thus providing accesses only to who and when it is needed.
+In order to do this, with your text editor of choice, edit the file `$PGDATA/pg_hba.conf` and remote the following lines:
+
 
 ```
 host    all             all             127.0.0.1/32            trust
@@ -35,88 +60,90 @@ host    replication     all             127.0.0.1/32            trust
 host    replication     all             ::1/128                 trust
 ```
 
-from `/tmp/pgsql/pg_hba.conf`
-
+from `/postgres/14/data/pg_hab.conf`
 (`postgres` user)
 
-## Add access for a user and a database
+### Add access for a user and a database
 
-Add
+Assume you will have a database named `mydb` and a user named `myuser` that will be granted access to such database. In order to do so, edit again the `$PGDATA/pg_hba.conf` file and add a couple of lines like the followings:
 
 ```
 host    mydb             myuser          127.0.0.1/32            md5
 host    mydb             myuser          ::1/128                 md5
 ```
 
-to `/tmp/pgsql/pg_hba.conf`
+The first line  grants access to the user `myuser` against the database `mydb` on IPv4 `localhost`; the second line  does the same but on IPv6 `localhost` connection.
 
-Remember to check the value of `password_encryption` in `/tmp/pgsql/postgresql.conf`
-to setup the correct authentication type.
+Please check the value of the setting `password_encryption` in the configuration file `$PGDATA/postgresql.conf` in order to ensure it matches `md5` as the last column in the previous two lines.
 
-(`postgres` user)
 
-## Start PostgreSQL
+### Start PostgreSQL
 
-```
-pg_ctl  -D /tmp/pgsql/ start
-```
-
-(`postgres` user)
-
-## Add user and a database
+It is now time to run the PostgreSQL instance, so as the `postgres` operating system user, run:
 
 ```
-createuser -P myuser
-createdb -E UTF8 -O myuser mydb
+pg_ctl  -D $PGDATA start
 ```
 
-with `mypass` as the password.
 
-(`postgres` user)
+### Create the database and the user
 
-## Verify access
-
-For the user (standard) (using `mypass`)
+It is now time to create the database and the user of the previous step. As operating system user `postgres`, execute:
 
 ```
-psql -h localhost -p 5432 -U myuser mydb
-\q
-```
-
-(`postgres` user)
-
-## Add pgagroal user
+psql -c "CREATE ROLE myuser WITH LOGIN PASSWORD 'mypassword';"
+psql -c "CREATE DATABASE mydb WITH OWNER myuser;"
 
 ```
-sudo su -
+
+It is strongly suggested to choose a strong password to protect the database access!
+
+
+### Verify access
+
+You can check the connectivity of the database user executing, from a shell, as any operating system user, the following command:
+
+```
+psql -h localhost -p 5432 -U myuser -c 'SELECT current_timestamp:'  mydb
+```
+
+Type the `mypassword` password when asked, and if you get back the current date and time, everything is working fine!
+
+
+## `pgagroal` setup
+
+In order to run `pgagroal`, you need at list to configure the main `pgagroal.conf` configuration file, that will tell the pooler how to work, and then `pgagroal_hba.conf` that will instrument the pooler about which users are allowed to connect thru the pooler.
+
+`pgagroal` as a daemon cannot be run by `root` operating system user, it is a good idea to create an unprivileged operating system user to run the pooler.
+
+### Add a user to run `pgagroal`
+
+As a privileged operating system user (either `root` or via `sudo` or `doas`), run the followings:
+
+```
 useradd -ms /bin/bash pgagroal
 passwd pgagroal
-exit
 ```
 
-(`postgres` user)
+The above will create an operating system `pgagroal` that is the one that is going to run the pooler.
 
-## Create pgagroal configuration
 
-Switch to the pgagroal user
+### Create basic configuration
 
-```
-sudo su -
-su - pgagroal
-```
-
-Add the master key and create vault
+As the `pgagroal` operating system user, add a master key to protect the `pgagroal` vault and then add the `myuser` to the pooler:
 
 ```
 pgagroal-admin master-key
-pgagroal-admin -f pgagroal_users.conf -U myuser -P mypass add-user
+pgagroal-admin -f /etc/pgagroal/pgagroal_users.conf -U myuser -P mypass add-user
 ```
 
-You have to choose a password for the master key - remember it !
+**You have to choose a password for the master key - remember it!**
 
-Create the `pgagroal.conf` configuration
+
+It is now time to create the main `/etc/pgagroal/pgagroal.conf` configration file, with your editor of choice of using `cat` from the command line, create the following content:
 
 ```
+cd /etc/pgagroal
 cat > pgagroal.conf
 [pgagroal]
 host = *
@@ -136,24 +163,45 @@ host = localhost
 port = 5432
 ```
 
-and press `Ctrl-D`
+and press `Ctrl-D` (if running `cat`) to save the file.
 
-Next create the `pgagroal_hba.conf` configuration
+Similarly, create the `/etc/pgagroal/pgagroal_hba.conf` file;
 
 ```
+cd /etc/pgagroal
 cat > pgagroal_hba.conf
 host   mydb   myuser   all   all
 ```
 
-and press `Ctrl-D`
+and press `Ctrl-D` (if using `cat`) to save the file. Shortly,
+the above line tells `pgagral` to allow the user `myuser` to *try*
+to connect to `mydb` using a TCP-IP connection.
+
+See [the documentation about `pgagroal_hba.conf` for more details](https://github.com/agroal/pgagroal/blob/master/doc/CONFIGURATION.md#pgagroal_hba-configuration).
 
 
-(`pgagroal` user)
+### Start pgagroal
 
-## Start pgagroal
+It is now time to start `pgagroal`, so as the `pgagroal` operating system user run:
 
 ```
-pgagroal -c pgagroal.conf -a pgagroal_hba.conf -u pgagroal_users.conf
+pgagroal -c /etc/pgagroal/pgagroal.conf -a /etc/pgagroal/pgagroal_hba.conf -u /etc/pgagroal/pgagroal_users.conf
 ```
 
-(`pgagroal` user)
+If the system is running, you will see some output on the log file `/tmp/pgagroal.log`.
+
+Since the default configuration files are usually searched into the `/etc/pgagroal/` directory, and have well defined names, you can omit the files from the command line if you named them `pgagroal.conf`, `pgagroal_hba.conf` and `pgagroal_users.conf`:
+
+
+```
+pgagroal
+```
+
+You will not need to specify any command line flag for files that have the standard name like:
+- `/etc/pgagroal/pgagroal.conf` (main configuration file)
+- `/etc/pgagroal/pgagroal_hba.conf` (host based access configuration file)
+- `/etc/pgagroal/pgagroal_databases.conf` (limits file)
+- `/etc/pgagroal/pgagroal_admins.conf` (remote management file)
+- `/etc/pgagroal/pgagroal_frontend_users.conf` (split security user remapping)
+
+**In the case you named the configuration files differently or in a different folder, you need to specify them on the command line!**
