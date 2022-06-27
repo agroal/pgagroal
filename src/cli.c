@@ -96,6 +96,7 @@ usage(void)
    printf("\n");
    printf("Options:\n");
    printf("  -c, --config CONFIG_FILE Set the path to the pgagroal.conf file\n");
+   printf("                           Default: %s\n", PGAGROAL_DEFAULT_CONF_FILE);
    printf("  -h, --host HOST          Set the host name\n");
    printf("  -p, --port PORT          Set the port number\n");
    printf("  -U, --user USERNAME      Set the user name\n");
@@ -285,7 +286,7 @@ main(int argc, char** argv)
    }
    else
    {
-      ret = pgagroal_read_configuration(shmem, "/etc/pgagroal/pgagroal.conf", false);
+      ret = pgagroal_read_configuration(shmem, PGAGROAL_DEFAULT_CONF_FILE, false);
       if (ret)
       {
          if (!remote_connection)
@@ -296,7 +297,7 @@ main(int argc, char** argv)
       }
       else
       {
-         configuration_path = "/etc/pgagroal/pgagroal.conf";
+         configuration_path = PGAGROAL_DEFAULT_CONF_FILE;
 
          if (logfile)
          {

@@ -268,12 +268,19 @@ usage(void)
    printf("\n");
    printf("Options:\n");
    printf("  -c, --config CONFIG_FILE           Set the path to the pgagroal.conf file\n");
+   printf("                                     Default: %s\n", PGAGROAL_DEFAULT_CONF_FILE);
    printf("  -a, --hba HBA_FILE                 Set the path to the pgagroal_hba.conf file\n");
+   printf("                                     Default: %s\n", PGAGROAL_DEFAULT_HBA_FILE);
    printf("  -l, --limit LIMIT_FILE             Set the path to the pgagroal_databases.conf file\n");
+   printf("                                     Default: %s\n", PGAGROAL_DEFAULT_LIMIT_FILE);
    printf("  -u, --users USERS_FILE             Set the path to the pgagroal_users.conf file\n");
+   printf("                                     Default: %s\n", PGAGROAL_DEFAULT_USERS_FILE);
    printf("  -F, --frontend FRONTEND_USERS_FILE Set the path to the pgagroal_frontend_users.conf file\n");
+   printf("                                     Default: %s\n", PGAGROAL_DEFAULT_FRONTEND_USERS_FILE);
    printf("  -A, --admins ADMINS_FILE           Set the path to the pgagroal_admins.conf file\n");
+   printf("                                     Default: %s\n", PGAGROAL_DEFAULT_ADMINS_FILE);
    printf("  -S, --superuser SUPERUSER_FILE     Set the path to the pgagroal_superuser.conf file\n");
+   printf("                                     Default: %s\n", PGAGROAL_DEFAULT_SUPERUSER_FILE);
    printf("  -d, --daemon                       Run as a daemon\n");
    printf("  -V, --version                      Display version information\n");
    printf("  -?, --help                         Display help\n");
@@ -313,6 +320,7 @@ main(int argc, char** argv)
    struct configuration* config = NULL;
    int ret;
    int c;
+   bool conf_file_mandatory;
 
    argv_ptr = argv;
 
@@ -403,59 +411,38 @@ main(int argc, char** argv)
 
    memset(&known_fds, 0, sizeof(known_fds));
 
-   if (configuration_path != NULL)
+   // the main configuration file is mandatory!
+   configuration_path = configuration_path != NULL ? configuration_path : PGAGROAL_DEFAULT_CONF_FILE;
+   if (pgagroal_read_configuration(shmem, configuration_path, true))
    {
-      if (pgagroal_read_configuration(shmem, configuration_path, true))
-      {
-         printf("pgagroal: Configuration not found: %s\n", configuration_path);
+      printf("pgagroal: Configuration not found: %s\n", configuration_path);
 #ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=Configuration not found: %s", configuration_path);
+      sd_notifyf(0, "STATUS=Configuration not found: %s", configuration_path);
 #endif
-         exit(1);
-      }
+      exit(1);
    }
-   else
-   {
-      if (pgagroal_read_configuration(shmem, "/etc/pgagroal/pgagroal.conf", true))
-      {
-         printf("pgagroal: Configuration not found: /etc/pgagroal/pgagroal.conf\n");
-#ifdef HAVE_LINUX
-         sd_notify(0, "STATUS=Configuration not found: /etc/pgagroal/pgagroal.conf");
-#endif
-         exit(1);
-      }
-      configuration_path = "/etc/pgagroal/pgagroal.conf";
-   }
+
    memcpy(&config->configuration_path[0], configuration_path, MIN(strlen(configuration_path), MAX_PATH - 1));
 
-   if (hba_path != NULL)
+   // the HBA file is mandatory!
+   hba_path = hba_path != NULL ? hba_path : PGAGROAL_DEFAULT_HBA_FILE;
+   if (pgagroal_read_hba_configuration(shmem, hba_path))
    {
-      if (pgagroal_read_hba_configuration(shmem, hba_path))
-      {
-         printf("pgagroal: HBA configuration not found: %s\n", hba_path);
+      printf("pgagroal: HBA configuration not found: %s\n", hba_path);
 #ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=HBA configuration not found: %s", hba_path);
+      sd_notifyf(0, "STATUS=HBA configuration not found: %s", hba_path);
 #endif
-         exit(1);
-      }
+      exit(1);
    }
-   else
-   {
-      if (pgagroal_read_hba_configuration(shmem, "/etc/pgagroal/pgagroal_hba.conf"))
-      {
-         printf("pgagroal: HBA configuration not found: /etc/pgagroal/pgagroal_hba.conf\n");
-#ifdef HAVE_LINUX
-         sd_notify(0, "STATUS=HBA configuration not found: /etc/pgagroal/pgagroal_hba.conf");
-#endif
-         exit(1);
-      }
-      hba_path = "/etc/pgagroal/pgagroal_hba.conf";
-   }
+
    memcpy(&config->hba_path[0], hba_path, MIN(strlen(hba_path), MAX_PATH - 1));
 
+   conf_file_mandatory = true;
+read_limit_path:
    if (limit_path != NULL)
    {
-      if (pgagroal_read_limit_configuration(shmem, limit_path))
+      ret = pgagroal_read_limit_configuration(shmem, limit_path);
+      if (ret && conf_file_mandatory)
       {
          printf("pgagroal: LIMIT configuration not found: %s\n", limit_path);
 #ifdef HAVE_LINUX
@@ -463,22 +450,26 @@ main(int argc, char** argv)
 #endif
          exit(1);
       }
-      memcpy(&config->limit_path[0], limit_path, MIN(strlen(limit_path), MAX_PATH - 1));
-   }
-   else
-   {
-      limit_path = "/etc/pgagroal/pgagroal_databases.conf";
-      ret = pgagroal_read_limit_configuration(shmem, limit_path);
-      if (ret == 0)
+      else if (ret == 0)
       {
          memcpy(&config->limit_path[0], limit_path, MIN(strlen(limit_path), MAX_PATH - 1));
       }
    }
+   else
+   {
+      // the user did not specify a file on the command line
+      // so try the default one and allow it to be missing
+      limit_path = PGAGROAL_DEFAULT_LIMIT_FILE;
+      conf_file_mandatory = false;
+      goto read_limit_path;
+   }
 
+   conf_file_mandatory = true;
+read_users_path:
    if (users_path != NULL)
    {
       ret = pgagroal_read_users_configuration(shmem, users_path);
-      if (ret == 1)
+      if (ret == 1 && conf_file_mandatory)
       {
          printf("pgagroal: USERS configuration not found: %s\n", users_path);
 #ifdef HAVE_LINUX
@@ -502,22 +493,26 @@ main(int argc, char** argv)
 #endif
          exit(1);
       }
-      memcpy(&config->users_path[0], users_path, MIN(strlen(users_path), MAX_PATH - 1));
-   }
-   else
-   {
-      users_path = "/etc/pgagroal/pgagroal_users.conf";
-      ret = pgagroal_read_users_configuration(shmem, users_path);
-      if (ret == 0)
+      else if (ret == 0)
       {
          memcpy(&config->users_path[0], users_path, MIN(strlen(users_path), MAX_PATH - 1));
       }
    }
+   else
+   {
+      // the user did not specify a file on the command line
+      // so try the default one and allow it to be missing
+      users_path = PGAGROAL_DEFAULT_USERS_FILE;
+      conf_file_mandatory = false;
+      goto read_users_path;
+   }
 
+   conf_file_mandatory = true;
+read_frontend_users_path:
    if (frontend_users_path != NULL)
    {
       ret = pgagroal_read_frontend_users_configuration(shmem, frontend_users_path);
-      if (ret == 1)
+      if (ret == 1 && conf_file_mandatory)
       {
          printf("pgagroal: FRONTEND USERS configuration not found: %s\n", frontend_users_path);
 #ifdef HAVE_LINUX
@@ -541,22 +536,26 @@ main(int argc, char** argv)
 #endif
          exit(1);
       }
-      memcpy(&config->frontend_users_path[0], frontend_users_path, MIN(strlen(frontend_users_path), MAX_PATH - 1));
-   }
-   else
-   {
-      frontend_users_path = "/etc/pgagroal/pgagroal_frontend_users.conf";
-      ret = pgagroal_read_frontend_users_configuration(shmem, frontend_users_path);
-      if (ret == 0)
+      else if (ret == 0)
       {
          memcpy(&config->frontend_users_path[0], frontend_users_path, MIN(strlen(frontend_users_path), MAX_PATH - 1));
       }
    }
+   else
+   {
+      // the user did not specify a file on the command line
+      // so try the default one and allow it to be missing
+      frontend_users_path = PGAGROAL_DEFAULT_FRONTEND_USERS_FILE;
+      conf_file_mandatory = false;
+      goto read_frontend_users_path;
+   }
 
+   conf_file_mandatory = true;
+read_admins_path:
    if (admins_path != NULL)
    {
       ret = pgagroal_read_admins_configuration(shmem, admins_path);
-      if (ret == 1)
+      if (ret == 1 && conf_file_mandatory)
       {
          printf("pgagroal: ADMINS configuration not found: %s\n", admins_path);
 #ifdef HAVE_LINUX
@@ -580,22 +579,26 @@ main(int argc, char** argv)
 #endif
          exit(1);
       }
-      memcpy(&config->admins_path[0], admins_path, MIN(strlen(admins_path), MAX_PATH - 1));
-   }
-   else
-   {
-      admins_path = "/etc/pgagroal/pgagroal_admins.conf";
-      ret = pgagroal_read_admins_configuration(shmem, admins_path);
-      if (ret == 0)
+      else if (ret == 0)
       {
          memcpy(&config->admins_path[0], admins_path, MIN(strlen(admins_path), MAX_PATH - 1));
       }
    }
+   else
+   {
+      // the user did not specify a file on the command line
+      // so try the default one and allow it to be missing
+      admins_path = PGAGROAL_DEFAULT_ADMINS_FILE;
+      conf_file_mandatory = false;
+      goto read_admins_path;
+   }
 
+   conf_file_mandatory = true;
+read_superuser_path:
    if (superuser_path != NULL)
    {
       ret = pgagroal_read_superuser_configuration(shmem, superuser_path);
-      if (ret == 1)
+      if (ret == 1 && conf_file_mandatory)
       {
          printf("pgagroal: SUPERUSER configuration not found: %s\n", superuser_path);
 #ifdef HAVE_LINUX
@@ -619,16 +622,18 @@ main(int argc, char** argv)
 #endif
          exit(1);
       }
-      memcpy(&config->superuser_path[0], superuser_path, MIN(strlen(superuser_path), MAX_PATH - 1));
-   }
-   else
-   {
-      superuser_path = "/etc/pgagroal/pgagroal_superuser.conf";
-      ret = pgagroal_read_superuser_configuration(shmem, superuser_path);
-      if (ret == 0)
+      else if (ret == 0)
       {
          memcpy(&config->superuser_path[0], superuser_path, MIN(strlen(superuser_path), MAX_PATH - 1));
       }
+   }
+   else
+   {
+      // the user did not specify a file on the command line
+      // so try the default one and allow it to be missing
+      superuser_path = PGAGROAL_DEFAULT_SUPERUSER_FILE;
+      conf_file_mandatory = false;
+      goto read_superuser_path;
    }
 
    /* systemd sockets */

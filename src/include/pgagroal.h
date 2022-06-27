@@ -48,6 +48,14 @@ extern "C" {
 
 #define MAIN_UDS ".s.pgagroal"
 
+#define PGAGROAL_DEFAULT_CONF_FILE "/etc/pgagroal/pgagroal.conf"
+#define PGAGROAL_DEFAULT_HBA_FILE "/etc/pgagroal/pgagroal_hba.conf"
+#define PGAGROAL_DEFAULT_LIMIT_FILE "/etc/pgagroal/pgagroal_databases.conf"
+#define PGAGROAL_DEFAULT_USERS_FILE "/etc/pgagroal/pgagroal_users.conf"
+#define PGAGROAL_DEFAULT_FRONTEND_USERS_FILE "/etc/pgagroal/pgagroal_frontend_users.conf"
+#define PGAGROAL_DEFAULT_ADMINS_FILE "/etc/pgagroal/pgagroal_admins.conf"
+#define PGAGROAL_DEFAULT_SUPERUSER_FILE "/etc/pgagroal/pgagroal_superuser.conf"
+
 #define MAX_BUFFER_SIZE      65535
 #define DEFAULT_BUFFER_SIZE  65535
 #define SECURITY_BUFFER_SIZE   512
