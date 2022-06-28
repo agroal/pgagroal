@@ -30,6 +30,7 @@
 #include <pgagroal.h>
 #include <logging.h>
 #include <utils.h>
+#include <server.h>
 
 /* system */
 #include <ev.h>
@@ -55,7 +56,7 @@
 extern char** environ;
 #ifdef HAVE_LINUX
 static bool env_changed = false;
-static int max_process_title_size = -1;
+static int max_process_title_size = 0;
 #endif
 
 int32_t
@@ -754,48 +755,60 @@ pgagroal_set_proc_title(int argc, char** argv, char* s1, char* s2)
       env_changed = true;
    }
 
-   if (max_process_title_size == -1)
+   // compute how long was the command line
+   // when the application was started
+   if (max_process_title_size == 0)
    {
-      int m = 0;
-
       for (int i = 0; i < argc; i++)
       {
-         m += strlen(argv[i]);
-         m += 1;
+         max_process_title_size += strlen(argv[i]) + 1;
       }
-
-      max_process_title_size = m;
-      memset(*argv, 0, max_process_title_size);
    }
 
+   // compose the new title
    memset(&title, 0, sizeof(title));
+   snprintf(title, sizeof(title) - 1, "pgagroal: %s%s%s",
+            s1 != NULL ? s1 : "",
+            s1 != NULL && s2 != NULL ? "/" : "",
+            s2 != NULL ? s2 : "");
 
-   if (s1 != NULL && s2 != NULL)
-   {
-      snprintf(title, sizeof(title) - 1, "pgagroal: %s/%s", s1, s2);
-   }
-   else
-   {
-      snprintf(title, sizeof(title) - 1, "pgagroal: %s", s1);
-   }
+   size = strlen(title) + 1;
 
-   size = MIN(max_process_title_size, sizeof(title));
-   size = MIN(size, strlen(title) + 1);
+   // nuke the command line info
+   memset(*argv, 0, max_process_title_size);
 
    memcpy(*argv, title, size);
    memset(*argv + size, 0, 1);
 
+   // keep track of how long is now the title
+   max_process_title_size = size;
+
 #else
-   if (s1 != NULL && s2 != NULL)
-   {
-      setproctitle("-pgagroal: %s/%s", s1, s2);
-   }
-   else
-   {
-      setproctitle("-pgagroal: %s", s1);
-   }
+   setproctitle("-pgagroal: %s%s%s",
+                s1 != NULL ? s1 : "",
+                s1 != NULL && s2 != NULL ? "/" : "",
+                s2 != NULL ? s2 : "");
 
 #endif
+}
+
+void
+pgagroal_set_connection_proc_title(int argc, char** argv, struct connection* connection)
+{
+   struct configuration* config;
+   int primary;
+   char info[MISC_LENGTH];
+
+   config = (struct configuration*)shmem;
+
+   pgagroal_get_primary(&primary);
+
+   snprintf(info, MISC_LENGTH, "%s@%s:%d",
+            connection->username,
+            config->servers[primary].host,
+            config->servers[primary].port);
+
+   pgagroal_set_proc_title(argc, argv, info, connection->database);
 }
 
 #ifdef DEBUG

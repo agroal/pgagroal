@@ -254,6 +254,20 @@ pgagroal_base64_decode(char* encoded, size_t encoded_length, char** raw, int* ra
 void
 pgagroal_set_proc_title(int argc, char** argv, char* s1, char* s2);
 
+/**
+ * Sets the process title for a given connection.
+ *
+ * Uses `pgagroal_set_proc_title` to build an information string
+ * with the form
+ *    user@host:port/database
+ *
+ * @param argc the number of arguments
+ * @param argv command line arguments
+ * @param connection the struct connection pointer for the established connection.
+ */
+void
+pgagroal_set_connection_proc_title(int argc, char** argv, struct connection* connection);
+
 #ifdef DEBUG
 
 /**

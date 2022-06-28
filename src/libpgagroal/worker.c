@@ -106,7 +106,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       pgagroal_prometheus_client_active_add();
 
       pgagroal_pool_status();
-      pgagroal_set_proc_title(1, argv, config->connections[slot].username, config->connections[slot].database);
+      pgagroal_set_connection_proc_title(1, argv, &config->connections[slot]);
 
       if (config->pipeline == PIPELINE_PERFORMANCE)
       {
