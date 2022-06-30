@@ -66,6 +66,7 @@ static int as_logging_rotation_age(char* str, unsigned int* age);
 static int as_validation(char* str);
 static int as_pipeline(char* str);
 static int as_hugepage(char* str);
+static unsigned int as_update_process_title(char* str, unsigned int* policy, unsigned int default_policy);
 static int extract_value(char* str, int offset, char** value);
 static void extract_hba(char* str, char** type, char** database, char** user, char** address, char** method);
 static void extract_limit(char* str, int server_max, char** database, char** user, int* max_size, int* initial_size, int* min_size);
@@ -140,6 +141,8 @@ pgagroal_init_configuration(void* shm)
    config->allow_unknown_users = true;
 
    atomic_init(&config->su_connection, STATE_FREE);
+
+   config->update_process_title = UPDATE_PROCESS_TITLE_VERBOSE;
 
    return 0;
 }
@@ -568,6 +571,13 @@ pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
                   if (as_bool(value, &config->track_prepared_statements))
                   {
                      unknown = true;
+                  }
+               }
+               else if (key_in_section("update_process_title", section, key, true, &unknown))
+               {
+                  if (as_update_process_title(value, &config->update_process_title, UPDATE_PROCESS_TITLE_VERBOSE))
+                  {
+                     unknown = false;
                   }
                }
                else
@@ -2416,6 +2426,9 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    config->metrics_cache_max_age = reload->metrics_cache_max_age;
    restart_int("metrics_cache_max_size", config->metrics_cache_max_size, reload->metrics_cache_max_size);
    config->management = reload->management;
+
+   config->update_process_title = reload->update_process_title;
+
    /* gracefully */
 
    /* disabled */
@@ -3132,4 +3145,54 @@ error:
       *bytes = default_bytes;
       return 1;
    }
+}
+
+/**
+ * Utility function to understand the setting for updating
+ * the process title.
+ *
+ * @param str the value obtained by the configuration parsing
+ * @param policy the pointer to the value where the setting will be stored
+ * @param default_policy a value to set when the configuration cannot be
+ * understood
+ *
+ * @return 0 on success, 1 on error. In any case the `policy` variable is set to
+ * `default_policy`.
+ */
+static unsigned int
+as_update_process_title(char* str, unsigned int* policy, unsigned int default_policy)
+{
+   if (is_empty_string(str))
+   {
+      *policy = default_policy;
+      return 1;
+   }
+
+   if (!strncmp(str, "never", MISC_LENGTH) || !strncmp(str, "off", MISC_LENGTH))
+   {
+      *policy = UPDATE_PROCESS_TITLE_NEVER;
+      return 0;
+   }
+   else if (!strncmp(str, "strict", MISC_LENGTH))
+   {
+      *policy = UPDATE_PROCESS_TITLE_STRICT;
+      return 0;
+   }
+   else if (!strncmp(str, "minimal", MISC_LENGTH))
+   {
+      *policy = UPDATE_PROCESS_TITLE_MINIMAL;
+      return 0;
+   }
+   else if (!strncmp(str, "verbose", MISC_LENGTH) || !strncmp(str, "full", MISC_LENGTH))
+   {
+      *policy = UPDATE_PROCESS_TITLE_VERBOSE;
+      return 0;
+   }
+   else
+   {
+      // not a valid setting
+      *policy = default_policy;
+      return 1;
+   }
+
 }

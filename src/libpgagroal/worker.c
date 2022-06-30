@@ -106,7 +106,19 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       pgagroal_prometheus_client_active_add();
 
       pgagroal_pool_status();
-      pgagroal_set_connection_proc_title(1, argv, &config->connections[slot]);
+
+      // do we have to update the process title?
+      switch (config->update_process_title)
+      {
+         case UPDATE_PROCESS_TITLE_MINIMAL:
+         case UPDATE_PROCESS_TITLE_STRICT:
+            // pgagroal_set_proc_title will check the policy
+            pgagroal_set_proc_title(1, argv, config->connections[slot].username, config->connections[slot].database);
+            break;
+         case UPDATE_PROCESS_TITLE_VERBOSE:
+            pgagroal_set_connection_proc_title(1, argv, &config->connections[slot]);
+            break;
+      }
 
       if (config->pipeline == PIPELINE_PERFORMANCE)
       {

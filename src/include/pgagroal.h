@@ -62,6 +62,7 @@ extern "C" {
 #define PGAGROAL_DEFAULT_ADMINS_FILE PGAGROAL_DEFAULT_CONFIGURATION_PATH "pgagroal_admins.conf"
 #define PGAGROAL_DEFAULT_SUPERUSER_FILE PGAGROAL_DEFAULT_CONFIGURATION_PATH "pgagroal_superuser.conf"
 
+#define MAX_PROCESS_TITLE_LENGTH 256
 
 #define MAX_BUFFER_SIZE      65535
 #define DEFAULT_BUFFER_SIZE  65535
@@ -133,6 +134,11 @@ extern "C" {
 #define HUGEPAGE_OFF 0
 #define HUGEPAGE_TRY 1
 #define HUGEPAGE_ON  2
+
+#define UPDATE_PROCESS_TITLE_NEVER 0
+#define UPDATE_PROCESS_TITLE_STRICT 1
+#define UPDATE_PROCESS_TITLE_MINIMAL 2
+#define UPDATE_PROCESS_TITLE_VERBOSE 3
 
 #define likely(x)    __builtin_expect (!!(x), 1)
 #define unlikely(x)  __builtin_expect (!!(x), 0)
@@ -398,6 +404,8 @@ struct configuration
    unsigned int log_rotation_age;     /**< minutes for log rotation */
    char log_line_prefix[MISC_LENGTH]; /**< The logging prefix */
    atomic_schar log_lock;             /**< The logging lock */
+
+   unsigned int update_process_title;  /**< Behaviour for updating the process title */
 
    bool authquery; /**< Is authentication query enabled */
 

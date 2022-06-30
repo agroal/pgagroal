@@ -720,10 +720,20 @@ void
 pgagroal_set_proc_title(int argc, char** argv, char* s1, char* s2)
 {
 #ifdef HAVE_LINUX
-   char title[256];
+   char title[MAX_PROCESS_TITLE_LENGTH];
    size_t size;
    char** env = environ;
    int es = 0;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   // sanity check: if the user does not want to
+   // update the process title, do nothing
+   if (config->update_process_title == UPDATE_PROCESS_TITLE_NEVER)
+   {
+      return;
+   }
 
    if (!env_changed)
    {
@@ -772,10 +782,20 @@ pgagroal_set_proc_title(int argc, char** argv, char* s1, char* s2)
             s1 != NULL && s2 != NULL ? "/" : "",
             s2 != NULL ? s2 : "");
 
-   size = strlen(title) + 1;
-
    // nuke the command line info
    memset(*argv, 0, max_process_title_size);
+
+   // copy the new title over argv checking
+   // the update_process_title policy
+   if (config->update_process_title == UPDATE_PROCESS_TITLE_STRICT)
+   {
+      size = max_process_title_size;
+   }
+   else
+   {
+      // here we can set the title to a full description
+      size = strlen(title) + 1;
+   }
 
    memcpy(*argv, title, size);
    memset(*argv + size, 0, 1);
@@ -797,13 +817,19 @@ pgagroal_set_connection_proc_title(int argc, char** argv, struct connection* con
 {
    struct configuration* config;
    int primary;
-   char info[MISC_LENGTH];
+   char info[MAX_PROCESS_TITLE_LENGTH];
 
    config = (struct configuration*)shmem;
 
-   pgagroal_get_primary(&primary);
+   if (pgagroal_get_primary(&primary))
+   {
+      // cannot find the primary, this is a problem!
+      pgagroal_set_proc_title(argc, argv, connection->username, connection->database);
+      return;
+   }
 
-   snprintf(info, MISC_LENGTH, "%s@%s:%d",
+   memset(&info, 0, sizeof(info));
+   snprintf(info, MAX_PROCESS_TITLE_LENGTH - 1, "%s@%s:%d",
             connection->username,
             config->servers[primary].host,
             config->servers[primary].port);

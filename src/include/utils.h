@@ -245,7 +245,22 @@ int
 pgagroal_base64_decode(char* encoded, size_t encoded_length, char** raw, int* raw_length);
 
 /**
- * Set process title
+ * Set process title.
+ *
+ * The function will autonomously check the update policy set
+ * via the configuration option `update_process_title` and
+ * will do nothing if the setting is `never`.
+ * In the case the policy is set to `strict`, the process title
+ * will not overflow the initial command line length (i.e., strlen(argv[*]))
+ * otherwise it will do its best to set the title to the desired string.
+ *
+ * The policies `strict` and `minimal` will be honored only on Linux platforms
+ * where a native call to set the process title is not available.
+ *
+ *
+ * The resulting process title will be set to either `s1` or `s1/s2` if there
+ * both strings and the length is allowed by the policy.
+ *
  * @param argc The number of arguments
  * @param argv The argv pointer
  * @param s1 The first string
@@ -260,6 +275,10 @@ pgagroal_set_proc_title(int argc, char** argv, char* s1, char* s2);
  * Uses `pgagroal_set_proc_title` to build an information string
  * with the form
  *    user@host:port/database
+ *
+ * This means that all the policies honored by the latter function and
+ * set via the `update_process_title` configuration paramter will be
+ * honored.
  *
  * @param argc the number of arguments
  * @param argv command line arguments
