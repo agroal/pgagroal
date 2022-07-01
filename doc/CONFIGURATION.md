@@ -102,7 +102,7 @@ The `pgagroal_hba` configuration controls access to `pgagroal` through host-base
 
 The configuration is loaded from either the path specified by the `-a` flag or `/etc/pgagroal/pgagroal_hba.conf`.
 
-The format follows [PostgreSQL](https://www.postgresql.org), and as such looks like
+The format of the file follows the similar [PostgreSQL HBA configuration format](https://www.postgresql.org/docs/current/auth-pg-hba-conf.html), and as such looks like
 
 ```
 #
