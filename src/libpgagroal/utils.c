@@ -837,6 +837,35 @@ pgagroal_set_connection_proc_title(int argc, char** argv, struct connection* con
    pgagroal_set_proc_title(argc, argv, info, connection->database);
 }
 
+unsigned int
+pgagroal_version_as_number(unsigned int major, unsigned int minor, unsigned int patch)
+{
+   return (patch % 100)
+          + (minor % 100) * 100
+          + (major % 100) * 10000;
+}
+
+unsigned int
+pgagroal_version_number(void)
+{
+   return pgagroal_version_as_number(PGAGROAL_MAJOR_VERSION,
+                                     PGAGROAL_MINOR_VERSION,
+                                     PGAGROAL_PATCH_VERSION);
+}
+
+bool
+pgagroal_version_ge(unsigned int major, unsigned int minor, unsigned int patch)
+{
+   if (pgagroal_version_number() >= pgagroal_version_as_number(major, minor, patch))
+   {
+      return true;
+   }
+   else
+   {
+      return false;
+   }
+}
+
 #ifdef DEBUG
 
 int

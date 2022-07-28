@@ -80,14 +80,14 @@ static int reload(SSL* ssl, int socket);
 static void
 version(void)
 {
-   printf("pgagroal-cli %s\n", VERSION);
+   printf("pgagroal-cli %s\n", PGAGROAL_VERSION);
    exit(1);
 }
 
 static void
 usage(void)
 {
-   printf("pgagroal-cli %s\n", VERSION);
+   printf("pgagroal-cli %s\n", PGAGROAL_VERSION);
    printf("  Command line utility for pgagroal\n");
    printf("\n");
 

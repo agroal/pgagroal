@@ -252,14 +252,14 @@ shutdown_management(void)
 static void
 version(void)
 {
-   printf("pgagroal %s\n", VERSION);
+   printf("pgagroal %s\n", PGAGROAL_VERSION);
    exit(1);
 }
 
 static void
 usage(void)
 {
-   printf("pgagroal %s\n", VERSION);
+   printf("pgagroal %s\n", PGAGROAL_VERSION);
    printf("  High-performance connection pool for PostgreSQL\n");
    printf("\n");
 
@@ -1039,7 +1039,10 @@ read_superuser_path:
       start_management();
    }
 
-   pgagroal_log_info("pgagroal: started on %s:%d", config->host, config->port);
+   pgagroal_log_info("pgagroal: %s started on %s:%d",
+                     PGAGROAL_VERSION,
+                     config->host,
+                     config->port);
    for (int i = 0; i < main_fds_length; i++)
    {
       pgagroal_log_debug("Socket: %d", *(main_fds + i));

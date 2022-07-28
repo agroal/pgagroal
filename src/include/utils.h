@@ -287,6 +287,43 @@ pgagroal_set_proc_title(int argc, char** argv, char* s1, char* s2);
 void
 pgagroal_set_connection_proc_title(int argc, char** argv, struct connection* connection);
 
+/**
+ * Provide the application version number as a unique value composed of the three
+ * specified parts. For example, when invoked with (1,5,0) it returns 10500.
+ * Every part of the number must be between 0 and 99, and the function
+ * applies a restriction on the values. For example passing 1 or 101 as one of the part
+ * will produce the same result.
+ *
+ * @param major the major version number
+ * @param minor the minor version number
+ * @param patch the patch level
+ * @returns a number made by (patch + minor * 100 + major * 10000 )
+ */
+unsigned int
+pgagroal_version_as_number(unsigned int major, unsigned int minor, unsigned int patch);
+
+/**
+ * Provides the current version number of the application.
+ * It relies on `pgagroal_version_as_number` and invokes it with the
+ * predefined constants.
+ *
+ * @returns the current version number
+ */
+unsigned int
+pgagroal_version_number(void);
+
+/**
+ * Checks if the currently running version number is
+ * greater or equal than the specied one.
+ *
+ * @param major the major version number
+ * @param minor the minor version number
+ * @param patch the patch level
+ * @returns true if the current version is greater or equal to the specified one
+ */
+bool
+pgagroal_version_ge(unsigned int major, unsigned int minor, unsigned int patch);
+
 #ifdef DEBUG
 
 /**

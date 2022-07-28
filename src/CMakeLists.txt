@@ -69,6 +69,14 @@ add_compile_options(-D_GNU_SOURCE)
 add_compile_options(-Wno-deprecated)
 add_compile_options(-Wno-deprecated-declarations)
 
+#
+# version number and string management
+#
+add_compile_options(-DPGAGROAL_MAJOR_VERSION=${VERSION_MAJOR})
+add_compile_options(-DPGAGROAL_MINOR_VERSION=${VERSION_MINOR})
+add_compile_options(-DPGAGROAL_PATCH_VERSION=${VERSION_PATCH})
+add_compile_options(-DPGAGROAL_VERSION="${VERSION_STRING}")
+
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
 
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")

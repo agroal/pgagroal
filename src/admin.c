@@ -70,14 +70,14 @@ static char* generate_password(int pwd_length);
 static void
 version(void)
 {
-   printf("pgagroal-admin %s\n", VERSION);
+   printf("pgagroal-admin %s\n", PGAGROAL_VERSION);
    exit(1);
 }
 
 static void
 usage(void)
 {
-   printf("pgagroal-admin %s\n", VERSION);
+   printf("pgagroal-admin %s\n", PGAGROAL_VERSION);
    printf("  Administration utility for pgagroal\n");
    printf("\n");
 
