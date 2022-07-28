@@ -69,6 +69,15 @@ add_compile_options(-D_GNU_SOURCE)
 add_compile_options(-Wno-deprecated)
 add_compile_options(-Wno-deprecated-declarations)
 
+#
+# version number and string representation
+# the numeric value is computed as
+#   patch + minor * 1000 + major * 10000
+#
+add_compile_options(-DPGAGROAL_VERSION="1.5.0")
+add_compile_options(-DPGAGROAL_VERSION_NUM=15000)
+
+
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
 
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
