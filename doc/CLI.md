@@ -253,3 +253,9 @@ Example
 ```
 pgagroal-cli reset-server primary
 ```
+
+
+## Shell completions
+
+There is a minimal shell completion support for `pgagroal-cli`.
+Please refer to the [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/main/doc/tutorial/01_install.md) tutorial for detailed information about how to enable and use shell completions.

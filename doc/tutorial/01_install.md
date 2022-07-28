@@ -205,3 +205,46 @@ You will not need to specify any command line flag for files that have the stand
 - `/etc/pgagroal/pgagroal_frontend_users.conf` (split security user remapping)
 
 **In the case you named the configuration files differently or in a different folder, you need to specify them on the command line!**
+
+
+
+## Shell completion
+
+There is a minimal shell completion support for `pgagroal-cli` and `pgagroal-admin`. If you are running such commands from a Bash or Zsh, you can take some advantage of command completion.
+
+
+### Installing command completions in Bash
+
+There is a completion script into `contrib/shell_comp/pgagroal_comp.bash` that can be used
+to help you complete the command line while you are typing.
+
+It is required to source the script into your current shell, for instance
+by doing:
+
+``` shell
+source contrib/shell_comp/pgagroal_comp.bash
+```
+
+At this point, the completions should be active, so you can type the name of one the commands between `pgagroal-cli` and `pgagroal-admin` and hit `<TAB>` to help the command line completion.
+
+### Installing the command completions on Zsh
+
+In order to enable completion into `zsh` you first need to have `compinit` loaded;
+ensure your `.zshrc` file contains the following lines:
+
+``` shell
+autoload -U compinit
+compinit
+```
+
+and add the sourcing of the `contrib/shell_comp/pgagroal_comp.zsh` file into your `~/.zshrc~
+also associating the `_pgagroal_cli` function to completion by means of `compdef`:
+
+``` shell
+source contrib/shell_comp/pgagroal_comp.zsh
+compdef _pgagroal_cli    pgagroal-cli
+compdef _pgagroal_admin  pgagroal-admin
+```
+
+If you want completions only for one command, e.g., `pgagroal-admin`, remove the `compdef` line that references the command you don't want to have automatic completion.
+At this point, digit the name of a `pgagroal-cli` or `pgagroal-admin` command and hit `<TAB>` to trigger the completion system.
