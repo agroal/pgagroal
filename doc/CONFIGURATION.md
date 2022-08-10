@@ -7,11 +7,16 @@ The configuration of `pgagroal` is split into sections using the `[` and `]` cha
 The main section, called `[pgagroal]`, is where you configure the overall properties
 of the connection pool.
 
-Other sections doesn't have any requirements to their naming so you can give them
+The other sections configure each one server. There can be no more than `64` server sections, therefore
+no more than `64` servers configured as backends.
+Server sections don't have any requirements to their naming so you can give them
 meaningful names like `[primary]` for the primary [PostgreSQL](https://www.postgresql.org)
 instance.
 
-All properties are in the format `key = value`.
+In any case, it is not possible to have duplicated sections, that means section names must be unique within
+the configuration file.
+
+All properties within a section are in the format `key = value`.
 
 The characters `#` and `;` can be used for comments. A line is totally ignored if the
 very first non-space character is a comment one, but it is possible to put a comment at the end of a line.
@@ -32,6 +37,9 @@ pipeline = 'performance' # no need to quote since it does not contain any spaces
 See a more complete [sample](./etc/pgagroal.conf) configuration for running `pgagroal` on `localhost`.
 
 ## [pgagroal]
+
+This section is mandatory and the pooler will refuse to start if the configuration file does not specify one and opnly one. Usually this section is place on top of the configuration file, but its position within the file does not really matter.
+The available keys and their accepted values are reported in the table below.
 
 | Property | Default | Unit | Required | Description |
 |----------|---------|------|----------|-------------|
@@ -88,6 +96,9 @@ __Danger zone__
 
 ## Server section
 
+Each section with a name different from `pgagroal` will be treated as an host section.
+There can be up to `64` host sections, each with an unique name and different combination of `host` and `port` settings, otherwise the pooler will complain about duplicated server configuration.
+
 | Property | Default | Unit | Required | Description |
 |----------|---------|------|----------|-------------|
 | host | | String | Yes | The address of the PostgreSQL instance |
@@ -122,6 +133,8 @@ host    all      all   all      all
 
 Remote management users needs to have their database set to `admin` in order for the entry to be considered.
 
+There could be up to `64` HBA entries in the configuration file.
+
 # pgagroal_databases configuration
 
 The `pgagroal_databases` configuration defines limits for a database or a user or both. The limits are the number
@@ -147,12 +160,17 @@ mydb       myuser  all
 | INITIAL_SIZE | No | Specifies the initial pool size for the entry. `all` for `MAX_SIZE` connections. Default is 0 |
 | MIN_SIZE | No | Specifies the minimum pool size for the entry. `all` for `MAX_SIZE` connections. Default is 0 |
 
+
+There can be up to `64` entries in the configuration file.
+
 # pgagroal_users configuration
 
 The `pgagroal_users` configuration defines the users known to the system. This file is created and managed through
 the `pgagroal-admin` tool.
 
 The configuration is loaded from either the path specified by the `-u` flag or `/etc/pgagroal/pgagroal_users.conf`.
+
+There can be up to `64` users known to `pgagroal`.
 
 # pgagroal_frontend_users configuration
 
