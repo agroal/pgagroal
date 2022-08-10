@@ -321,6 +321,7 @@ main(int argc, char** argv)
    int ret;
    int c;
    bool conf_file_mandatory;
+   char message[MISC_LENGTH]; // a generic message used for errors
 
    argv_ptr = argv;
 
@@ -410,14 +411,33 @@ main(int argc, char** argv)
    config = (struct configuration*)shmem;
 
    memset(&known_fds, 0, sizeof(known_fds));
+   memset(message, 0, MISC_LENGTH);
 
    // the main configuration file is mandatory!
    configuration_path = configuration_path != NULL ? configuration_path : PGAGROAL_DEFAULT_CONF_FILE;
-   if (pgagroal_read_configuration(shmem, configuration_path, true))
+   if ((ret = pgagroal_read_configuration(shmem, configuration_path, true)) != PGAGROAL_CONFIGURATION_STATUS_OK)
    {
-      printf("pgagroal: Configuration not found: %s\n", configuration_path);
+      // the configuration has some problem, build up a descriptive message
+      if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
+      {
+         snprintf(message, MISC_LENGTH, "Configuration file not found");
+      }
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
+      {
+         snprintf(message, MISC_LENGTH, "Too many sections");
+      }
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_KO)
+      {
+         snprintf(message, MISC_LENGTH, "Invalid configuration file");
+      }
+      else if (ret > 0)
+      {
+         snprintf(message, MISC_LENGTH, "%d problematic or duplicated sections", ret);
+      }
+
+      printf("pgagroal: %s (file <%s>)\n", message, configuration_path);
 #ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=Configuration not found: %s", configuration_path);
+      sd_notifyf(0, "STATUS=%s: %s", message, configuration_path);
 #endif
       exit(1);
    }
@@ -426,11 +446,23 @@ main(int argc, char** argv)
 
    // the HBA file is mandatory!
    hba_path = hba_path != NULL ? hba_path : PGAGROAL_DEFAULT_HBA_FILE;
-   if (pgagroal_read_hba_configuration(shmem, hba_path))
+   memset(message, 0, MISC_LENGTH);
+   ret = pgagroal_read_hba_configuration(shmem, hba_path);
+   if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
    {
-      printf("pgagroal: HBA configuration not found: %s\n", hba_path);
+      snprintf(message, MISC_LENGTH, "HBA configuration file not found");
+      printf("pgagroal: %s (file <%s>)\n", message, hba_path);
 #ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=HBA configuration not found: %s", hba_path);
+      sd_notifyf(0, "STATUS=%s: %s", message, hba_path);
+#endif
+      exit(1);
+   }
+   else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
+   {
+      snprintf(message, MISC_LENGTH, "HBA too many entries (max %d)", NUMBER_OF_HBAS);
+      printf("pgagroal: %s (file <%s>)\n", message, hba_path);
+#ifdef HAVE_LINUX
+      sd_notifyf(0, "STATUS=%s: %s", message, hba_path);
 #endif
       exit(1);
    }
@@ -441,19 +473,33 @@ main(int argc, char** argv)
 read_limit_path:
    if (limit_path != NULL)
    {
+      memset(message, 0, MISC_LENGTH);
       ret = pgagroal_read_limit_configuration(shmem, limit_path);
-      if (ret && conf_file_mandatory)
-      {
-         printf("pgagroal: LIMIT configuration not found: %s\n", limit_path);
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=LIMIT configuration not found: %s", limit_path);
-#endif
-         exit(1);
-      }
-      else if (ret == 0)
+      if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
       {
          memcpy(&config->limit_path[0], limit_path, MIN(strlen(limit_path), MAX_PATH - 1));
       }
+      else if (conf_file_mandatory && ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
+      {
+
+         snprintf(message, MISC_LENGTH, "LIMIT configuration file not found");
+         printf("pgagroal: %s (file <%s>)\n", message, limit_path);
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=%s: %s", message, limit_path);
+#endif
+         exit(1);
+      }
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
+      {
+
+         snprintf(message, MISC_LENGTH, "Too many limit entries");
+         printf("pgagroal: %s (file <%s>)\n", message, limit_path);
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=%s: %s", message, limit_path);
+#endif
+         exit(1);
+      }
+
    }
    else
    {
@@ -468,34 +514,44 @@ read_limit_path:
 read_users_path:
    if (users_path != NULL)
    {
+      memset(message, 0, MISC_LENGTH);
       ret = pgagroal_read_users_configuration(shmem, users_path);
-      if (ret == 1 && conf_file_mandatory)
-      {
-         printf("pgagroal: USERS configuration not found: %s\n", users_path);
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=USERS configuration not found: %s", users_path);
-#endif
-         exit(1);
-      }
-      else if (ret == 2)
-      {
-         printf("pgagroal: Invalid master key file\n");
-#ifdef HAVE_LINUX
-         sd_notify(0, "STATUS=Invalid master key file");
-#endif
-         exit(1);
-      }
-      else if (ret == 3)
-      {
-         printf("pgagroal: USERS: Too many users defined %d (max %d)\n", config->number_of_users, NUMBER_OF_USERS);
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=USERS: Too many users defined %d (max %d)", config->number_of_users, NUMBER_OF_USERS);
-#endif
-         exit(1);
-      }
-      else if (ret == 0)
+      if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
       {
          memcpy(&config->users_path[0], users_path, MIN(strlen(users_path), MAX_PATH - 1));
+      }
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND && conf_file_mandatory)
+      {
+
+         snprintf(message, MISC_LENGTH, "USERS configuration file not found");
+
+         printf("pgagroal: %s  (file <%s>)\n", message, users_path);
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=%s : %s", message, users_path);
+#endif
+         exit(1);
+      }
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_KO
+               || ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT)
+      {
+
+         snprintf(message, MISC_LENGTH, "Invalid master key file");
+         printf("pgagroal: %s (file <%s>)\n", message, users_path);
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=%s: %s", message, users_path);
+#endif
+         exit(1);
+      }
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
+      {
+
+         snprintf(message, MISC_LENGTH, "USERS: too many users defined (%d, max %d)", config->number_of_users, NUMBER_OF_USERS);
+
+         printf("pgagroal: %s (file <%s>)\n", message, users_path);
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=%s: %s", message, users_path);
+#endif
+         exit(1);
       }
    }
    else
@@ -512,15 +568,18 @@ read_frontend_users_path:
    if (frontend_users_path != NULL)
    {
       ret = pgagroal_read_frontend_users_configuration(shmem, frontend_users_path);
-      if (ret == 1 && conf_file_mandatory)
+      if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND && conf_file_mandatory)
       {
-         printf("pgagroal: FRONTEND USERS configuration not found: %s\n", frontend_users_path);
+         memset(message, 0, MISC_LENGTH);
+         snprintf(message, MISC_LENGTH, "FRONTEND USERS configuration file not found");
+         printf("pgagroal: %s (file <%s>)\n", message, frontend_users_path);
 #ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=FRONTEND USERS configuration not found: %s", frontend_users_path);
+         sd_notifyf(0, "STATUS=%s: %s", message, frontend_users_path);
 #endif
          exit(1);
       }
-      else if (ret == 2)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT
+               || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
          printf("pgagroal: Invalid master key file\n");
 #ifdef HAVE_LINUX
@@ -528,15 +587,18 @@ read_frontend_users_path:
 #endif
          exit(1);
       }
-      else if (ret == 3)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
-         printf("pgagroal: FRONTEND USERS: Too many users defined %d (max %d)\n", config->number_of_frontend_users, NUMBER_OF_USERS);
+         memset(message, 0, MISC_LENGTH);
+         snprintf(message, MISC_LENGTH, "FRONTEND USERS: Too many users defined %d (max %d)",
+                  config->number_of_frontend_users, NUMBER_OF_USERS);
+         printf("pgagroal: %s (file <%s>)\n", message, frontend_users_path);
 #ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=FRONTEND USERS: Too many users defined %d (max %d)", config->number_of_frontend_users, NUMBER_OF_USERS);
+         sd_notifyf(0, "STATUS=%s: %s", message, frontend_users_path);
 #endif
          exit(1);
       }
-      else if (ret == 0)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
       {
          memcpy(&config->frontend_users_path[0], frontend_users_path, MIN(strlen(frontend_users_path), MAX_PATH - 1));
       }
@@ -554,16 +616,20 @@ read_frontend_users_path:
 read_admins_path:
    if (admins_path != NULL)
    {
+      memset(message, 0, MISC_LENGTH);
       ret = pgagroal_read_admins_configuration(shmem, admins_path);
-      if (ret == 1 && conf_file_mandatory)
+      if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND && conf_file_mandatory)
       {
-         printf("pgagroal: ADMINS configuration not found: %s\n", admins_path);
+
+         snprintf(message, MISC_LENGTH, "ADMINS configuration file not found");
+         printf("pgagroal: %s (file <%s>)\n", message, admins_path);
 #ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=ADMINS configuration not found: %s", admins_path);
+         sd_notifyf(0, "STATUS=%s: %s", message, admins_path);
 #endif
          exit(1);
       }
-      else if (ret == 2)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT
+               || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
          printf("pgagroal: Invalid master key file\n");
 #ifdef HAVE_LINUX
@@ -571,15 +637,16 @@ read_admins_path:
 #endif
          exit(1);
       }
-      else if (ret == 3)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
-         printf("pgagroal: ADMINS: Too many admins defined %d (max %d)\n", config->number_of_admins, NUMBER_OF_ADMINS);
+         snprintf(message, MISC_LENGTH, "Too many admins defined %d (max %d)", config->number_of_admins, NUMBER_OF_ADMINS);
+         printf("pgagroal: %s (file <%s>)\n", message, admins_path);
 #ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=ADMINS: Too many admins defined %d (max %d)", config->number_of_admins, NUMBER_OF_ADMINS);
+         sd_notifyf(0, "STATUS=%s %s", message, admins_path);
 #endif
          exit(1);
       }
-      else if (ret == 0)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
       {
          memcpy(&config->admins_path[0], admins_path, MIN(strlen(admins_path), MAX_PATH - 1));
       }
@@ -598,15 +665,17 @@ read_superuser_path:
    if (superuser_path != NULL)
    {
       ret = pgagroal_read_superuser_configuration(shmem, superuser_path);
-      if (ret == 1 && conf_file_mandatory)
+      memset(message, 0, MISC_LENGTH);
+      if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND && conf_file_mandatory)
       {
-         printf("pgagroal: SUPERUSER configuration not found: %s\n", superuser_path);
+         snprintf(message, MISC_LENGTH, "SUPERUSER configuration file not found");
+         printf("pgagroal: %s (file <%s>)\n", message, superuser_path);
 #ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=SUPERUSER configuration not found: %s", superuser_path);
+         sd_notifyf(0, "STATUS=%s: %s", message, superuser_path);
 #endif
          exit(1);
       }
-      else if (ret == 2)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
          printf("pgagroal: Invalid master key file\n");
 #ifdef HAVE_LINUX
@@ -614,15 +683,16 @@ read_superuser_path:
 #endif
          exit(1);
       }
-      else if (ret == 3)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
-         printf("pgagroal: SUPERUSER: Too many superusers defined (max 1)\n");
+         snprintf(message, MISC_LENGTH, "SUPERUSER: Too many superusers defined (max 1)");
+         printf("pgagroal: %s (file <%s>)\n", message, superuser_path);
 #ifdef HAVE_LINUX
-         sd_notify(0, "STATUS=SUPERUSER: Too many superusers defined (max 1)");
+         sd_notifyf(0, "STATUS=%s: %s", message, superuser_path);
 #endif
          exit(1);
       }
-      else if (ret == 0)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
       {
          memcpy(&config->superuser_path[0], superuser_path, MIN(strlen(superuser_path), MAX_PATH - 1));
       }

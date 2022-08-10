@@ -42,6 +42,17 @@ extern "C" {
 #define PGAGROAL_MAIN_INI_SECTION "pgagroal"
 
 /**
+ * Status that pgagroal_read_configuration() could provide.
+ * Use only negative values for errors, since a positive return
+ * value will indicate the number of problems within sections.
+ */
+#define PGAGROAL_CONFIGURATION_STATUS_OK 0
+#define PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND -1
+#define PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG -2
+#define PGAGROAL_CONFIGURATION_STATUS_KO -3
+#define PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT -4
+
+/**
  * Initialize the configuration structure
  * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1
@@ -55,7 +66,12 @@ pgagroal_init_configuration(void* shmem);
  * @param filename The file name
  * @param emitWarnings true if unknown parameters have to
  *        reported on stderr
- * @return 0 upon success, otherwise 1
+ * @return 0 (i.e, PGAGROAL_CONFIGURATION_STATUS_OK) upon success, otherwise
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND if the file does not exists
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG  if the file contains too many sections
+ *         - a positive value to indicate how many errors (with regard to sections) have been found
+ *         - PGAGROAL_CONFIGURATION_STATUS_KO if the file has generic errors, most notably it lacks
+ *           a [pgagroal] section
  */
 int
 pgagroal_read_configuration(void* shmem, char* filename, bool emitWarnings);
@@ -74,7 +90,9 @@ pgagroal_validate_configuration(void* shmem, bool has_unix_socket, bool has_main
  * Read the HBA configuration from a file
  * @param shmem The shared memory segment
  * @param filename The file name
- * @return 0 upon success, otherwise 1
+ * @return 0 (i.e, PGAGROAL_CONFIGURATION_STATUS_OK) upon success, otherwise
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND if the file does not exists
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG  if the file contains too many entries
  */
 int
 pgagroal_read_hba_configuration(void* shmem, char* filename);
@@ -91,7 +109,9 @@ pgagroal_validate_hba_configuration(void* shmem);
  * Read the LIMIT configuration from a file
  * @param shmem The shared memory segment
  * @param filename The file name
- * @return 0 upon success, otherwise 1
+ * @return 0 (i.e, PGAGROAL_CONFIGURATION_STATUS_OK) upon success, otherwise
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND if the file does not exists
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG  if the file contains too many limits
  */
 int
 pgagroal_read_limit_configuration(void* shmem, char* filename);
@@ -108,7 +128,13 @@ pgagroal_validate_limit_configuration(void* shmem);
  * Read the USERS configuration from a file
  * @param shmem The shared memory segment
  * @param filename The file name
- * @return 0 upon success, otherwise 1
+ * @return 0 (i.e, PGAGROAL_CONFIGURATION_STATUS_OK) upon success, otherwise
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND if the file does not exists
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG  if the file contains too many users
+ *           (i.e., more users than the number defined in the limits)
+ *         - PGAGROAL_CONFIGURATION_STATUS_KO if the file has some problem (e.g., cannot be decrypted)
+ *         - PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT to indicate a problem reading the content of the file
+
  */
 int
 pgagroal_read_users_configuration(void* shmem, char* filename);
@@ -125,7 +151,12 @@ pgagroal_validate_users_configuration(void* shmem);
  * Read the FRONTEND USERS configuration from a file
  * @param shmem The shared memory segment
  * @param filename The file name
- * @return 0 upon success, otherwise 1
+ * @return 0 (i.e, PGAGROAL_CONFIGURATION_STATUS_OK) upon success, otherwise
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND if the file does not exists
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG  if the file contains too many users
+ *           (i.e., more users than the number defined in the limits)
+ *         - PGAGROAL_CONFIGURATION_STATUS_KO if the file has some problem (e.g., cannot be decrypted)
+ *         - PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT to indicate a problem reading the content of the file
  */
 int
 pgagroal_read_frontend_users_configuration(void* shmem, char* filename);
@@ -142,7 +173,12 @@ pgagroal_validate_frontend_users_configuration(void* shmem);
  * Read the ADMINS configuration from a file
  * @param shmem The shared memory segment
  * @param filename The file name
- * @return 0 upon success, otherwise 1
+ * @return 0 (i.e, PGAGROAL_CONFIGURATION_STATUS_OK) upon success, otherwise
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND if the file does not exists
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG  if the file contains too many users
+ *           (i.e., more users than the number defined in the limits)
+ *         - PGAGROAL_CONFIGURATION_STATUS_KO if the file has some problem (e.g., cannot be decrypted)
+ *         - PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT to indicate a problem reading the content of the file
  */
 int
 pgagroal_read_admins_configuration(void* shmem, char* filename);
@@ -159,7 +195,11 @@ pgagroal_validate_admins_configuration(void* shmem);
  * Read the superuser from a file
  * @param shmem The shared memory segment
  * @param filename The file name
- * @return 0 upon success, otherwise 1
+ * @return 0 (i.e, PGAGROAL_CONFIGURATION_STATUS_OK) upon success, otherwise
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND if the file does not exists
+ *         - PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG  if the file entry is to big
+ *         - PGAGROAL_CONFIGURATION_STATUS_KO if the file has some problem (e.g., cannot be decrypted)
+ *         - PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT to indicate a problem reading the content of the file
  */
 int
 pgagroal_read_superuser_configuration(void* shmem, char* filename);

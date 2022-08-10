@@ -262,9 +262,14 @@ main(int argc, char** argv)
    if (configuration_path != NULL)
    {
       ret = pgagroal_read_configuration(shmem, configuration_path, false);
-      if (ret)
+      if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
       {
-         printf("pgagroal-cli: Configuration not found: %s\n", configuration_path);
+         printf("pgagroal-cli: Configuration not found: <%s>\n", configuration_path);
+         exit(1);
+      }
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
+      {
+         printf("pgagroal-cli: Too many sections in the configuration file <%s>\n", configuration_path);
          exit(1);
       }
 
@@ -287,7 +292,7 @@ main(int argc, char** argv)
    else
    {
       ret = pgagroal_read_configuration(shmem, PGAGROAL_DEFAULT_CONF_FILE, false);
-      if (ret)
+      if (ret != PGAGROAL_CONFIGURATION_STATUS_OK)
       {
          if (!remote_connection)
          {

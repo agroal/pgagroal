@@ -148,6 +148,20 @@ pgagroal_init_configuration(void* shm)
 }
 
 /**
+ * This struct is going to store the metadata
+ * about which sections have been parsed during
+ * the configuration read.
+ * This can be used to seek for duplicated sections
+ * at different positions in the configuration file.
+ */
+struct config_section
+{
+   char name[LINE_LENGTH];  /**< The name of the section */
+   unsigned int lineno;     /**< The line number for this section */
+   bool main;               /**< Is this the main configuration section or a server one? */
+};
+
+/**
  *
  */
 int
@@ -162,23 +176,56 @@ pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
    struct configuration* config;
    int idx_server = 0;
    struct server srv;
+   bool has_main_section = false;
+
+   // the max number of sections allowed in the configuration
+   // file is done by the max number of servers plus the main `pgagroal`
+   // configuration section
+   struct config_section sections[NUMBER_OF_SERVERS + 1];
+   int idx_sections = 0;
+   int lineno = 0;
+   int return_value = 0;
 
    file = fopen(filename, "r");
 
    if (!file)
    {
-      return 1;
+      return PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND;
    }
 
    memset(&section, 0, LINE_LENGTH);
+   memset(&sections, 0, sizeof(struct config_section) * NUMBER_OF_SERVERS + 1);
    config = (struct configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
+      lineno++;
+
       if (!is_empty_string(line) && !is_comment_line(line))
       {
          if (section_line(line, section))
          {
+            // check we don't overflow the number of available sections
+            if (idx_sections >= NUMBER_OF_SERVERS + 1)
+            {
+               fprintf(stderr, "Max number of sections (%d) in configuration file <%s> reached!\n",
+                       NUMBER_OF_SERVERS + 1,
+                       filename);
+               return PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG;
+            }
+
+            // initialize the section structure
+            memset(sections[idx_sections].name, 0, LINE_LENGTH);
+            memcpy(sections[idx_sections].name, section, strlen(section));
+            sections[idx_sections].lineno = lineno;
+            sections[idx_sections].main = !strncmp(section, PGAGROAL_MAIN_INI_SECTION, LINE_LENGTH);
+            if (sections[idx_sections].main)
+            {
+               has_main_section = true;
+            }
+
+            idx_sections++;
+
             if (strcmp(section, PGAGROAL_MAIN_INI_SECTION))
             {
                if (idx_server > 0 && idx_server <= NUMBER_OF_SERVERS)
@@ -588,10 +635,25 @@ pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
                if (unknown && emitWarnings)
                {
                   // we cannot use logging here...
-                  fprintf(stderr, "\nUnknown key <%s> with value <%s> in section [%s]",
-                          key,
-                          value,
-                          strlen(section) > 0 ? section : "<unknown>");
+                  // if we have a section, the key is not known,
+                  // otherwise it is outside of a section at all
+                  if (strlen(section) > 0)
+                  {
+                     fprintf(stderr, "Unknown key <%s> with value <%s> in section [%s] (line %d of file <%s>)\n",
+                             key,
+                             value,
+                             section,
+                             lineno,
+                             filename);
+                  }
+                  else
+                  {
+                     fprintf(stderr, "Key <%s> with value <%s> out of any section (line %d of file <%s>)\n",
+                             key,
+                             value,
+                             lineno,
+                             filename);
+                  }
                }
 
                free(key);
@@ -612,7 +674,43 @@ pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
 
    fclose(file);
 
-   return 0;
+   // check there is at least one main section
+   if (!has_main_section)
+   {
+      fprintf(stderr, "No main configuration section [%s] found in file <%s>\n",
+              PGAGROAL_MAIN_INI_SECTION,
+              filename);
+      return PGAGROAL_CONFIGURATION_STATUS_KO;
+   }
+
+   // validate the sections:
+   // do a nested loop to scan over all the sections that have a duplicated
+   // name and warn the user about them.
+   for (int i = 0; i < NUMBER_OF_SERVERS + 1; i++)
+   {
+      for (int j = i + 1; j < NUMBER_OF_SERVERS + 1; j++)
+      {
+         // skip uninitialized sections
+         if (!strlen(sections[i].name) || !strlen(sections[j].name))
+         {
+            continue;
+         }
+
+         if (!strncmp(sections[i].name, sections[j].name, LINE_LENGTH))
+         {
+            // cannot log here ...
+            fprintf(stderr, "%s section [%s] duplicated at lines %d and %d of file <%s>\n",
+                    sections[i].main ? "Main" : "Server",
+                    sections[i].name,
+                    sections[i].lineno,
+                    sections[j].lineno,
+                    filename);
+            return_value++;    // this is an error condition!
+         }
+      }
+   }
+
+   return return_value;
 }
 
 /**
@@ -788,6 +886,21 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       }
    }
 
+   // check for duplicated servers
+   for (int i = 0; i < config->number_of_servers; i++)
+   {
+      for (int j = i + 1; j < config->number_of_servers; j++)
+      {
+         if (is_same_server(&config->servers[i], &config->servers[j]))
+         {
+            pgagroal_log_fatal("pgagroal: Servers [%s] and [%s] are duplicated!",
+                               config->servers[i].name,
+                               config->servers[j].name);
+            return 1;
+         }
+      }
+   }
+
    if (config->pipeline == PIPELINE_AUTO)
    {
       if (config->tls && (strlen(config->tls_cert_file) > 0 || strlen(config->tls_key_file) > 0))
@@ -914,7 +1027,7 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
 
    if (!file)
    {
-      return 1;
+      return PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND;
    }
 
    index = 0;
@@ -946,7 +1059,7 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
                {
                   printf("pgagroal: Too many HBA entries (%d)\n", NUMBER_OF_HBAS);
                   fclose(file);
-                  return 2;
+                  return PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG;
                }
             }
             else
@@ -979,7 +1092,7 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
 
    fclose(file);
 
-   return 0;
+   return PGAGROAL_CONFIGURATION_STATUS_OK;
 }
 
 /**
@@ -1052,7 +1165,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 
    if (!file)
    {
-      return 1;
+      return PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND;
    }
 
    index = 0;
@@ -1101,7 +1214,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                {
                   printf("pgagroal: Too many LIMIT entries (%d)\n", NUMBER_OF_LIMITS);
                   fclose(file);
-                  return 2;
+                  return PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG;
                }
             }
             else
@@ -1129,7 +1242,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 
    fclose(file);
 
-   return 0;
+   return PGAGROAL_CONFIGURATION_STATUS_OK;
 }
 
 /**
@@ -1217,17 +1330,20 @@ pgagroal_read_users_configuration(void* shm, char* filename)
    int decoded_length = 0;
    char* ptr = NULL;
    struct configuration* config;
+   int status;
 
    file = fopen(filename, "r");
 
    if (!file)
    {
+      status = PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND;
       goto error;
    }
 
    if (pgagroal_get_master_key(&master_key))
    {
-      goto masterkey;
+      status = PGAGROAL_CONFIGURATION_STATUS_KO;
+      goto error;
    }
 
    index = 0;
@@ -1245,11 +1361,13 @@ pgagroal_read_users_configuration(void* shm, char* filename)
 
          if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
          {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
          }
 
          if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
          {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
          }
 
@@ -1279,14 +1397,15 @@ pgagroal_read_users_configuration(void* shm, char* filename)
 
    if (config->number_of_users > NUMBER_OF_USERS)
    {
-      goto above;
+      status = PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG;
+      goto error;
    }
 
    free(master_key);
 
    fclose(file);
 
-   return 0;
+   return PGAGROAL_CONFIGURATION_STATUS_OK;
 
 error:
 
@@ -1299,33 +1418,7 @@ error:
       fclose(file);
    }
 
-   return 1;
-
-masterkey:
-
-   free(master_key);
-   free(password);
-   free(decoded);
-
-   if (file)
-   {
-      fclose(file);
-   }
-
-   return 2;
-
-above:
-
-   free(master_key);
-   free(password);
-   free(decoded);
-
-   if (file)
-   {
-      fclose(file);
-   }
-
-   return 3;
+   return status;
 }
 
 /**
@@ -1353,17 +1446,20 @@ pgagroal_read_frontend_users_configuration(void* shm, char* filename)
    int decoded_length = 0;
    char* ptr = NULL;
    struct configuration* config;
+   int status = PGAGROAL_CONFIGURATION_STATUS_OK;
 
    file = fopen(filename, "r");
 
    if (!file)
    {
+      status = PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND;
       goto error;
    }
 
    if (pgagroal_get_master_key(&master_key))
    {
-      goto masterkey;
+      status = PGAGROAL_CONFIGURATION_STATUS_KO;
+      goto error;
    }
 
    index = 0;
@@ -1381,11 +1477,13 @@ pgagroal_read_frontend_users_configuration(void* shm, char* filename)
 
          if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
          {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
          }
 
          if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
          {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
          }
 
@@ -1415,14 +1513,15 @@ pgagroal_read_frontend_users_configuration(void* shm, char* filename)
 
    if (config->number_of_frontend_users > NUMBER_OF_USERS)
    {
-      goto above;
+      status = PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG;
+      goto error;
    }
 
    free(master_key);
 
    fclose(file);
 
-   return 0;
+   return PGAGROAL_CONFIGURATION_STATUS_OK;
 
 error:
 
@@ -1435,33 +1534,7 @@ error:
       fclose(file);
    }
 
-   return 1;
-
-masterkey:
-
-   free(master_key);
-   free(password);
-   free(decoded);
-
-   if (file)
-   {
-      fclose(file);
-   }
-
-   return 2;
-
-above:
-
-   free(master_key);
-   free(password);
-   free(decoded);
-
-   if (file)
-   {
-      fclose(file);
-   }
-
-   return 3;
+   return status;
 }
 
 /**
@@ -1514,17 +1587,20 @@ pgagroal_read_admins_configuration(void* shm, char* filename)
    int decoded_length = 0;
    char* ptr = NULL;
    struct configuration* config;
+   int status = PGAGROAL_CONFIGURATION_STATUS_OK;
 
    file = fopen(filename, "r");
 
    if (!file)
    {
+      status = PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND;
       goto error;
    }
 
    if (pgagroal_get_master_key(&master_key))
    {
-      goto masterkey;
+      status = PGAGROAL_CONFIGURATION_STATUS_KO;
+      goto error;
    }
 
    index = 0;
@@ -1542,11 +1618,13 @@ pgagroal_read_admins_configuration(void* shm, char* filename)
 
          if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
          {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
          }
 
          if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
          {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
          }
 
@@ -1576,14 +1654,15 @@ pgagroal_read_admins_configuration(void* shm, char* filename)
 
    if (config->number_of_admins > NUMBER_OF_ADMINS)
    {
-      goto above;
+      status = PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG;
+      goto error;
    }
 
    free(master_key);
 
    fclose(file);
 
-   return 0;
+   return PGAGROAL_CONFIGURATION_STATUS_OK;
 
 error:
 
@@ -1596,33 +1675,7 @@ error:
       fclose(file);
    }
 
-   return 1;
-
-masterkey:
-
-   free(master_key);
-   free(password);
-   free(decoded);
-
-   if (file)
-   {
-      fclose(file);
-   }
-
-   return 2;
-
-above:
-
-   free(master_key);
-   free(password);
-   free(decoded);
-
-   if (file)
-   {
-      fclose(file);
-   }
-
-   return 3;
+   return status;
 }
 
 /**
@@ -1656,17 +1709,20 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
    int decoded_length = 0;
    char* ptr = NULL;
    struct configuration* config;
+   int status = PGAGROAL_CONFIGURATION_STATUS_OK;
 
    file = fopen(filename, "r");
 
    if (!file)
    {
+      status = PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND;
       goto error;
    }
 
    if (pgagroal_get_master_key(&master_key))
    {
-      goto masterkey;
+      status = PGAGROAL_CONFIGURATION_STATUS_KO;
+      goto error;
    }
 
    index = 0;
@@ -1678,7 +1734,8 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
       {
          if (index > 0)
          {
-            goto above;
+            status = PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG;
+            goto error;
          }
 
          ptr = strtok(line, ":");
@@ -1689,12 +1746,16 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
 
          if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
          {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
+
          }
 
          if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
          {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
+
          }
 
          if (strlen(username) < MAX_USERNAME_LENGTH &&
@@ -1723,7 +1784,7 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
 
    fclose(file);
 
-   return 0;
+   return PGAGROAL_CONFIGURATION_STATUS_OK;
 
 error:
 
@@ -1736,33 +1797,7 @@ error:
       fclose(file);
    }
 
-   return 1;
-
-masterkey:
-
-   free(master_key);
-   free(password);
-   free(decoded);
-
-   if (file)
-   {
-      fclose(file);
-   }
-
-   return 2;
-
-above:
-
-   free(master_key);
-   free(password);
-   free(decoded);
-
-   if (file)
-   {
-      fclose(file);
-   }
-
-   return 3;
+   return status;
 }
 
 /**
