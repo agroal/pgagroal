@@ -3093,11 +3093,14 @@ error:
  * Converts a "size string" into the number of bytes.
  *
  * Valid strings have one of the suffixes:
+ * - b for bytes (default)
  * - k for kilobytes
  * - m for megabytes
  * - g for gigabytes
  *
  * The default is expressed always as bytes.
+ * Uppercase letters work too.
+ * If no suffix is specified, the value is expressed as bytes.
  *
  * @param str the string to parse (e.g., "2M")
  * @param bytes the value to set as result of the parsing stage
@@ -3129,8 +3132,15 @@ as_bytes(char* str, unsigned int* bytes, unsigned int default_bytes)
       }
       else if (isalpha(str[i]) && multiplier_set)
       {
-         // another non-digit char not allowed
-         goto error;
+         // allow a 'B' suffix on a multiplier
+         // like for instance 'MB', but don't allow it
+         // for bytes themselves ('BB')
+         if (multiplier == 1
+             || (str[i] != 'b' && str[i] != 'B'))
+         {
+            // another non-digit char not allowed
+            goto error;
+         }
       }
       else if (isalpha(str[i]) && !multiplier_set)
       {
