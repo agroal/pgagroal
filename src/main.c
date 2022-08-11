@@ -921,7 +921,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, MAIN_UDS);
 #endif
-      exit(1);
+      goto error;
    }
 
    if (!has_unix_socket)
@@ -937,7 +937,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, &pgsql[0]);
 #endif
-         exit(1);
+         goto error;
       }
    }
 
@@ -950,7 +950,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->port);
 #endif
-         exit(1);
+         goto error;
       }
    }
 
@@ -960,7 +960,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=Too many descriptors %d", main_fds_length);
 #endif
-      exit(1);
+      goto error;
    }
 
    /* libev */
@@ -972,7 +972,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=No loop implementation (%x) (%x)", pgagroal_libev(config->libev), ev_supported_backends());
 #endif
-      exit(1);
+      goto error;
    }
 
    ev_signal_init((struct ev_signal*)&signal_watcher[0], shutdown_cb, SIGTERM);
@@ -1000,7 +1000,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
          sd_notify(0, "STATUS=Invalid TLS configuration");
 #endif
-         exit(1);
+         goto error;
       }
 
       main_pipeline = session_pipeline();
@@ -1013,7 +1013,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
          sd_notify(0, "STATUS=Invalid TLS configuration");
 #endif
-         exit(1);
+         goto error;
       }
 
       main_pipeline = transaction_pipeline();
@@ -1024,7 +1024,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=Unknown pipeline identifier (%d)", config->pipeline);
 #endif
-      exit(1);
+      goto error;
    }
 
    if (main_pipeline.initialize(shmem, &pipeline_shmem, &pipeline_shmem_size))
@@ -1033,7 +1033,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=Pipeline initialize error (%d)", config->pipeline);
 #endif
-      exit(1);
+      goto error;
    }
 
    start_mgt();
@@ -1070,7 +1070,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->metrics);
 #endif
-         exit(1);
+         goto error;
       }
 
       if (metrics_fds_length > MAX_FDS)
@@ -1079,7 +1079,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=Too many descriptors %d", metrics_fds_length);
 #endif
-         exit(1);
+         goto error;
       }
 
       start_metrics();
@@ -1094,7 +1094,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->management);
 #endif
-         exit(1);
+         goto error;
       }
 
       if (management_fds_length > MAX_FDS)
@@ -1103,7 +1103,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=Too many descriptors %d", management_fds_length);
 #endif
-         exit(1);
+         goto error;
       }
 
       start_management();
@@ -1212,6 +1212,10 @@ read_superuser_path:
    pgagroal_destroy_shared_memory(shmem, shmem_size);
 
    return 0;
+
+error:
+   remove_pidfile();
+   exit(1);
 }
 
 static void
@@ -1930,7 +1934,7 @@ reload_configuration(void)
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], &unix_pgsql_socket))
    {
       pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, &pgsql[0]);
-      exit(1);
+      goto error;
    }
 
    free(main_fds);
@@ -1940,13 +1944,13 @@ reload_configuration(void)
    if (pgagroal_bind(config->host, config->port, &main_fds, &main_fds_length))
    {
       pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->port);
-      exit(1);
+      goto error;
    }
 
    if (main_fds_length > MAX_FDS)
    {
       pgagroal_log_fatal("pgagroal: Too many descriptors %d", main_fds_length);
-      exit(1);
+      goto error;
    }
 
    start_io();
@@ -1962,13 +1966,13 @@ reload_configuration(void)
       if (pgagroal_bind(config->host, config->metrics, &metrics_fds, &metrics_fds_length))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->metrics);
-         exit(1);
+         goto error;
       }
 
       if (metrics_fds_length > MAX_FDS)
       {
          pgagroal_log_fatal("pgagroal: Too many descriptors %d", metrics_fds_length);
-         exit(1);
+         goto error;
       }
 
       start_metrics();
@@ -1984,13 +1988,13 @@ reload_configuration(void)
       if (pgagroal_bind(config->host, config->management, &management_fds, &management_fds_length))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->management);
-         exit(1);
+         goto error;
       }
 
       if (management_fds_length > MAX_FDS)
       {
          pgagroal_log_fatal("pgagroal: Too many descriptors %d", management_fds_length);
-         exit(1);
+         goto error;
       }
 
       start_management();
@@ -2009,6 +2013,12 @@ reload_configuration(void)
    {
       pgagroal_log_debug("Remote management: %d", *(management_fds + i));
    }
+
+   return;
+
+error:
+   remove_pidfile();
+   exit(1);
 }
 
 static int
@@ -2024,17 +2034,20 @@ create_pidfile(void)
 
    if (strlen(config->pidfile) > 0)
    {
-      // check pidfile is not there
-      if (access(config->pidfile, F_OK) == 0)
+      pid = getpid();
+
+      fd = open(config->pidfile, O_WRONLY | O_CREAT | O_EXCL, 0640);
+      if (errno == EEXIST)
       {
          pgagroal_log_fatal("PID file [%s] exists, is there another instance running ?", config->pidfile);
          goto error;
       }
-
-      pid = getpid();
-
-      fd = open(config->pidfile, O_WRONLY | O_CREAT | O_EXCL, 0644);
-      if (fd < 0)
+      else if (errno == EACCES)
+      {
+         pgagroal_log_fatal("PID file [%s] cannot be created due to lack of permissions", config->pidfile);
+         goto error;
+      }
+      else if (fd < 0)
       {
          printf("Could not create PID file '%s' due to %s\n", config->pidfile, strerror(errno));
          goto error;
@@ -2066,7 +2079,7 @@ remove_pidfile(void)
 
    config = (struct configuration*)shmem;
 
-   if (strlen(config->pidfile) > 0 && access(config->pidfile, F_OK) == 0)
+   if (strlen(config->pidfile) > 0)
    {
       unlink(config->pidfile);
    }
