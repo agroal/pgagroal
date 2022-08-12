@@ -2109,7 +2109,11 @@ as_logging_level(char* str)
          debug_value = (char*)malloc(size + 1);
          memset(debug_value, 0, size + 1);
          memcpy(debug_value, str + 5, size);
-         debug_level = atoi(debug_value);
+         if (as_int(debug_value, &debug_level))
+         {
+            // cannot parse, set it to 1
+            debug_level = 1;
+         }
          free(debug_value);
       }
 

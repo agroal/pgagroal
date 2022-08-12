@@ -43,7 +43,7 @@ See a more complete [sample](./etc/pgagroal.conf) configuration for running `pga
 | metrics_cache_max_size | 256k | String | No | The maximum amount of data to keep in cache when serving Prometheus responses. Changes require restart. This parameter determines the size of memory allocated for the cache even if `metrics_cache_max_age` or `metrics` are disabled. Its value, however, it taken into account only if `metrics_cache_max_age` is set to a non-zero value. |
 | management | 0 | Int | No | The remote management port (disable = 0) |
 | log_type | console | String | No | The logging type (console, file, syslog) |
-| log_level | info | String | No | The logging level (fatal, error, warn, info, debug, debug1 thru debug5). Debug level greater than 5 will be set to `debug5`. Not recognized values will make the log_level be `info` |
+| log_level | info | String | No | The logging level, any of the (case insensitive) strings `FATAL`, `ERROR`, `WARN`, `INFO` and `DEBUG` (that can be more specific as `DEBUG1` thru `DEBUG5`). Debug level greater than 5 will be set to `DEBUG5`. Not recognized values will make the log_level be `INFO` |
 | log_path | pgagroal.log | String | No | The log file location. Can be a strftime(3) compatible string. |
 | log_rotation_age | 0 | String | No | The age that will trigger a log file rotation. If expressed as a positive number, is managed as seconds. Supports suffixes: 'S' (seconds, the default), 'M' (minutes), 'H' (hours), 'D' (days), 'W' (weeks). A value of `0` disables. |
 | log_rotation_size | 0 | String | No | The size of the log file that will trigger a log rotation. Supports suffixes: 'B' (bytes), the default if omitted, 'K' (kilobytes), 'M' (megabytes), 'G' (gigabytes). A value of `0` disables. |
