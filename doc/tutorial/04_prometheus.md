@@ -1,6 +1,6 @@
 # Prometheus metrics for `pgagroal`
 
-This tutorial will show you how to do basic  [Prometheus](https://prometheus.io/){:target="_blank} setup  for `pgagroal`.
+This tutorial will show you how to do basic  [Prometheus](https://prometheus.io/){:target="_blank"} setup  for `pgagroal`.
 
 `pgagroal` is able to provide a set of metrics about what it is happening within the pooler,
 so that a Prometheus instance can collect them and help you monitor the pooler.
@@ -9,7 +9,7 @@ so that a Prometheus instance can collect them and help you monitor the pooler.
 
 This tutorial assumes that you have already an installation of PostgreSQL 10 (or higher) and `pgagroal`.
 
-In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/main/doc/tutorial/01_install.md).
+In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md).
 
 ## Change the pgagroal configuration
 
@@ -43,7 +43,7 @@ pgagroal-cli -c /etc/pgagroal/pgagroal.conf stop
 pgagroal -c /etc/pgagroal/pgagroal.conf -a /etc/pgagroal/pgagroal_hba.conf
 ```
 
-If you need to specify other configuration files, for example for remote management (see [the related tutorial](https://github.com/pgagroal/pgagroal/blob/main/doc/tutorial/03_remote_management.md)), add them on the `pgagroal~ command line.
+If you need to specify other configuration files, for example for remote management (see [the related tutorial](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/03_remote_management.md)), add them on the `pgagroal` command line.
 If the cofiguration files have standard names, you can omit them.
 
 ## Get Prometheus metrics

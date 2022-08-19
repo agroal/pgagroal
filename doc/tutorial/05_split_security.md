@@ -14,7 +14,7 @@ This *user mapping* is named *frontend users*.
 
 This tutorial assumes that you have already an installation of PostgreSQL 10 (or higher) and `pgagroal`.
 
-In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/main/doc/tutorial/01_install.md).
+In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md).
 
 
 ## Create frontend users
@@ -22,7 +22,7 @@ In particular, this tutorial refers to the configuration done in [Install pgagro
 Frontend users are stored into the `pgagroal_frontend_users.conf` file, that can be managed via the `pgagroal-admin` command line tool.
 See [the documentation on frontend users](https://github.com/agroal/pgagroal/blob/master/doc/CONFIGURATION.md#pgagroal_frontend_users-configuration) for more details.
 
-As an example, consider the user `myuser` created in the [Installing pgagroal tutorial](https://github.com/pgagroal/pgagroal/blob/main/doc/tutorial/01_install.md)): such user has the `mypassword` password defined on the PostgreSQL side. It is possible to *remap* the user password on the `pgagroal` side, so that an application can connect to the `pgagroal` using a different password, like `application_password`. In turn, `pgagroal` will connect to PostgreSQL using the `mypassword` password. Therefore, the application could not know the *real* password used to connect to PostgreSQL.
+As an example, consider the user `myuser` created in the [Installing pgagroal tutorial](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md)): such user has the `mypassword` password defined on the PostgreSQL side. It is possible to *remap* the user password on the `pgagroal` side, so that an application can connect to the `pgagroal` using a different password, like `application_password`. In turn, `pgagroal` will connect to PostgreSQL using the `mypassword` password. Therefore, the application could not know the *real* password used to connect to PostgreSQL.
 
 To achieve this, as `pgagroal` operating system run the following command:
 

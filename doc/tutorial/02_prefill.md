@@ -12,7 +12,7 @@ Prefill is done by making `pgagroal` to open the specified amount of connections
 
 This tutorial assumes that you have already an installation of PostgreSQL 10 (or higher) and `pgagroal`.
 
-In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/main/doc/tutorial/01_install.md).
+In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md).
 
 
 ## Create prefill configuration
