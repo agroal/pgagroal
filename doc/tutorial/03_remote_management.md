@@ -11,7 +11,7 @@ and make it to connect to the pooler machine via *remote management*.
 
 This tutorial assumes that you have already an installation of PostgreSQL 10 (or higher) and `pgagroal`.
 
-In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/main/doc/tutorial/01_install.md).
+In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md).
 
 
 ## Enable remote management
