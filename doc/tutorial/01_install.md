@@ -237,8 +237,9 @@ autoload -U compinit
 compinit
 ```
 
-and add the sourcing of the `contrib/shell_comp/pgagroal_comp.zsh` file into your `~/.zshrc~
-also associating the `_pgagroal_cli` function to completion by means of `compdef`:
+and add the sourcing of the `contrib/shell_comp/pgagroal_comp.zsh` file into your `~/.zshrc`
+also associating the `_pgagroal_cli` and `_pgagroal_admin` functions
+to completion by means of `compdef`:
 
 ``` shell
 source contrib/shell_comp/pgagroal_comp.zsh
