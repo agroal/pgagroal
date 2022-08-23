@@ -859,10 +859,10 @@ read_superuser_path:
    /* We are "reserving" 30 file descriptors for pgagroal main */
    if (config->max_connections > (flimit.rlim_cur - 30))
    {
-      printf("pgagroal: max_connections is larger than the file descriptor limit (%ld available)\n", flimit.rlim_cur - 30);
+      printf("pgagroal: max_connections is larger than the file descriptor limit (%lu available)\n", flimit.rlim_cur - 30);
 #ifdef HAVE_LINUX
       sd_notifyf(0,
-                 "STATUS=max_connections is larger than the file descriptor limit (%ld available)",
+                 "STATUS=max_connections is larger than the file descriptor limit (%lu available)",
                  flimit.rlim_cur - 30);
 #endif
       exit(1);
