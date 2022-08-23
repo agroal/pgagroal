@@ -42,6 +42,7 @@ if (NOT CMAKE_BUILD_TYPE)
 endif ()
 
 message(STATUS "Build type is ${CMAKE_BUILD_TYPE}")
+message(STATUS "System is ${CMAKE_SYSTEM_NAME}")
 
 set(SUPPORTED_COMPILERS "GNU" "Clang" "AppleClang")
 
