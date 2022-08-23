@@ -33,6 +33,8 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     ${SYSTEMD_LIBRARIES}
   )
 
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
+
 else()
 
   add_compile_options(-D_XOPEN_SOURCE=700)
@@ -76,8 +78,6 @@ add_compile_options(-DPGAGROAL_MAJOR_VERSION=${VERSION_MAJOR})
 add_compile_options(-DPGAGROAL_MINOR_VERSION=${VERSION_MINOR})
 add_compile_options(-DPGAGROAL_PATCH_VERSION=${VERSION_PATCH})
 add_compile_options(-DPGAGROAL_VERSION="${VERSION_STRING}")
-
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
 
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
   add_compile_options(-Wstrict-prototypes)
