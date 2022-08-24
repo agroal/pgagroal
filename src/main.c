@@ -59,6 +59,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <err.h>
 
 #include <openssl/crypto.h>
 #ifdef HAVE_LINUX
@@ -82,7 +83,7 @@ static bool accept_fatal(int error);
 static void add_client(pid_t pid);
 static void remove_client(pid_t pid);
 static void reload_configuration(void);
-static int  create_pidfile(void);
+static void create_pidfile_or_exit(void);
 static void remove_pidfile(void);
 static void shutdown_ports(void);
 
@@ -390,21 +391,19 @@ main(int argc, char** argv)
 
    if (getuid() == 0)
    {
-      printf("pgagroal: Using the root account is not allowed\n");
 #ifdef HAVE_LINUX
       sd_notify(0, "STATUS=Using the root account is not allowed");
 #endif
-      exit(1);
+      errx(1, "Using the root account is not allowed");
    }
 
    shmem_size = sizeof(struct configuration);
    if (pgagroal_create_shared_memory(shmem_size, HUGEPAGE_OFF, &shmem))
    {
-      printf("pgagroal: Error in creating shared memory\n");
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=Error in creating shared memory");
 #endif
-      exit(1);
+      errx(1, "Error in creating shared memory");
    }
 
    pgagroal_init_configuration(shmem);
@@ -432,14 +431,15 @@ main(int argc, char** argv)
       }
       else if (ret > 0)
       {
-         snprintf(message, MISC_LENGTH, "%d problematic or duplicated sections", ret);
+         snprintf(message, MISC_LENGTH, "%d problematic or duplicated section%c",
+                  ret,
+                  ret > 1 ? 's' : ' ');
       }
 
-      printf("pgagroal: %s (file <%s>)\n", message, configuration_path);
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=%s: %s", message, configuration_path);
 #endif
-      exit(1);
+      errx(1, "%s (file <%s>)", message, configuration_path);
    }
 
    memcpy(&config->configuration_path[0], configuration_path, MIN(strlen(configuration_path), MAX_PATH - 1));
@@ -451,20 +451,19 @@ main(int argc, char** argv)
    if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
    {
       snprintf(message, MISC_LENGTH, "HBA configuration file not found");
-      printf("pgagroal: %s (file <%s>)\n", message, hba_path);
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=%s: %s", message, hba_path);
 #endif
-      exit(1);
+      errx(1, "%s (file <%s>)", message, hba_path);
    }
    else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
    {
       snprintf(message, MISC_LENGTH, "HBA too many entries (max %d)", NUMBER_OF_HBAS);
-      printf("pgagroal: %s (file <%s>)\n", message, hba_path);
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=%s: %s", message, hba_path);
 #endif
-      exit(1);
+
+      errx(1, "%s (file <%s>)", message, hba_path);
    }
 
    memcpy(&config->hba_path[0], hba_path, MIN(strlen(hba_path), MAX_PATH - 1));
@@ -493,11 +492,10 @@ read_limit_path:
       {
 
          snprintf(message, MISC_LENGTH, "Too many limit entries");
-         printf("pgagroal: %s (file <%s>)\n", message, limit_path);
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=%s: %s", message, limit_path);
 #endif
-         exit(1);
+         errx(1, "%s (file <%s>)", message, limit_path);
       }
 
    }
@@ -524,34 +522,30 @@ read_users_path:
       {
 
          snprintf(message, MISC_LENGTH, "USERS configuration file not found");
-
-         printf("pgagroal: %s  (file <%s>)\n", message, users_path);
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=%s : %s", message, users_path);
 #endif
-         exit(1);
+         errx(1, "%s  (file <%s>)", message, users_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_KO
                || ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT)
       {
 
          snprintf(message, MISC_LENGTH, "Invalid master key file");
-         printf("pgagroal: %s (file <%s>)\n", message, users_path);
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=%s: %s", message, users_path);
 #endif
-         exit(1);
+         errx(1, "%s (file <%s>)", message, users_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
 
          snprintf(message, MISC_LENGTH, "USERS: too many users defined (%d, max %d)", config->number_of_users, NUMBER_OF_USERS);
 
-         printf("pgagroal: %s (file <%s>)\n", message, users_path);
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=%s: %s", message, users_path);
 #endif
-         exit(1);
+         errx(1, "%s (file <%s>)", message, users_path);
       }
    }
    else
@@ -572,31 +566,28 @@ read_frontend_users_path:
       {
          memset(message, 0, MISC_LENGTH);
          snprintf(message, MISC_LENGTH, "FRONTEND USERS configuration file not found");
-         printf("pgagroal: %s (file <%s>)\n", message, frontend_users_path);
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=%s: %s", message, frontend_users_path);
 #endif
-         exit(1);
+         errx(1, "%s (file <%s>)", message, frontend_users_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT
                || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
-         printf("pgagroal: Invalid master key file\n");
 #ifdef HAVE_LINUX
          sd_notify(0, "STATUS=Invalid master key file");
 #endif
-         exit(1);
+         errx(1, "Invalid master key file");
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
          memset(message, 0, MISC_LENGTH);
          snprintf(message, MISC_LENGTH, "FRONTEND USERS: Too many users defined %d (max %d)",
                   config->number_of_frontend_users, NUMBER_OF_USERS);
-         printf("pgagroal: %s (file <%s>)\n", message, frontend_users_path);
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=%s: %s", message, frontend_users_path);
 #endif
-         exit(1);
+         errx(1, "%s (file <%s>)", message, frontend_users_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
       {
@@ -622,29 +613,26 @@ read_admins_path:
       {
 
          snprintf(message, MISC_LENGTH, "ADMINS configuration file not found");
-         printf("pgagroal: %s (file <%s>)\n", message, admins_path);
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=%s: %s", message, admins_path);
 #endif
-         exit(1);
+         errx(1, "%s (file <%s>)", message, admins_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT
                || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
-         printf("pgagroal: Invalid master key file\n");
 #ifdef HAVE_LINUX
          sd_notify(0, "STATUS=Invalid master key file");
 #endif
-         exit(1);
+         errx(1, "Invalid master key file");
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
          snprintf(message, MISC_LENGTH, "Too many admins defined %d (max %d)", config->number_of_admins, NUMBER_OF_ADMINS);
-         printf("pgagroal: %s (file <%s>)\n", message, admins_path);
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=%s %s", message, admins_path);
 #endif
-         exit(1);
+         errx(1, "%s (file <%s>)", message, admins_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
       {
@@ -669,28 +657,25 @@ read_superuser_path:
       if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND && conf_file_mandatory)
       {
          snprintf(message, MISC_LENGTH, "SUPERUSER configuration file not found");
-         printf("pgagroal: %s (file <%s>)\n", message, superuser_path);
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=%s: %s", message, superuser_path);
 #endif
-         exit(1);
+         errx(1, "%s (file <%s>)", message, superuser_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
-         printf("pgagroal: Invalid master key file\n");
 #ifdef HAVE_LINUX
          sd_notify(0, "STATUS=Invalid master key file");
 #endif
-         exit(1);
+         errx(1, "Invalid master key file");
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
          snprintf(message, MISC_LENGTH, "SUPERUSER: Too many superusers defined (max 1)");
-         printf("pgagroal: %s (file <%s>)\n", message, superuser_path);
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=%s: %s", message, superuser_path);
 #endif
-         exit(1);
+         errx(1, "%s (file <%s>)", message, superuser_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
       {
@@ -762,7 +747,7 @@ read_superuser_path:
 #ifdef HAVE_LINUX
       sd_notify(0, "STATUS=Failed to start logging");
 #endif
-      exit(1);
+      errx(1, "Failed to start logging");
    }
 
    if (pgagroal_validate_configuration(shmem, has_unix_socket, has_main_sockets))
@@ -770,60 +755,57 @@ read_superuser_path:
 #ifdef HAVE_LINUX
       sd_notify(0, "STATUS=Invalid configuration");
 #endif
-      exit(1);
+      errx(1, "Invalid configuration");
    }
    if (pgagroal_validate_hba_configuration(shmem))
    {
 #ifdef HAVE_LINUX
       sd_notify(0, "STATUS=Invalid HBA configuration");
 #endif
-      exit(1);
+      errx(1, "Invalid HBA configuration");
    }
    if (pgagroal_validate_limit_configuration(shmem))
    {
 #ifdef HAVE_LINUX
       sd_notify(0, "STATUS=Invalid LIMIT configuration");
 #endif
-      exit(1);
+      errx(1, "Invalid LIMIT configuration");
    }
    if (pgagroal_validate_users_configuration(shmem))
    {
 #ifdef HAVE_LINUX
       sd_notify(0, "STATUS=Invalid USERS configuration");
 #endif
-      exit(1);
+      errx(1, "Invalid USERS configuration");
    }
    if (pgagroal_validate_frontend_users_configuration(shmem))
    {
-      printf("pgagroal: Invalid FRONTEND USERS configuration\n");
 #ifdef HAVE_LINUX
       sd_notify(0, "STATUS=Invalid FRONTEND USERS configuration");
 #endif
-      exit(1);
+      errx(1, "Invalid FRONTEND USERS configuration");
    }
    if (pgagroal_validate_admins_configuration(shmem))
    {
 #ifdef HAVE_LINUX
       sd_notify(0, "STATUS=Invalid ADMINS configuration");
 #endif
-      exit(1);
+      errx(1, "Invalid ADMINS configuration");
    }
 
    if (pgagroal_resize_shared_memory(shmem_size, shmem, &tmp_size, &tmp_shmem))
    {
-      printf("pgagroal: Error in creating shared memory\n");
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=Error in creating shared memory");
 #endif
-      exit(1);
+      errx(1, "Error in creating shared memory");
    }
    if (pgagroal_destroy_shared_memory(shmem, shmem_size) == -1)
    {
-      printf("pgagroal: Error in destroying shared memory\n");
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=Error in destroying shared memory");
 #endif
-      exit(1);
+      errx(1, "Error in destroying shared memory");
    }
    shmem_size = tmp_size;
    shmem = tmp_shmem;
@@ -831,63 +813,57 @@ read_superuser_path:
 
    if (pgagroal_init_prometheus(&prometheus_shmem_size, &prometheus_shmem))
    {
-      printf("pgagroal: Error in creating and initializing prometheus shared memory\n");
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=Error in creating and initializing prometheus shared memory");
 #endif
-      exit(1);
+      errx(1, "Error in creating and initializing prometheus shared memory");
    }
 
    if (pgagroal_init_prometheus_cache(&prometheus_cache_shmem_size, &prometheus_cache_shmem))
    {
-      printf("pgagroal: Error in creating and initializing prometheus cache shared memory\n");
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=Error in creating and initializing prometheus cache shared memory");
 #endif
-      exit(1);
+      errx(1, "Error in creating and initializing prometheus cache shared memory");
    }
 
    if (getrlimit(RLIMIT_NOFILE, &flimit) == -1)
    {
-      printf("pgagroal: Unable to find limit due to %s\n", strerror(errno));
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=Unable to find limit due to %s", strerror(errno));
 #endif
-      exit(1);
+      err(1, "Unable to find limit");
    }
 
    /* We are "reserving" 30 file descriptors for pgagroal main */
    if (config->max_connections > (flimit.rlim_cur - 30))
    {
-      printf("pgagroal: max_connections is larger than the file descriptor limit (%lu available)\n", flimit.rlim_cur - 30);
 #ifdef HAVE_LINUX
       sd_notifyf(0,
-                 "STATUS=max_connections is larger than the file descriptor limit (%lu available)",
+                 "STATUS=max_connections is larger than the file descriptor limit (%ld available)",
                  flimit.rlim_cur - 30);
 #endif
-      exit(1);
+      errx(1, "max_connections is larger than the file descriptor limit (%ld available)", flimit.rlim_cur - 30);
    }
 
    if (daemon)
    {
       if (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
       {
-         printf("pgagroal: Daemon mode can't be used with console logging\n");
 #ifdef HAVE_LINUX
          sd_notify(0, "STATUS=Daemon mode can't be used with console logging");
 #endif
-         exit(1);
+         errx(1, "Daemon mode can't be used with console logging");
       }
 
       pid = fork();
 
       if (pid < 0)
       {
-         printf("pgagroal: Daemon mode failed\n");
 #ifdef HAVE_LINUX
          sd_notify(0, "STATUS=Daemon mode failed");
 #endif
-         exit(1);
+         errx(1, "Daemon mode failed");
       }
 
       if (pid > 0)
@@ -905,10 +881,7 @@ read_superuser_path:
       }
    }
 
-   if (create_pidfile())
-   {
-      exit(1);
-   }
+   create_pidfile_or_exit();
 
    pgagroal_pool_init();
 
@@ -2021,8 +1994,14 @@ error:
    exit(1);
 }
 
-static int
-create_pidfile(void)
+/**
+ * Creates the pid file for the running pooler.
+ * If a pid file already exists, or if the file cannot be written,
+ * the function kills (exits) the current process.
+ *
+ */
+static void
+create_pidfile_or_exit(void)
 {
    char buffer[64];
    pid_t pid;
@@ -2039,18 +2018,15 @@ create_pidfile(void)
       fd = open(config->pidfile, O_WRONLY | O_CREAT | O_EXCL, 0640);
       if (errno == EEXIST)
       {
-         pgagroal_log_fatal("PID file [%s] exists, is there another instance running ?", config->pidfile);
-         goto error;
+         errx(1, "PID file <%s> exists, is there another instance running ?", config->pidfile);
       }
       else if (errno == EACCES)
       {
-         pgagroal_log_fatal("PID file [%s] cannot be created due to lack of permissions", config->pidfile);
-         goto error;
+         errx(1, "PID file <%s> cannot be created due to lack of permissions", config->pidfile);
       }
       else if (fd < 0)
       {
-         printf("Could not create PID file '%s' due to %s\n", config->pidfile, strerror(errno));
-         goto error;
+         err(1, "Could not create PID file <%s>", config->pidfile);
       }
 
       snprintf(&buffer[0], sizeof(buffer), "%u\n", (unsigned)pid);
@@ -2058,18 +2034,11 @@ create_pidfile(void)
       r = write(fd, &buffer[0], strlen(buffer));
       if (r < 0)
       {
-         printf("Could not write pidfile '%s' due to %s\n", config->pidfile, strerror(errno));
-         goto error;
+         errx(1, "Could not write into PID file <%s>", config->pidfile);
       }
 
       close(fd);
    }
-
-   return 0;
-
-error:
-
-   return 1;
 }
 
 static void
@@ -2081,7 +2050,10 @@ remove_pidfile(void)
 
    if (strlen(config->pidfile) > 0)
    {
-      unlink(config->pidfile);
+      if (unlink(config->pidfile))
+      {
+         warn("Cannot remove PID file <%s>", config->pidfile);
+      }
    }
 }
 

@@ -43,6 +43,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <err.h>
 
 #define DEFAULT_PASSWORD_LENGTH 64
 #define MIN_PASSWORD_LENGTH 8
@@ -169,8 +170,7 @@ main(int argc, char** argv)
 
    if (getuid() == 0)
    {
-      printf("pgagroal: Using the root account is not allowed\n");
-      exit(1);
+      errx(1, "Using the root account is not allowed");
    }
 
    if (argc > 0)
@@ -200,8 +200,7 @@ main(int argc, char** argv)
       {
          if (master_key(password, generate_pwd, pwd_length))
          {
-            printf("Error for master key\n");
-            exit_code = 1;
+            errx(1, "Error for master key");
          }
       }
       else if (action == ACTION_ADD_USER)
@@ -210,14 +209,12 @@ main(int argc, char** argv)
          {
             if (add_user(file_path, username, password, generate_pwd, pwd_length))
             {
-               printf("Error for add-user\n");
-               exit_code = 1;
+               errx(1, "Error for add-user");
             }
          }
          else
          {
-            printf("Missing file argument\n");
-            exit_code = 1;
+            errx(1, "Missing file argument");
          }
       }
       else if (action == ACTION_UPDATE_USER)
@@ -226,14 +223,12 @@ main(int argc, char** argv)
          {
             if (update_user(file_path, username, password, generate_pwd, pwd_length))
             {
-               printf("Error for update-user\n");
-               exit_code = 1;
+               errx(1, "Error for update-user");
             }
          }
          else
          {
-            printf("Missing file argument\n");
-            exit_code = 1;
+            errx(1, "Missing file argument");
          }
       }
       else if (action == ACTION_REMOVE_USER)
@@ -242,14 +237,12 @@ main(int argc, char** argv)
          {
             if (remove_user(file_path, username))
             {
-               printf("Error for remove-user\n");
-               exit_code = 1;
+               errx(1, "Error for remove-user");
             }
          }
          else
          {
-            printf("Missing file argument\n");
-            exit_code = 1;
+            errx(1, "Missing file argument");
          }
       }
       else if (action == ACTION_LIST_USERS)
@@ -258,14 +251,12 @@ main(int argc, char** argv)
          {
             if (list_users(file_path))
             {
-               printf("Error for list-users\n");
-               exit_code = 1;
+               errx(1, "Error for list-users");
             }
          }
          else
          {
-            printf("Missing file argument\n");
-            exit_code = 1;
+            errx(1, "Missing file argument");
          }
       }
    }
