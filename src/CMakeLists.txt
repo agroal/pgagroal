@@ -145,10 +145,12 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
   endif()
 
   if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
-    add_compile_options(-fsanitize=address)
+    if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
+      add_compile_options(-fsanitize=address)
 
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=address")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=address")
+      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=address")
+      set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=address")
+    endif()
   endif()
 
   check_c_compiler_flag(-fno-omit-frame-pointer HAS_NO_OMIT_FRAME_POINTER)
