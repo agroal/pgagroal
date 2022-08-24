@@ -1422,11 +1422,13 @@ write_ssl(SSL* ssl, void* buf, size_t size)
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
+#ifndef HAVE_OPENBSD
 #if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
             case SSL_ERROR_WANT_ASYNC:
             case SSL_ERROR_WANT_ASYNC_JOB:
 #if (OPENSSL_VERSION_NUMBER >= 0x10101000L)
             case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+#endif
 #endif
 #endif
                errno = 0;

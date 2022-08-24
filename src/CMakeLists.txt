@@ -42,6 +42,10 @@ else()
   add_compile_options(-D_DEFAULT_SOURCE)
   add_compile_options(-D__BSD_VISIBLE)
 
+  if (${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
+    add_compile_options(-DHAVE_OPENBSD)
+  endif()
+
   #
   # Include directories
   #

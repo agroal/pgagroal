@@ -38,6 +38,9 @@ extern "C" {
 #include <stdbool.h>
 #include <stdlib.h>
 #include <time.h>
+#if HAVE_OPENBSD
+#include <sys/limits.h>
+#endif
 #include <sys/types.h>
 #include <openssl/ssl.h>
 

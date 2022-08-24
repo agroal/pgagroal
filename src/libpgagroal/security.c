@@ -896,11 +896,13 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
                            case SSL_ERROR_WANT_CONNECT:
                            case SSL_ERROR_WANT_ACCEPT:
                            case SSL_ERROR_WANT_X509_LOOKUP:
+#ifndef HAVE_OPENBSD
 #if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
                            case SSL_ERROR_WANT_ASYNC:
                            case SSL_ERROR_WANT_ASYNC_JOB:
 #if (OPENSSL_VERSION_NUMBER >= 0x10101000L)
                            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+#endif
 #endif
 #endif
                               break;
@@ -5791,9 +5793,15 @@ create_client_tls_connection(int fd, SSL** ssl)
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
+#ifndef HAVE_OPENBSD
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
             case SSL_ERROR_WANT_ASYNC:
             case SSL_ERROR_WANT_ASYNC_JOB:
+#if (OPENSSL_VERSION_NUMBER >= 0x10101000L)
             case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+#endif
+#endif
+#endif
                break;
             case SSL_ERROR_SYSCALL:
                pgagroal_log_error("SSL_ERROR_SYSCALL: FD %d", fd);
