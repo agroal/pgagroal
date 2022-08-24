@@ -48,6 +48,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <err.h>
 #ifdef HAVE_LINUX
 #include <systemd/sd-daemon.h>
 #endif
@@ -208,9 +209,9 @@ pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
             // check we don't overflow the number of available sections
             if (idx_sections >= NUMBER_OF_SERVERS + 1)
             {
-               fprintf(stderr, "Max number of sections (%d) in configuration file <%s> reached!\n",
-                       NUMBER_OF_SERVERS + 1,
-                       filename);
+               warnx("Max number of sections (%d) in configuration file <%s> reached!",
+                     NUMBER_OF_SERVERS + 1,
+                     filename);
                return PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG;
             }
 
@@ -639,20 +640,20 @@ pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
                   // otherwise it is outside of a section at all
                   if (strlen(section) > 0)
                   {
-                     fprintf(stderr, "Unknown key <%s> with value <%s> in section [%s] (line %d of file <%s>)\n",
-                             key,
-                             value,
-                             section,
-                             lineno,
-                             filename);
+                     warnx("Unknown key <%s> with value <%s> in section [%s] (line %d of file <%s>)",
+                           key,
+                           value,
+                           section,
+                           lineno,
+                           filename);
                   }
                   else
                   {
-                     fprintf(stderr, "Key <%s> with value <%s> out of any section (line %d of file <%s>)\n",
-                             key,
-                             value,
-                             lineno,
-                             filename);
+                     warnx("Key <%s> with value <%s> out of any section (line %d of file <%s>)",
+                           key,
+                           value,
+                           lineno,
+                           filename);
                   }
                }
 
@@ -677,9 +678,9 @@ pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
    // check there is at least one main section
    if (!has_main_section)
    {
-      fprintf(stderr, "No main configuration section [%s] found in file <%s>\n",
-              PGAGROAL_MAIN_INI_SECTION,
-              filename);
+      warnx("No main configuration section [%s] found in file <%s>",
+            PGAGROAL_MAIN_INI_SECTION,
+            filename);
       return PGAGROAL_CONFIGURATION_STATUS_KO;
    }
 
@@ -699,12 +700,12 @@ pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
          if (!strncmp(sections[i].name, sections[j].name, LINE_LENGTH))
          {
             // cannot log here ...
-            fprintf(stderr, "%s section [%s] duplicated at lines %d and %d of file <%s>\n",
-                    sections[i].main ? "Main" : "Server",
-                    sections[i].name,
-                    sections[i].lineno,
-                    sections[j].lineno,
-                    filename);
+            warnx("%s section [%s] duplicated at lines %d and %d of file <%s>",
+                  sections[i].main ? "Main" : "Server",
+                  sections[i].name,
+                  sections[i].lineno,
+                  sections[j].lineno,
+                  filename);
             return_value++;    // this is an error condition!
          }
       }

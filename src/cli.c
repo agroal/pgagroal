@@ -45,6 +45,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <err.h>
 
 #include <openssl/ssl.h>
 
@@ -213,8 +214,7 @@ main(int argc, char** argv)
 
    if (getuid() == 0)
    {
-      printf("pgagroal-cli: Using the root account is not allowed\n");
-      exit(1);
+      errx(1, "Using the root account is not allowed");
    }
 
    // if the user has specified the host and port
@@ -234,15 +234,13 @@ main(int argc, char** argv)
    // there must be all the other pieces for a remote connection
    if ((username != NULL || password != NULL) && !remote_connection)
    {
-      printf("pgagroal-cli: you need also -h and -p options to perform a remote connection\n");
-      exit(1);
+      errx(1, "you need also -h and -p options to perform a remote connection");
    }
 
    // and she cannot use "local" and "remote" connections at the same time
    if (configuration_path != NULL && remote_connection)
    {
-      printf("pgagroal-cli: Use either -c or -h/-p to define endpoint\n");
-      exit(1);
+      errx(1, "Use either -c or -h/-p to define endpoint");
    }
 
    if (argc <= 1)
@@ -254,8 +252,7 @@ main(int argc, char** argv)
    size = sizeof(struct configuration);
    if (pgagroal_create_shared_memory(size, HUGEPAGE_OFF, &shmem))
    {
-      printf("pgagroal-cli: Error creating shared memory\n");
-      exit(1);
+      errx(1, "Error creating shared memory");
    }
    pgagroal_init_configuration(shmem);
 
@@ -264,13 +261,11 @@ main(int argc, char** argv)
       ret = pgagroal_read_configuration(shmem, configuration_path, false);
       if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
       {
-         printf("pgagroal-cli: Configuration not found: <%s>\n", configuration_path);
-         exit(1);
+         errx(1, "Configuration not found: <%s>", configuration_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
-         printf("pgagroal-cli: Too many sections in the configuration file <%s>\n", configuration_path);
-         exit(1);
+         errx(1, "Too many sections in the configuration file <%s>", configuration_path);
       }
 
       if (logfile)
@@ -284,7 +279,7 @@ main(int argc, char** argv)
 
       if (pgagroal_start_logging())
       {
-         exit(1);
+         errx(1, "Cannot start the logging subsystem");
       }
 
       config = (struct configuration*)shmem;
@@ -296,8 +291,7 @@ main(int argc, char** argv)
       {
          if (!remote_connection)
          {
-            printf("pgagroal-cli: Host (-h) and port (-p) must be specified to connect to the remote host\n");
-            exit(1);
+            errx(1, "Host (-h) and port (-p) must be specified to connect to the remote host");
          }
       }
       else
@@ -315,7 +309,7 @@ main(int argc, char** argv)
 
          if (pgagroal_start_logging())
          {
-            exit(1);
+            errx(1, "Cannot start the logging subsystem");
          }
 
          config = (struct configuration*)shmem;
@@ -456,7 +450,7 @@ main(int argc, char** argv)
             /* Remote connection */
             if (pgagroal_connect(host, atoi(port), &socket))
             {
-               printf("pgagroal-cli: No route to host: %s:%s\n", host, port);
+               warnx("No route to host: %s:%s\n", host, port);
                goto done;
             }
 
@@ -511,7 +505,7 @@ password:
             /* Authenticate */
             if (pgagroal_remote_management_scram_sha256(username, password, socket, &s_ssl) != AUTH_SUCCESS)
             {
-               printf("pgagroal-cli: Bad credentials for %s\n", username);
+               warnx("Bad credentials for %s\n", username);
                goto done;
             }
          }
