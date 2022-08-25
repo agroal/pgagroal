@@ -20,7 +20,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${LIBEV_INCLUDE_DIRS}
-    ${OPENSSL_INCLUDE_DIRS}
+    ${OPENSSL_INCLUDE_DIR}
     ${SYSTEMD_INCLUDE_DIRS}
   )
 
@@ -29,7 +29,8 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   #
   link_libraries(
     ${LIBEV_LIBRARIES}
-    ${OPENSSL_LIBRARIES}
+    ${OPENSSL_CRYPTO_LIBRARY}
+    ${OPENSSL_SSL_LIBRARY}
     ${SYSTEMD_LIBRARIES}
   )
 
