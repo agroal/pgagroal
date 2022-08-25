@@ -49,10 +49,10 @@ extern "C" {
 
 #define MAIN_UDS ".s.pgagroal"
 
-#ifdef HAVE_LINUX
-    #define PGAGROAL_DEFAULT_CONFIGURATION_PATH "/etc/pgagroal/"
+#ifdef HAVE_FREEBSD
+    #define PGAGROAL_DEFAULT_CONFIGURATION_PATH "/usr/local/etc/pgagroal/"
 #else
-   #define PGAGROAL_DEFAULT_CONFIGURATION_PATH "/usr/local/etc/pgagroal/"
+    #define PGAGROAL_DEFAULT_CONFIGURATION_PATH "/etc/pgagroal/"
 #endif
 
 #define PGAGROAL_DEFAULT_CONF_FILE PGAGROAL_DEFAULT_CONFIGURATION_PATH "pgagroal.conf"

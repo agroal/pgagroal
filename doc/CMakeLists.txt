@@ -66,8 +66,8 @@ add_custom_command(
 #
 # Install configuration and documentation
 #
-install(FILES etc/pgagroal.conf DESTINATION etc/pgagroal)
-install(FILES etc/pgagroal_hba.conf DESTINATION etc/pgagroal)
+install(FILES etc/pgagroal.conf DESTINATION share/doc/pgagroal/etc)
+install(FILES etc/pgagroal_hba.conf DESTINATION share/doc/pgagroal/etc)
 
 install(DIRECTORY . DESTINATION share/doc/pgagroal FILES_MATCHING PATTERN "*.md" PATTERN "etc" EXCLUDE PATTERN "images" EXCLUDE PATTERN "man" EXCLUDE)
 install(DIRECTORY images/ DESTINATION share/doc/pgagroal/images FILES_MATCHING PATTERN "*.png")

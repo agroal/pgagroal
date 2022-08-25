@@ -44,6 +44,8 @@ else()
 
   if (${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
     add_compile_options(-DHAVE_OPENBSD)
+  elseif (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
+     add_compile_options(-DHAVE_FREEBSD)
   endif()
 
   #
