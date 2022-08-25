@@ -285,11 +285,11 @@ master_key(char* password, bool generate_pwd, int pwd_length)
 
       if (username != NULL)
       {
-         printf("No home directory for user \'%s\'\n", username);
+         warnx("No home directory for user \'%s\'", username);
       }
       else
       {
-         printf("No home directory for user running pgagroal\n");
+         warnx("No home directory for user running pgagroal");
       }
 
       goto error;
@@ -310,7 +310,7 @@ master_key(char* password, bool generate_pwd, int pwd_length)
       }
       else
       {
-         printf("Wrong permissions for ~/.pgagroal (must be 0700)\n");
+         warnx("Wrong permissions for ~/.pgagroal (must be 0700)");
          goto error;
       }
    }
@@ -330,7 +330,7 @@ master_key(char* password, bool generate_pwd, int pwd_length)
       }
       else
       {
-         printf("Wrong permissions for ~/.pgagroal/master.key (must be 0600)\n");
+         warnx("Wrong permissions for ~/.pgagroal/master.key (must be 0600)");
          goto error;
       }
    }
@@ -338,7 +338,7 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    file = fopen(&buf[0], "w+");
    if (file == NULL)
    {
-      printf("Could not write to master key file '%s' due to %s\n", &buf[0], strerror(errno));
+      warnx("Could not write to master key file <%s>", &buf[0]);
       goto error;
    }
 
@@ -421,7 +421,7 @@ add_user(char* users_path, char* username, char* password, bool generate_pwd, in
 
    if (pgagroal_get_master_key(&master_key))
    {
-      printf("Invalid master key\n");
+      warnx("Invalid master key");
       goto error;
    }
 
@@ -434,7 +434,7 @@ add_user(char* users_path, char* username, char* password, bool generate_pwd, in
    users_file = fopen(users_path, "a+");
    if (users_file == NULL)
    {
-      printf("Could not append to users file '%s' due to %s\n", users_path, strerror(errno));
+      warnx("Could not append to users file <%s>", users_path);
       goto error;
    }
 
@@ -464,7 +464,7 @@ username:
       ptr = strtok(line, ":");
       if (!strcmp(username, ptr))
       {
-         printf("Existing user: %s\n", username);
+         warnx("Existing user: %s", username);
          goto error;
       }
 
@@ -473,7 +473,7 @@ username:
 
    if (number_of_users > NUMBER_OF_USERS)
    {
-      printf("Too many users\n");
+      warnx("Too many users");
       goto error;
    }
 
@@ -591,7 +591,7 @@ update_user(char* users_path, char* username, char* password, bool generate_pwd,
 
    if (pgagroal_get_master_key(&master_key))
    {
-      printf("Invalid master key\n");
+      warnx("Invalid master key");
       goto error;
    }
 
@@ -604,7 +604,7 @@ update_user(char* users_path, char* username, char* password, bool generate_pwd,
    users_file = fopen(users_path, "r");
    if (!users_file)
    {
-      printf("%s not found\n", users_path);
+      warnx("File <%s> not found", users_path);
       goto error;
    }
 
@@ -612,7 +612,7 @@ update_user(char* users_path, char* username, char* password, bool generate_pwd,
    users_file_tmp = fopen(tmpfilename, "w+");
    if (users_file_tmp == NULL)
    {
-      printf("Could not write to temporary user file '%s' due to %s\n", tmpfilename, strerror(errno));
+      warnx("Could not write to temporary user file <%s>", tmpfilename);
       goto error;
    }
 
@@ -715,7 +715,7 @@ password:
 
    if (!found)
    {
-      printf("User '%s' not found\n", username);
+      warnx("User '%s' not found", username);
       goto error;
    }
 
@@ -779,7 +779,7 @@ remove_user(char* users_path, char* username)
    users_file = fopen(users_path, "r");
    if (!users_file)
    {
-      printf("%s not found\n", users_path);
+      warnx("File <%s> not found", users_path);
       goto error;
    }
 
@@ -788,7 +788,7 @@ remove_user(char* users_path, char* username)
    users_file_tmp = fopen(tmpfilename, "w+");
    if (users_file_tmp == NULL)
    {
-      printf("Could not write to temporary user file '%s' due to %s\n", tmpfilename, strerror(errno));
+      warnx("Could not write to temporary user file <%s>", tmpfilename);
       goto error;
    }
 
@@ -831,7 +831,7 @@ username:
 
    if (!found)
    {
-      printf("User '%s' not found\n", username);
+      warnx("User '%s' not found", username);
       goto error;
    }
 
