@@ -46,6 +46,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <err.h>
+#include <errno.h>
 
 #include <openssl/ssl.h>
 
@@ -153,6 +154,7 @@ main(int argc, char** argv)
    char* server = NULL;
    struct configuration* config = NULL;
    bool remote_connection = false;
+   long l_port;
 
    while (1)
    {
@@ -448,9 +450,25 @@ main(int argc, char** argv)
          else
          {
             /* Remote connection */
-            if (pgagroal_connect(host, atoi(port), &socket))
+
+            l_port = strtol(port, NULL, 10);
+            if ((errno == ERANGE && (l_port == LONG_MAX || l_port == LONG_MIN)) || (errno != 0 && l_port == 0))
             {
-               warnx("No route to host: %s:%s\n", host, port);
+               warnx("Specified port %s out of range", port);
+               goto done;
+            }
+
+            // cannot connect to port less than 1024 because pgagroal
+            // cannot be run as root!
+            if (l_port <= 1024)
+            {
+               warnx("Not allowed port %ld", l_port);
+               goto done;
+            }
+
+            if (pgagroal_connect(host, (int)l_port, &socket))
+            {
+               warnx("No route to host: %s:%ld\n", host, l_port);
                goto done;
             }
 
