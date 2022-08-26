@@ -38,7 +38,7 @@ See a more complete [sample](./etc/pgagroal.conf) configuration for running `pga
 
 ## [pgagroal]
 
-This section is mandatory and the pooler will refuse to start if the configuration file does not specify one and opnly one. Usually this section is place on top of the configuration file, but its position within the file does not really matter.
+This section is mandatory and the pooler will refuse to start if the configuration file does not specify one and only one. Usually this section is place on top of the configuration file, but its position within the file does not really matter.
 The available keys and their accepted values are reported in the table below.
 
 | Property | Default | Unit | Required | Description |
