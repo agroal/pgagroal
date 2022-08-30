@@ -55,6 +55,20 @@ layout: default
           <td>The metrics port (disable = 0)</td>
         </tr>
         <tr>
+          <td>metrics_cache_max_age</td>
+          <td></td>
+          <td>String</td>
+          <td>No</td>
+          <td>The number of seconds to keep in cache a Prometheus (metrics) response. Can be a string with a suffix, like `2m` to indicate 2 minutes (disable = 0)</td>
+        </tr>
+        <tr>
+          <td>metrics_cache_max_size</td>
+          <td></td>
+          <td>String</td>
+          <td>No</td>
+          <td>The maximum amount of data to keep in cache when serving Prometheus responses. Changes require restart. This parameter determines the size of memory allocated for the cache even if `metrics_cache_max_age` or `metrics` are disabled. Its value, however, is taken into account only if `metrics_cache_max_age` is set to a non-zero value. Supports suffixes: 'B' (bytes), the default if omitted, 'K' or 'KB' (kilobytes), 'M' or 'MB' (megabytes), 'G' or 'GB' (gigabytes) (disable = 0)</td>
+        </tr>
+        <tr>
           <td>management</td>
           <td>0</td>
           <td>Int</td>
@@ -73,7 +87,28 @@ layout: default
           <td>info</td>
           <td>String</td>
           <td>No</td>
-          <td>The logging level (fatal, error, warn, info, debug1, ..., debug5)</td>
+          <td>The logging level, any of the (case insensitive) strings FATAL, ERROR, WARN, INFO and DEBUG (that can be more specific as DEBUG1 thru DEBUG5). Debug level greater than 5 will be set to DEBUG5. Not recognized values will make the log_level be INFO</td>
+        </tr>
+        <tr>
+          <td>log_rotation_age</td>
+          <td>0</td>
+          <td>String</td>
+          <td>No</td>
+          <td>The age that will trigger a log file rotation. If expressed as a positive number, is managed as seconds. Supports suffixes: 'S' (seconds, the default), 'M' (minutes), 'H' (hours), 'D' (days), 'W' (weeks). A value of 0 disables</td>
+        </tr>
+        <tr>
+          <td>log_rotation_size</td>
+          <td>0</td>
+          <td>String</td>
+          <td>No</td>
+          <td>The size of the log file that will trigger a log rotation. Supports suffixes: 'B' (bytes), the default if omitted, 'K' or 'KB' (kilobytes), 'M' or 'MB' (megabytes), 'G' or 'GB' (gigabytes). A value of 0 (with or without suffix) disables</td>
+        </tr>
+        <tr>
+          <td>log_line_prefix</td>
+          <td>%Y-%m-%d %H:%M:%S</td>
+          <td>String</td>
+          <td>No</td>
+          <td>A strftime(3) compatible string to use as prefix for every log line. Must be quoted if contains spaces</td>
         </tr>
         <tr>
           <td>log_path</td>
@@ -284,7 +319,22 @@ layout: default
           <td></td>
           <td>String</td>
           <td>No</td>
-          <td>Path to the PID file</td>
+          <td>Path to the PID file. If omitted, automatically set to unix_socket_dir/pgagroal.port.pid</td>
+        </tr>
+        <tr>
+          <td>update_process_title</td>
+          <td>verbose</td>
+          <td>String</td>
+          <td>No</td>
+          <td>The behavior for updating the operating system process title, mainly related to connection processes.
+            Allowed settings are: never (or off), does not update the process title; strict to set the process
+            title without overriding the existing initial process title length; minimal to set the process title
+            to username/database; verbose (or full) to set the process title to user@host:port/database.
+            Please note that strict and minimal are honored only on those systems that do not provide a native way
+            to set the process title (e.g., Linux). On other systems, there is no difference between strict and minimal
+            and the assumed behaviour is minimal even if strict is used. never and verbose are always honored,
+            on every system. On Linux systems the process title is always trimmed to 255 characters, while on system that
+            provide a natve way to set the process title it can be longer</td>
         </tr>
       </tbody>
     </table>
@@ -326,6 +376,10 @@ layout: default
     <h3>Server section</h3>
 
     Specifies the PostgreSQL instances.
+    <p/>
+    Each section with a name different from pgagroal will be treated as an host section.
+    There can be up to 64 host sections, each with an unique name and different combination of host and port settings,
+    otherwise the pooler will complain about duplicated server configuration.
     <p/>
 
     <table border="1">
@@ -503,13 +557,19 @@ host    all      all   all      all
 #
 mydb       myuser  all
     </pre>
-    
+
+    <p/>
+    There could be up to 64 limits entries in the configuration file.
+
     <h2>pgagroal_users.conf</h2>
 
     The pgagroal_users configuration defines the users known to the system. This file is created and managed through
     the pgagroal-admin tool.
     <p/>
     The configuration is loaded from either the path specified by the -u flag or /etc/pgagroal/pgagroal_users.conf.
+
+    <p/>
+    There could be up to 64 user entries in the configuration file.
 
     <h2>pgagroal_frontend_users configuration</h2>
 
@@ -523,6 +583,9 @@ mydb       myuser  all
     <p/>
     The configuration is loaded from either the path specified by the -F flag or /etc/pgagroal/pgagroal_frontend_users.conf.
 
+    <p/>
+    There could be up to 64 frontend user entries in the configuration file.
+
     <h2>pgagroal_admins.conf</h2>
 
     The pgagroal_admins configuration defines the administrators known to the system. This file is created and managed through
@@ -534,6 +597,9 @@ mydb       myuser  all
     If pgagroal has both Transport Layer Security (TLS) and "management" enabled then pgagroal-cli can
     connect with TLS using the files ~/.pgagroal/pgagroal.key (must be 0600 permission),
     ~/.pgagroal/pgagroal.crt and ~/.pgagroal/root.crt.
+
+    <p/>
+    There could be up to 64 admin entries in the configuration file.
 
     <h2>pgagroal_superuser.conf</h2>
 
