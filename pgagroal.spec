@@ -31,6 +31,7 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 %{__mkdir} -p %{buildroot}%{_docdir}/%{name}/grafana
 %{__mkdir} -p %{buildroot}%{_docdir}/%{name}/etc
 %{__mkdir} -p %{buildroot}%{_docdir}/%{name}/images
+%{__mkdir} -p %{buildroot}%{_docdir}/%{name}/shell_comp
 %{__mkdir} -p %{buildroot}%{_docdir}/%{name}/tutorial
 %{__mkdir} -p %{buildroot}%{_mandir}/man1
 %{__mkdir} -p %{buildroot}%{_mandir}/man5
@@ -56,6 +57,8 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/images/perf-prepared.png %{buildroot}%{_docdir}/%{name}/images/perf-prepared.png
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/images/perf-readonly.png %{buildroot}%{_docdir}/%{name}/images/perf-readonly.png
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/images/perf-simple.png %{buildroot}%{_docdir}/%{name}/images/perf-simple.png
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/shell_comp/pgagroal_comp.bash %{buildroot}%{_docdir}/%{name}/shell_comp/pgagroal_comp.bash
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/shell_comp/pgagroal_comp.zsh %{buildroot}%{_docdir}/%{name}/shell_comp/pgagroal_comp.zsh
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/01_install.md %{buildroot}%{_docdir}/%{name}/tutorial/01_install.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/02_prefill.md %{buildroot}%{_docdir}/%{name}/tutorial/02_prefill.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/03_remote_management.md %{buildroot}%{_docdir}/%{name}/tutorial/03_remote_management.md
@@ -108,6 +111,8 @@ cd %{buildroot}%{_libdir}/
 %{_docdir}/%{name}/images/perf-readonly.png
 %{_docdir}/%{name}/images/perf-simple.png
 %{_docdir}/%{name}/images/perf-simple.png
+%{_docdir}/%{name}/shell_comp/pgagroal_comp.bash
+%{_docdir}/%{name}/shell_comp/pgagroal_comp.zsh
 %{_docdir}/%{name}/tutorial/01_install.md
 %{_docdir}/%{name}/tutorial/02_prefill.md
 %{_docdir}/%{name}/tutorial/03_remote_management.md
