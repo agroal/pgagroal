@@ -14,6 +14,6 @@ function _pgagroal_admin()
 {
     local line
     _arguments -C \
-               "1: :(master-key add-user update user remove-user list-users)" \
+               "1: :(master-key add-user update-user remove-user list-users)" \
                "*::arg:->args"
 }
