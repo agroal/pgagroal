@@ -19,7 +19,7 @@ pgagroal_admin_completions()
     if [ "${#COMP_WORDS[@]}" == "2" ]; then
         # main completion: the user has specified nothing at all
         # or a single word, that is a command
-        COMPREPLY=($(compgen -W "master-key add-user update user remove-user list-users" "${COMP_WORDS[1]}"))
+        COMPREPLY=($(compgen -W "master-key add-user update-user remove-user list-users" "${COMP_WORDS[1]}"))
     fi
 }
 
