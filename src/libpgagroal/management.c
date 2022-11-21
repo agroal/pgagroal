@@ -34,6 +34,7 @@
 #include <message.h>
 #include <pool.h>
 #include <utils.h>
+#include <configuration.h>
 
 /* system */
 #include <errno.h>
@@ -166,6 +167,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          break;
       case MANAGEMENT_ENABLEDB:
       case MANAGEMENT_DISABLEDB:
+      case MANAGEMENT_CONFIG_GET:
          if (read_complete(NULL, socket, &buf4[0], sizeof(buf4)))
          {
             goto error;
@@ -1467,4 +1469,124 @@ write_header(SSL* ssl, int fd, signed char type, int slot)
    pgagroal_write_int32(&(header[1]), slot);
 
    return write_complete(ssl, fd, &(header), MANAGEMENT_HEADER_SIZE);
+}
+
+int
+pgagroal_management_config_get(SSL* ssl, int socket, char* config_key)
+{
+   char buf[4];
+   int size;
+
+   // security check: avoid writing something null or with too much stuff!
+   if (!config_key || !strlen(config_key))
+   {
+      pgagroal_log_warn("pgagroal_management_config_get: no key specified");
+      goto error;
+   }
+
+   size = strlen(config_key) + 1;
+   if (size > MISC_LENGTH)
+   {
+      pgagroal_log_warn("pgagroal_management_config_get: key <%s> too big (%d bytes)", config_key, size);
+      goto error;
+   }
+
+   // send the header for this command
+   if (write_header(ssl, socket, MANAGEMENT_CONFIG_GET, -1))
+   {
+      pgagroal_log_warn("pgagroal_management_config_get: write error on header for key <%s> on socket %d", config_key, socket);
+      goto error;
+   }
+
+   // send the size of the payload
+   memset(&buf, 0, sizeof(buf));
+   pgagroal_write_int32(&buf, size);
+   if (write_complete(ssl, socket, &buf, sizeof(buf)))
+   {
+      pgagroal_log_warn("pgagroal_management_config_get: write error for the size of the payload (%d bytes for <%s>, socket %d): %s",
+                        size,
+                        config_key,
+                        socket,
+                        strerror(errno));
+      goto error;
+   }
+
+   // send the effective payload, i.e., the configuration parameter name to get
+   memset(&buf, 0, sizeof(buf));
+
+   if (write_complete(ssl, socket, config_key, size))
+   {
+      pgagroal_log_warn("pgagroal_management_config_get: write error sending the configuration name <%s> over socket %d: %s", config_key, socket, strerror(errno));
+      goto error;
+   }
+
+   return 0;
+
+error:
+   errno = 0;
+   return 1;
+}
+
+int
+pgagroal_management_write_config_get(int socket, char* config_key)
+{
+   char data[MISC_LENGTH];
+   char buf[4];
+   int size;
+
+   if (!config_key || !strlen(config_key))
+   {
+      pgagroal_log_warn("pgagroal_management_write_config_get: no key specified");
+      goto error;
+   }
+
+   size = strlen(config_key) + 1;
+   if (size > MISC_LENGTH)
+   {
+      pgagroal_log_warn("pgagroal_management_write_config_get: key <%s> too big (%d bytes)", config_key, size);
+      goto error;
+   }
+
+   memset(&data, 0, sizeof(data));
+
+   if (pgagroal_write_config_value(&data[0], config_key))
+   {
+      pgagroal_log_warn("pgagroal_management_write_config_get: unknwon configuration key <%s>", config_key);
+      goto error;
+   }
+
+   // send the size of the payload
+   memset(&buf, 0, sizeof(buf));
+   size = strlen(data) + 1;
+   pgagroal_write_int32(&buf, size);
+   if (write_complete(NULL, socket, &buf, sizeof(buf)))
+   {
+      pgagroal_log_warn("pgagroal_management_write_config_get: write error for the size of the payload <%s> (%d bytes for <%s>, socket %d): %s",
+                        data,
+                        size,
+                        config_key,
+                        socket,
+                        strerror(errno));
+      goto error;
+   }
+
+   if (write_complete(NULL, socket, data, size))
+   {
+      pgagroal_log_warn("pgagroal_management_write_config_get (%s): write: %d %s", config_key, socket, strerror(errno));
+      goto error;
+   }
+
+   return 0;
+
+error:
+   errno = 0;
+   return 1;
+
+}
+
+int
+pgagroal_management_read_config_get(int socket, char** data)
+{
+   int size = MISC_LENGTH;
+   return pgagroal_management_read_payload(socket, MANAGEMENT_CONFIG_GET, &size, data);
 }

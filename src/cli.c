@@ -64,6 +64,7 @@
 #define ACTION_RESET_SERVER   11
 #define ACTION_SWITCH_TO      12
 #define ACTION_RELOAD         13
+#define ACTION_CONFIG_GET     14
 
 static int flush(SSL* ssl, int socket, int32_t mode, char* database);
 static int enabledb(SSL* ssl, int socket, char* database);
@@ -78,6 +79,7 @@ static int reset(SSL* ssl, int socket);
 static int reset_server(SSL* ssl, int socket, char* server);
 static int switch_to(SSL* ssl, int socket, char* server);
 static int reload(SSL* ssl, int socket);
+static int config_get(SSL* ssl, int socket, char* config_key, bool verbose);
 
 static void
 version(void)
@@ -124,6 +126,7 @@ usage(void)
    printf("  reload                   Reload the configuration\n");
    printf("  reset                    Reset the Prometheus statistics\n");
    printf("  reset-server             Reset the state of a server\n");
+   printf("  config-get               Retrieves a configuration value\n");
    printf("\n");
    printf("pgagroal: %s\n", PGAGROAL_HOMEPAGE);
    printf("Report bugs: %s\n", PGAGROAL_ISSUES);
@@ -155,6 +158,7 @@ main(int argc, char** argv)
    struct configuration* config = NULL;
    bool remote_connection = false;
    long l_port;
+   char* config_key = NULL; /* key for a configuration setting */
 
    while (1)
    {
@@ -435,7 +439,12 @@ main(int argc, char** argv)
             action = ACTION_RELOAD;
          }
       }
-
+      else if (argc > 2 && !strncmp("config-get", argv[argc - 2], MISC_LENGTH) && strlen(argv[argc - 1]) > 0)
+      {
+         /* get a configuration value */
+         action = ACTION_CONFIG_GET;
+         config_key = argv[argc - 1];
+      }
       if (action != ACTION_UNKNOWN)
       {
          if (!remote_connection)
@@ -580,6 +589,10 @@ password:
       else if (action == ACTION_RELOAD)
       {
          exit_code = reload(s_ssl, socket);
+      }
+      else if (action == ACTION_CONFIG_GET)
+      {
+         exit_code = config_get(s_ssl, socket, config_key, verbose);
       }
    }
 
@@ -792,4 +805,66 @@ reload(SSL* ssl, int socket)
    }
 
    return 0;
+}
+
+/**
+ * Entry point for a config-get command line action.
+ *
+ * First it sends the message to pgagroal process to execute a config-get,
+ * then reads back the answer.
+ *
+ * @param ssl the SSL mode
+ * @param socket the socket file descriptor
+ * @param config_key the key of the configuration parameter, that is the name
+ * of the configuration parameter to read.
+ * @param verbose if true the function will print on STDOUT also the config key
+ * @returns 0 on success, 1 on failure
+ */
+static int
+config_get(SSL* ssl, int socket, char* config_key, bool verbose)
+{
+   char* buffer = NULL;
+
+   if (!config_key || strlen(config_key) > MISC_LENGTH)
+   {
+      goto error;
+   }
+
+   if (pgagroal_management_config_get(ssl, socket, config_key))
+   {
+      goto error;
+   }
+   else
+   {
+      buffer = malloc(MISC_LENGTH);
+      memset(buffer, 0, MISC_LENGTH);
+      if (pgagroal_management_read_config_get(socket, &buffer))
+      {
+         free(buffer);
+         goto error;
+      }
+
+      // assume an empty response is ok,
+      // do not throw an error to indicate no configuration
+      // setting with such name as been found
+      if (buffer && strlen(buffer))
+      {
+         if (verbose)
+         {
+            printf("%s = %s\n", config_key, buffer);
+         }
+         else
+         {
+            printf("%s\n", buffer);
+         }
+      }
+
+      free(buffer);
+      return 0;
+   }
+
+   return 0;
+
+error:
+   return 1;
 }

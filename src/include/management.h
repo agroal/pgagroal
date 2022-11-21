@@ -59,6 +59,7 @@ extern "C" {
 #define MANAGEMENT_SWITCH_TO          17
 #define MANAGEMENT_RELOAD             18
 #define MANAGEMENT_REMOVE_FD          19
+#define MANAGEMENT_CONFIG_GET         20
 
 /**
  * Read the management header
@@ -305,6 +306,47 @@ pgagroal_management_reload(SSL* ssl, int socket);
  */
 int
 pgagroal_management_remove_fd(int32_t slot, int socket, pid_t pid);
+
+/**
+ * Management operation: get a configuration setting.
+ * This function sends over the socket the message to get a configuration
+ * value.
+ * In particular, the message block for the action config_get is sent,
+ * then the size of the configuration parameter to get (e.g., `max_connections`)
+ * and last the parameter name itself.
+ *
+ * @param ssl the SSL connection
+ * @param socket the socket file descriptor
+ * @param config_key the name of the configuration parameter to get back
+ * @return 0 on success, 1 on error
+ */
+int
+pgagroal_management_config_get(SSL* ssl, int socket, char* config_key);
+
+/**
+ * Management operation result: receives the key to read in the configuration.
+ *
+ * Internally, exploits the function to read the payload from the socket.
+ * @see pgagroal_management_read_payload
+ *
+ * @param ssl the socket file descriptor
+ * @return 0 on success
+ */
+int
+pgagroal_management_read_config_get(int socket, char** data);
+
+/**
+ * Management operation: write the result of a config_get action on the socket.
+ *
+ * Writes on the socket the result of the request for a specific
+ * configuration parameter.
+ *
+   ° @param socket the socket file descriptor
+ * @param config_key the name of the configuration parameter to get
+ * @return 0 on success
+ */
+int
+pgagroal_management_write_config_get(int socket, char* config_key);
 
 #ifdef __cplusplus
 }
