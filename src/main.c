@@ -1530,6 +1530,10 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          pgagroal_log_debug("pgagroal: Management reload");
          reload_configuration();
          break;
+      case MANAGEMENT_CONFIG_GET:
+         pgagroal_log_debug("pgagroal: Management config-get for key <%s>", payload_s);
+         pgagroal_management_write_config_get(client_fd, payload_s);
+         break;
       default:
          pgagroal_log_debug("pgagroal: Unknown management id: %d", id);
          break;

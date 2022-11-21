@@ -90,6 +90,20 @@ static bool key_in_section(char* wanted, char* section, char* key, bool global, 
 static bool is_comment_line(char* line);
 static bool section_line(char* line, char* section);
 
+static int pgagroal_write_server_config_value(char* buffer, char* server_name, char* config_key);
+static int pgagroal_write_hba_config_value(char* buffer, char* username, char* config_key);
+static int pgagroal_write_limit_config_value(char* buffer, char* database, char* config_key);
+
+static int to_string(char* where, char* value);
+static int to_bool(char* where, bool value);
+static int to_int(char* where, int value);
+static int to_update_process_title(char* where, int value);
+static int to_validation(char* where, int value);
+static int to_pipeline(char* where, int value);
+static int to_log_mode(char* where, int value);
+static int to_log_level(char* where, int value);
+static int to_log_type(char* where, int value);
+
 /**
  *
  */
@@ -3245,4 +3259,772 @@ as_update_process_title(char* str, unsigned int* policy, unsigned int default_po
       return 1;
    }
 
+}
+
+int
+pgagroal_write_config_value(char* buffer, char* config_key)
+{
+   struct configuration* config;
+
+   char section[MISC_LENGTH];
+   char context[MISC_LENGTH];
+   char key[MISC_LENGTH];
+   int begin = -1, end = -1;
+   bool main_section;
+
+   config = (struct configuration*)shmem;
+
+   memset(section, 0, MISC_LENGTH);
+   memset(context, 0, MISC_LENGTH);
+   memset(key, 0, MISC_LENGTH);
+
+   for (int i = 0; i < strlen(config_key); i++)
+   {
+      if (config_key[i] == '.')
+      {
+         if (!strlen(section))
+         {
+            memcpy(section, &config_key[begin], end - begin + 1);
+            section[end - begin + 1] = '\0';
+            begin = end = -1;
+            continue;
+         }
+         else if (!strlen(context))
+         {
+            memcpy(context, &config_key[begin], end - begin + 1);
+            context[end - begin + 1] = '\0';
+            begin = end = -1;
+            continue;
+         }
+         else if (!strlen(key))
+         {
+            memcpy(key, &config_key[begin], end - begin + 1);
+            key[end - begin + 1] = '\0';
+            begin = end = -1;
+            continue;
+         }
+
+      }
+
+      if (begin < 0)
+      {
+         begin = i;
+      }
+
+      end = i;
+
+   }
+
+   // if the key has not been found, since there is no ending dot,
+   // try to extract it from the string
+   if (!strlen(key))
+   {
+      memcpy(key, &config_key[begin], end - begin + 1);
+      key[end - begin + 1] = '\0';
+   }
+
+   // force the main section, i.e., global parameters, if and only if
+   // there is no section or section is 'pgagroal' without any subsection
+   main_section = (!strlen(section) || !strncmp(section, "pgagroal", MISC_LENGTH))
+                  && !strlen(context);
+
+   if (!strncmp(section, "server", MISC_LENGTH))
+   {
+      return pgagroal_write_server_config_value(buffer, context, key);
+   }
+   else if (!strncmp(section, "hba", MISC_LENGTH))
+   {
+      return pgagroal_write_hba_config_value(buffer, context, key);
+   }
+   else if (!strncmp(section, "limit", MISC_LENGTH))
+   {
+      return pgagroal_write_limit_config_value(buffer, context, key);
+   }
+   else if (main_section)
+   {
+
+      /* global configuration settings */
+
+      if (!strncmp(key, "host", MISC_LENGTH))
+      {
+         return to_string(buffer, config->host);
+      }
+      else if (!strncmp(key, "port", MISC_LENGTH))
+      {
+         return to_int(buffer, config->port);
+      }
+      else if (!strncmp(key, "log_type", MISC_LENGTH))
+      {
+         return to_log_type(buffer, config->log_type);
+      }
+      else if (!strncmp(key, "log_mode", MISC_LENGTH))
+      {
+         return to_log_mode(buffer, config->log_mode);
+      }
+      else if (!strncmp(key, "log_line_prefix", MISC_LENGTH))
+      {
+         return to_string(buffer, config->log_line_prefix);
+      }
+
+      else if (!strncmp(key, "log_level", MISC_LENGTH))
+      {
+         return to_log_level(buffer, config->log_level);
+      }
+      else if (!strncmp(key, "log_rotation_size", MISC_LENGTH))
+      {
+         return to_int(buffer, config->log_rotation_size);
+
+      }
+      else if (!strncmp(key, "log_rotation_age", MISC_LENGTH))
+      {
+         return to_int(buffer, config->log_rotation_age);
+
+      }
+      else if (!strncmp(key, "log_connections", MISC_LENGTH))
+      {
+         return to_bool(buffer, config->log_connections);
+      }
+      else if (!strncmp(key, "log_disconnections", MISC_LENGTH))
+      {
+         return to_bool(buffer, config->log_disconnections);
+      }
+      else if (!strncmp(key, "log_path", MISC_LENGTH))
+      {
+         return to_string(buffer, config->log_path);
+      }
+      else if (!strncmp(key, "metrics", MISC_LENGTH))
+      {
+         return to_int(buffer, config->metrics);
+      }
+      else if (!strncmp(key, "metrics_cache_max_age", MISC_LENGTH))
+      {
+         return to_int(buffer, config->metrics_cache_max_age);
+      }
+      else if (!strncmp(key, "metrics_cache_max_size", MISC_LENGTH))
+      {
+         return to_int(buffer, config->metrics_cache_max_size);
+      }
+      else if (!strncmp(key, "management", MISC_LENGTH))
+      {
+         return to_int(buffer, config->management);
+      }
+      else if (!strncmp(key, "pipeline", MISC_LENGTH))
+      {
+         return to_pipeline(buffer, config->pipeline);
+
+      }
+      else if (!strncmp(key, "failover_script", MISC_LENGTH))
+      {
+         return to_string(buffer, config->failover_script);
+      }
+      else if (!strncmp(key, "tls", MISC_LENGTH))
+      {
+         return to_bool(buffer, config->tls);
+      }
+      else if (!strncmp(key, "auth_query", MISC_LENGTH))
+      {
+         return to_bool(buffer, config->authquery);
+      }
+      else if (!strncmp(key, "tls_ca_file", MISC_LENGTH))
+      {
+         return to_string(buffer, config->tls_ca_file);
+      }
+      else if (!strncmp(key, "tls_cert_file", MISC_LENGTH))
+      {
+         return to_string(buffer, config->tls_cert_file);
+      }
+      else if (!strncmp(key, "tls_key_file", MISC_LENGTH))
+      {
+         return to_string(buffer, config->tls_key_file);
+      }
+      else if (!strncmp(key, "blocking_timeout", MISC_LENGTH))
+      {
+         return to_int(buffer, config->blocking_timeout);
+      }
+      else if (!strncmp(key, "idle_timeout", MISC_LENGTH))
+      {
+         return to_int(buffer, config->idle_timeout);
+      }
+      else if (!strncmp(key, "validation", MISC_LENGTH))
+      {
+         return to_validation(buffer, config->validation);
+      }
+      else if (!strncmp(key, "update_process_title", MISC_LENGTH))
+      {
+         return to_update_process_title(buffer, config->update_process_title);
+      }
+      else if (!strncmp(key, "background_interval", MISC_LENGTH))
+      {
+         return to_int(buffer, config->background_interval);
+      }
+      else if (!strncmp(key, "max_retries", MISC_LENGTH))
+      {
+         return to_int(buffer, config->max_retries);
+      }
+      else if (!strncmp(key, "authentication_timeout", MISC_LENGTH))
+      {
+         return to_int(buffer, config->authentication_timeout);
+      }
+      else if (!strncmp(key, "disconnect_client", MISC_LENGTH))
+      {
+         return to_int(buffer, config->disconnect_client);
+      }
+      else if (!strncmp(key, "pidfile", MISC_LENGTH))
+      {
+         return to_string(buffer, config->pidfile);
+      }
+      else if (!strncmp(key, "allow_unknown_users", MISC_LENGTH))
+      {
+         return to_bool(buffer, config->allow_unknown_users);
+      }
+      else if (!strncmp(key, "max_connections", MISC_LENGTH))
+      {
+         return to_int(buffer, config->max_connections);
+      }
+      else if (!strncmp(key, "unix_socket_dir", MISC_LENGTH))
+      {
+         return to_string(buffer, config->unix_socket_dir);
+      }
+      else if (!strncmp(key, "buffer_size", MISC_LENGTH))
+      {
+         return to_int(buffer, config->buffer_size);
+      }
+      else if (!strncmp(key, "keep_alive", MISC_LENGTH))
+      {
+         return to_bool(buffer, config->keep_alive);
+      }
+      else if (!strncmp(key, "nodelay", MISC_LENGTH))
+      {
+         return to_int(buffer, config->nodelay);
+      }
+      else if (!strncmp(key, "non_blocking", MISC_LENGTH))
+      {
+         return to_bool(buffer, config->non_blocking);
+      }
+      else if (!strncmp(key, "backlog", MISC_LENGTH))
+      {
+         return to_int(buffer, config->backlog);
+      }
+      else if (!strncmp(key, "hugepage", MISC_LENGTH))
+      {
+         return to_bool(buffer, config->hugepage);
+      }
+      else if (!strncmp(key, "track_prepared_statements", MISC_LENGTH))
+      {
+         return to_bool(buffer, config->track_prepared_statements);
+      }
+   } // end of global configuration settings
+   else
+   {
+      goto error;
+   }
+
+   return 0;
+error:
+   pgagroal_log_debug("Unknown configuration key <%s>", config_key);
+   return 1;
+
+}
+
+/**
+ * Function to extract a configuration value for a specific server.
+ * @param server_name the name of the server
+ * @param config_key one of the configuration keys allowed in the server section
+ * @param buffer the buffer where to write the stringified version of the value
+ * @return 0 on success
+ */
+static int
+pgagroal_write_server_config_value(char* buffer, char* server_name, char* config_key)
+{
+   int server_index = -1;
+   struct configuration* config;
+   atomic_schar state;
+
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < NUMBER_OF_SERVERS; i++)
+   {
+      if (!strncmp(config->servers[i].name, server_name, MISC_LENGTH))
+      {
+         /* this is the right server */
+         server_index = i;
+         break;
+      }
+   }
+
+   if (server_index < 0 || server_index > NUMBER_OF_SERVERS)
+   {
+      pgagroal_log_debug("Unable to find a server named <%s> in the current configuration", server_name);
+      goto error;
+   }
+
+   if (!strncmp(config_key, "host", MISC_LENGTH))
+   {
+      return to_string(buffer, config->servers[server_index].host);
+   }
+   else if (!strncmp(config_key, "port", MISC_LENGTH))
+   {
+      return to_int(buffer, config->servers[server_index].port);
+   }
+   else if (!strncmp(config_key, "primary", MISC_LENGTH))
+   {
+      state = atomic_load(&config->servers[server_index].state);
+      bool primary = false;
+      switch (state)
+      {
+         case SERVER_NOTINIT_PRIMARY:
+         case SERVER_PRIMARY:
+            primary = true;
+            break;
+         default:
+            primary = false;
+
+      }
+
+      return to_bool(buffer, primary);
+   }
+   else
+   {
+      goto error;
+   }
+
+error:
+   return 1;
+}
+
+/**
+ * Method to extract a configuration value for an HBA entry.
+ *
+ * Please note that seeking for a username does not provide all the
+ * available configurations, since the same username could have been
+ * listed multiple times. Only the first match is returned.
+ *
+ * @param buffer where to write the stringified value
+ * @param username the username that must match the entry on the HBA entry line
+ * @param config_key the configuration parameter to search for
+ * @return 0 on success
+ */
+static int
+pgagroal_write_hba_config_value(char* buffer, char* username, char* config_key)
+{
+   int hba_index = -1;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < NUMBER_OF_HBAS; i++)
+   {
+      if (!strncmp(config->hbas[i].username, username, MISC_LENGTH))
+      {
+         /* this is the right hba entry */
+         hba_index = i;
+         break;
+      }
+   }
+
+   if (hba_index < 0 || hba_index > NUMBER_OF_HBAS)
+   {
+      pgagroal_log_warn("Unable to find a user named <%s> in the current configuration", username);
+      goto error;
+   }
+
+   if (!strncmp(config_key, "type", MISC_LENGTH))
+   {
+      return to_string(buffer, config->hbas[hba_index].type);
+   }
+   else if (!strncmp(config_key, "database", MISC_LENGTH))
+   {
+      return to_string(buffer, config->hbas[hba_index].database);
+   }
+   else if (!strncmp(config_key, "username", MISC_LENGTH))
+   {
+      return to_string(buffer, config->hbas[hba_index].username);
+   }
+   else if (!strncmp(config_key, "address", MISC_LENGTH))
+   {
+      return to_string(buffer, config->hbas[hba_index].address);
+   }
+   else if (!strncmp(config_key, "method", MISC_LENGTH))
+   {
+      return to_string(buffer, config->hbas[hba_index].method);
+   }
+   else
+   {
+      goto error;
+   }
+
+error:
+   return 1;
+}
+
+/**
+ * Given a specific username, retrieves the informations about the limit
+ * configuration. The limit configuration is matched against a specific
+ * database.
+ *
+ * @param buffer where to write the information
+ * @param database the username to search for
+ * @param config_key the value to seek into the limits
+ * @return 0 on success
+ */
+static int
+pgagroal_write_limit_config_value(char* buffer, char* database, char* config_key)
+{
+   int limit_index = -1;
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   for (int i = 0; i < NUMBER_OF_LIMITS; i++)
+   {
+      if (!strncmp(config->limits[i].database, database, MISC_LENGTH))
+      {
+         /* this is the right database entry */
+         limit_index = i;
+         break;
+      }
+   }
+
+   if (limit_index < 0 || limit_index > NUMBER_OF_LIMITS)
+   {
+      pgagroal_log_warn("Unable to find a database named <%s> in the current limit configuration", database);
+      goto error;
+   }
+
+   if (!strncmp(config_key, "username", MISC_LENGTH))
+   {
+      return to_string(buffer, config->limits[limit_index].username);
+   }
+   else if (!strncmp(config_key, "database", MISC_LENGTH))
+   {
+      return to_string(buffer, config->limits[limit_index].database);
+   }
+   else if (!strncmp(config_key, "max_size", MISC_LENGTH))
+   {
+      return to_int(buffer, config->limits[limit_index].max_size);
+   }
+   else if (!strncmp(config_key, "min_size", MISC_LENGTH))
+   {
+      return to_int(buffer, config->limits[limit_index].min_size);
+   }
+   else if (!strncmp(config_key, "initial_size", MISC_LENGTH))
+   {
+      return to_int(buffer, config->limits[limit_index].initial_size);
+   }
+   else
+   {
+      goto error;
+   }
+
+error:
+   return 1;
+}
+
+/**
+ * An utility function to place an integer value into a string.
+ * @param where the string where to print the value, must be already allocated
+ * @param value the value to convert into a string
+ * @return 0 on success, 1 otherwise
+ */
+static int
+to_int(char* where, int value)
+{
+   if (!where)
+   {
+      return 1;
+   }
+
+   snprintf(where, MISC_LENGTH, "%d", value);
+   return 0;
+}
+
+/**
+ * An utility function to place a boolean value into a string.
+ * The value is always converted in either "on" or "off".
+ *
+ * @param where the string where to print the value, must be already allocated
+ * @param value the value to convert into a string
+ * @return 0 on success, 1 otherwise
+ */
+static int
+to_bool(char* where, bool value)
+{
+   if (!where)
+   {
+      return 1;
+   }
+
+   snprintf(where, MISC_LENGTH, "%s", value ? "on" : "off");
+   return 0;
+}
+
+/**
+ * An utility function to place a string into another string.
+ *
+ * In the case the string has inner spaces, such spaces are quoted. The function
+ * tries to be as smart as possible identifying if there is the need for
+ * single or double quotes.
+ *
+ * @param where the string where to print the value, must be already allocated
+ * @param value the value to convert into a string
+ * @return 0 on success, 1 otherwise
+ */
+static int
+to_string(char* where, char* value)
+{
+   bool needs_quotes = false;
+   bool has_double_quotes = false;
+   bool has_single_quotes = false;
+
+   if (!where || !value || strlen(value) > MISC_LENGTH)
+   {
+      return 1;
+   }
+
+   // assume strings with spaces must be quoted
+   for (int i = 0; i < strlen(value); i++)
+   {
+      if (value[i] == ' ')
+      {
+         needs_quotes = true;
+      }
+      else if (value[i] == '"')
+      {
+         has_double_quotes = true;
+      }
+      else if (value[i] == '\'')
+      {
+         has_single_quotes = true;
+      }
+   }
+
+   needs_quotes = needs_quotes || has_double_quotes || has_single_quotes;
+
+   if (needs_quotes)
+   {
+      if (!has_single_quotes)
+      {
+         snprintf(where, MISC_LENGTH, "'%s'", value);
+      }
+      else if (!has_double_quotes)
+      {
+         snprintf(where, MISC_LENGTH, "\"%s\"", value);
+      }
+   }
+   else
+   {
+      snprintf(where, MISC_LENGTH, "%s", value);
+   }
+
+   return 0;
+}
+
+/**
+ * An utility function to convert the enumeration of values for the update_process_title
+ * into one of its possible string descriptions.
+ *
+ * @param where the buffer used to store the stringy thing
+ * @param value the config->update_process_title setting
+ * @return 0 on success, 1 otherwise
+ */
+static int
+to_update_process_title(char* where, int value)
+{
+   if (!where || value < 0)
+   {
+      return 1;
+   }
+
+   switch (value)
+   {
+      case UPDATE_PROCESS_TITLE_VERBOSE:
+         snprintf(where, MISC_LENGTH, "%s", "verbose");
+         break;
+      case UPDATE_PROCESS_TITLE_MINIMAL:
+         snprintf(where, MISC_LENGTH, "%s", "minimal");
+
+         break;
+      case UPDATE_PROCESS_TITLE_STRICT:
+         snprintf(where, MISC_LENGTH, "%s", "strict");
+         break;
+      case UPDATE_PROCESS_TITLE_NEVER:
+         snprintf(where, MISC_LENGTH, "%s", "never");
+         break;
+   }
+   return 0;
+}
+
+/**
+ * An utility function to convert the enumeration of values for the validation setting
+ * into one of its possible string descriptions.
+ *
+ * @param where the buffer used to store the stringy thing
+ * @param value the config->validation setting
+ * @return 0 on success, 1 otherwise
+ */
+static int
+to_validation(char* where, int value)
+{
+
+   if (!where || value < 0)
+   {
+      return 1;
+   }
+
+   switch (value)
+   {
+      case VALIDATION_OFF:
+         snprintf(where, MISC_LENGTH, "%s", "off");
+         break;
+      case VALIDATION_FOREGROUND:
+         snprintf(where, MISC_LENGTH, "%s", "foreground");
+         break;
+      case VALIDATION_BACKGROUND:
+         snprintf(where, MISC_LENGTH, "%s", "background");
+         break;
+   }
+
+   return 0;
+
+}
+
+/**
+ * An utility function to convert the enumeration of values for the pipeline setting
+ * into one of its possible string descriptions.
+ *
+ * @param where the buffer used to store the stringy thing
+ * @param value the config->pipeline setting
+ * @return 0 on success, 1 otherwise
+ */
+static int
+to_pipeline(char* where, int value)
+{
+   if (!where || value < 0)
+   {
+      return 1;
+   }
+
+   switch (value)
+   {
+      case PIPELINE_AUTO:
+         snprintf(where, MISC_LENGTH, "%s", "auto");
+         break;
+      case PIPELINE_SESSION:
+         snprintf(where, MISC_LENGTH, "%s", "session");
+         break;
+      case PIPELINE_TRANSACTION:
+         snprintf(where, MISC_LENGTH, "%s", "transaction");
+         break;
+      case PIPELINE_PERFORMANCE:
+         snprintf(where, MISC_LENGTH, "%s", "performance");
+         break;
+   }
+
+   return 0;
+}
+
+/**
+ * An utility function to convert the enumeration of values for the log_level setting
+ * into one of its possible string descriptions.
+ *
+ * @param where the buffer used to store the stringy thing
+ * @param value the config->log_level setting
+ * @return 0 on success, 1 otherwise
+ */
+static int
+to_log_level(char* where, int value)
+{
+   if (!where || value < 0)
+   {
+      return 1;
+   }
+
+   switch (value)
+   {
+
+      case PGAGROAL_LOGGING_LEVEL_DEBUG2:
+         snprintf(where, MISC_LENGTH, "%s", "debug2");
+         break;
+      case PGAGROAL_LOGGING_LEVEL_DEBUG1:
+         snprintf(where, MISC_LENGTH, "%s", "debug");
+         break;
+      case PGAGROAL_LOGGING_LEVEL_INFO:
+         snprintf(where, MISC_LENGTH, "%s", "info");
+         break;
+      case PGAGROAL_LOGGING_LEVEL_WARN:
+         snprintf(where, MISC_LENGTH, "%s", "warn");
+         break;
+      case PGAGROAL_LOGGING_LEVEL_ERROR:
+         snprintf(where, MISC_LENGTH, "%s", "error");
+         break;
+      case PGAGROAL_LOGGING_LEVEL_FATAL:
+         snprintf(where, MISC_LENGTH, "%s", "fatal");
+         break;
+
+   }
+
+   return 0;
+}
+
+/**
+ * An utility function to convert the enumeration of values for the log_level setting
+ * into one of its possible string descriptions.
+ *
+ * @param where the buffer used to store the stringy thing
+ * @param value the config->log_mode setting
+ * @return 0 on success, 1 otherwise
+ */
+static int
+to_log_mode(char* where, int value)
+{
+   if (!where || value < 0)
+   {
+      return 1;
+   }
+
+   switch (value)
+   {
+
+      case PGAGROAL_LOGGING_MODE_CREATE:
+         snprintf(where, MISC_LENGTH, "%s", "create");
+         break;
+      case PGAGROAL_LOGGING_MODE_APPEND:
+         snprintf(where, MISC_LENGTH, "%s", "append");
+         break;
+   }
+
+   return 0;
+}
+
+/**
+ * An utility function to convert the enumeration of values for the log_type setting
+ * into one of its possible string descriptions.
+ *
+ * @param where the buffer used to store the stringy thing
+ * @param value the config->log_type setting
+ * @return 0 on success, 1 otherwise
+ */
+static int
+to_log_type(char* where, int value)
+{
+   if (!where || value < 0)
+   {
+      return 1;
+   }
+
+   switch (value)
+   {
+      case PGAGROAL_LOGGING_TYPE_CONSOLE:
+         snprintf(where, MISC_LENGTH, "%s", "console");
+         break;
+      case PGAGROAL_LOGGING_TYPE_FILE:
+         snprintf(where, MISC_LENGTH, "%s", "file");
+         break;
+      case PGAGROAL_LOGGING_TYPE_SYSLOG:
+         snprintf(where, MISC_LENGTH, "%s", "syslog");
+         break;
+
+   }
+
+   return 0;
 }

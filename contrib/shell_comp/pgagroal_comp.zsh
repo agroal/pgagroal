@@ -6,7 +6,7 @@ function _pgagroal_cli()
 {
     local line
     _arguments -C \
-               "1: :(flush-idle flush-all flush-gracefully is-alive enable disable stop gracefully status details switch-to reload reset reset-server)" \
+               "1: :(flush-idle flush-all flush-gracefully is-alive enable disable stop gracefully status details switch-to reload reset reset-server config-get)" \
                "*::arg:->args"
 }
 
