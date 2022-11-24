@@ -610,7 +610,7 @@ done:
    {
       if (action != ACTION_UNKNOWN && exit_code != 0)
       {
-         printf("No connection to pgagroal on %s\n", config->unix_socket_dir);
+         printf("Connection error on %s\n", config->unix_socket_dir);
       }
    }
 
@@ -624,14 +624,7 @@ done:
 
    if (verbose)
    {
-      if (exit_code == 0)
-      {
-         printf("Success (0)\n");
-      }
-      else
-      {
-         printf("Error (%d)\n", exit_code);
-      }
+      warnx("%s (%d)\n", exit_code == 0 ? "Success" : "Error", exit_code);
    }
 
    return exit_code;
@@ -708,14 +701,12 @@ status(SSL* ssl, int socket)
 {
    if (pgagroal_management_status(ssl, socket) == 0)
    {
-      pgagroal_management_read_status(ssl, socket);
+      return pgagroal_management_read_status(ssl, socket);
    }
    else
    {
       return 1;
    }
-
-   return 0;
 }
 
 static int
@@ -723,15 +714,15 @@ details(SSL* ssl, int socket)
 {
    if (pgagroal_management_details(ssl, socket) == 0)
    {
-      pgagroal_management_read_status(ssl, socket);
-      pgagroal_management_read_details(ssl, socket);
-   }
-   else
-   {
-      return 1;
+      if (pgagroal_management_read_status(ssl, socket) == 0)
+      {
+         return pgagroal_management_read_details(ssl, socket);
+      }
    }
 
-   return 0;
+   // if here, an error occurred
+   return 1;
+
 }
 
 static int
