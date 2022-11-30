@@ -1318,8 +1318,9 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    int client_fd;
    signed char id;
    int32_t slot;
-   int payload_i;
+   int payload_i, secondary_payload_i;
    char* payload_s = NULL;
+   char* secondary_payload_s = NULL;
    struct configuration* config;
 
    if (EV_ERROR & revents)
@@ -1537,6 +1538,12 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       case MANAGEMENT_CONFIG_GET:
          pgagroal_log_debug("pgagroal: Management config-get for key <%s>", payload_s);
          pgagroal_management_write_config_get(client_fd, payload_s);
+         break;
+      case MANAGEMENT_CONFIG_SET:
+         // this command has a secondary payload to extract, that is the configuration value
+         pgagroal_management_read_payload(client_fd, id, &secondary_payload_i, &secondary_payload_s);
+         pgagroal_log_debug("pgagroal: Management config-set for key <%s> setting value to <%s>", payload_s, secondary_payload_s);
+         pgagroal_management_write_config_set(client_fd, payload_s, secondary_payload_s);
          break;
       default:
          pgagroal_log_debug("pgagroal: Unknown management id: %d", id);

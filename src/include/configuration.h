@@ -41,6 +41,16 @@ extern "C" {
  */
 #define PGAGROAL_MAIN_INI_SECTION "pgagroal"
 
+/*
+ * The following constants are used to clearly identify
+ * a section the user wants to get configuration
+ * or change. They are used in the config-get
+ * and config-set operations.
+ */
+#define PGAGROAL_CONF_SERVER_PREFIX "server"
+#define PGAGROAL_CONF_HBA_PREFIX    "hba"
+#define PGAGROAL_CONF_LIMIT_PREFIX  "limit"
+
 /**
  * Status that pgagroal_read_configuration() could provide.
  * Use only negative values for errors, since a positive return
@@ -289,6 +299,47 @@ pgagroal_can_prefill(void);
  */
 int
 pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size);
+
+/**
+ * Function to apply a single configuration parameter.
+ *
+ * This is the backbone function used when parsing the main configuration file
+ * and is used to set any of the allowed parameters.
+ *
+ * @param config the configuration to apply values onto
+ * @param srv the server to which the configuration parameter refers to, if needed
+ * @param section the section of the file, main or server
+ * @param key the parameter name of the configuration
+ * @param value the value of the configuration
+ * @return 0 on success
+ *
+ * Examples of usage:
+ *   pgagroal_apply_main_configuration( config, NULL, PGAGROAL_MAIN_INI_SECTION, "log_level", "info" );
+ */
+int
+pgagroal_apply_main_configuration(struct configuration* config,
+                                  struct server* srv,
+                                  char* section,
+                                  char* key,
+                                  char* value);
+
+/**
+ * Function to set a configuration value.
+ *
+ * This function accepts the same prefixes as the configuration get behavior, so
+ * a single parameter like 'max_connections' is managed as the main configuration file,
+ * a 'server' prefix will hit a specific server, a 'limit' prefix will set a limit, and so on.
+ *
+ * The idea behind the function is to "clone" the current configuration in use, and then
+ * apply the changes. In order to be coherent to what a "reload" operation would do,
+ * this function calls 'pgagroal_transfer_configuration' internally.
+ *
+ * @param config_key the string that contains the name of the parameter
+ * @param config_value the value to set
+ * @return 0 on success
+ */
+int
+pgagroal_apply_configuration(char* config_key, char* config_value);
 
 #ifdef __cplusplus
 }

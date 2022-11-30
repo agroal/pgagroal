@@ -303,6 +303,55 @@ Success (0)
 
 If the parameter name specified is not found or invalid, the program `pgagroal-cli` exit normally without printing any value.
 
+
+## config-set
+Allows the setting of a configuration parameter at run-time, if possible.
+
+Examples
+```
+pgagroal-cli config-set log_level debug
+pgagroal-cli config-set server.venkman.port 6432
+pgagroal config-set limit.pgbench.max_size 2
+```
+
+The syntax for setting parameters is the same as for the command `config-get`, therefore parameters are organized into namespaces:
+- `main` (optional) is the main pgagroal configuration namespace, for example `main.log_level` or simply `log_level`;
+- `server` is the namespace referred to a specific server. It has to be followed by the name of the server and the name of the parameter to change, in a dotted notation, like `server.venkman.port`;
+- `limit` is the namespace referred to a specific limit entry, followed by the name of the username used in the limit entry.
+
+When executed, the `config-set` command returns the run-time setting of the specified parameter: if such parameter is equal to the value supplied, the change has been applied, otherwise it means that the old setting has been kept.
+The `--verbose` flag can be used to understand if the change has been applied:
+
+```
+$ pgagroal-cli config-set log_level debug
+debug
+
+$ pgagroal-cli config-set log_level debug --verbose
+log_level = debug
+pgagroal-cli: Success (0)
+```
+
+When a setting modification cannot be applied, the system returns the "old" setting value and, if `--verbose` is specified, the error indication:
+
+```
+$ pgagroal-cli config-set max_connections 100
+40
+
+$ pgagroal-cli config-set max_connections 100 --verbose
+max_connections = 40
+pgagroal-cli: Error (2)
+```
+
+When a `config-set` cannot be applied, the system will report in the logs an indication about the problem. With regard to the previous example, the system reports in the logs something like the following (depending on your `log_level`):
+
+```
+DEBUG Trying to change main configuration setting <max_connections> to <100>
+INFO  Restart required for max_connections - Existing 40 New 100
+WARN  1 settings cannot be applied
+DEBUG pgagroal_management_write_config_set: unable to apply changes to <max_connections> -> <100>
+```
+
+
 ## Shell completions
 
 There is a minimal shell completion support for `pgagroal-cli`.
