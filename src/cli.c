@@ -65,6 +65,7 @@
 #define ACTION_SWITCH_TO      12
 #define ACTION_RELOAD         13
 #define ACTION_CONFIG_GET     14
+#define ACTION_CONFIG_SET     15
 
 static int flush(SSL* ssl, int socket, int32_t mode, char* database);
 static int enabledb(SSL* ssl, int socket, char* database);
@@ -80,6 +81,7 @@ static int reset_server(SSL* ssl, int socket, char* server);
 static int switch_to(SSL* ssl, int socket, char* server);
 static int reload(SSL* ssl, int socket);
 static int config_get(SSL* ssl, int socket, char* config_key, bool verbose);
+static int config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose);
 
 static void
 version(void)
@@ -127,6 +129,7 @@ usage(void)
    printf("  reset                    Reset the Prometheus statistics\n");
    printf("  reset-server             Reset the state of a server\n");
    printf("  config-get               Retrieves a configuration value\n");
+   printf("  config-set               Modifies a configuration value\n");
    printf("\n");
    printf("pgagroal: %s\n", PGAGROAL_HOMEPAGE);
    printf("Report bugs: %s\n", PGAGROAL_ISSUES);
@@ -159,6 +162,7 @@ main(int argc, char** argv)
    bool remote_connection = false;
    long l_port;
    char* config_key = NULL; /* key for a configuration setting */
+   char* config_value = NULL; /* value for a configuration setting */
 
    while (1)
    {
@@ -445,6 +449,16 @@ main(int argc, char** argv)
          action = ACTION_CONFIG_GET;
          config_key = argv[argc - 1];
       }
+      else if (argc > 3 && !strncmp("config-set", argv[argc - 3], MISC_LENGTH)
+               && strlen(argv[argc - 2]) > 0
+               && strlen(argv[argc - 1]) > 0)
+      {
+         /* set a configuration value */
+         action = ACTION_CONFIG_SET;
+         config_key = argv[argc - 2];
+         config_value = argv[argc - 1];
+      }
+
       if (action != ACTION_UNKNOWN)
       {
          if (!remote_connection)
@@ -594,6 +608,10 @@ password:
       {
          exit_code = config_get(s_ssl, socket, config_key, verbose);
       }
+      else if (action == ACTION_CONFIG_SET)
+      {
+         exit_code = config_set(s_ssl, socket, config_key, config_value, verbose);
+      }
    }
 
 done:
@@ -646,7 +664,7 @@ done:
 
    if (verbose)
    {
-      warnx("%s (%d)\n", exit_code == EXIT_STATUS_OK ? "Success" : "Error", exit_code);
+      warnx("%s (%d)", exit_code == EXIT_STATUS_OK ? "Success" : "Error", exit_code);
    }
 
    return exit_code;
@@ -881,6 +899,80 @@ config_get(SSL* ssl, int socket, char* config_key, bool verbose)
 
    return EXIT_STATUS_OK;
 
+error:
+   return EXIT_STATUS_CONNECTION_ERROR;
+}
+
+/**
+ * Entry point for a config-set command.
+ *
+ * The function requires the configuration parameter to set and its value.
+ * It then sends the command over the socket and reads the answer back.
+ *
+ * @param ssl the SSL connection
+ * @param socket the socket to use
+ * @param config_key the parameter name to set
+ * @param config_value the value to set the parameter to
+ * @param verbose if true the system will print back the new value of the configuration parameter
+ * @return 0 on success
+ */
+static int
+config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose)
+{
+   char* buffer = NULL;
+   int status = EXIT_STATUS_DATA_ERROR;
+
+   if (!config_key || strlen(config_key) > MISC_LENGTH
+       || !config_value || strlen(config_value) > MISC_LENGTH)
+   {
+      goto error;
+   }
+
+   if (pgagroal_management_config_set(ssl, socket, config_key, config_value))
+   {
+      goto error;
+   }
+   else
+   {
+      buffer = malloc(MISC_LENGTH);
+      memset(buffer, 0, MISC_LENGTH);
+      if (pgagroal_management_read_config_get(socket, &buffer))
+      {
+         free(buffer);
+         goto error;
+      }
+
+      // if the setting we sent is different from the setting we get
+      // than the system has not applied, so it is an error
+      if (strncmp(config_value, buffer, MISC_LENGTH) == 0)
+      {
+         status = EXIT_STATUS_OK;
+      }
+      else
+      {
+         status = EXIT_STATUS_DATA_ERROR;
+      }
+
+      // assume an empty response is ok,
+      // do not throw an error to indicate no configuration
+      // setting with such name as been found
+      if (buffer && strlen(buffer))
+      {
+         if (verbose)
+         {
+            printf("%s = %s\n", config_key, buffer);
+         }
+         else
+         {
+            printf("%s\n", buffer);
+         }
+      }
+
+      free(buffer);
+      return status;
+   }
+
+   return status;
 error:
    return EXIT_STATUS_CONNECTION_ERROR;
 }

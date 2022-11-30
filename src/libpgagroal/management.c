@@ -174,6 +174,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
       case MANAGEMENT_ENABLEDB:
       case MANAGEMENT_DISABLEDB:
       case MANAGEMENT_CONFIG_GET:
+      case MANAGEMENT_CONFIG_SET:
          if (read_complete(NULL, socket, &buf4[0], sizeof(buf4)))
          {
             goto error;
@@ -1491,26 +1492,26 @@ int
 pgagroal_management_config_get(SSL* ssl, int socket, char* config_key)
 {
    char buf[4];
-   int size;
+   size_t size;
 
    // security check: avoid writing something null or with too much stuff!
    if (!config_key || !strlen(config_key))
    {
-      pgagroal_log_warn("pgagroal_management_config_get: no key specified");
+      pgagroal_log_debug("pgagroal_management_config_get: no key specified");
       goto error;
    }
 
    size = strlen(config_key) + 1;
    if (size > MISC_LENGTH)
    {
-      pgagroal_log_warn("pgagroal_management_config_get: key <%s> too big (%d bytes)", config_key, size);
+      pgagroal_log_debug("pgagroal_management_config_get: key <%s> too big (%d bytes)", config_key, size);
       goto error;
    }
 
    // send the header for this command
    if (write_header(ssl, socket, MANAGEMENT_CONFIG_GET, -1))
    {
-      pgagroal_log_warn("pgagroal_management_config_get: write error on header for key <%s> on socket %d", config_key, socket);
+      pgagroal_log_debug("pgagroal_management_config_get: write error on header for key <%s> on socket %d", config_key, socket);
       goto error;
    }
 
@@ -1519,11 +1520,11 @@ pgagroal_management_config_get(SSL* ssl, int socket, char* config_key)
    pgagroal_write_int32(&buf, size);
    if (write_complete(ssl, socket, &buf, sizeof(buf)))
    {
-      pgagroal_log_warn("pgagroal_management_config_get: write error for the size of the payload (%d bytes for <%s>, socket %d): %s",
-                        size,
-                        config_key,
-                        socket,
-                        strerror(errno));
+      pgagroal_log_debug("pgagroal_management_config_get: write error for the size of the payload (%d bytes for <%s>, socket %d): %s",
+                         size,
+                         config_key,
+                         socket,
+                         strerror(errno));
       goto error;
    }
 
@@ -1532,7 +1533,7 @@ pgagroal_management_config_get(SSL* ssl, int socket, char* config_key)
 
    if (write_complete(ssl, socket, config_key, size))
    {
-      pgagroal_log_warn("pgagroal_management_config_get: write error sending the configuration name <%s> over socket %d: %s", config_key, socket, strerror(errno));
+      pgagroal_log_debug("pgagroal_management_config_get: write error sending the configuration name <%s> over socket %d: %s", config_key, socket, strerror(errno));
       goto error;
    }
 
@@ -1548,18 +1549,18 @@ pgagroal_management_write_config_get(int socket, char* config_key)
 {
    char data[MISC_LENGTH];
    char buf[4];
-   int size;
+   size_t size;
 
    if (!config_key || !strlen(config_key))
    {
-      pgagroal_log_warn("pgagroal_management_write_config_get: no key specified");
+      pgagroal_log_debug("pgagroal_management_write_config_get: no key specified");
       goto error;
    }
 
    size = strlen(config_key) + 1;
    if (size > MISC_LENGTH)
    {
-      pgagroal_log_warn("pgagroal_management_write_config_get: key <%s> too big (%d bytes)", config_key, size);
+      pgagroal_log_debug("pgagroal_management_write_config_get: key <%s> too big (%d bytes)", config_key, size);
       goto error;
    }
 
@@ -1567,7 +1568,7 @@ pgagroal_management_write_config_get(int socket, char* config_key)
 
    if (pgagroal_write_config_value(&data[0], config_key, sizeof(data)))
    {
-      pgagroal_log_warn("pgagroal_management_write_config_get: unknwon configuration key <%s>", config_key);
+      pgagroal_log_debug("pgagroal_management_write_config_get: unknwon configuration key <%s>", config_key);
       // leave the payload empty, so a zero filled payload will be sent
    }
 
@@ -1577,18 +1578,18 @@ pgagroal_management_write_config_get(int socket, char* config_key)
    pgagroal_write_int32(&buf, size);
    if (write_complete(NULL, socket, &buf, sizeof(buf)))
    {
-      pgagroal_log_warn("pgagroal_management_write_config_get: write error for the size of the payload <%s> (%d bytes for <%s>, socket %d): %s",
-                        data,
-                        size,
-                        config_key,
-                        socket,
-                        strerror(errno));
+      pgagroal_log_debug("pgagroal_management_write_config_get: write error for the size of the payload <%s> (%d bytes for <%s>, socket %d): %s",
+                         data,
+                         size,
+                         config_key,
+                         socket,
+                         strerror(errno));
       goto error;
    }
 
    if (write_complete(NULL, socket, data, size))
    {
-      pgagroal_log_warn("pgagroal_management_write_config_get (%s): write: %d %s", config_key, socket, strerror(errno));
+      pgagroal_log_debug("pgagroal_management_write_config_get (%s): write: %d %s", config_key, socket, strerror(errno));
       goto error;
    }
 
@@ -1605,4 +1606,121 @@ pgagroal_management_read_config_get(int socket, char** data)
 {
    int size = MISC_LENGTH;
    return pgagroal_management_read_payload(socket, MANAGEMENT_CONFIG_GET, &size, data);
+}
+
+int
+pgagroal_management_config_set(SSL* ssl, int socket, char* config_key, char* config_value)
+{
+   char buf[4];
+   size_t size;
+
+   // security check: avoid writing something null or with too much stuff!
+   if (!config_key || !strlen(config_key) || !config_value || !strlen(config_value))
+   {
+      pgagroal_log_debug("pgagroal_management_config_set: no key or value specified");
+      goto error;
+   }
+
+   if (strlen(config_key) > MISC_LENGTH - 1 || strlen(config_value) > MISC_LENGTH - 1)
+   {
+      pgagroal_log_debug("pgagroal_management_config_set: key <%s> or value <%s> too big (max %d bytes)", config_key, config_value, MISC_LENGTH);
+      goto error;
+   }
+
+   // send the header for this command
+   if (write_header(ssl, socket, MANAGEMENT_CONFIG_SET, -1))
+   {
+      pgagroal_log_debug("pgagroal_management_config_set: write error on header for key <%s> on socket %d", config_key, socket);
+      goto error;
+   }
+
+   /*
+    * send a message with the size of the key, the key
+    * then the size of the value and the value
+    */
+
+   // send the size of the payload for the config key
+   memset(&buf, 0, sizeof(buf));
+   size = strlen(config_key) + 1;
+   pgagroal_write_int32(&buf, size);
+   if (write_complete(ssl, socket, &buf, sizeof(buf)))
+   {
+      pgagroal_log_debug("pgagroal_management_config_set: write error for the size of the payload (%d bytes for <%s>, socket %d): %s",
+                         size,
+                         config_key,
+                         socket,
+                         strerror(errno));
+      goto error;
+   }
+
+   // send the effective payload, i.e., the configuration parameter name to get
+   memset(&buf, 0, sizeof(buf));
+
+   if (write_complete(ssl, socket, config_key, size))
+   {
+      pgagroal_log_debug("pgagroal_management_config_set: write error sending the configuration name <%s> over socket %d: %s", config_key, socket, strerror(errno));
+      goto error;
+   }
+
+   // send the size of the payload for the config value
+   memset(&buf, 0, sizeof(buf));
+   size = strlen(config_value) + 1;
+   pgagroal_write_int32(&buf, size);
+   if (write_complete(ssl, socket, &buf, sizeof(buf)))
+   {
+      pgagroal_log_debug("pgagroal_management_config_set: write error for the size of the payload (%d bytes for <%s>, socket %d): %s",
+                         size,
+                         config_value,
+                         socket,
+                         strerror(errno));
+      goto error;
+   }
+
+   // send the effective payload, i.e., the configuration value to set
+   memset(&buf, 0, sizeof(buf));
+
+   if (write_complete(ssl, socket, config_value, size))
+   {
+      pgagroal_log_warn("pgagroal_management_config_set: write error sending the configuration value <%s> over socket %d: %s", config_value, socket, strerror(errno));
+      goto error;
+   }
+
+   return 0;
+
+error:
+   errno = 0;
+   return 1;
+}
+
+int
+pgagroal_management_write_config_set(int socket, char* config_key, char* config_value)
+{
+   if (!config_key || !strlen(config_key) || !config_value || !strlen(config_value))
+   {
+      pgagroal_log_warn("pgagroal_management_write_config_set: no key or value specified");
+      goto error;
+   }
+
+   if (strlen(config_key) > MISC_LENGTH - 1 || strlen(config_value) > MISC_LENGTH - 1)
+   {
+      pgagroal_log_warn("pgagroal_management_write_config_set: key <%s> or value <%s> too big (max %d bytes)", config_key, config_value, MISC_LENGTH);
+      goto error;
+   }
+
+   pgagroal_log_debug("pgagroal_management_write_config_set: trying to set <%s> to <%s>", config_key, config_value);
+
+   // do set the configuration value
+   if (pgagroal_apply_configuration(config_key, config_value))
+   {
+      pgagroal_log_debug("pgagroal_management_write_config_set: unable to apply changes to <%s> -> <%s>", config_key, config_value);
+   }
+
+   // query back the status of the parameter
+   // and send it over the socket
+   return pgagroal_management_write_config_get(socket, config_key);
+
+error:
+   errno = 0;
+   return 1;
+
 }

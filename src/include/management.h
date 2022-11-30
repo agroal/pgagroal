@@ -60,6 +60,7 @@ extern "C" {
 #define MANAGEMENT_RELOAD             18
 #define MANAGEMENT_REMOVE_FD          19
 #define MANAGEMENT_CONFIG_GET         20
+#define MANAGEMENT_CONFIG_SET         21
 
 /**
  * Read the management header
@@ -347,6 +348,43 @@ pgagroal_management_read_config_get(int socket, char** data);
  */
 int
 pgagroal_management_write_config_get(int socket, char* config_key);
+
+/**
+ * Management operation: set a configuration setting.
+ * This function sends over the socket the message to set a configuration
+ * value.
+ * In particular, the message block for the action config_set is sent,
+ * then the size of the configuration parameter to set (e.g., `max_connections`),
+ * then the parameter name. At this point another couple of "size" and "value" is
+ * sent with the size of the value to set and its value.
+ *
+ * @param ssl the SSL connection
+ * @param socket the socket file descriptor
+ * @param config_key the name of the configuration parameter to set
+ * @param config_value the value to set for the new parameter
+ * @return 0 on success, 1 on error
+ */
+int
+pgagroal_management_config_set(SSL* ssl, int socket, char* config_key, char* config_value);
+
+/**
+ * Function to execute the config-set and write over the socket
+ * the result.
+ *
+ * If the parameter is set, the function calls the
+ * pgagroal_management_write_config_get to send back over the
+ * socket the current value of the parameter. Therefore,
+ * this function answers always back the current value
+ * so that it is possible to reason about the new value and
+ * see if it has changed.
+ *
+ * @param socket the socket to use for communication
+ * @param config_key the key to set
+ * @param config_value the value to use
+ * @return 0 on success
+ */
+int
+pgagroal_management_write_config_set(int socket, char* config_key, char* config_value);
 
 #ifdef __cplusplus
 }

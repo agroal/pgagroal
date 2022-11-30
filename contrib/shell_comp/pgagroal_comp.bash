@@ -9,7 +9,7 @@ pgagroal_cli_completions()
     if [ "${#COMP_WORDS[@]}" == "2" ]; then
         # main completion: the user has specified nothing at all
         # or a single word, that is a command
-        COMPREPLY=($(compgen -W "flush-idle flush-gracefully flush-all is-alive enable disable stop gracefully status details switch-to reload reset reset-server config-get" "${COMP_WORDS[1]}"))
+        COMPREPLY=($(compgen -W "flush-idle flush-gracefully flush-all is-alive enable disable stop gracefully status details switch-to reload reset reset-server config-get config-set" "${COMP_WORDS[1]}"))
     fi
 }
 

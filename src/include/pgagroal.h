@@ -142,6 +142,25 @@ extern "C" {
 #define UPDATE_PROCESS_TITLE_VERBOSE 3
 
 /**
+ * Constants used to refer to an HBA entry field.
+ */
+#define PGAGROAL_HBA_ENTRY_TYPE "type"
+#define PGAGROAL_HBA_ENTRY_DATABASE "database"
+#define PGAGROAL_HBA_ENTRY_USERNAME "username"
+#define PGAGROAL_HBA_ENTRY_ADDRESS "address"
+#define PGAGROAL_HBA_ENTRY_METHOD "method"
+
+/**
+ * Constants used to refer to the limit structure fields
+ */
+#define PGAGROAL_LIMIT_ENTRY_DATABASE "database"
+#define PGAGROAL_LIMIT_ENTRY_USERNAME "username"
+#define PGAGROAL_LIMIT_ENTRY_MAX_SIZE "max_size"
+#define PGAGROAL_LIMIT_ENTRY_MIN_SIZE "min_size"
+#define PGAGROAL_LIMIT_ENTRY_INITIAL_SIZE "initial_size"
+#define PGAGROAL_LIMIT_ENTRY_LINENO "line_number"
+
+/**
  * Constants used to manage the exit code
  * of a command sent over the socket in the
  * management stuff, e.g., `pgagroal-cli`.
