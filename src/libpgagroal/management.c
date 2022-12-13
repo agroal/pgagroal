@@ -1549,7 +1549,7 @@ pgagroal_management_write_config_get(int socket, char* config_key)
 
    memset(&data, 0, sizeof(data));
 
-   if (pgagroal_write_config_value(&data[0], config_key))
+   if (pgagroal_write_config_value(&data[0], config_key, sizeof(data)))
    {
       pgagroal_log_warn("pgagroal_management_write_config_get: unknwon configuration key <%s>", config_key);
       // leave the payload empty, so a zero filled payload will be sent
