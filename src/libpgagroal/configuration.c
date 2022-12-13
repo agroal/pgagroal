@@ -3513,6 +3513,11 @@ pgagroal_write_config_value(char* buffer, char* config_key)
       {
          return to_bool(buffer, config->track_prepared_statements);
       }
+      else
+      {
+         goto error;
+      }
+
    } // end of global configuration settings
    else
    {
