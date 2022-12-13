@@ -90,11 +90,11 @@ static bool key_in_section(char* wanted, char* section, char* key, bool global, 
 static bool is_comment_line(char* line);
 static bool section_line(char* line, char* section);
 
-static int pgagroal_write_server_config_value(char* buffer, char* server_name, char* config_key);
-static int pgagroal_write_hba_config_value(char* buffer, char* username, char* config_key);
-static int pgagroal_write_limit_config_value(char* buffer, char* database, char* config_key);
+static int pgagroal_write_server_config_value(char* buffer, char* server_name, char* config_key, size_t buffer_size);
+static int pgagroal_write_hba_config_value(char* buffer, char* username, char* config_key, size_t buffer_size);
+static int pgagroal_write_limit_config_value(char* buffer, char* database, char* config_key, size_t buffer_size);
 
-static int to_string(char* where, char* value);
+static int to_string(char* where, char* value, size_t max_length);
 static int to_bool(char* where, bool value);
 static int to_int(char* where, int value);
 static int to_update_process_title(char* where, int value);
@@ -3262,7 +3262,7 @@ as_update_process_title(char* str, unsigned int* policy, unsigned int default_po
 }
 
 int
-pgagroal_write_config_value(char* buffer, char* config_key)
+pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
 {
    struct configuration* config;
 
@@ -3330,15 +3330,15 @@ pgagroal_write_config_value(char* buffer, char* config_key)
 
    if (!strncmp(section, "server", MISC_LENGTH))
    {
-      return pgagroal_write_server_config_value(buffer, context, key);
+      return pgagroal_write_server_config_value(buffer, context, key, buffer_size);
    }
    else if (!strncmp(section, "hba", MISC_LENGTH))
    {
-      return pgagroal_write_hba_config_value(buffer, context, key);
+      return pgagroal_write_hba_config_value(buffer, context, key, buffer_size);
    }
    else if (!strncmp(section, "limit", MISC_LENGTH))
    {
-      return pgagroal_write_limit_config_value(buffer, context, key);
+      return pgagroal_write_limit_config_value(buffer, context, key, buffer_size);
    }
    else if (main_section)
    {
@@ -3347,7 +3347,7 @@ pgagroal_write_config_value(char* buffer, char* config_key)
 
       if (!strncmp(key, "host", MISC_LENGTH))
       {
-         return to_string(buffer, config->host);
+         return to_string(buffer, config->host, buffer_size);
       }
       else if (!strncmp(key, "port", MISC_LENGTH))
       {
@@ -3363,7 +3363,7 @@ pgagroal_write_config_value(char* buffer, char* config_key)
       }
       else if (!strncmp(key, "log_line_prefix", MISC_LENGTH))
       {
-         return to_string(buffer, config->log_line_prefix);
+         return to_string(buffer, config->log_line_prefix, buffer_size);
       }
 
       else if (!strncmp(key, "log_level", MISC_LENGTH))
@@ -3390,7 +3390,7 @@ pgagroal_write_config_value(char* buffer, char* config_key)
       }
       else if (!strncmp(key, "log_path", MISC_LENGTH))
       {
-         return to_string(buffer, config->log_path);
+         return to_string(buffer, config->log_path, buffer_size);
       }
       else if (!strncmp(key, "metrics", MISC_LENGTH))
       {
@@ -3415,7 +3415,7 @@ pgagroal_write_config_value(char* buffer, char* config_key)
       }
       else if (!strncmp(key, "failover_script", MISC_LENGTH))
       {
-         return to_string(buffer, config->failover_script);
+         return to_string(buffer, config->failover_script, buffer_size);
       }
       else if (!strncmp(key, "tls", MISC_LENGTH))
       {
@@ -3427,15 +3427,15 @@ pgagroal_write_config_value(char* buffer, char* config_key)
       }
       else if (!strncmp(key, "tls_ca_file", MISC_LENGTH))
       {
-         return to_string(buffer, config->tls_ca_file);
+         return to_string(buffer, config->tls_ca_file, buffer_size);
       }
       else if (!strncmp(key, "tls_cert_file", MISC_LENGTH))
       {
-         return to_string(buffer, config->tls_cert_file);
+         return to_string(buffer, config->tls_cert_file, buffer_size);
       }
       else if (!strncmp(key, "tls_key_file", MISC_LENGTH))
       {
-         return to_string(buffer, config->tls_key_file);
+         return to_string(buffer, config->tls_key_file, buffer_size);
       }
       else if (!strncmp(key, "blocking_timeout", MISC_LENGTH))
       {
@@ -3471,7 +3471,7 @@ pgagroal_write_config_value(char* buffer, char* config_key)
       }
       else if (!strncmp(key, "pidfile", MISC_LENGTH))
       {
-         return to_string(buffer, config->pidfile);
+         return to_string(buffer, config->pidfile, buffer_size);
       }
       else if (!strncmp(key, "allow_unknown_users", MISC_LENGTH))
       {
@@ -3483,7 +3483,7 @@ pgagroal_write_config_value(char* buffer, char* config_key)
       }
       else if (!strncmp(key, "unix_socket_dir", MISC_LENGTH))
       {
-         return to_string(buffer, config->unix_socket_dir);
+         return to_string(buffer, config->unix_socket_dir, buffer_size);
       }
       else if (!strncmp(key, "buffer_size", MISC_LENGTH))
       {
@@ -3536,10 +3536,11 @@ error:
  * @param server_name the name of the server
  * @param config_key one of the configuration keys allowed in the server section
  * @param buffer the buffer where to write the stringified version of the value
+ * @param buffer_size the max size of the buffer where the result will be stored
  * @return 0 on success
  */
 static int
-pgagroal_write_server_config_value(char* buffer, char* server_name, char* config_key)
+pgagroal_write_server_config_value(char* buffer, char* server_name, char* config_key, size_t buffer_size)
 {
    int server_index = -1;
    struct configuration* config;
@@ -3565,7 +3566,7 @@ pgagroal_write_server_config_value(char* buffer, char* server_name, char* config
 
    if (!strncmp(config_key, "host", MISC_LENGTH))
    {
-      return to_string(buffer, config->servers[server_index].host);
+      return to_string(buffer, config->servers[server_index].host, buffer_size);
    }
    else if (!strncmp(config_key, "port", MISC_LENGTH))
    {
@@ -3607,10 +3608,11 @@ error:
  * @param buffer where to write the stringified value
  * @param username the username that must match the entry on the HBA entry line
  * @param config_key the configuration parameter to search for
+ * @param buffer_size the max length of the destination buffer
  * @return 0 on success
  */
 static int
-pgagroal_write_hba_config_value(char* buffer, char* username, char* config_key)
+pgagroal_write_hba_config_value(char* buffer, char* username, char* config_key, size_t buffer_size)
 {
    int hba_index = -1;
    struct configuration* config;
@@ -3635,23 +3637,23 @@ pgagroal_write_hba_config_value(char* buffer, char* username, char* config_key)
 
    if (!strncmp(config_key, "type", MISC_LENGTH))
    {
-      return to_string(buffer, config->hbas[hba_index].type);
+      return to_string(buffer, config->hbas[hba_index].type, buffer_size);
    }
    else if (!strncmp(config_key, "database", MISC_LENGTH))
    {
-      return to_string(buffer, config->hbas[hba_index].database);
+      return to_string(buffer, config->hbas[hba_index].database, buffer_size);
    }
    else if (!strncmp(config_key, "username", MISC_LENGTH))
    {
-      return to_string(buffer, config->hbas[hba_index].username);
+      return to_string(buffer, config->hbas[hba_index].username, buffer_size);
    }
    else if (!strncmp(config_key, "address", MISC_LENGTH))
    {
-      return to_string(buffer, config->hbas[hba_index].address);
+      return to_string(buffer, config->hbas[hba_index].address, buffer_size);
    }
    else if (!strncmp(config_key, "method", MISC_LENGTH))
    {
-      return to_string(buffer, config->hbas[hba_index].method);
+      return to_string(buffer, config->hbas[hba_index].method, buffer_size);
    }
    else
    {
@@ -3670,10 +3672,11 @@ error:
  * @param buffer where to write the information
  * @param database the username to search for
  * @param config_key the value to seek into the limits
+ * @param buffer_size the max size of the destination buffer where the result will be written
  * @return 0 on success
  */
 static int
-pgagroal_write_limit_config_value(char* buffer, char* database, char* config_key)
+pgagroal_write_limit_config_value(char* buffer, char* database, char* config_key, size_t buffer_size)
 {
    int limit_index = -1;
    struct configuration* config;
@@ -3698,11 +3701,11 @@ pgagroal_write_limit_config_value(char* buffer, char* database, char* config_key
 
    if (!strncmp(config_key, "username", MISC_LENGTH))
    {
-      return to_string(buffer, config->limits[limit_index].username);
+      return to_string(buffer, config->limits[limit_index].username, buffer_size);
    }
    else if (!strncmp(config_key, "database", MISC_LENGTH))
    {
-      return to_string(buffer, config->limits[limit_index].database);
+      return to_string(buffer, config->limits[limit_index].database, buffer_size);
    }
    else if (!strncmp(config_key, "max_size", MISC_LENGTH))
    {
@@ -3770,18 +3773,28 @@ to_bool(char* where, bool value)
  * tries to be as smart as possible identifying if there is the need for
  * single or double quotes.
  *
+ * The function accepts the size of the destination string, and before writing
+ * into such a string the result, it zero fills it. This means it is not mandatory
+ * to zero fill the destination string before calling this function.
+ * Also please note that if the string that is copied into the destination string
+ * has a length bigger than that specified, the function will not copy any data
+ * (and will not zero set the destination string, that will remain untouched!)
+ *
  * @param where the string where to print the value, must be already allocated
  * @param value the value to convert into a string
+ * @param max_length the max length of the 'where' destination string
  * @return 0 on success, 1 otherwise
  */
 static int
-to_string(char* where, char* value)
+to_string(char* where, char* value, size_t max_length)
 {
    bool needs_quotes = false;
    bool has_double_quotes = false;
    bool has_single_quotes = false;
+   char quoting_char = '\0';
+   int index = 0;
 
-   if (!where || !value || strlen(value) > MISC_LENGTH)
+   if (!where || !value || strlen(value) >= max_length)
    {
       return 1;
    }
@@ -3801,25 +3814,50 @@ to_string(char* where, char* value)
       {
          has_single_quotes = true;
       }
+
    }
 
    needs_quotes = needs_quotes || has_double_quotes || has_single_quotes;
 
    if (needs_quotes)
    {
+      // there must be space for quotes
+      if (strlen(value) > max_length - 2 - 1)
+      {
+         return 1;
+      }
+
       if (!has_single_quotes)
       {
-         snprintf(where, MISC_LENGTH, "'%s'", value);
+         quoting_char = '\'';
       }
       else if (!has_double_quotes)
       {
-         snprintf(where, MISC_LENGTH, "\"%s\"", value);
+         quoting_char = '"';
       }
+
    }
-   else
+
+   // if here, the size of the string is appropriate,
+   // so do the copy
+   memset(where, 0, max_length);
+
+   if (needs_quotes)
    {
-      snprintf(where, MISC_LENGTH, "%s", value);
+      memcpy(&where[index], &quoting_char, sizeof(quoting_char));
+      index += sizeof(quoting_char);
    }
+
+   memcpy(&where[index], value, strlen(value));
+   index += strlen(value);
+
+   if (needs_quotes)
+   {
+      memcpy(&where[index], &quoting_char, sizeof(quoting_char));
+      index += sizeof(quoting_char);
+   }
+
+   where[index] = '\0';
 
    return 0;
 }

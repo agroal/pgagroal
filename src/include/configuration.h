@@ -284,10 +284,11 @@ pgagroal_can_prefill(void);
  * @param buffer where to write the configuration value. The buffer must
  * be already allocated. In case of failure, the buffer is zero filled.
  * @param config_key the name of the configuration parameter
+ * @param buffer_size the max length of the buffer where the result will be stored
  * @return 0 on success, 1 when the key cannot be found
  */
 int
-pgagroal_write_config_value(char* buffer, char* config_key);
+pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size);
 
 #ifdef __cplusplus
 }
