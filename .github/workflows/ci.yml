@@ -14,19 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - name: Update system
       run: sudo apt update -y
     - name: Install libev
       run: sudo apt install -y libev4 libev-dev
-    - name: Install gcc-9
-      run: sudo apt install -y gcc-9
     - name: Install systemd
       run: sudo apt install -y libsystemd-dev
     - name: Install rst2man
-      run: sudo apt install -y python-docutils
-    - name: Update alternatives
-      run: sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60
+      run: sudo apt install -y python3-docutils
     - name: mkdir
       run: mkdir build
       working-directory: /home/runner/work/pgagroal/pgagroal/
