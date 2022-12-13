@@ -72,6 +72,7 @@ endif()
 #
 add_compile_options(-g)
 add_compile_options(-Wall)
+add_compile_options(-Werror)
 add_compile_options(-std=c17)
 add_compile_options(-D__USE_ISOC11)
 add_compile_options(-D_GNU_SOURCE)
