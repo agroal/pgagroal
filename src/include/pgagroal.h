@@ -141,6 +141,15 @@ extern "C" {
 #define UPDATE_PROCESS_TITLE_MINIMAL 2
 #define UPDATE_PROCESS_TITLE_VERBOSE 3
 
+/**
+ * Constants used to manage the exit code
+ * of a command sent over the socket in the
+ * management stuff, e.g., `pgagroal-cli`.
+ */
+#define EXIT_STATUS_OK               0
+#define EXIT_STATUS_CONNECTION_ERROR 1
+#define EXIT_STATUS_DATA_ERROR       2
+
 #define likely(x)    __builtin_expect (!!(x), 1)
 #define unlikely(x)  __builtin_expect (!!(x), 0)
 

@@ -621,9 +621,18 @@ done:
 
    if (configuration_path != NULL)
    {
-      if (action != ACTION_UNKNOWN && exit_code != 0)
+      if (action != ACTION_UNKNOWN)
       {
-         printf("Connection error on %s\n", config->unix_socket_dir);
+         switch (exit_code)
+         {
+            case EXIT_STATUS_CONNECTION_ERROR:
+               printf("Connection error on %s\n", config->unix_socket_dir);
+               break;
+            case EXIT_STATUS_DATA_ERROR:
+            case EXIT_STATUS_OK:
+               break;
+         }
+
       }
    }
 
@@ -637,7 +646,7 @@ done:
 
    if (verbose)
    {
-      warnx("%s (%d)\n", exit_code == 0 ? "Success" : "Error", exit_code);
+      warnx("%s (%d)\n", exit_code == EXIT_STATUS_OK ? "Success" : "Error", exit_code);
    }
 
    return exit_code;
@@ -648,10 +657,10 @@ flush(SSL* ssl, int socket, int32_t mode, char* database)
 {
    if (pgagroal_management_flush(ssl, socket, mode, database))
    {
-      return 1;
+      return EXIT_STATUS_CONNECTION_ERROR;
    }
 
-   return 0;
+   return EXIT_STATUS_OK;
 }
 
 static int
@@ -659,10 +668,10 @@ enabledb(SSL* ssl, int socket, char* database)
 {
    if (pgagroal_management_enabledb(ssl, socket, database))
    {
-      return 1;
+      return EXIT_STATUS_CONNECTION_ERROR;
    }
 
-   return 0;
+   return EXIT_STATUS_OK;
 }
 
 static int
@@ -670,10 +679,10 @@ disabledb(SSL* ssl, int socket, char* database)
 {
    if (pgagroal_management_disabledb(ssl, socket, database))
    {
-      return 1;
+      return EXIT_STATUS_CONNECTION_ERROR;
    }
 
-   return 0;
+   return EXIT_STATUS_OK;
 }
 
 static int
@@ -681,10 +690,10 @@ gracefully(SSL* ssl, int socket)
 {
    if (pgagroal_management_gracefully(ssl, socket))
    {
-      return 1;
+      return EXIT_STATUS_CONNECTION_ERROR;
    }
 
-   return 0;
+   return EXIT_STATUS_OK;
 }
 
 static int
@@ -692,10 +701,10 @@ stop(SSL* ssl, int socket)
 {
    if (pgagroal_management_stop(ssl, socket))
    {
-      return 1;
+      return EXIT_STATUS_CONNECTION_ERROR;
    }
 
-   return 0;
+   return EXIT_STATUS_OK;
 }
 
 static int
@@ -703,10 +712,10 @@ cancel_shutdown(SSL* ssl, int socket)
 {
    if (pgagroal_management_cancel_shutdown(ssl, socket))
    {
-      return 1;
+      return EXIT_STATUS_CONNECTION_ERROR;
    }
 
-   return 0;
+   return EXIT_STATUS_OK;
 }
 
 static int
@@ -718,7 +727,7 @@ status(SSL* ssl, int socket)
    }
    else
    {
-      return 1;
+      return EXIT_STATUS_CONNECTION_ERROR;
    }
 }
 
@@ -734,7 +743,7 @@ details(SSL* ssl, int socket)
    }
 
    // if here, an error occurred
-   return 1;
+   return EXIT_STATUS_CONNECTION_ERROR;
 
 }
 
@@ -747,20 +756,20 @@ isalive(SSL* ssl, int socket)
    {
       if (pgagroal_management_read_isalive(ssl, socket, &status))
       {
-         return 1;
+         return EXIT_STATUS_CONNECTION_ERROR;
       }
 
       if (status != 1 && status != 2)
       {
-         return 1;
+         return EXIT_STATUS_CONNECTION_ERROR;
       }
    }
    else
    {
-      return 1;
+      return EXIT_STATUS_CONNECTION_ERROR;
    }
 
-   return 0;
+   return EXIT_STATUS_OK;
 }
 
 static int
@@ -768,10 +777,10 @@ reset(SSL* ssl, int socket)
 {
    if (pgagroal_management_reset(ssl, socket))
    {
-      return 1;
+      return EXIT_STATUS_CONNECTION_ERROR;
    }
 
-   return 0;
+   return EXIT_STATUS_OK;
 }
 
 static int
@@ -779,10 +788,10 @@ reset_server(SSL* ssl, int socket, char* server)
 {
    if (pgagroal_management_reset_server(ssl, socket, server))
    {
-      return 1;
+      return EXIT_STATUS_CONNECTION_ERROR;
    }
 
-   return 0;
+   return EXIT_STATUS_OK;
 }
 
 static int
@@ -790,10 +799,10 @@ switch_to(SSL* ssl, int socket, char* server)
 {
    if (pgagroal_management_switch_to(ssl, socket, server))
    {
-      return 1;
+      return EXIT_STATUS_CONNECTION_ERROR;
    }
 
-   return 0;
+   return EXIT_STATUS_OK;
 }
 
 static int
@@ -801,10 +810,10 @@ reload(SSL* ssl, int socket)
 {
    if (pgagroal_management_reload(ssl, socket))
    {
-      return 1;
+      return EXIT_STATUS_CONNECTION_ERROR;
    }
 
-   return 0;
+   return EXIT_STATUS_OK;
 }
 
 /**
@@ -818,7 +827,7 @@ reload(SSL* ssl, int socket)
  * @param config_key the key of the configuration parameter, that is the name
  * of the configuration parameter to read.
  * @param verbose if true the function will print on STDOUT also the config key
- * @returns 0 on success, 1 on failure
+ * @returns 0 on success, 1 on network failure, 2 on data failure
  */
 static int
 config_get(SSL* ssl, int socket, char* config_key, bool verbose)
@@ -844,9 +853,9 @@ config_get(SSL* ssl, int socket, char* config_key, bool verbose)
          goto error;
       }
 
-      // assume an empty response is ok,
-      // do not throw an error to indicate no configuration
-      // setting with such name as been found
+      // an empty response means that the
+      // requested configuration parameter has not been
+      // found, so throw an error
       if (buffer && strlen(buffer))
       {
          if (verbose)
@@ -858,13 +867,17 @@ config_get(SSL* ssl, int socket, char* config_key, bool verbose)
             printf("%s\n", buffer);
          }
       }
+      else
+      {
+         free(buffer);
+         return EXIT_STATUS_DATA_ERROR;
+      }
 
       free(buffer);
-      return 0;
    }
 
-   return 0;
+   return EXIT_STATUS_OK;
 
 error:
-   return 1;
+   return EXIT_STATUS_CONNECTION_ERROR;
 }
