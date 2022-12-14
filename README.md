@@ -77,11 +77,11 @@ Alternative [clang 8+](https://clang.llvm.org/) can be used.
 
 ### Release build
 
-The following commands will install `pgagroal` in the `/usr/local` hierarchy
+The following commands will install the latest stable release of `pgagroal` in the `/usr/local` hierarchy
 and run the default configuration.
 
 ```sh
-git clone https://github.com/agroal/pgagroal.git
+git clone https://github.com/agroal/pgagroal.git --branch 1.5.x
 cd pgagroal
 mkdir build
 cd build
