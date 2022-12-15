@@ -34,6 +34,9 @@ jobs:
     - name: GCC/make
       run: make
       working-directory: /home/runner/work/pgagroal/pgagroal/build/
+    - name: rm -Rf
+      run: rm -Rf build/
+      working-directory: /home/runner/work/pgagroal/pgagroal/
     - name: CLANG/mkdir
       run: mkdir build
       working-directory: /home/runner/work/pgagroal/pgagroal/
