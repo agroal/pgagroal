@@ -24,7 +24,7 @@ jobs:
     - name: Install rst2man
       run: sudo apt install -y python3-docutils
     - name: Install clang
-      run: sudo apt install -y clang-15
+      run: sudo apt install -y clang
     - name: GCC/mkdir
       run: mkdir build
       working-directory: /home/runner/work/pgagroal/pgagroal/
