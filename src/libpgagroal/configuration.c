@@ -79,7 +79,7 @@ static void copy_server(struct server* dst, struct server* src);
 static void copy_hba(struct hba* dst, struct hba* src);
 static void copy_user(struct user* dst, struct user* src);
 static int restart_int(char* name, int e, int n);
-static int restart_string(char* name, char* e, char* n);
+static int restart_string(char* name, char* e, char* n, bool skip_non_existing);
 static int restart_limit(char* name, struct configuration* config, struct configuration* reload);
 static int restart_server(struct server* src, struct server* dst);
 
@@ -2563,10 +2563,10 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    config->disconnect_client = reload->disconnect_client;
    config->disconnect_client_force = reload->disconnect_client_force;
    /* pidfile */
-   unchanged -= restart_string("pidfile", config->pidfile, reload->pidfile);
+   restart_string("pidfile", config->pidfile, reload->pidfile, true);
 
    /* libev */
-   unchanged -= restart_string("libev", config->libev, reload->libev);
+   restart_string("libev", config->libev, reload->libev, true);
    config->buffer_size = reload->buffer_size;
    config->keep_alive = reload->keep_alive;
    config->nodelay = reload->nodelay;
@@ -2578,7 +2578,11 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    config->track_prepared_statements = reload->track_prepared_statements;
 
    /* unix_socket_dir */
-   unchanged -= restart_string("unix_socket_dir", config->unix_socket_dir, reload->unix_socket_dir);
+
+   // does make sense to check for remote connections? Because in the case the Unix socket dir
+   // changes the pgagroal-cli probably will not be able to connect in any case!
+   restart_string("unix_socket_dir", config->unix_socket_dir, reload->unix_socket_dir, false);
+
 
    /* su_connection */
 
@@ -2730,9 +2734,27 @@ restart_int(char* name, int e, int n)
    return 0;
 }
 
+/**
+ * Utility function to notify when a string parameter in the
+ * configuration requires a restart.
+ * Prints a line in the log when a restart is required.
+ *
+ * @param name the name of the parameter
+ * @param e the existing (current) value of the parameter
+ * @param n the new value
+ * @param skip_non_existing if true it will ignore when 'n' is empty,
+ * used when the parameter is automatically set
+ * @return 0 when the parameter values are the same, 1 when it is required
+ * a restart
+ */
 static int
-restart_string(char* name, char* e, char* n)
+restart_string(char* name, char* e, char* n, bool skip_non_existing)
 {
+   if (skip_non_existing && !strlen(n))
+   {
+      return 0;
+   }
+
    if (strcmp(e, n))
    {
       pgagroal_log_info("Restart required for %s - Existing %s New %s", name, e, n);
@@ -2787,7 +2809,7 @@ restart_server(struct server* src, struct server* dst)
    if (!is_same_server(src, dst))
    {
       snprintf(restart_message, sizeof(restart_message), "Server <%s>, parameter <host>", src->name);
-      restart_string(restart_message, dst->host, src->host);
+      restart_string(restart_message, dst->host, src->host, false);
       snprintf(restart_message, sizeof(restart_message), "Server <%s>, parameter <port>", src->name);
       restart_int(restart_message, dst->port, src->port);
       return 1;
