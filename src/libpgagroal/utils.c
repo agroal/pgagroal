@@ -817,7 +817,7 @@ pgagroal_set_connection_proc_title(int argc, char** argv, struct connection* con
 {
    struct configuration* config;
    int primary;
-   char info[MAX_PROCESS_TITLE_LENGTH];
+   char* info = NULL;
 
    config = (struct configuration*)shmem;
 
@@ -828,13 +828,14 @@ pgagroal_set_connection_proc_title(int argc, char** argv, struct connection* con
       return;
    }
 
-   memset(&info, 0, sizeof(info));
-   snprintf(info, MAX_PROCESS_TITLE_LENGTH - 1, "%s@%s:%d",
-            connection->username,
-            config->servers[primary].host,
-            config->servers[primary].port);
+   info = pgagroal_append(info, connection->username);
+   info = pgagroal_append(info, "@");
+   info = pgagroal_append(info, config->servers[primary].host);
+   info = pgagroal_append(info, ":");
+   info = pgagroal_append_int(info, config->servers[primary].port);
 
    pgagroal_set_proc_title(argc, argv, info, connection->database);
+   free(info);
 }
 
 unsigned int
@@ -864,6 +865,74 @@ pgagroal_version_ge(unsigned int major, unsigned int minor, unsigned int patch)
    {
       return false;
    }
+}
+
+char*
+pgagroal_append(char* orig, char* s)
+{
+   size_t orig_length;
+   size_t s_length;
+   char* n = NULL;
+
+   if (s == NULL)
+   {
+      return orig;
+   }
+
+   if (orig != NULL)
+   {
+      orig_length = strlen(orig);
+   }
+   else
+   {
+      orig_length = 0;
+   }
+
+   s_length = strlen(s);
+
+   n = (char*)realloc(orig, orig_length + s_length + 1);
+
+   memcpy(n + orig_length, s, s_length);
+
+   n[orig_length + s_length] = '\0';
+
+   return n;
+}
+
+char*
+pgagroal_append_int(char* orig, int i)
+{
+   char number[12];
+
+   memset(&number[0], 0, sizeof(number));
+   snprintf(&number[0], 11, "%d", i);
+   orig = pgagroal_append(orig, number);
+
+   return orig;
+}
+
+char*
+pgagroal_append_ulong(char* orig, unsigned long l)
+{
+   char number[21];
+
+   memset(&number[0], 0, sizeof(number));
+   snprintf(&number[0], 20, "%lu", l);
+   orig = pgagroal_append(orig, number);
+
+   return orig;
+}
+
+char*
+pgagroal_append_ullong(char* orig, unsigned long long l)
+{
+   char number[21];
+
+   memset(&number[0], 0, sizeof(number));
+   snprintf(&number[0], 20, "%llu", l);
+   orig = pgagroal_append(orig, number);
+
+   return orig;
 }
 
 #ifdef DEBUG

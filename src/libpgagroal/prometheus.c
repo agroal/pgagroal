@@ -86,11 +86,6 @@ static void connection_awaiting_information(int client_fd);
 
 static int send_chunk(int client_fd, char* data);
 
-static char* append(char* orig, char* s);
-static char* append_int(char* orig, int i);
-static char* append_ulong(char* orig, unsigned long i);
-static char* append_ullong(char* orig, unsigned long long l);
-
 static bool is_metrics_cache_configured(void);
 static bool is_metrics_cache_valid(void);
 static bool metrics_cache_append(char* data);
@@ -793,10 +788,10 @@ unknown_page(int client_fd)
    ctime_r(&now, &time_buf[0]);
    time_buf[strlen(time_buf) - 1] = 0;
 
-   data = append(data, "HTTP/1.1 403 Forbidden\r\n");
-   data = append(data, "Date: ");
-   data = append(data, &time_buf[0]);
-   data = append(data, "\r\n");
+   data = pgagroal_append(data, "HTTP/1.1 403 Forbidden\r\n");
+   data = pgagroal_append(data, "Date: ");
+   data = pgagroal_append(data, &time_buf[0]);
+   data = pgagroal_append(data, "\r\n");
 
    msg.kind = 0;
    msg.length = strlen(data);
@@ -827,13 +822,13 @@ home_page(int client_fd)
    ctime_r(&now, &time_buf[0]);
    time_buf[strlen(time_buf) - 1] = 0;
 
-   data = append(data, "HTTP/1.1 200 OK\r\n");
-   data = append(data, "Content-Type: text/html; charset=utf-8\r\n");
-   data = append(data, "Date: ");
-   data = append(data, &time_buf[0]);
-   data = append(data, "\r\n");
-   data = append(data, "Transfer-Encoding: chunked\r\n");
-   data = append(data, "\r\n");
+   data = pgagroal_append(data, "HTTP/1.1 200 OK\r\n");
+   data = pgagroal_append(data, "Content-Type: text/html; charset=utf-8\r\n");
+   data = pgagroal_append(data, "Date: ");
+   data = pgagroal_append(data, &time_buf[0]);
+   data = pgagroal_append(data, "\r\n");
+   data = pgagroal_append(data, "Transfer-Encoding: chunked\r\n");
+   data = pgagroal_append(data, "\r\n");
 
    msg.kind = 0;
    msg.length = strlen(data);
@@ -848,323 +843,323 @@ home_page(int client_fd)
    free(data);
    data = NULL;
 
-   data = append(data, "<!DOCTYPE html>\n");
-   data = append(data, "<html xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en\">\n");
-   data = append(data, "<head>\n");
-   data = append(data, "  <title>pgagroal exporter</title>\n");
-   data = append(data, "  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"/>");
-   data = append(data, "  <style>\n");
-   data = append(data, "   table { \n");
-   data = append(data, "           margin: auto;\n");
-   data = append(data, "           border: 2px solid black;\n");
-   data = append(data, "         }\n");
-   data = append(data, "   td { \n");
-   data = append(data, "           border: 1px solid black;\n");
-   data = append(data, "           text-align: center;;\n");
-   data = append(data, "      }\n");
-   data = append(data, "   ul { \n");
-   data = append(data, "           text-align: left;\n");
-   data = append(data, "      }\n");
-   data = append(data, "   ol { \n");
-   data = append(data, "           text-align: left;\n");
-   data = append(data, "      }\n");
-   data = append(data, "  </style>\n");
-   data = append(data, "</head>\n");
-   data = append(data, "<body>\n");
-   data = append(data, "  <h1>pgagroal exporter</h1>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   <a href=\"/metrics\">Metrics</a>\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_state</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   The state of pgagroal\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <table>\n");
-   data = append(data, "    <tbody>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>value</td>\n");
-   data = append(data, "        <td>State\n");
-   data = append(data, "          <ol>\n");
-   data = append(data, "            <li>Running</li>\n");
-   data = append(data, "            <li>Graceful shutdown</li>\n");
-   data = append(data, "          </ol>\n");
-   data = append(data, "        </td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "    </tbody>\n");
-   data = append(data, "  </table>\n");
-   data = append(data, "  <h2>pgagroal_pipeline_mode</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   The mode of pipeline\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <table>\n");
-   data = append(data, "    <tbody>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>value</td>\n");
-   data = append(data, "        <td>Mode\n");
-   data = append(data, "          <ol>\n");
-   data = append(data, "            <li>Performance</li>\n");
-   data = append(data, "            <li>Session</li>\n");
-   data = append(data, "            <li>Transaction</li>\n");
-   data = append(data, "          </ol>\n");
-   data = append(data, "        </td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "    </tbody>\n");
-   data = append(data, "  </table>\n");
-   data = append(data, "  <h2>pgagroal_server_error</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Errors for servers\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <table>\n");
-   data = append(data, "    <tbody>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>name</td>\n");
-   data = append(data, "        <td>The name of the server</td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>state</td>\n");
-   data = append(data, "        <td>The server state\n");
-   data = append(data, "          <ul>\n");
-   data = append(data, "            <li>not_init</li>\n");
-   data = append(data, "            <li>primary</li>\n");
-   data = append(data, "            <li>replica</li>\n");
-   data = append(data, "            <li>failover</li>\n");
-   data = append(data, "            <li>failed</li>\n");
-   data = append(data, "          </ul>\n");
-   data = append(data, "        </td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "    </tbody>\n");
-   data = append(data, "  </table>\n");
-   data = append(data, "  <h2>pgagroal_failed_servers</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   The number of failed servers. Only set if failover is enabled\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_wait_time</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   The waiting time of clients\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_query_count</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   The number of queries. Only session and transaction modes are supported\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection_query_count</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   The number of queries per connection. Only session and transaction modes are supported\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <table>\n");
-   data = append(data, "    <tbody>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>id</td>\n");
-   data = append(data, "        <td>The connection identifier</td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>user</td>\n");
-   data = append(data, "        <td>The user name</td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>database</td>\n");
-   data = append(data, "        <td>The database</td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>application_name</td>\n");
-   data = append(data, "        <td>The application name</td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "    </tbody>\n");
-   data = append(data, "  </table>\n");
-   data = append(data, "  <h2>pgagroal_tx_count</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   The number of transactions. Only session and transaction modes are supported\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_active_connections</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   The number of active connections\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_total_connections</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   The number of total connections\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_max_connections</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   The maximum number of connections\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Connection information\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <table>\n");
-   data = append(data, "    <tbody>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>id</td>\n");
-   data = append(data, "        <td>The connection identifier</td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>user</td>\n");
-   data = append(data, "        <td>The user name</td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>database</td>\n");
-   data = append(data, "        <td>The database</td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>application_name</td>\n");
-   data = append(data, "        <td>The application name</td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>state</td>\n");
-   data = append(data, "        <td>The connection state\n");
-   data = append(data, "          <ul>\n");
-   data = append(data, "            <li>not_init</li>\n");
-   data = append(data, "            <li>init</li>\n");
-   data = append(data, "            <li>free</li>\n");
-   data = append(data, "            <li>in_use</li>\n");
-   data = append(data, "            <li>gracefully</li>\n");
-   data = append(data, "            <li>flush</li>\n");
-   data = append(data, "            <li>idle_check</li>\n");
-   data = append(data, "            <li>validation</li>\n");
-   data = append(data, "            <li>remove</li>\n");
-   data = append(data, "          </ul>\n");
-   data = append(data, "        </td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "    </tbody>\n");
-   data = append(data, "  </table>\n");
-   data = append(data, "  <h2>pgagroal_limit</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Limit information\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <table>\n");
-   data = append(data, "    <tbody>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>user</td>\n");
-   data = append(data, "        <td>The user name</td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>database</td>\n");
-   data = append(data, "        <td>The database</td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "      <tr>\n");
-   data = append(data, "        <td>type</td>\n");
-   data = append(data, "        <td>The information type\n");
-   data = append(data, "          <ul>\n");
-   data = append(data, "            <li>min</li>\n");
-   data = append(data, "            <li>initial</li>\n");
-   data = append(data, "            <li>max</li>\n");
-   data = append(data, "            <li>active</li>\n");
-   data = append(data, "          </ul>\n");
-   data = append(data, "        </td>\n");
-   data = append(data, "      </tr>\n");
-   data = append(data, "    </tbody>\n");
-   data = append(data, "  </table>\n");
-   data = append(data, "  <h2>pgagroal_limit_awaiting</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Connections awaiting on hold reported by limit entries\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "   <table>\n");
-   data = append(data, "     <tbody>\n");
-   data = append(data, "       <tr>\n");
-   data = append(data, "         <td>user</td>\n");
-   data = append(data, "         <td>The user name</td>\n");
-   data = append(data, "       </tr>\n");
-   data = append(data, "       <tr>\n");
-   data = append(data, "         <td>database</td>\n");
-   data = append(data, "         <td>The database</td>\n");
-   data = append(data, "       </tr>\n");
-   data = append(data, "     </tbody>\n");
-   data = append(data, "   </table>\n");
-   data = append(data, "  <h2>pgagroal_session_time</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Histogram of session times\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection_error</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of connection errors\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection_kill</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of connection kills\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection_remove</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of connection removes\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection_timeout</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of connection time outs\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection_return</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of connection returns\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection_invalid</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of connection invalids\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection_get</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of connection gets\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection_idletimeout</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of connection idle timeouts\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection_flush</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of connection flushes\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection_success</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of connection successes\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_connection_awaiting</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of connection suspended due to <i>blocking_timeout</i>\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_auth_user_success</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of successful user authentications\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_auth_user_bad_password</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of bad passwords during user authentication\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_auth_user_error</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of errors during user authentication\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_client_wait</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of waiting clients\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_client_active</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of active clients\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_network_sent</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Bytes sent by clients. Only session and transaction modes are supported\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_network_received</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Bytes received from servers. Only session and transaction modes are supported\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_client_sockets</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of sockets the client used\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <h2>pgagroal_self_sockets</h2>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   Number of sockets used by pgagroal itself\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "  <p>\n");
-   data = append(data, "   <a href=\"https://agroal.github.io/pgagroal/\">agroal.github.io/pgagroal/</a>\n");
-   data = append(data, "  </p>\n");
-   data = append(data, "</body>\n");
-   data = append(data, "</html>\n");
+   data = pgagroal_append(data, "<!DOCTYPE html>\n");
+   data = pgagroal_append(data, "<html xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en\">\n");
+   data = pgagroal_append(data, "<head>\n");
+   data = pgagroal_append(data, "  <title>pgagroal exporter</title>\n");
+   data = pgagroal_append(data, "  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"/>");
+   data = pgagroal_append(data, "  <style>\n");
+   data = pgagroal_append(data, "   table { \n");
+   data = pgagroal_append(data, "           margin: auto;\n");
+   data = pgagroal_append(data, "           border: 2px solid black;\n");
+   data = pgagroal_append(data, "         }\n");
+   data = pgagroal_append(data, "   td { \n");
+   data = pgagroal_append(data, "           border: 1px solid black;\n");
+   data = pgagroal_append(data, "           text-align: center;;\n");
+   data = pgagroal_append(data, "      }\n");
+   data = pgagroal_append(data, "   ul { \n");
+   data = pgagroal_append(data, "           text-align: left;\n");
+   data = pgagroal_append(data, "      }\n");
+   data = pgagroal_append(data, "   ol { \n");
+   data = pgagroal_append(data, "           text-align: left;\n");
+   data = pgagroal_append(data, "      }\n");
+   data = pgagroal_append(data, "  </style>\n");
+   data = pgagroal_append(data, "</head>\n");
+   data = pgagroal_append(data, "<body>\n");
+   data = pgagroal_append(data, "  <h1>pgagroal exporter</h1>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   <a href=\"/metrics\">Metrics</a>\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_state</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   The state of pgagroal\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <table>\n");
+   data = pgagroal_append(data, "    <tbody>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>value</td>\n");
+   data = pgagroal_append(data, "        <td>State\n");
+   data = pgagroal_append(data, "          <ol>\n");
+   data = pgagroal_append(data, "            <li>Running</li>\n");
+   data = pgagroal_append(data, "            <li>Graceful shutdown</li>\n");
+   data = pgagroal_append(data, "          </ol>\n");
+   data = pgagroal_append(data, "        </td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "    </tbody>\n");
+   data = pgagroal_append(data, "  </table>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_pipeline_mode</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   The mode of pipeline\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <table>\n");
+   data = pgagroal_append(data, "    <tbody>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>value</td>\n");
+   data = pgagroal_append(data, "        <td>Mode\n");
+   data = pgagroal_append(data, "          <ol>\n");
+   data = pgagroal_append(data, "            <li>Performance</li>\n");
+   data = pgagroal_append(data, "            <li>Session</li>\n");
+   data = pgagroal_append(data, "            <li>Transaction</li>\n");
+   data = pgagroal_append(data, "          </ol>\n");
+   data = pgagroal_append(data, "        </td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "    </tbody>\n");
+   data = pgagroal_append(data, "  </table>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_server_error</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Errors for servers\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <table>\n");
+   data = pgagroal_append(data, "    <tbody>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>name</td>\n");
+   data = pgagroal_append(data, "        <td>The name of the server</td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>state</td>\n");
+   data = pgagroal_append(data, "        <td>The server state\n");
+   data = pgagroal_append(data, "          <ul>\n");
+   data = pgagroal_append(data, "            <li>not_init</li>\n");
+   data = pgagroal_append(data, "            <li>primary</li>\n");
+   data = pgagroal_append(data, "            <li>replica</li>\n");
+   data = pgagroal_append(data, "            <li>failover</li>\n");
+   data = pgagroal_append(data, "            <li>failed</li>\n");
+   data = pgagroal_append(data, "          </ul>\n");
+   data = pgagroal_append(data, "        </td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "    </tbody>\n");
+   data = pgagroal_append(data, "  </table>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_failed_servers</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   The number of failed servers. Only set if failover is enabled\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_wait_time</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   The waiting time of clients\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_query_count</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   The number of queries. Only session and transaction modes are supported\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_query_count</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   The number of queries per connection. Only session and transaction modes are supported\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <table>\n");
+   data = pgagroal_append(data, "    <tbody>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>id</td>\n");
+   data = pgagroal_append(data, "        <td>The connection identifier</td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>user</td>\n");
+   data = pgagroal_append(data, "        <td>The user name</td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>database</td>\n");
+   data = pgagroal_append(data, "        <td>The database</td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>application_name</td>\n");
+   data = pgagroal_append(data, "        <td>The application name</td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "    </tbody>\n");
+   data = pgagroal_append(data, "  </table>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_tx_count</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   The number of transactions. Only session and transaction modes are supported\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_active_connections</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   The number of active connections\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_total_connections</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   The number of total connections\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_max_connections</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   The maximum number of connections\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Connection information\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <table>\n");
+   data = pgagroal_append(data, "    <tbody>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>id</td>\n");
+   data = pgagroal_append(data, "        <td>The connection identifier</td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>user</td>\n");
+   data = pgagroal_append(data, "        <td>The user name</td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>database</td>\n");
+   data = pgagroal_append(data, "        <td>The database</td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>application_name</td>\n");
+   data = pgagroal_append(data, "        <td>The application name</td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>state</td>\n");
+   data = pgagroal_append(data, "        <td>The connection state\n");
+   data = pgagroal_append(data, "          <ul>\n");
+   data = pgagroal_append(data, "            <li>not_init</li>\n");
+   data = pgagroal_append(data, "            <li>init</li>\n");
+   data = pgagroal_append(data, "            <li>free</li>\n");
+   data = pgagroal_append(data, "            <li>in_use</li>\n");
+   data = pgagroal_append(data, "            <li>gracefully</li>\n");
+   data = pgagroal_append(data, "            <li>flush</li>\n");
+   data = pgagroal_append(data, "            <li>idle_check</li>\n");
+   data = pgagroal_append(data, "            <li>validation</li>\n");
+   data = pgagroal_append(data, "            <li>remove</li>\n");
+   data = pgagroal_append(data, "          </ul>\n");
+   data = pgagroal_append(data, "        </td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "    </tbody>\n");
+   data = pgagroal_append(data, "  </table>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_limit</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Limit information\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <table>\n");
+   data = pgagroal_append(data, "    <tbody>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>user</td>\n");
+   data = pgagroal_append(data, "        <td>The user name</td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>database</td>\n");
+   data = pgagroal_append(data, "        <td>The database</td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "      <tr>\n");
+   data = pgagroal_append(data, "        <td>type</td>\n");
+   data = pgagroal_append(data, "        <td>The information type\n");
+   data = pgagroal_append(data, "          <ul>\n");
+   data = pgagroal_append(data, "            <li>min</li>\n");
+   data = pgagroal_append(data, "            <li>initial</li>\n");
+   data = pgagroal_append(data, "            <li>max</li>\n");
+   data = pgagroal_append(data, "            <li>active</li>\n");
+   data = pgagroal_append(data, "          </ul>\n");
+   data = pgagroal_append(data, "        </td>\n");
+   data = pgagroal_append(data, "      </tr>\n");
+   data = pgagroal_append(data, "    </tbody>\n");
+   data = pgagroal_append(data, "  </table>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_limit_awaiting</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Connections awaiting on hold reported by limit entries\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "   <table>\n");
+   data = pgagroal_append(data, "     <tbody>\n");
+   data = pgagroal_append(data, "       <tr>\n");
+   data = pgagroal_append(data, "         <td>user</td>\n");
+   data = pgagroal_append(data, "         <td>The user name</td>\n");
+   data = pgagroal_append(data, "       </tr>\n");
+   data = pgagroal_append(data, "       <tr>\n");
+   data = pgagroal_append(data, "         <td>database</td>\n");
+   data = pgagroal_append(data, "         <td>The database</td>\n");
+   data = pgagroal_append(data, "       </tr>\n");
+   data = pgagroal_append(data, "     </tbody>\n");
+   data = pgagroal_append(data, "   </table>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_session_time</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Histogram of session times\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_error</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of connection errors\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_kill</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of connection kills\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_remove</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of connection removes\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_timeout</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of connection time outs\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_return</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of connection returns\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_invalid</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of connection invalids\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_get</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of connection gets\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_idletimeout</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of connection idle timeouts\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_flush</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of connection flushes\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_success</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of connection successes\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_awaiting</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of connection suspended due to <i>blocking_timeout</i>\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_auth_user_success</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of successful user authentications\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_auth_user_bad_password</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of bad passwords during user authentication\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_auth_user_error</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of errors during user authentication\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_client_wait</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of waiting clients\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_client_active</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of active clients\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_network_sent</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Bytes sent by clients. Only session and transaction modes are supported\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_network_received</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Bytes received from servers. Only session and transaction modes are supported\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_client_sockets</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of sockets the client used\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_self_sockets</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of sockets used by pgagroal itself\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   <a href=\"https://agroal.github.io/pgagroal/\">agroal.github.io/pgagroal/</a>\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "</body>\n");
+   data = pgagroal_append(data, "</html>\n");
 
    send_chunk(client_fd, data);
    free(data);
    data = NULL;
 
    /* Footer */
-   data = append(data, "0\r\n\r\n");
+   data = pgagroal_append(data, "0\r\n\r\n");
 
    msg.kind = 0;
    msg.length = strlen(data);
@@ -1224,14 +1219,14 @@ retry_cache_locking:
          ctime_r(&now, &time_buf[0]);
          time_buf[strlen(time_buf) - 1] = 0;
 
-         data = append(data, "HTTP/1.1 200 OK\r\n");
-         data = append(data, "Content-Type: text/plain; version=0.0.3; charset=utf-8\r\n");
-         data = append(data, "Date: ");
-         data = append(data, &time_buf[0]);
-         data = append(data, "\r\n");
+         data = pgagroal_append(data, "HTTP/1.1 200 OK\r\n");
+         data = pgagroal_append(data, "Content-Type: text/plain; version=0.0.3; charset=utf-8\r\n");
+         data = pgagroal_append(data, "Date: ");
+         data = pgagroal_append(data, &time_buf[0]);
+         data = pgagroal_append(data, "\r\n");
          metrics_cache_append(data);  // cache here to avoid the chunking for the cache
-         data = append(data, "Transfer-Encoding: chunked\r\n");
-         data = append(data, "\r\n");
+         data = pgagroal_append(data, "Transfer-Encoding: chunked\r\n");
+         data = pgagroal_append(data, "\r\n");
 
          msg.kind = 0;
          msg.length = strlen(data);
@@ -1260,7 +1255,7 @@ retry_cache_locking:
          connection_awaiting_information(client_fd);
 
          /* Footer */
-         data = append(data, "0\r\n\r\n");
+         data = pgagroal_append(data, "0\r\n\r\n");
 
          msg.kind = 0;
          msg.length = strlen(data);
@@ -1316,10 +1311,10 @@ bad_request(int client_fd)
    ctime_r(&now, &time_buf[0]);
    time_buf[strlen(time_buf) - 1] = 0;
 
-   data = append(data, "HTTP/1.1 400 Bad Request\r\n");
-   data = append(data, "Date: ");
-   data = append(data, &time_buf[0]);
-   data = append(data, "\r\n");
+   data = pgagroal_append(data, "HTTP/1.1 400 Bad Request\r\n");
+   data = pgagroal_append(data, "Date: ");
+   data = pgagroal_append(data, &time_buf[0]);
+   data = pgagroal_append(data, "\r\n");
 
    msg.kind = 0;
    msg.length = strlen(data);
@@ -1343,118 +1338,118 @@ general_information(int client_fd)
 
    prometheus = (struct prometheus*)prometheus_shmem;
 
-   data = append(data, "#HELP pgagroal_state The state of pgagroal\n");
-   data = append(data, "#TYPE pgagroal_state gauge\n");
-   data = append(data, "pgagroal_state ");
+   data = pgagroal_append(data, "#HELP pgagroal_state The state of pgagroal\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_state gauge\n");
+   data = pgagroal_append(data, "pgagroal_state ");
    if (config->gracefully)
    {
-      data = append(data, "2");
+      data = pgagroal_append(data, "2");
    }
    else
    {
-      data = append(data, "1");
+      data = pgagroal_append(data, "1");
    }
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_pipeline_mode The mode of pipeline\n");
-   data = append(data, "#TYPE pgagroal_pipeline_mode gauge\n");
-   data = append(data, "pgagroal_pipeline_mode ");
-   data = append_int(data, config->pipeline);
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_pipeline_mode The mode of pipeline\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_pipeline_mode gauge\n");
+   data = pgagroal_append(data, "pgagroal_pipeline_mode ");
+   data = pgagroal_append_int(data, config->pipeline);
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_server_error The number of errors for servers\n");
-   data = append(data, "#TYPE pgagroal_server_error counter\n");
+   data = pgagroal_append(data, "#HELP pgagroal_server_error The number of errors for servers\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_server_error counter\n");
    for (int i = 0; i < config->number_of_servers; i++)
    {
       int state = atomic_load(&config->servers[i].state);
 
-      data = append(data, "pgagroal_server_error{");
+      data = pgagroal_append(data, "pgagroal_server_error{");
 
-      data = append(data, "name=\"");
-      data = append(data, config->servers[i].name);
-      data = append(data, "\",");
+      data = pgagroal_append(data, "name=\"");
+      data = pgagroal_append(data, config->servers[i].name);
+      data = pgagroal_append(data, "\",");
 
-      data = append(data, "state=\"");
+      data = pgagroal_append(data, "state=\"");
 
       switch (state)
       {
          case SERVER_NOTINIT:
          case SERVER_NOTINIT_PRIMARY:
-            data = append(data, "not_init");
+            data = pgagroal_append(data, "not_init");
             break;
          case SERVER_PRIMARY:
-            data = append(data, "primary");
+            data = pgagroal_append(data, "primary");
             break;
          case SERVER_REPLICA:
-            data = append(data, "replica");
+            data = pgagroal_append(data, "replica");
             break;
          case SERVER_FAILOVER:
-            data = append(data, "failover");
+            data = pgagroal_append(data, "failover");
             break;
          case SERVER_FAILED:
-            data = append(data, "failed");
+            data = pgagroal_append(data, "failed");
             break;
          default:
             break;
       }
 
-      data = append(data, "\"} ");
+      data = pgagroal_append(data, "\"} ");
 
-      data = append_ulong(data, atomic_load(&prometheus->server_error[i]));
-      data = append(data, "\n");
+      data = pgagroal_append_ulong(data, atomic_load(&prometheus->server_error[i]));
+      data = pgagroal_append(data, "\n");
    }
-   data = append(data, "\n");
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "#HELP pgagroal_failed_servers The number of failed servers\n");
-   data = append(data, "#TYPE pgagroal_failed_servers gauge\n");
-   data = append(data, "pgagroal_failed_servers ");
-   data = append_ulong(data, atomic_load(&prometheus->failed_servers));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_failed_servers The number of failed servers\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_failed_servers gauge\n");
+   data = pgagroal_append(data, "pgagroal_failed_servers ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->failed_servers));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_wait_time The waiting time of clients\n");
-   data = append(data, "#TYPE pgagroal_wait_time gauge\n");
-   data = append(data, "pgagroal_wait_time ");
-   data = append_ulong(data, atomic_load(&prometheus->client_wait_time));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_wait_time The waiting time of clients\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_wait_time gauge\n");
+   data = pgagroal_append(data, "pgagroal_wait_time ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->client_wait_time));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_query_count The number of queries\n");
-   data = append(data, "#TYPE pgagroal_query_count count\n");
-   data = append(data, "pgagroal_query_count ");
-   data = append_ullong(data, atomic_load(&prometheus->query_count));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_query_count The number of queries\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_query_count count\n");
+   data = pgagroal_append(data, "pgagroal_query_count ");
+   data = pgagroal_append_ullong(data, atomic_load(&prometheus->query_count));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_connection_query_count The number of queries per connection\n");
-   data = append(data, "#TYPE pgagroal_connection_query_count counter\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection_query_count The number of queries per connection\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_query_count counter\n");
    for (int i = 0; i < config->max_connections; i++)
    {
-      data = append(data, "pgagroal_connection_query_count{");
+      data = pgagroal_append(data, "pgagroal_connection_query_count{");
 
-      data = append(data, "id=\"");
-      data = append_int(data, i);
-      data = append(data, "\",");
+      data = pgagroal_append(data, "id=\"");
+      data = pgagroal_append_int(data, i);
+      data = pgagroal_append(data, "\",");
 
-      data = append(data, "user=\"");
-      data = append(data, config->connections[i].username);
-      data = append(data, "\",");
+      data = pgagroal_append(data, "user=\"");
+      data = pgagroal_append(data, config->connections[i].username);
+      data = pgagroal_append(data, "\",");
 
-      data = append(data, "database=\"");
-      data = append(data, config->connections[i].database);
-      data = append(data, "\",");
+      data = pgagroal_append(data, "database=\"");
+      data = pgagroal_append(data, config->connections[i].database);
+      data = pgagroal_append(data, "\",");
 
-      data = append(data, "application_name=\"");
-      data = append(data, config->connections[i].appname);
-      data = append(data, "\"} ");
+      data = pgagroal_append(data, "application_name=\"");
+      data = pgagroal_append(data, config->connections[i].appname);
+      data = pgagroal_append(data, "\"} ");
 
-      data = append_ullong(data, atomic_load(&prometheus->prometheus_connections[i].query_count));
-      data = append(data, "\n");
+      data = pgagroal_append_ullong(data, atomic_load(&prometheus->prometheus_connections[i].query_count));
+      data = pgagroal_append(data, "\n");
    }
-   data = append(data, "\n");
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "#HELP pgagroal_tx_count The number of transactions\n");
-   data = append(data, "#TYPE pgagroal_tx_count count\n");
-   data = append(data, "pgagroal_tx_count ");
-   data = append_ullong(data, atomic_load(&prometheus->tx_count));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_tx_count The number of transactions\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_tx_count count\n");
+   data = pgagroal_append(data, "pgagroal_tx_count ");
+   data = pgagroal_append_ullong(data, atomic_load(&prometheus->tx_count));
+   data = pgagroal_append(data, "\n\n");
 
    if (data != NULL)
    {
@@ -1499,89 +1494,89 @@ connection_information(int client_fd)
       }
    }
 
-   data = append(data, "#HELP pgagroal_active_connections The number of active connections\n");
-   data = append(data, "#TYPE pgagroal_active_connections gauge\n");
-   data = append(data, "pgagroal_active_connections ");
-   data = append_int(data, active);
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_active_connections The number of active connections\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_active_connections gauge\n");
+   data = pgagroal_append(data, "pgagroal_active_connections ");
+   data = pgagroal_append_int(data, active);
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_total_connections The total number of connections\n");
-   data = append(data, "#TYPE pgagroal_total_connections gauge\n");
-   data = append(data, "pgagroal_total_connections ");
-   data = append_int(data, total);
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_total_connections The total number of connections\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_total_connections gauge\n");
+   data = pgagroal_append(data, "pgagroal_total_connections ");
+   data = pgagroal_append_int(data, total);
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_max_connections The maximum number of connections\n");
-   data = append(data, "#TYPE pgagroal_max_connections counter\n");
-   data = append(data, "pgagroal_max_connections ");
-   data = append_int(data, config->max_connections);
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_max_connections The maximum number of connections\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_max_connections counter\n");
+   data = pgagroal_append(data, "pgagroal_max_connections ");
+   data = pgagroal_append_int(data, config->max_connections);
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_connection The connection information\n");
-   data = append(data, "#TYPE pgagroal_connection gauge\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection The connection information\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection gauge\n");
    for (int i = 0; i < config->max_connections; i++)
    {
       int state = atomic_load(&config->states[i]);
 
-      data = append(data, "pgagroal_connection{");
+      data = pgagroal_append(data, "pgagroal_connection{");
 
-      data = append(data, "id=\"");
-      data = append_int(data, i);
-      data = append(data, "\",");
+      data = pgagroal_append(data, "id=\"");
+      data = pgagroal_append_int(data, i);
+      data = pgagroal_append(data, "\",");
 
-      data = append(data, "user=\"");
-      data = append(data, config->connections[i].username);
-      data = append(data, "\",");
+      data = pgagroal_append(data, "user=\"");
+      data = pgagroal_append(data, config->connections[i].username);
+      data = pgagroal_append(data, "\",");
 
-      data = append(data, "database=\"");
-      data = append(data, config->connections[i].database);
-      data = append(data, "\",");
+      data = pgagroal_append(data, "database=\"");
+      data = pgagroal_append(data, config->connections[i].database);
+      data = pgagroal_append(data, "\",");
 
-      data = append(data, "application_name=\"");
-      data = append(data, config->connections[i].appname);
-      data = append(data, "\",");
+      data = pgagroal_append(data, "application_name=\"");
+      data = pgagroal_append(data, config->connections[i].appname);
+      data = pgagroal_append(data, "\",");
 
-      data = append(data, "state=\"");
+      data = pgagroal_append(data, "state=\"");
 
       switch (state)
       {
          case STATE_NOTINIT:
-            data = append(data, "not_init");
+            data = pgagroal_append(data, "not_init");
             break;
          case STATE_INIT:
-            data = append(data, "init");
+            data = pgagroal_append(data, "init");
             break;
          case STATE_FREE:
-            data = append(data, "free");
+            data = pgagroal_append(data, "free");
             break;
          case STATE_IN_USE:
-            data = append(data, "in_use");
+            data = pgagroal_append(data, "in_use");
             break;
          case STATE_GRACEFULLY:
-            data = append(data, "gracefully");
+            data = pgagroal_append(data, "gracefully");
             break;
          case STATE_FLUSH:
-            data = append(data, "flush");
+            data = pgagroal_append(data, "flush");
             break;
          case STATE_IDLE_CHECK:
-            data = append(data, "idle_check");
+            data = pgagroal_append(data, "idle_check");
             break;
          case STATE_VALIDATION:
-            data = append(data, "validation");
+            data = pgagroal_append(data, "validation");
             break;
          case STATE_REMOVE:
-            data = append(data, "remove");
+            data = pgagroal_append(data, "remove");
             break;
          default:
             break;
       }
 
-      data = append(data, "\"} ");
+      data = pgagroal_append(data, "\"} ");
 
       switch (state)
       {
          case STATE_NOTINIT:
-            data = append(data, "0");
+            data = pgagroal_append(data, "0");
             break;
          case STATE_INIT:
          case STATE_FREE:
@@ -1591,13 +1586,13 @@ connection_information(int client_fd)
          case STATE_IDLE_CHECK:
          case STATE_VALIDATION:
          case STATE_REMOVE:
-            data = append(data, "1");
+            data = pgagroal_append(data, "1");
             break;
          default:
             break;
       }
 
-      data = append(data, "\n");
+      data = pgagroal_append(data, "\n");
 
       if (strlen(data) > CHUNK_SIZE)
       {
@@ -1608,7 +1603,7 @@ connection_information(int client_fd)
       }
    }
 
-   data = append(data, "\n");
+   data = pgagroal_append(data, "\n");
 
    if (data != NULL)
    {
@@ -1629,65 +1624,65 @@ limit_information(int client_fd)
 
    if (config->number_of_limits > 0)
    {
-      data = append(data, "#HELP pgagroal_limit The limit information\n");
-      data = append(data, "#TYPE pgagroal_limit gauge\n");
+      data = pgagroal_append(data, "#HELP pgagroal_limit The limit information\n");
+      data = pgagroal_append(data, "#TYPE pgagroal_limit gauge\n");
       for (int i = 0; i < config->number_of_limits; i++)
       {
-         data = append(data, "pgagroal_limit{");
+         data = pgagroal_append(data, "pgagroal_limit{");
 
-         data = append(data, "user=\"");
-         data = append(data, config->limits[i].username);
-         data = append(data, "\",");
+         data = pgagroal_append(data, "user=\"");
+         data = pgagroal_append(data, config->limits[i].username);
+         data = pgagroal_append(data, "\",");
 
-         data = append(data, "database=\"");
-         data = append(data, config->limits[i].database);
-         data = append(data, "\",");
+         data = pgagroal_append(data, "database=\"");
+         data = pgagroal_append(data, config->limits[i].database);
+         data = pgagroal_append(data, "\",");
 
-         data = append(data, "type=\"min\"} ");
-         data = append_int(data, config->limits[i].min_size);
-         data = append(data, "\n");
+         data = pgagroal_append(data, "type=\"min\"} ");
+         data = pgagroal_append_int(data, config->limits[i].min_size);
+         data = pgagroal_append(data, "\n");
 
-         data = append(data, "pgagroal_limit{");
+         data = pgagroal_append(data, "pgagroal_limit{");
 
-         data = append(data, "user=\"");
-         data = append(data, config->limits[i].username);
-         data = append(data, "\",");
+         data = pgagroal_append(data, "user=\"");
+         data = pgagroal_append(data, config->limits[i].username);
+         data = pgagroal_append(data, "\",");
 
-         data = append(data, "database=\"");
-         data = append(data, config->limits[i].database);
-         data = append(data, "\",");
+         data = pgagroal_append(data, "database=\"");
+         data = pgagroal_append(data, config->limits[i].database);
+         data = pgagroal_append(data, "\",");
 
-         data = append(data, "type=\"initial\"} ");
-         data = append_int(data, config->limits[i].initial_size);
-         data = append(data, "\n");
+         data = pgagroal_append(data, "type=\"initial\"} ");
+         data = pgagroal_append_int(data, config->limits[i].initial_size);
+         data = pgagroal_append(data, "\n");
 
-         data = append(data, "pgagroal_limit{");
+         data = pgagroal_append(data, "pgagroal_limit{");
 
-         data = append(data, "user=\"");
-         data = append(data, config->limits[i].username);
-         data = append(data, "\",");
+         data = pgagroal_append(data, "user=\"");
+         data = pgagroal_append(data, config->limits[i].username);
+         data = pgagroal_append(data, "\",");
 
-         data = append(data, "database=\"");
-         data = append(data, config->limits[i].database);
-         data = append(data, "\",");
+         data = pgagroal_append(data, "database=\"");
+         data = pgagroal_append(data, config->limits[i].database);
+         data = pgagroal_append(data, "\",");
 
-         data = append(data, "type=\"max\"} ");
-         data = append_int(data, config->limits[i].max_size);
-         data = append(data, "\n");
+         data = pgagroal_append(data, "type=\"max\"} ");
+         data = pgagroal_append_int(data, config->limits[i].max_size);
+         data = pgagroal_append(data, "\n");
 
-         data = append(data, "pgagroal_limit{");
+         data = pgagroal_append(data, "pgagroal_limit{");
 
-         data = append(data, "user=\"");
-         data = append(data, config->limits[i].username);
-         data = append(data, "\",");
+         data = pgagroal_append(data, "user=\"");
+         data = pgagroal_append(data, config->limits[i].username);
+         data = pgagroal_append(data, "\",");
 
-         data = append(data, "database=\"");
-         data = append(data, config->limits[i].database);
-         data = append(data, "\",");
+         data = pgagroal_append(data, "database=\"");
+         data = pgagroal_append(data, config->limits[i].database);
+         data = pgagroal_append(data, "\",");
 
-         data = append(data, "type=\"active\"} ");
-         data = append_int(data, config->limits[i].active_connections);
-         data = append(data, "\n");
+         data = pgagroal_append(data, "type=\"active\"} ");
+         data = pgagroal_append_int(data, config->limits[i].active_connections);
+         data = pgagroal_append(data, "\n");
 
          if (strlen(data) > CHUNK_SIZE)
          {
@@ -1698,7 +1693,7 @@ limit_information(int client_fd)
          }
       }
 
-      data = append(data, "\n");
+      data = pgagroal_append(data, "\n");
 
       if (data != NULL)
       {
@@ -1721,106 +1716,106 @@ session_information(int client_fd)
 
    counter = 0;
 
-   data = append(data, "#HELP pgagroal_session_time_seconds The session times\n");
-   data = append(data, "#TYPE pgagroal_session_time_seconds histogram\n");
+   data = pgagroal_append(data, "#HELP pgagroal_session_time_seconds The session times\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_session_time_seconds histogram\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"5\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"5\"} ");
    counter += atomic_load(&prometheus->session_time[0]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"10\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"10\"} ");
    counter += atomic_load(&prometheus->session_time[1]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"20\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"20\"} ");
    counter += atomic_load(&prometheus->session_time[2]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"30\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"30\"} ");
    counter += atomic_load(&prometheus->session_time[3]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"45\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"45\"} ");
    counter += atomic_load(&prometheus->session_time[4]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"60\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"60\"} ");
    counter += atomic_load(&prometheus->session_time[5]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"300\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"300\"} ");
    counter += atomic_load(&prometheus->session_time[6]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"600\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"600\"} ");
    counter += atomic_load(&prometheus->session_time[7]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"1200\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"1200\"} ");
    counter += atomic_load(&prometheus->session_time[8]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"1800\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"1800\"} ");
    counter += atomic_load(&prometheus->session_time[9]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"2700\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"2700\"} ");
    counter += atomic_load(&prometheus->session_time[10]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"3600\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"3600\"} ");
    counter += atomic_load(&prometheus->session_time[11]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"7200\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"7200\"} ");
    counter += atomic_load(&prometheus->session_time[12]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"14400\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"14400\"} ");
    counter += atomic_load(&prometheus->session_time[13]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"21600\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"21600\"} ");
    counter += atomic_load(&prometheus->session_time[14]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"43200\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"43200\"} ");
    counter += atomic_load(&prometheus->session_time[15]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"86400\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"86400\"} ");
    counter += atomic_load(&prometheus->session_time[16]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_bucket{le=\"+Inf\"} ");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_bucket{le=\"+Inf\"} ");
    counter += atomic_load(&prometheus->session_time[17]);
-   data = append_ulong(data, counter);
-   data = append(data, "\n");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_sum ");
-   data = append_ulong(data, atomic_load(&prometheus->session_time_sum));
-   data = append(data, "\n");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_sum ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->session_time_sum));
+   data = pgagroal_append(data, "\n");
 
-   data = append(data, "pgagroal_session_time_seconds_count ");
-   data = append_ulong(data, counter);
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "pgagroal_session_time_seconds_count ");
+   data = pgagroal_append_ulong(data, counter);
+   data = pgagroal_append(data, "\n\n");
 
    send_chunk(client_fd, data);
    metrics_cache_append(data);
@@ -1836,65 +1831,65 @@ pool_information(int client_fd)
 
    prometheus = (struct prometheus*)prometheus_shmem;
 
-   data = append(data, "#HELP pgagroal_connection_error Number of connection errors\n");
-   data = append(data, "#TYPE pgagroal_connection_error counter\n");
-   data = append(data, "pgagroal_connection_error ");
-   data = append_ulong(data, atomic_load(&prometheus->connection_error));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection_error Number of connection errors\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_error counter\n");
+   data = pgagroal_append(data, "pgagroal_connection_error ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_error));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_connection_kill Number of connection kills\n");
-   data = append(data, "#TYPE pgagroal_connection_kill counter\n");
-   data = append(data, "pgagroal_connection_kill ");
-   data = append_ulong(data, atomic_load(&prometheus->connection_kill));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection_kill Number of connection kills\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_kill counter\n");
+   data = pgagroal_append(data, "pgagroal_connection_kill ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_kill));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_connection_remove Number of connection removes\n");
-   data = append(data, "#TYPE pgagroal_connection_remove counter\n");
-   data = append(data, "pgagroal_connection_remove ");
-   data = append_ulong(data, atomic_load(&prometheus->connection_remove));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection_remove Number of connection removes\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_remove counter\n");
+   data = pgagroal_append(data, "pgagroal_connection_remove ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_remove));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_connection_timeout Number of connection time outs\n");
-   data = append(data, "#TYPE pgagroal_connection_timeout counter\n");
-   data = append(data, "pgagroal_connection_timeout ");
-   data = append_ulong(data, atomic_load(&prometheus->connection_timeout));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection_timeout Number of connection time outs\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_timeout counter\n");
+   data = pgagroal_append(data, "pgagroal_connection_timeout ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_timeout));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_connection_return Number of connection returns\n");
-   data = append(data, "#TYPE pgagroal_connection_return counter\n");
-   data = append(data, "pgagroal_connection_return ");
-   data = append_ulong(data, atomic_load(&prometheus->connection_return));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection_return Number of connection returns\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_return counter\n");
+   data = pgagroal_append(data, "pgagroal_connection_return ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_return));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_connection_invalid Number of connection invalids\n");
-   data = append(data, "#TYPE pgagroal_connection_invalid counter\n");
-   data = append(data, "pgagroal_connection_invalid ");
-   data = append_ulong(data, atomic_load(&prometheus->connection_invalid));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection_invalid Number of connection invalids\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_invalid counter\n");
+   data = pgagroal_append(data, "pgagroal_connection_invalid ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_invalid));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_connection_get Number of connection gets\n");
-   data = append(data, "#TYPE pgagroal_connection_get counter\n");
-   data = append(data, "pgagroal_connection_get ");
-   data = append_ulong(data, atomic_load(&prometheus->connection_get));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection_get Number of connection gets\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_get counter\n");
+   data = pgagroal_append(data, "pgagroal_connection_get ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_get));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_connection_idletimeout Number of connection idle timeouts\n");
-   data = append(data, "#TYPE pgagroal_connection_idletimeout counter\n");
-   data = append(data, "pgagroal_connection_idletimeout ");
-   data = append_ulong(data, atomic_load(&prometheus->connection_idletimeout));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection_idletimeout Number of connection idle timeouts\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_idletimeout counter\n");
+   data = pgagroal_append(data, "pgagroal_connection_idletimeout ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_idletimeout));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_connection_flush Number of connection flushes\n");
-   data = append(data, "#TYPE pgagroal_connection_flush counter\n");
-   data = append(data, "pgagroal_connection_flush ");
-   data = append_ulong(data, atomic_load(&prometheus->connection_flush));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection_flush Number of connection flushes\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_flush counter\n");
+   data = pgagroal_append(data, "pgagroal_connection_flush ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_flush));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_connection_success Number of connection successes\n");
-   data = append(data, "#TYPE pgagroal_connection_success counter\n");
-   data = append(data, "pgagroal_connection_success ");
-   data = append_ulong(data, atomic_load(&prometheus->connection_success));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection_success Number of connection successes\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_success counter\n");
+   data = pgagroal_append(data, "pgagroal_connection_success ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_success));
+   data = pgagroal_append(data, "\n\n");
 
    send_chunk(client_fd, data);
    metrics_cache_append(data);
@@ -1910,23 +1905,23 @@ auth_information(int client_fd)
 
    prometheus = (struct prometheus*)prometheus_shmem;
 
-   data = append(data, "#HELP pgagroal_auth_user_success Number of successful user authentications\n");
-   data = append(data, "#TYPE pgagroal_auth_user_success counter\n");
-   data = append(data, "pgagroal_auth_user_success ");
-   data = append_ulong(data, atomic_load(&prometheus->auth_user_success));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_auth_user_success Number of successful user authentications\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_auth_user_success counter\n");
+   data = pgagroal_append(data, "pgagroal_auth_user_success ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->auth_user_success));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_auth_user_bad_password Number of bad passwords during user authentication\n");
-   data = append(data, "#TYPE pgagroal_auth_user_bad_password counter\n");
-   data = append(data, "pgagroal_auth_user_bad_password ");
-   data = append_ulong(data, atomic_load(&prometheus->auth_user_bad_password));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_auth_user_bad_password Number of bad passwords during user authentication\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_auth_user_bad_password counter\n");
+   data = pgagroal_append(data, "pgagroal_auth_user_bad_password ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->auth_user_bad_password));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_auth_user_error Number of errors during user authentication\n");
-   data = append(data, "#TYPE pgagroal_auth_user_error counter\n");
-   data = append(data, "pgagroal_auth_user_error ");
-   data = append_ulong(data, atomic_load(&prometheus->auth_user_error));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_auth_user_error Number of errors during user authentication\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_auth_user_error counter\n");
+   data = pgagroal_append(data, "pgagroal_auth_user_error ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->auth_user_error));
+   data = pgagroal_append(data, "\n\n");
 
    send_chunk(client_fd, data);
    metrics_cache_append(data);
@@ -1942,17 +1937,17 @@ client_information(int client_fd)
 
    prometheus = (struct prometheus*)prometheus_shmem;
 
-   data = append(data, "#HELP pgagroal_client_wait Number of waiting clients\n");
-   data = append(data, "#TYPE pgagroal_client_wait gauge\n");
-   data = append(data, "pgagroal_client_wait ");
-   data = append_ulong(data, atomic_load(&prometheus->client_wait));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_client_wait Number of waiting clients\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_client_wait gauge\n");
+   data = pgagroal_append(data, "pgagroal_client_wait ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->client_wait));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_client_active Number of active clients\n");
-   data = append(data, "#TYPE pgagroal_client_active gauge\n");
-   data = append(data, "pgagroal_client_active ");
-   data = append_ulong(data, atomic_load(&prometheus->client_active));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_client_active Number of active clients\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_client_active gauge\n");
+   data = pgagroal_append(data, "pgagroal_client_active ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->client_active));
+   data = pgagroal_append(data, "\n\n");
 
    send_chunk(client_fd, data);
    metrics_cache_append(data);
@@ -1968,29 +1963,29 @@ internal_information(int client_fd)
 
    prometheus = (struct prometheus*)prometheus_shmem;
 
-   data = append(data, "#HELP pgagroal_network_sent Bytes sent by clients\n");
-   data = append(data, "#TYPE pgagroal_network_sent gauge\n");
-   data = append(data, "pgagroal_network_sent ");
-   data = append_ullong(data, atomic_load(&prometheus->network_sent));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_network_sent Bytes sent by clients\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_network_sent gauge\n");
+   data = pgagroal_append(data, "pgagroal_network_sent ");
+   data = pgagroal_append_ullong(data, atomic_load(&prometheus->network_sent));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_network_received Bytes received from servers\n");
-   data = append(data, "#TYPE pgagroal_network_received gauge\n");
-   data = append(data, "pgagroal_network_received ");
-   data = append_ullong(data, atomic_load(&prometheus->network_received));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_network_received Bytes received from servers\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_network_received gauge\n");
+   data = pgagroal_append(data, "pgagroal_network_received ");
+   data = pgagroal_append_ullong(data, atomic_load(&prometheus->network_received));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_client_sockets Number of sockets the client used\n");
-   data = append(data, "#TYPE pgagroal_client_sockets gauge\n");
-   data = append(data, "pgagroal_client_sockets ");
-   data = append_int(data, atomic_load(&prometheus->client_sockets));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_client_sockets Number of sockets the client used\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_client_sockets gauge\n");
+   data = pgagroal_append(data, "pgagroal_client_sockets ");
+   data = pgagroal_append_int(data, atomic_load(&prometheus->client_sockets));
+   data = pgagroal_append(data, "\n\n");
 
-   data = append(data, "#HELP pgagroal_self_sockets Number of sockets used by pgagroal itself\n");
-   data = append(data, "#TYPE pgagroal_self_sockets gauge\n");
-   data = append(data, "pgagroal_self_sockets ");
-   data = append_int(data, atomic_load(&prometheus->self_sockets));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_self_sockets Number of sockets used by pgagroal itself\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_self_sockets gauge\n");
+   data = pgagroal_append(data, "pgagroal_self_sockets ");
+   data = pgagroal_append_int(data, atomic_load(&prometheus->self_sockets));
+   data = pgagroal_append(data, "\n\n");
 
    send_chunk(client_fd, data);
    metrics_cache_append(data);
@@ -2015,31 +2010,31 @@ connection_awaiting_information(int client_fd)
 
    prometheus = (struct prometheus*)prometheus_shmem;
 
-   data = append(data, "#HELP pgagroal_connection_awaiting Number of connection on-hold (awaiting)\n");
-   data = append(data, "#TYPE pgagroal_connection_awaiting gauge\n");
-   data = append(data, "pgagroal_connection_awaiting ");
-   data = append_ulong(data, atomic_load(&prometheus->connections_awaiting_total));
-   data = append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_connection_awaiting Number of connection on-hold (awaiting)\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_awaiting gauge\n");
+   data = pgagroal_append(data, "pgagroal_connection_awaiting ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->connections_awaiting_total));
+   data = pgagroal_append(data, "\n\n");
 
    if (config->number_of_limits > 0)
    {
-      data = append(data, "#HELP pgagroal_limit_awaiting The connections on-hold (awaiting) information\n");
-      data = append(data, "#TYPE pgagroal_limit_awaiting gauge\n");
+      data = pgagroal_append(data, "#HELP pgagroal_limit_awaiting The connections on-hold (awaiting) information\n");
+      data = pgagroal_append(data, "#TYPE pgagroal_limit_awaiting gauge\n");
       for (int i = 0; i < config->number_of_limits; i++)
       {
 
-         data = append(data, "pgagroal_limit_awaiting{");
+         data = pgagroal_append(data, "pgagroal_limit_awaiting{");
 
-         data = append(data, "user=\"");
-         data = append(data, config->limits[i].username);
-         data = append(data, "\",");
+         data = pgagroal_append(data, "user=\"");
+         data = pgagroal_append(data, config->limits[i].username);
+         data = pgagroal_append(data, "\",");
 
-         data = append(data, "database=\"");
-         data = append(data, config->limits[i].database);
-         data = append(data, "\"} ");
+         data = pgagroal_append(data, "database=\"");
+         data = pgagroal_append(data, config->limits[i].database);
+         data = pgagroal_append(data, "\"} ");
 
-         data = append_ulong(data, atomic_load(&prometheus->connections_awaiting[i]));
-         data = append(data, "\n");
+         data = pgagroal_append_ulong(data, atomic_load(&prometheus->connections_awaiting[i]));
+         data = pgagroal_append(data, "\n");
 
          if (strlen(data) > CHUNK_SIZE)
          {
@@ -2054,7 +2049,7 @@ connection_awaiting_information(int client_fd)
 
    if (data != NULL)
    {
-      data = append(data, "\n");
+      data = pgagroal_append(data, "\n");
       send_chunk(client_fd, data);
       metrics_cache_append(data);
       free(data);
@@ -2076,8 +2071,8 @@ send_chunk(int client_fd, char* data)
 
    sprintf(m, "%lX\r\n", strlen(data));
 
-   m = append(m, data);
-   m = append(m, "\r\n");
+   m = pgagroal_append(m, data);
+   m = pgagroal_append(m, "\r\n");
 
    msg.kind = 0;
    msg.length = strlen(m);
@@ -2088,74 +2083,6 @@ send_chunk(int client_fd, char* data)
    free(m);
 
    return status;
-}
-
-static char*
-append(char* orig, char* s)
-{
-   size_t orig_length;
-   size_t s_length;
-   char* n = NULL;
-
-   if (s == NULL)
-   {
-      return orig;
-   }
-
-   if (orig != NULL)
-   {
-      orig_length = strlen(orig);
-   }
-   else
-   {
-      orig_length = 0;
-   }
-
-   s_length = strlen(s);
-
-   n = (char*)realloc(orig, orig_length + s_length + 1);
-
-   memcpy(n + orig_length, s, s_length);
-
-   n[orig_length + s_length] = '\0';
-
-   return n;
-}
-
-static char*
-append_int(char* orig, int i)
-{
-   char number[12];
-
-   memset(&number[0], 0, sizeof(number));
-   snprintf(&number[0], 11, "%d", i);
-   orig = append(orig, number);
-
-   return orig;
-}
-
-static char*
-append_ulong(char* orig, unsigned long l)
-{
-   char number[21];
-
-   memset(&number[0], 0, sizeof(number));
-   snprintf(&number[0], 20, "%lu", l);
-   orig = append(orig, number);
-
-   return orig;
-}
-
-static char*
-append_ullong(char* orig, unsigned long long l)
-{
-   char number[21];
-
-   memset(&number[0], 0, sizeof(number));
-   snprintf(&number[0], 20, "%llu", l);
-   orig = append(orig, number);
-
-   return orig;
 }
 
 /**

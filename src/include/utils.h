@@ -324,6 +324,46 @@ pgagroal_version_number(void);
 bool
 pgagroal_version_ge(unsigned int major, unsigned int minor, unsigned int patch);
 
+/**
+ * Append a string
+ *
+ * @param orig The original string
+ * @param s The string
+ * @returns The new string
+ */
+char*
+pgagroal_append(char* orig, char* s);
+
+/**
+ * Append an int
+ *
+ * @param orig The original string
+ * @param i The int
+ * @returns The new string
+ */
+char*
+pgagroal_append_int(char* orig, int i);
+
+/**
+ * Append an unsigned long
+ *
+ * @param orig The original string
+ * @param l The long
+ * @returns The new string
+ */
+char*
+pgagroal_append_ulong(char* orig, unsigned long l);
+
+/**
+ * Append an unsigned long long
+ *
+ * @param orig The original string
+ * @param l The long
+ * @returns The new string
+ */
+char*
+pgagroal_append_ullong(char* orig, unsigned long long l);
+
 #ifdef DEBUG
 
 /**
