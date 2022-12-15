@@ -1935,7 +1935,7 @@ pgagroal_reload_configuration(void)
       goto error;
    }
 
-   if (transfer_configuration(config, reload))
+   if (transfer_configuration(config, reload) > 0)
    {
       goto error;
    }
@@ -2467,6 +2467,17 @@ extract_value(char* str, int offset, char** value)
    return -1;
 }
 
+/**
+ * Utility function to copy all the settings from the source configuration
+ * to the destination one. This is useful for example when a reload
+ * command is issued.
+ *
+ * @param config the new (clean) configuration
+ * @param reload the one loaded from the configuration (i.e., the one to apply)
+ * @return 0 on success, a negative number in the case some parameters cannot be changed
+ * because require a restart (in such case, the value indicates the number of untouched
+ * parameters), a positive value in the case of a dramatic error.
+ */
 static int
 transfer_configuration(struct configuration* config, struct configuration* reload)
 {
@@ -2474,11 +2485,13 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    sd_notify(0, "RELOADING=1");
 #endif
 
+   int unchanged = 0;
+
    memcpy(config->host, reload->host, MISC_LENGTH);
    config->port = reload->port;
    config->metrics = reload->metrics;
    config->metrics_cache_max_age = reload->metrics_cache_max_age;
-   restart_int("metrics_cache_max_size", config->metrics_cache_max_size, reload->metrics_cache_max_size);
+   unchanged -= restart_int("metrics_cache_max_size", config->metrics_cache_max_size, reload->metrics_cache_max_size);
    config->management = reload->management;
 
    config->update_process_title = reload->update_process_title;
@@ -2488,7 +2501,7 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    /* disabled */
 
    /* pipeline */
-   restart_int("pipeline", config->pipeline, reload->pipeline);
+   unchanged -= restart_int("pipeline", config->pipeline, reload->pipeline);
 
    config->failover = reload->failover;
    memcpy(config->failover_script, reload->failover_script, MISC_LENGTH);
@@ -2538,7 +2551,7 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
 
    /* active_connections */
    /* max_connections */
-   restart_int("max_connections", config->max_connections, reload->max_connections);
+   unchanged -= restart_int("max_connections", config->max_connections, reload->max_connections);
    config->allow_unknown_users = reload->allow_unknown_users;
 
    config->blocking_timeout = reload->blocking_timeout;
@@ -2550,22 +2563,22 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    config->disconnect_client = reload->disconnect_client;
    config->disconnect_client_force = reload->disconnect_client_force;
    /* pidfile */
-   restart_string("pidfile", config->pidfile, reload->pidfile);
+   unchanged -= restart_string("pidfile", config->pidfile, reload->pidfile);
 
    /* libev */
-   restart_string("libev", config->libev, reload->libev);
+   unchanged -= restart_string("libev", config->libev, reload->libev);
    config->buffer_size = reload->buffer_size;
    config->keep_alive = reload->keep_alive;
    config->nodelay = reload->nodelay;
    config->non_blocking = reload->non_blocking;
    config->backlog = reload->backlog;
    /* hugepage */
-   restart_int("hugepage", config->hugepage, reload->hugepage);
+   unchanged -= restart_int("hugepage", config->hugepage, reload->hugepage);
    config->tracker = reload->tracker;
    config->track_prepared_statements = reload->track_prepared_statements;
 
    /* unix_socket_dir */
-   restart_string("unix_socket_dir", config->unix_socket_dir, reload->unix_socket_dir);
+   unchanged -= restart_string("unix_socket_dir", config->unix_socket_dir, reload->unix_socket_dir);
 
    /* su_connection */
 
@@ -2602,7 +2615,7 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
 
    /* number_of_limits */
    /* limits */
-   restart_limit("limits", config, reload);
+   unchanged -= restart_limit("limits", config, reload);
 
    memset(&config->users[0], 0, sizeof(struct user) * NUMBER_OF_USERS);
    for (int i = 0; i < reload->number_of_users; i++)
@@ -2635,7 +2648,12 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    sd_notify(0, "READY=1");
 #endif
 
-   return 0;
+   if (unchanged < 0)
+   {
+      pgagroal_log_warn("%d settings cannot be applied", unchanged * -1);
+   }
+
+   return unchanged;
 }
 
 /**
