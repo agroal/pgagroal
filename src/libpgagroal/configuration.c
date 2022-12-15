@@ -2764,7 +2764,7 @@ error:
 static int
 restart_server(struct server* src, struct server* dst)
 {
-   char restart_message[MISC_LENGTH];
+   char restart_message[2 * MISC_LENGTH];
 
    if (!is_same_server(src, dst))
    {
