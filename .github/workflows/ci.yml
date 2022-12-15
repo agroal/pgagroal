@@ -23,12 +23,23 @@ jobs:
       run: sudo apt install -y libsystemd-dev
     - name: Install rst2man
       run: sudo apt install -y python3-docutils
-    - name: mkdir
+    - name: Install clang
+      run: sudo apt install -y clang-15
+    - name: GCC/mkdir
       run: mkdir build
       working-directory: /home/runner/work/pgagroal/pgagroal/
-    - name: cmake
-      run: cmake -DCMAKE_BUILD_TYPE=Release ..
+    - name: GCC/cmake
+      run: export CC=/usr/bin/gcc && cmake -DCMAKE_BUILD_TYPE=Debug ..
       working-directory: /home/runner/work/pgagroal/pgagroal/build/
-    - name: make
+    - name: GCC/make
+      run: make
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/
+    - name: CLANG/mkdir
+      run: mkdir build
+      working-directory: /home/runner/work/pgagroal/pgagroal/
+    - name: CLANG/cmake
+      run: export CC=/usr/bin/clang && cmake -DCMAKE_BUILD_TYPE=Debug ..
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/
+    - name: CLANG/make
       run: make
       working-directory: /home/runner/work/pgagroal/pgagroal/build/
