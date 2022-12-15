@@ -2768,9 +2768,9 @@ restart_server(struct server* src, struct server* dst)
 
    if (!is_same_server(src, dst))
    {
-      snprintf(restart_message, MISC_LENGTH, "Server <%s>, parameter <host>", src->name);
+      snprintf(restart_message, sizeof(restart_message), "Server <%s>, parameter <host>", src->name);
       restart_string(restart_message, dst->host, src->host);
-      snprintf(restart_message, MISC_LENGTH, "Server <%s>, parameter <port>", src->name);
+      snprintf(restart_message, sizeof(restart_message), "Server <%s>, parameter <port>", src->name);
       restart_int(restart_message, dst->port, src->port);
       return 1;
    }
