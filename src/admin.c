@@ -408,6 +408,7 @@ add_user(char* users_path, char* username, char* password, bool generate_pwd, in
 {
    FILE* users_file = NULL;
    char line[MISC_LENGTH];
+   char* entry = NULL;
    char* master_key = NULL;
    char* ptr = NULL;
    char* encrypted = NULL;
@@ -532,10 +533,13 @@ password:
    pgagroal_encrypt(password, master_key, &encrypted, &encrypted_length);
    pgagroal_base64_encode(encrypted, encrypted_length, &encoded);
 
-   snprintf(line, sizeof(line), "%s:%s\n", username, encoded);
+   entry = pgagroal_append(entry, username);
+   entry = pgagroal_append(entry, ":");
+   entry = pgagroal_append(entry, encoded);
 
-   fputs(line, users_file);
+   fputs(entry, users_file);
 
+   free(entry);
    free(master_key);
    free(encrypted);
    free(encoded);
@@ -551,6 +555,7 @@ password:
 
 error:
 
+   free(entry);
    free(master_key);
    free(encrypted);
    free(encoded);
@@ -578,6 +583,7 @@ update_user(char* users_path, char* username, char* password, bool generate_pwd,
    char line_copy[MISC_LENGTH];
    char* master_key = NULL;
    char* ptr = NULL;
+   char* entry = NULL;
    char* encrypted = NULL;
    int encrypted_length = 0;
    char* encoded = NULL;
@@ -700,10 +706,13 @@ password:
          pgagroal_encrypt(password, master_key, &encrypted, &encrypted_length);
          pgagroal_base64_encode(encrypted, encrypted_length, &encoded);
 
-         memset(&line, 0, sizeof(line));
-         snprintf(line, sizeof(line), "%s:%s\n", username, encoded);
+         entry = NULL;
+         entry = pgagroal_append(entry, username);
+         entry = pgagroal_append(entry, ":");
+         entry = pgagroal_append(entry, encoded);
 
-         fputs(line, users_file_tmp);
+         fputs(entry, users_file_tmp);
+         free(entry);
 
          found = true;
       }
