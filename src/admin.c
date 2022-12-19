@@ -536,6 +536,7 @@ password:
    entry = pgagroal_append(entry, username);
    entry = pgagroal_append(entry, ":");
    entry = pgagroal_append(entry, encoded);
+   entry = pgagroal_append(entry, "\n");
 
    fputs(entry, users_file);
 
@@ -710,6 +711,7 @@ password:
          entry = pgagroal_append(entry, username);
          entry = pgagroal_append(entry, ":");
          entry = pgagroal_append(entry, encoded);
+         entry = pgagroal_append(entry, "\n");
 
          fputs(entry, users_file_tmp);
          free(entry);
