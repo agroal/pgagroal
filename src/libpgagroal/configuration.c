@@ -1374,6 +1374,12 @@ pgagroal_read_users_configuration(void* shm, char* filename)
 
          ptr = strtok(NULL, ":");
 
+         if (ptr == NULL)
+         {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
+            goto error;
+         }
+
          if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
