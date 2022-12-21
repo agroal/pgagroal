@@ -944,11 +944,6 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
             pgagroal_log_fatal("pgagroal: Transaction pipeline does not support allow_unknown_users");
             return 1;
          }
-
-         if (config->number_of_limits == 0)
-         {
-            pgagroal_log_info("pgagroal: Defining limits for the transaction pipeline is recommended");
-         }
       }
 
       for (int i = 0; i < config->number_of_servers; i++)
@@ -956,6 +951,33 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
          if (config->servers[i].tls)
          {
             pgagroal_log_fatal("pgagroal: Transaction pipeline does not support TLS to a server");
+            return 1;
+         }
+      }
+
+      if (config->number_of_limits == 0)
+      {
+         pgagroal_log_fatal("pgagroal: Defining limits for the transaction pipeline is mandatory");
+         return 1;
+      }
+
+      for (int i = 0; i < config->number_of_limits; i++)
+      {
+         if (config->limits[i].min_size <= 0)
+         {
+            pgagroal_log_fatal("pgagroal: min_size for transaction pipeline must be greater than 0");
+            return 1;
+         }
+
+         if (config->limits[i].initial_size <= 0)
+         {
+            pgagroal_log_fatal("pgagroal: initial_size for transaction pipeline must be greater than 0");
+            return 1;
+         }
+
+         if (config->limits[i].max_size <= 0)
+         {
+            pgagroal_log_fatal("pgagroal: max_size for transaction pipeline must be greater than 0");
             return 1;
          }
       }
