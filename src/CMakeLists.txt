@@ -32,6 +32,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     ${OPENSSL_CRYPTO_LIBRARY}
     ${OPENSSL_SSL_LIBRARY}
     ${SYSTEMD_LIBRARIES}
+    ${LIBATOMIC_LIBRARY}
   )
 
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
@@ -64,6 +65,7 @@ else()
   link_libraries(
     ${LIBEV_LIBRARIES}
     ${OPENSSL_LIBRARIES}
+    ${LIBATOMIC_LIBRARY}
   )
 endif()
 
