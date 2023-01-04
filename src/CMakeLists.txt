@@ -65,7 +65,6 @@ else()
   link_libraries(
     ${LIBEV_LIBRARIES}
     ${OPENSSL_LIBRARIES}
-    ${LIBATOMIC_LIBRARY}
   )
 endif()
 
