@@ -27,7 +27,7 @@ As an example, consider the user `myuser` created in the [Installing pgagroal tu
 To achieve this, as `pgagroal` operating system run the following command:
 
 ```
-pgagroal-admin -f /etc/pgagroal/pgagroal_frontend_users.conf -U myuser -P apppass add-user
+pgagroal-admin -f /etc/pgagroal/pgagroal_frontend_users.conf -U myuser -P application_password add-user
 ```
 
 (`pgagroal` user)
