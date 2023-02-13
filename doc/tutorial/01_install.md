@@ -134,7 +134,7 @@ As the `pgagroal` operating system user, add a master key to protect the `pgagro
 
 ```
 pgagroal-admin master-key
-pgagroal-admin -f /etc/pgagroal/pgagroal_users.conf -U myuser -P mypass add-user
+pgagroal-admin -f /etc/pgagroal/pgagroal_users.conf -U myuser -P mypassword add-user
 ```
 
 **You have to choose a password for the master key - remember it!**
