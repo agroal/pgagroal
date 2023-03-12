@@ -1275,6 +1275,8 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
          err = SSL_get_error(ssl, numbytes);
          switch (err)
          {
+            case SSL_ERROR_NONE: 
+               break;
             case SSL_ERROR_ZERO_RETURN:
                if (timeout > 0)
                {
@@ -1369,6 +1371,8 @@ ssl_write_message(SSL* ssl, struct message* msg)
 
          switch (err)
          {
+            case SSL_ERROR_NONE: 
+               break;
             case SSL_ERROR_ZERO_RETURN:
             case SSL_ERROR_WANT_READ:
             case SSL_ERROR_WANT_WRITE:
