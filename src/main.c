@@ -841,9 +841,9 @@ read_superuser_path:
 #ifdef HAVE_LINUX
       sd_notifyf(0,
                  "STATUS=max_connections is larger than the file descriptor limit (%ld available)",
-                 flimit.rlim_cur - 30);
+                 (long)(flimit.rlim_cur - 30));
 #endif
-      errx(1, "max_connections is larger than the file descriptor limit (%ld available)", flimit.rlim_cur - 30);
+      errx(1, "max_connections is larger than the file descriptor limit (%ld available)", (long)(flimit.rlim_cur - 30));
    }
 
    if (daemon)

@@ -36,7 +36,48 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   )
 
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+  find_program(HOMEBREW_EXECUTABLE brew)
+  if(EXISTS ${HOMEBREW_EXECUTABLE})
+    execute_process(
+      COMMAND ${HOMEBREW_EXECUTABLE} --prefix
+      OUTPUT_VARIABLE HOMEBREW_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message(STATUS "Homebrew found at ${HOMEBREW_PREFIX}")
+  endif()
 
+  #
+  # Detecting OpenSSL
+  #
+  execute_process(
+    COMMAND ${HOMEBREW_EXECUTABLE} --prefix openssl
+    OUTPUT_VARIABLE HOMEBREW_OPENSSL
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(DEFINED HOMEBREW_OPENSSL)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I${HOMEBREW_OPENSSL}/include")
+  else()
+    message(FATAL_ERROR "Homebrew's OpenSSL needed")
+  endif()
+
+  add_compile_options(-D_DARWIN_C_SOURCE)
+  add_compile_options(-DHAVE_OSX)
+
+  #
+  # Include directories
+  #
+  include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${LIBEV_INCLUDE_DIRS}
+    ${OPENSSL_INCLUDE_DIRS}
+  )
+
+  #
+  # Library directories
+  #
+  link_libraries(
+    ${LIBEV_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+  )
 else()
 
   add_compile_options(-D_XOPEN_SOURCE=700)
@@ -137,14 +178,15 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
     endif()
   endif()
 
-  check_c_compiler_flag(-Wl,-z,relro HAS_RELRO)
-  if (HAS_RELRO)
+  check_c_compiler_flag(-Wl,arg HAS_LINKER)
+  check_linker_flag(C "-z relro" LINKER_HAS_RELRO)
+  if (HAS_LINKER AND LINKER_HAS_RELRO)
     set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,relro")
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,relro")
   endif()
 
-  check_c_compiler_flag(-Wl,-z,now HAS_NOW)
-  if (HAS_NOW)
+  check_linker_flag(C "-z now" LINKER_HAS_NOW)
+  if (HAS_LINKER AND LINKER_HAS_NOW)
     set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,now")
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,now")
   endif()
@@ -199,14 +241,15 @@ if (CMAKE_BUILD_TYPE MATCHES Release OR CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
     endif()
   endif()
 
-  check_c_compiler_flag(-Wl,-z,relro HAS_RELRO)
-  if (HAS_RELRO)
+  check_c_compiler_flag(-Wl,arg HAS_LINKER)
+  check_linker_flag(C "-z relro" LINKER_HAS_RELRO)
+  if (HAS_LINKER AND HAS_RELRO)
     set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,relro")
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,relro")
   endif()
 
-  check_c_compiler_flag(-Wl,-z,now HAS_NOW)
-  if (HAS_NOW)
+  check_linker_flag(C "-z now" LINKER_HAS_NOW)
+  if (HAS_LINKER AND LINKER_HAS_NOW)
     set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,now")
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,now")
   endif()

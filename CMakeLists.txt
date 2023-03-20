@@ -34,6 +34,7 @@ message(STATUS "pgagroal ${VERSION_STRING}")
 
 include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
+include(CheckLinkerFlag)
 include(FindPackageHandleStandardArgs)
 include(GNUInstallDirs)
 

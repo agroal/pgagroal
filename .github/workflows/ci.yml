@@ -9,7 +9,7 @@ on:
     - master
 
 jobs:
-  build:
+  build-linux:
 
     runs-on: ubuntu-latest
     
@@ -46,3 +46,45 @@ jobs:
     - name: CLANG/make
       run: make
       working-directory: /home/runner/work/pgagroal/pgagroal/build/
+
+
+
+  build-macos:
+
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Homebrew
+      run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+    - name: Update system
+      run: brew update
+    - name: Install openssl
+      run: brew install openssl
+    - name: Install libev
+      run: brew install libev
+    - name: Install rst2man
+      run: brew install docutils
+    - name: Install clang
+      run: brew install llvm
+    - name: GCC/mkdir
+      run: mkdir build
+      working-directory: /Users/runner/work/pgagroal/pgagroal/
+    - name: GCC/cmake
+      run: export CC=/usr/bin/gcc && export OPENSSL_ROOT_DIR=`brew --prefix openssl` && cmake -DCMAKE_BUILD_TYPE=Debug ..
+      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+    - name: GCC/make
+      run: make
+      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+    - name: rm -Rf
+      run: rm -Rf build/
+      working-directory: /Users/runner/work/pgagroal/pgagroal/
+    - name: CLANG/mkdir
+      run: mkdir build
+      working-directory: /Users/runner/work/pgagroal/pgagroal/
+    - name: CLANG/cmake
+      run: export CC=/usr/bin/clang && export OPENSSL_ROOT_DIR=`brew --prefix openssl` && cmake -DCMAKE_BUILD_TYPE=Debug ..
+      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+    - name: CLANG/make
+      run: make
+      working-directory: /Users/runner/work/pgagroal/pgagroal/build/

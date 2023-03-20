@@ -54,7 +54,7 @@
 #endif
 
 extern char** environ;
-#ifdef HAVE_LINUX
+#if defined(HAVE_LINUX) || defined(HAVE_OSX)
 static bool env_changed = false;
 static int max_process_title_size = 0;
 #endif
@@ -719,7 +719,7 @@ error:
 void
 pgagroal_set_proc_title(int argc, char** argv, char* s1, char* s2)
 {
-#ifdef HAVE_LINUX
+#if defined(HAVE_LINUX) || defined(HAVE_OSX)
    char title[MAX_PROCESS_TITLE_LENGTH];
    size_t size;
    char** env = environ;
