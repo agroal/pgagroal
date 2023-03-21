@@ -111,7 +111,18 @@ pgagroal_create_message(void* data, ssize_t length, struct message** msg)
    struct message* copy = NULL;
 
    copy = (struct message*)malloc(sizeof(struct message));
+   if (copy == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating message");
+      return MESSAGE_STATUS_ERROR;
+   }
    copy->data = malloc(length);
+   if (copy->data == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating message");
+      free(copy);
+      return MESSAGE_STATUS_ERROR;
+   }
 
    copy->kind = pgagroal_read_byte(data);
    copy->length = length;
@@ -140,7 +151,19 @@ pgagroal_copy_message(struct message* msg)
 #endif
 
    copy = (struct message*)malloc(sizeof(struct message));
+   if (copy == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while copying message");
+      return NULL;
+   }
+
    copy->data = malloc(msg->length);
+   if (copy->data == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while copying message");
+      free(copy);
+      return NULL;
+   }
 
    copy->kind = msg->kind;
    copy->length = msg->length;
@@ -714,9 +737,18 @@ pgagroal_create_auth_password_response(char* password, struct message** msg)
    size = 6 + strlen(password);
 
    m = (struct message*)malloc(sizeof(struct message));
-   m->data = malloc(size);
-
-   memset(m->data, 0, size);
+   if (m == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating auth_password_response");
+      return MESSAGE_STATUS_ERROR;
+   }
+   m->data = calloc(1, size);
+   if (m->data == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating auth_password_response");
+      free(m);
+      return MESSAGE_STATUS_ERROR;
+   }
 
    m->kind = 'p';
    m->length = size;
@@ -768,9 +800,18 @@ pgagroal_create_auth_md5_response(char* md5, struct message** msg)
    size = 1 + 4 + strlen(md5) + 1;
 
    m = (struct message*)malloc(sizeof(struct message));
-   m->data = malloc(size);
-
-   memset(m->data, 0, size);
+   if (m == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating auth_md5_response");
+      return MESSAGE_STATUS_ERROR;
+   }
+   m->data = calloc(1, size);
+   if (m->data == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating auth_md5_response");
+      free(m);
+      return MESSAGE_STATUS_ERROR;
+   }
 
    m->kind = 'p';
    m->length = size;
@@ -819,9 +860,18 @@ pgagroal_create_auth_scram256_response(char* nounce, struct message** msg)
    size = 1 + 4 + 13 + 4 + 9 + strlen(nounce);
 
    m = (struct message*)malloc(sizeof(struct message));
-   m->data = malloc(size);
-
-   memset(m->data, 0, size);
+   if (m == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating auth_scram256_response");
+      return MESSAGE_STATUS_ERROR;
+   }
+   m->data = calloc(1, size);
+   if (m->data == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating auth_scram256_response");
+      free(m);
+      return MESSAGE_STATUS_ERROR;
+   }
 
    m->kind = 'p';
    m->length = size;
@@ -846,9 +896,19 @@ pgagroal_create_auth_scram256_continue(char* cn, char* sn, char* salt, struct me
    size = 1 + 4 + 4 + 2 + strlen(cn) + strlen(sn) + 3 + strlen(salt) + 7;
 
    m = (struct message*)malloc(sizeof(struct message));
-   m->data = malloc(size);
+   if (m == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating auth_scram256_continue");
+      return MESSAGE_STATUS_ERROR;
+   }
+   m->data = calloc(1, size);
 
-   memset(m->data, 0, size);
+   if (m->data == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating auth_scram256_continue");
+      free(m);
+      return MESSAGE_STATUS_ERROR;
+   }
 
    m->kind = 'R';
    m->length = size;
@@ -877,9 +937,19 @@ pgagroal_create_auth_scram256_continue_response(char* wp, char* p, struct messag
    size = 1 + 4 + strlen(wp) + 3 + strlen(p);
 
    m = (struct message*)malloc(sizeof(struct message));
-   m->data = malloc(size);
+   if (m == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating auth_scram256_continue_response");
+      return MESSAGE_STATUS_ERROR;
+   }
 
-   memset(m->data, 0, size);
+   m->data = calloc(1, size);
+   if (m->data == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating auth_scram256_continue_response");
+      free(m);
+      return MESSAGE_STATUS_ERROR;
+   }
 
    m->kind = 'p';
    m->length = size;
@@ -904,9 +974,18 @@ pgagroal_create_auth_scram256_final(char* ss, struct message** msg)
    size = 1 + 4 + 4 + 2 + strlen(ss);
 
    m = (struct message*)malloc(sizeof(struct message));
-   m->data = malloc(size);
-
-   memset(m->data, 0, size);
+   if (m == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating auth_scram256_final");
+      return MESSAGE_STATUS_ERROR;
+   }
+   m->data = calloc(1, size);
+   if (m->data == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating auth_scram256_final");
+      free(m);
+      return MESSAGE_STATUS_ERROR;
+   }
 
    m->kind = 'R';
    m->length = size;
@@ -956,9 +1035,18 @@ pgagroal_create_ssl_message(struct message** msg)
    size = 8;
 
    m = (struct message*)malloc(sizeof(struct message));
-   m->data = malloc(size);
-
-   memset(m->data, 0, size);
+   if (m == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating ssl_message");
+      return MESSAGE_STATUS_ERROR;
+   }
+   m->data = calloc(1, size);
+   if (m->data == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating ssl_message");
+      free(m);
+      return MESSAGE_STATUS_ERROR;
+   }
 
    m->kind = 0;
    m->length = size;
@@ -984,9 +1072,18 @@ pgagroal_create_startup_message(char* username, char* database, struct message**
    size = 4 + 4 + 4 + 1 + us + 1 + 8 + 1 + ds + 1 + 17 + 9 + 1;
 
    m = (struct message*)malloc(sizeof(struct message));
-   m->data = malloc(size);
-
-   memset(m->data, 0, size);
+   if (m == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating startup_message");
+      return MESSAGE_STATUS_ERROR;
+   }
+   m->data = calloc(1, size);
+   if (m->data == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating startup_message");
+      free(m);
+      return MESSAGE_STATUS_ERROR;
+   }
 
    m->kind = 0;
    m->length = size;
@@ -1014,9 +1111,18 @@ pgagroal_create_cancel_request_message(int pid, int secret, struct message** msg
    size = 16;
 
    m = (struct message*)malloc(sizeof(struct message));
-   m->data = malloc(size);
-
-   memset(m->data, 0, size);
+   if (m == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating cancel_request_message");
+      return MESSAGE_STATUS_ERROR;
+   }
+   m->data = calloc(1, size);
+   if (m == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating cancel_request_message");
+      free(m);
+      return MESSAGE_STATUS_ERROR;
+   }
 
    m->kind = 0;
    m->length = size;
@@ -1275,7 +1381,7 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
          err = SSL_get_error(ssl, numbytes);
          switch (err)
          {
-            case SSL_ERROR_NONE: 
+            case SSL_ERROR_NONE:
                break;
             case SSL_ERROR_ZERO_RETURN:
                if (timeout > 0)
@@ -1371,7 +1477,7 @@ ssl_write_message(SSL* ssl, struct message* msg)
 
          switch (err)
          {
-            case SSL_ERROR_NONE: 
+            case SSL_ERROR_NONE:
                break;
             case SSL_ERROR_ZERO_RETURN:
             case SSL_ERROR_WANT_READ:

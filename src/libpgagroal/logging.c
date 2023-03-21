@@ -402,7 +402,9 @@ retry:
          atomic_store(&config->log_lock, STATE_FREE);
       }
       else
-        SLEEP_AND_GOTO(1000000L,retry)
+      {
+         SLEEP_AND_GOTO(1000000L, retry)
+      }
    }
 }
 
@@ -488,6 +490,8 @@ retry:
          atomic_store(&config->log_lock, STATE_FREE);
       }
       else
-        SLEEP_AND_GOTO(1000000L,retry)
+      {
+         SLEEP_AND_GOTO(1000000L, retry)
+      }
    }
 }

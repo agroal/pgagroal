@@ -916,8 +916,12 @@ generate_password(int pwd_length)
 
    s = pwd_length + 1;
 
-   pwd = malloc(s);
-   memset(pwd, 0, s);
+   pwd = calloc(1, s);
+   if(pwd == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while generating password");
+      return NULL;
+   }
 
    srand((unsigned)time(&t));
 

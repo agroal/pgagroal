@@ -2066,8 +2066,12 @@ send_chunk(int client_fd, char* data)
 
    memset(&msg, 0, sizeof(struct message));
 
-   m = malloc(20);
-   memset(m, 0, 20);
+   m = calloc(1, 20);
+   if (m == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while binding host");
+      return MESSAGE_STATUS_ERROR;
+   }
 
    sprintf(m, "%lX\r\n", strlen(data));
 

@@ -1293,8 +1293,11 @@ accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    }
    else
    {
-      char* addr = malloc(strlen(address) + 1);
-      memset(addr, 0, strlen(address) + 1);
+      char* addr = calloc(1, strlen(address) + 1);
+      if(addr == NULL){
+         pgagroal_log_fatal("Cannot allocate memory for client address");
+         return;
+      }
       memcpy(addr, address, strlen(address));
 
       ev_loop_fork(loop);
@@ -1695,8 +1698,11 @@ accept_management_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    if (!fork())
    {
-      char* addr = malloc(strlen(address) + 1);
-      memset(addr, 0, strlen(address) + 1);
+      char* addr = calloc(1, strlen(address) + 1);
+      if(addr == NULL){
+         pgagroal_log_fatal("Couldn't allocate address");
+         return;
+      }
       memcpy(addr, address, strlen(address));
 
       ev_loop_fork(loop);
