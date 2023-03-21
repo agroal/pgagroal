@@ -108,8 +108,11 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          iov[0].iov_base = &buf2[0];
          iov[0].iov_len = sizeof(buf2);
 
-         cmptr = malloc(CMSG_SPACE(sizeof(int)));
-         memset(cmptr, 0, CMSG_SPACE(sizeof(int)));
+         cmptr = calloc(1, CMSG_SPACE(sizeof(int)));
+         if (cmptr == NULL)
+         {
+            goto error;
+         }
          cmptr->cmsg_len = CMSG_LEN(sizeof(int));
          cmptr->cmsg_level = SOL_SOCKET;
          cmptr->cmsg_type = SCM_RIGHTS;
@@ -148,8 +151,11 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          }
          size = pgagroal_read_int32(&buf4);
 
-         s = malloc(size + 1);
-         memset(s, 0, size + 1);
+         s = calloc(1, size + 1);
+         if (s == NULL)
+         {
+            goto error;
+         }
          if (read_complete(NULL, socket, s, size))
          {
             goto error;
@@ -174,8 +180,11 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          }
          *payload_i = pgagroal_read_int32(&buf4);
 
-         s = malloc(*payload_i + 1);
-         memset(s, 0, *payload_i + 1);
+         s = calloc(1, *payload_i + 1);
+         if (s == NULL)
+         {
+            goto error;
+         }
          if (read_complete(NULL, socket, s, *payload_i))
          {
             goto error;
@@ -184,8 +193,11 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
          break;
       case MANAGEMENT_RESET_SERVER:
       case MANAGEMENT_SWITCH_TO:
-         s = malloc(MISC_LENGTH);
-         memset(s, 0, MISC_LENGTH);
+         s = calloc(1, MISC_LENGTH);
+         if (s == NULL)
+         {
+            goto error;
+         }
          if (read_complete(NULL, socket, s, MISC_LENGTH))
          {
             goto error;
@@ -250,8 +262,12 @@ pgagroal_management_transfer_connection(int32_t slot)
    iov[0].iov_base = &buf2[0];
    iov[0].iov_len = sizeof(buf2);
 
-   cmptr = malloc(CMSG_SPACE(sizeof(int)));
-   memset(cmptr, 0, CMSG_SPACE(sizeof(int)));
+   cmptr = calloc(1, CMSG_SPACE(sizeof(int)));
+   if (cmptr == NULL)
+   {
+      goto error;
+   }
+
    cmptr->cmsg_level = SOL_SOCKET;
    cmptr->cmsg_type = SCM_RIGHTS;
    cmptr->cmsg_len = CMSG_LEN(sizeof(int));

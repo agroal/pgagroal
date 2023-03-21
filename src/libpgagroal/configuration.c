@@ -2050,8 +2050,11 @@ extract_key_value(char* str, char** key, char** value)
 
    if (c < length)
    {
-      k = malloc(c + 1);
-      memset(k, 0, c + 1);
+      k = calloc(1, c + 1);
+      if (k == NULL)
+      {
+         goto error;
+      }
       memcpy(k, str, c);
       *key = k;
 
@@ -2105,8 +2108,11 @@ extract_key_value(char* str, char** key, char** value)
 
       if (c <= length)
       {
-         v = malloc((c - offset) + 1);
-         memset(v, 0, (c - offset) + 1);
+         v = calloc(1, (c - offset) + 1);
+         if (v == NULL)
+         {
+            goto error;
+         }
          memcpy(v, str + offset, (c - offset));
          *value = v;
          return 0;
@@ -2202,8 +2208,11 @@ as_logging_level(char* str)
       if (strlen(str) > strlen("debug"))
       {
          size = strlen(str) - strlen("debug");
-         debug_value = (char*)malloc(size + 1);
-         memset(debug_value, 0, size + 1);
+         debug_value = (char*)calloc(1, size + 1);
+         if (debug_value == NULL)
+         {
+            return PGAGROAL_LOGGING_LEVEL_FATAL;
+         }
          memcpy(debug_value, str + 5, size);
          if (as_int(debug_value, &debug_level))
          {
@@ -2501,8 +2510,11 @@ extract_value(char* str, int offset, char** value)
       {
          to = offset;
 
-         v = malloc(to - from + 1);
-         memset(v, 0, to - from + 1);
+         v = calloc(1, to - from + 1);
+         if (v == NULL)
+         {
+            return -1;
+         }
          memcpy(v, str + from, to - from);
          *value = v;
 
@@ -2628,7 +2640,6 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    // does make sense to check for remote connections? Because in the case the Unix socket dir
    // changes the pgagroal-cli probably will not be able to connect in any case!
    restart_string("unix_socket_dir", config->unix_socket_dir, reload->unix_socket_dir, false);
-
 
    /* su_connection */
 

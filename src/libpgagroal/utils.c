@@ -108,8 +108,7 @@ pgagroal_extract_username_database(struct message* msg, char** username, char** 
       end++;
       if (c == 0)
       {
-         array[counter] = (char*)malloc(end - start);
-         memset(array[counter], 0, end - start);
+         array[counter] = (char*)calloc(1, end - start);
          memcpy(array[counter], msg->data + start, end - start);
 
          start = end;
@@ -122,8 +121,7 @@ pgagroal_extract_username_database(struct message* msg, char** username, char** 
       if (!strcmp(array[i], "user"))
       {
          size = strlen(array[i + 1]) + 1;
-         un = malloc(size);
-         memset(un, 0, size);
+         un = calloc(1, size);
          memcpy(un, array[i + 1], size);
 
          *username = un;
@@ -131,8 +129,7 @@ pgagroal_extract_username_database(struct message* msg, char** username, char** 
       else if (!strcmp(array[i], "database"))
       {
          size = strlen(array[i + 1]) + 1;
-         db = malloc(size);
-         memset(db, 0, size);
+         db = calloc(1, size);
          memcpy(db, array[i + 1], size);
 
          *database = db;
@@ -140,8 +137,7 @@ pgagroal_extract_username_database(struct message* msg, char** username, char** 
       else if (!strcmp(array[i], "application_name"))
       {
          size = strlen(array[i + 1]) + 1;
-         an = malloc(size);
-         memset(an, 0, size);
+         an = calloc(1, size);
          memcpy(an, array[i + 1], size);
 
          *appname = an;
@@ -230,8 +226,7 @@ pgagroal_extract_error_message(struct message* msg, char** error)
 
          if (type == 'M')
          {
-            result = (char*)malloc(strlen(s) + 1);
-            memset(result, 0, strlen(s) + 1);
+            result = (char*)calloc(1, strlen(s) + 1);
             memcpy(result, s, strlen(s));
 
             *error = result;
@@ -616,8 +611,7 @@ pgagroal_get_password(void)
 
    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 
-   result = malloc(strlen(p) + 1);
-   memset(result, 0, strlen(p) + 1);
+   result = calloc(1, strlen(p) + 1);
 
    memcpy(result, &p, strlen(p));
 
@@ -653,8 +647,7 @@ pgagroal_base64_encode(char* raw, int raw_length, char** encoded)
    BUF_MEM_grow(mem_bio_mem_ptr, (*mem_bio_mem_ptr).length + 1);
    (*mem_bio_mem_ptr).data[(*mem_bio_mem_ptr).length] = '\0';
 
-   r = malloc(strlen((*mem_bio_mem_ptr).data) + 1);
-   memset(r, 0, strlen((*mem_bio_mem_ptr).data) + 1);
+   r = calloc(1, strlen((*mem_bio_mem_ptr).data) + 1);
    memcpy(r, (*mem_bio_mem_ptr).data, strlen((*mem_bio_mem_ptr).data));
 
    BUF_MEM_free(mem_bio_mem_ptr);
@@ -685,8 +678,7 @@ pgagroal_base64_decode(char* encoded, size_t encoded_length, char** raw, int* ra
    }
 
    size = (encoded_length * 3) / 4 + 1;
-   decoded = malloc(size);
-   memset(decoded, 0, size);
+   decoded = calloc(1, size);
 
    b64_bio = BIO_new(BIO_f_base64());
    mem_bio = BIO_new(BIO_s_mem());
@@ -751,14 +743,12 @@ pgagroal_set_proc_title(int argc, char** argv, char* s1, char* s2)
       for (int i = 0; env[i] != NULL; i++)
       {
          size = strlen(env[i]);
-         environ[i] = (char*)malloc(size + 1);
+         environ[i] = (char*)calloc(1, size + 1);
 
          if (environ[i] == NULL)
          {
             return;
          }
-
-         memset(environ[i], 0, size + 1);
          memcpy(environ[i], env[i], size);
       }
       environ[es] = NULL;

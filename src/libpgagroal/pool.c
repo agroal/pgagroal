@@ -330,8 +330,10 @@ retry2:
             }
          }
          else
-            /* Sleep for 1000 nanos */
-            SLEEP_AND_GOTO(1000L,start)
+         /* Sleep for 1000 nanos */
+         {
+            SLEEP_AND_GOTO(1000L, start)
+         }
 
       }
    }

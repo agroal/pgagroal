@@ -1655,8 +1655,10 @@ retry:
       if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
-            /* Sleep for 100ms */
-            SLEEP_AND_GOTO(100000000L,retry)
+         /* Sleep for 100ms */
+         {
+            SLEEP_AND_GOTO(100000000L, retry)
+         }
       }
    }
 
@@ -1737,8 +1739,10 @@ retry:
       if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
-            /* Sleep for 100ms */
-            SLEEP_AND_GOTO(100000000L,retry)
+         /* Sleep for 100ms */
+         {
+            SLEEP_AND_GOTO(100000000L, retry)
+         }
 
       }
    }
@@ -1754,8 +1758,7 @@ retry:
    }
 
    size = strlen(username) + strlen(password) + 1;
-   pwdusr = malloc(size);
-   memset(pwdusr, 0, size);
+   pwdusr = calloc(1, size);
 
    snprintf(pwdusr, size, "%s%s", password, username);
 
@@ -1764,8 +1767,7 @@ retry:
       goto error;
    }
 
-   md5_req = malloc(36);
-   memset(md5_req, 0, 36);
+   md5_req = calloc(1, 36);
    memcpy(md5_req, shadow, 32);
    memcpy(md5_req + 32, &salt[0], 4);
 
@@ -1864,8 +1866,10 @@ retry:
       if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
-            /* Sleep for 100ms */
-            SLEEP_AND_GOTO(100000000L,retry)
+         /* Sleep for 100ms */
+         {
+            SLEEP_AND_GOTO(100000000L, retry)
+         }
 
       }
    }
@@ -1880,8 +1884,8 @@ retry:
       pgagroal_socket_nonblocking(client_fd, false);
    }
 
-   client_first_message_bare = malloc(msg->length - 25);
-   memset(client_first_message_bare, 0, msg->length - 25);
+   client_first_message_bare = calloc(1, msg->length - 25);
+
    memcpy(client_first_message_bare, msg->data + 26, msg->length - 26);
 
    get_scram_attribute('r', (char*)msg->data + 26, msg->length - 26, &client_nounce);
@@ -1889,8 +1893,8 @@ retry:
    generate_salt(&salt, &salt_length);
    pgagroal_base64_encode(salt, salt_length, &base64_salt);
 
-   server_first_message = malloc(89);
-   memset(server_first_message, 0, 89);
+   server_first_message = calloc(1, 89);
+
    snprintf(server_first_message, 89, "r=%s%s,s=%s,i=4096", client_nounce, server_nounce, base64_salt);
 
    status = pgagroal_create_auth_scram256_continue(client_nounce, server_nounce, base64_salt, &msg);
@@ -1919,8 +1923,8 @@ retry:
    get_scram_attribute('p', (char*)msg->data + 5, msg->length - 5, &base64_client_proof);
    pgagroal_base64_decode(base64_client_proof, strlen(base64_client_proof), &client_proof_received, &client_proof_received_length);
 
-   client_final_message_without_proof = malloc(58);
-   memset(client_final_message_without_proof, 0, 58);
+   client_final_message_without_proof = calloc(1, 58);
+
    memcpy(client_final_message_without_proof, msg->data + 5, 57);
 
    sasl_prep(password, &password_prep);
@@ -2049,18 +2053,30 @@ client_ok(SSL* c_ssl, int client_fd, int slot)
    {
       size = config->connections[slot].security_lengths[0];
       data = malloc(size);
+      if (data == NULL)
+      {
+         goto error;
+      }
       memcpy(data, config->connections[slot].security_messages[0], size);
    }
    else if (config->connections[slot].has_security == SECURITY_PASSWORD || config->connections[slot].has_security == SECURITY_MD5)
    {
       size = config->connections[slot].security_lengths[2];
       data = malloc(size);
+      if (data == NULL)
+      {
+         goto error;
+      }
       memcpy(data, config->connections[slot].security_messages[2], size);
    }
    else if (config->connections[slot].has_security == SECURITY_SCRAM256)
    {
       size = config->connections[slot].security_lengths[4] - 55;
       data = malloc(size);
+      if (data == NULL)
+      {
+         goto error;
+      }
       memcpy(data, config->connections[slot].security_messages[4] + 55, size);
    }
    else
@@ -2499,8 +2515,7 @@ server_md5(char* username, char* password, int slot, SSL* server_ssl)
    }
 
    size = strlen(username) + strlen(password) + 1;
-   pwdusr = malloc(size);
-   memset(pwdusr, 0, size);
+   pwdusr = calloc(1, size);
 
    snprintf(pwdusr, size, "%s%s", password, username);
 
@@ -2509,8 +2524,8 @@ server_md5(char* username, char* password, int slot, SSL* server_ssl)
       goto error;
    }
 
-   md5_req = malloc(36);
-   memset(md5_req, 0, 36);
+   md5_req = calloc(1, 36);
+
    memcpy(md5_req, shadow, 32);
    memcpy(md5_req + 32, salt, 4);
 
@@ -3133,8 +3148,7 @@ get_salt(void* data, char** salt)
 {
    char* result;
 
-   result = malloc(4);
-   memset(result, 0, 4);
+   result = calloc(1, 4);
 
    memcpy(result, data + 9, 4);
 
@@ -3270,10 +3284,7 @@ pgagroal_md5(char* str, int length, char** md5)
    unsigned char digest[16];
    char* out;
 
-   out = malloc(33);
-
-   memset(out, 0, 33);
-
+   out = calloc(1, 33);
    MD5_Init(&c);
    MD5_Update(&c, str, length);
    MD5_Final(digest, &c);
@@ -3456,8 +3467,7 @@ aes_encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphe
    }
 
    size = strlen(plaintext) + EVP_CIPHER_block_size(EVP_aes_256_cbc());
-   ct = malloc(size);
-   memset(ct, 0, size);
+   ct = calloc(1, size);
 
    if (EVP_EncryptUpdate(ctx,
                          ct, &length,
@@ -3513,8 +3523,7 @@ aes_decrypt(char* ciphertext, int ciphertext_length, unsigned char* key, unsigne
    }
 
    size = ciphertext_length + EVP_CIPHER_block_size(EVP_aes_256_cbc());
-   pt = malloc(size);
-   memset(pt, 0, size);
+   pt = calloc(1, size);
 
    if (EVP_DecryptUpdate(ctx,
                          (unsigned char*)pt, &length,
@@ -3626,8 +3635,7 @@ get_scram_attribute(char attribute, char* input, size_t size, char** value)
    match[0] = attribute;
    match[1] = '=';
 
-   dup = (char*)malloc(size + 1);
-   memset(dup, 0, size + 1);
+   dup = (char*)calloc(1, size + 1);
    memcpy(dup, input, size);
 
    ptr = strtok(dup, ",");
@@ -3636,8 +3644,7 @@ get_scram_attribute(char attribute, char* input, size_t size, char** value)
       if (!strncmp(ptr, &match[0], 2))
       {
          token_size = strlen(ptr) - 1;
-         result = malloc(token_size);
-         memset(result, 0, token_size);
+         result = calloc(1, token_size);
          memcpy(result, ptr + 2, token_size);
          goto done;
       }
@@ -3708,11 +3715,9 @@ client_proof(char* password, char* salt, int salt_length, int iterations,
       goto error;
    }
 
-   c_s = malloc(size);
-   memset(c_s, 0, size);
+   c_s = calloc(1, size);
 
-   r = malloc(size);
-   memset(r, 0, size);
+   r = calloc(1, size);
 
    /* Client signature: HMAC(StoredKey, AuthMessage) */
    if (HMAC_Init_ex(ctx, s_k, s_k_length, EVP_sha256(), NULL) != 1)
@@ -3828,12 +3833,10 @@ verify_client_proof(char* s_key, int s_key_length,
    /*    goto error; */
    /* } */
 
-   c_k = malloc(size);
-   memset(c_k, 0, size);
+   c_k = calloc(1, size);
    c_k_length = size;
 
-   c_s = malloc(size);
-   memset(c_s, 0, size);
+   c_s = calloc(1, size);
 
    /* Client signature: HMAC(StoredKey, AuthMessage) */
    if (HMAC_Init_ex(ctx, s_key, s_key_length, EVP_sha256(), NULL) != 1)
@@ -3952,8 +3955,7 @@ salted_password(char* password, char* salt, int salt_length, int iterations, uns
       one = 1;
    }
 
-   r = malloc(size);
-   memset(r, 0, size);
+   r = calloc(1, size);
 
    /* SaltedPassword: Hi(Normalize(password), salt, iterations) */
    if (HMAC_Init_ex(ctx, password, password_length, EVP_sha256(), NULL) != 1)
@@ -4057,8 +4059,7 @@ salted_password_key(unsigned char* salted_password, int salted_password_length, 
       goto error;
    }
 
-   r = malloc(size);
-   memset(r, 0, size);
+   r = calloc(1, size);
 
    /* HMAC(SaltedPassword, Key) */
    if (HMAC_Init_ex(ctx, salted_password, salted_password_length, EVP_sha256(), NULL) != 1)
@@ -4123,8 +4124,7 @@ stored_key(unsigned char* client_key, int client_key_length, unsigned char** res
       goto error;
    }
 
-   r = malloc(size);
-   memset(r, 0, size);
+   r = calloc(1, size);
 
    /* StoredKey: H(ClientKey) */
    if (EVP_DigestInit_ex(ctx, EVP_sha256(), NULL) != 1)
@@ -4177,8 +4177,7 @@ generate_salt(char** salt, int* size)
    unsigned char* r = NULL;
    int result;
 
-   r = malloc(s);
-   memset(r, 0, s);
+   r = calloc(1, s);
 
    result = RAND_bytes(r, s);
    if (result != 1)
@@ -4239,8 +4238,7 @@ server_signature(char* password, char* salt, int salt_length, int iterations,
       goto error;
    }
 
-   r = malloc(size);
-   memset(r, 0, size);
+   r = calloc(1, size);
 
    if (password != NULL)
    {
@@ -4970,8 +4968,7 @@ auth_query_server_md5(struct message* startup_response_msg, char* username, char
    }
 
    size = strlen(username) + strlen(password) + 1;
-   pwdusr = malloc(size);
-   memset(pwdusr, 0, size);
+   pwdusr = calloc(1, size);
 
    snprintf(pwdusr, size, "%s%s", password, username);
 
@@ -4980,8 +4977,7 @@ auth_query_server_md5(struct message* startup_response_msg, char* username, char
       goto error;
    }
 
-   md5_req = malloc(36);
-   memset(md5_req, 0, 36);
+   md5_req = calloc(1, 36);
    memcpy(md5_req, shadow, 32);
    memcpy(md5_req + 32, salt, 4);
 
@@ -5300,10 +5296,9 @@ auth_query_get_password(int socket, SSL* server_ssl, char* username, char* datab
    *password = NULL;
 
    size = 53 + strlen(username);
-   aq = malloc(size);
+   aq = calloc(1, size);
 
    memset(&qmsg, 0, sizeof(struct message));
-   memset(aq, 0, size);
 
    pgagroal_write_byte(aq, 'Q');
    pgagroal_write_int32(aq + 1, size - 1);
@@ -5333,8 +5328,7 @@ auth_query_get_password(int socket, SSL* server_ssl, char* username, char* datab
    }
 
    result_size = dmsg->length - 11 + 1;
-   result = (char*)malloc(result_size);
-   memset(result, 0, result_size);
+   result = (char*)calloc(1, result_size);
    memcpy(result, dmsg->data + 11, dmsg->length - 11);
 
    *password = result;
@@ -5406,8 +5400,10 @@ retry:
       if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
-            /* Sleep for 100ms */
-            SLEEP_AND_GOTO(100000000L,retry)
+         /* Sleep for 100ms */
+         {
+            SLEEP_AND_GOTO(100000000L, retry)
+         }
 
       }
    }
@@ -5422,8 +5418,7 @@ retry:
       pgagroal_socket_nonblocking(client_fd, false);
    }
 
-   md5_req = malloc(36);
-   memset(md5_req, 0, 36);
+   md5_req = calloc(1, 36);
    memcpy(md5_req, hash + 3, 32);
    memcpy(md5_req + 32, &salt[0], 4);
 
@@ -5524,8 +5519,10 @@ retry:
       if (difftime(time(NULL), start_time) < config->authentication_timeout)
       {
          if (pgagroal_socket_isvalid(client_fd))
-            /* Sleep for 100ms */
-            SLEEP_AND_GOTO(100000000L,retry)
+         /* Sleep for 100ms */
+         {
+            SLEEP_AND_GOTO(100000000L, retry)
+         }
 
       }
    }
@@ -5572,15 +5569,13 @@ retry:
    }
 
    /* Start the flow */
-   client_first_message_bare = malloc(msg->length - 25);
-   memset(client_first_message_bare, 0, msg->length - 25);
+   client_first_message_bare = calloc(1, msg->length - 25);
    memcpy(client_first_message_bare, msg->data + 26, msg->length - 26);
 
    get_scram_attribute('r', (char*)msg->data + 26, msg->length - 26, &client_nounce);
    generate_nounce(&server_nounce);
 
-   server_first_message = malloc(89);
-   memset(server_first_message, 0, 89);
+   server_first_message = calloc(1, 89);
    snprintf(server_first_message, 89, "r=%s%s,s=%s,i=%d", client_nounce, server_nounce, base64_salt, iterations);
 
    status = pgagroal_create_auth_scram256_continue(client_nounce, server_nounce, base64_salt, &sasl_continue);
@@ -5604,8 +5599,7 @@ retry:
    get_scram_attribute('p', (char*)msg->data + 5, msg->length - 5, &base64_client_proof);
    pgagroal_base64_decode(base64_client_proof, strlen(base64_client_proof), &client_proof_received, &client_proof_received_length);
 
-   client_final_message_without_proof = malloc(58);
-   memset(client_final_message_without_proof, 0, 58);
+   client_final_message_without_proof = calloc(1, 58);
    memcpy(client_final_message_without_proof, msg->data + 5, 57);
 
    if (verify_client_proof(stored_key, stored_key_length,

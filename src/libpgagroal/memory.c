@@ -71,20 +71,17 @@ pgagroal_memory_size(size_t size)
 {
    pgagroal_memory_destroy();
 
-   message = (struct message*)malloc(sizeof(struct message));
+   message = (struct message*)calloc(1, sizeof(struct message));
    if (message == NULL)
    {
       goto error;
    }
 
-   data = malloc(size);
+   data = calloc(1, size);
    if (data == NULL)
    {
       goto error;
    }
-
-   memset(message, 0, sizeof(struct message));
-   memset(data, 0, size);
 
    message->kind = 0;
    message->length = 0;

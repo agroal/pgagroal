@@ -570,8 +570,12 @@ bind_host(const char* hostname, int port, int** fds, int* length)
    index = 0;
    size = 0;
 
-   sport = malloc(5);
-   memset(sport, 0, 5);
+   sport = calloc(1, 5);
+   if (sport == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while binding host");
+      return 1;
+   }
    sprintf(sport, "%d", port);
 
    /* Find all SOCK_STREAM addresses */
@@ -594,8 +598,12 @@ bind_host(const char* hostname, int port, int** fds, int* length)
       size++;
    }
 
-   result = malloc(size * sizeof(int));
-   memset(result, 0, size * sizeof(int));
+   result = calloc(1, size * sizeof(int));
+   if (sport == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while binding host");
+      return 1;
+   }
 
    /* Loop through all the results and bind to the first we can */
    for (addr = servinfo; addr != NULL; addr = addr->ai_next)

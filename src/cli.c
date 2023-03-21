@@ -845,8 +845,11 @@ config_get(SSL* ssl, int socket, char* config_key, bool verbose)
    }
    else
    {
-      buffer = malloc(MISC_LENGTH);
-      memset(buffer, 0, MISC_LENGTH);
+      buffer = calloc(1, MISC_LENGTH);
+      if (buffer == NULL)
+      {
+         goto error;
+      }
       if (pgagroal_management_read_config_get(socket, &buffer))
       {
          free(buffer);
