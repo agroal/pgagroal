@@ -150,6 +150,7 @@ The configuration is loaded from either the path specified by the `-l` flag or `
 # DATABASE USER    MAX_SIZE INITIAL_SIZE MIN_SIZE
 #
 mydb       myuser  all
+anotherdb  userB   10           5       3
 ```
 
 | Column | Required | Description |
@@ -162,6 +163,8 @@ mydb       myuser  all
 
 
 There can be up to `64` entries in the configuration file.
+
+In the case a limit entry has incoherent values, for example `initial_size` smaller than `min_size`, the system will try to automatically adjust the settings on the fly, reporting messages in the logs.
 
 # pgagroal_users configuration
 

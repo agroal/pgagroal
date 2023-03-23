@@ -42,6 +42,7 @@ an initial connection size of 1 and a minimum connection size of 0 for the `myus
 
 The file must be owned by the operating system user `pgagroal`.
 
+The `max_size` value is mandatory, while the `initial_size` and `min_size` are optional and if not explicitly set are assumed to be `0`.
 See [the `pgagroal_databases.conf` file documentation](https://github.com/agroal/pgagroal/blob/master/doc/CONFIGURATION.md#pgagroal_databases-configuration) for more details.
 
 ## Restart pgagroal

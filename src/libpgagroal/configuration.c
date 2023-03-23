@@ -1213,6 +1213,8 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
+      lineno++;
+
       if (!is_empty_string(line) && !is_comment_line(line))
       {
          initial_size = 0;
@@ -1223,17 +1225,8 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
          if (database && username)
          {
             if (strlen(database) < MAX_DATABASE_LENGTH &&
-                strlen(username) < MAX_USERNAME_LENGTH)
+                strlen(username) < MAX_USERNAME_LENGTH && max_size >= 0)
             {
-               if (initial_size > max_size)
-               {
-                  initial_size = max_size;
-               }
-
-               if (min_size > max_size)
-               {
-                  min_size = max_size;
-               }
 
                server_max -= max_size;
 
@@ -1242,7 +1235,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                config->limits[index].max_size = max_size;
                config->limits[index].initial_size = initial_size;
                config->limits[index].min_size = min_size;
-               config->limits[index].lineno = ++lineno;
+               config->limits[index].lineno = lineno;
                atomic_init(&config->limits[index].active_connections, 0);
 
                index++;
@@ -1334,11 +1327,33 @@ pgagroal_validate_limit_configuration(void* shm)
             return 1;
          }
 
-         if (config->limits[i].initial_size < config->limits[i].min_size)
+         if (config->limits[i].initial_size != 0 && config->limits[i].initial_size < config->limits[i].min_size)
          {
             pgagroal_log_warn("initial_size smaller than min_size for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
+            pgagroal_log_info("Adjusting initial_size from %d to %d (min_size) for limit entry %d (%s:%d)",
+                              config->limits[i].initial_size,
+                              config->limits[i].min_size, i + 1, config->limit_path, config->limits[i].lineno);
             config->limits[i].initial_size = config->limits[i].min_size;
          }
+
+         if (config->limits[i].initial_size != 0 && config->limits[i].initial_size > config->limits[i].max_size)
+         {
+            pgagroal_log_warn("initial_size greater than max_size for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
+            pgagroal_log_info("Adjusting initial_size from %d to %d (max_size) for limit entry %d (%s:%d)",
+                              config->limits[i].initial_size, config->limits[i].max_size
+                              , i + 1, config->limit_path, config->limits[i].lineno);
+            config->limits[i].initial_size = config->limits[i].max_size;
+         }
+
+         if (config->limits[i].max_size < config->limits[i].min_size)
+         {
+            pgagroal_log_warn("max_size smaller than min_size for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
+            pgagroal_log_info("Adjusting min_size from %d to %d (max_size) for limit entry %d (%s:%d)",
+                              config->limits[i].min_size, config->limits[i].max_size
+                              , i + 1, config->limit_path, config->limits[i].lineno);
+            config->limits[i].min_size = config->limits[i].max_size;
+         }
+
       }
    }
 
@@ -2453,7 +2468,7 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
       {
          if (as_int(value, initial_size))
          {
-            *initial_size = -1;
+            *initial_size = 0;
             return;
          }
       }
@@ -2479,7 +2494,7 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
       {
          if (as_int(value, min_size))
          {
-            *min_size = -1;
+            *min_size = 0;
             return;
          }
       }
