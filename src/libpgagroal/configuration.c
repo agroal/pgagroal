@@ -255,6 +255,7 @@ pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
                memset(&srv, 0, sizeof(struct server));
                atomic_init(&srv.state, SERVER_NOTINIT);
                memcpy(&srv.name, &section, strlen(section));
+               srv.lineno = lineno;
                idx_server++;
             }
          }
@@ -890,13 +891,19 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
    {
       if (strlen(config->servers[i].host) == 0)
       {
-         pgagroal_log_fatal("pgagroal: No host defined for %s", config->servers[i].name);
+         pgagroal_log_fatal("pgagroal: No host defined for server [%s] (%s:%d)",
+                            config->servers[i].name,
+                            config->configuration_path,
+                            config->servers[i].lineno);
          return 1;
       }
 
       if (config->servers[i].port == 0)
       {
-         pgagroal_log_fatal("pgagroal: No port defined for %s", config->servers[i].name);
+         pgagroal_log_fatal("pgagroal: No port defined for server [%s] (%s:%d)",
+			    config->servers[i].name,
+                            config->configuration_path,
+                            config->servers[i].lineno);
          return 1;
       }
    }
@@ -908,9 +915,12 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       {
          if (is_same_server(&config->servers[i], &config->servers[j]))
          {
-            pgagroal_log_fatal("pgagroal: Servers [%s] and [%s] are duplicated!",
+            pgagroal_log_fatal("pgagroal: Servers [%s] and [%s] are duplicated! (%s:%d:%d)",
                                config->servers[i].name,
-                               config->servers[j].name);
+                               config->servers[j].name,
+                               config->configuration_path,
+                               config->servers[i].lineno,
+                               config->servers[j].lineno);
             return 1;
          }
       }
@@ -1058,6 +1068,7 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
    char* username = NULL;
    char* address = NULL;
    char* method = NULL;
+   int lineno = 0;
    struct configuration* config;
 
    file = fopen(filename, "r");
@@ -1072,6 +1083,8 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
+      lineno++;
+
       if (!is_empty_string(line) && !is_comment_line(line))
       {
          extract_hba(line, &type, &database, &username, &address, &method);
@@ -1089,26 +1102,25 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
                memcpy(&(config->hbas[index].username), username, strlen(username));
                memcpy(&(config->hbas[index].address), address, strlen(address));
                memcpy(&(config->hbas[index].method), method, strlen(method));
+               config->hbas[index].lineno = lineno;
 
                index++;
 
                if (index >= NUMBER_OF_HBAS)
                {
-                  printf("pgagroal: Too many HBA entries (%d)\n", NUMBER_OF_HBAS);
+                  warnx("Too many HBA entries (max is %d)", NUMBER_OF_HBAS);
                   fclose(file);
                   return PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG;
                }
             }
             else
             {
-               printf("pgagroal: Invalid HBA entry\n");
-               printf("%s\n", line);
+               warnx("Invalid HBA entry (%s:%d)", filename, lineno);
             }
          }
          else
          {
-            printf("pgagroal: Invalid HBA entry\n");
-            printf("%s\n", line);
+            warnx("Invalid HBA entry (%s:%d)", filename, lineno);
          }
 
          free(type);
@@ -1157,7 +1169,7 @@ pgagroal_validate_hba_configuration(void* shm)
       }
       else
       {
-         pgagroal_log_fatal("pgagroal: Unknown HBA type: %s", config->hbas[i].type);
+         pgagroal_log_fatal("Unknown HBA type: %s (%s:%d)", config->hbas[i].type, config->hba_path, config->hbas[i].lineno);
          return 1;
       }
 
@@ -1172,7 +1184,7 @@ pgagroal_validate_hba_configuration(void* shm)
       }
       else
       {
-         pgagroal_log_fatal("pgagroal: Unknown HBA method: %s", config->hbas[i].method);
+         pgagroal_log_fatal("Unknown HBA method: %s (%s:%d)", config->hbas[i].method, config->hba_path, config->hbas[i].lineno);
          return 1;
       }
    }
@@ -1213,6 +1225,8 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 
    while (fgets(line, sizeof(line), file))
    {
+      lineno++;
+
       if (!is_empty_string(line) && !is_comment_line(line))
       {
          initial_size = 0;
@@ -1242,7 +1256,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                config->limits[index].max_size = max_size;
                config->limits[index].initial_size = initial_size;
                config->limits[index].min_size = min_size;
-               config->limits[index].lineno = ++lineno;
+               config->limits[index].lineno = lineno;
                atomic_init(&config->limits[index].active_connections, 0);
 
                index++;
