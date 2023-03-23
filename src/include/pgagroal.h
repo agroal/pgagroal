@@ -237,6 +237,7 @@ struct server
    int port;               /**< The port of the server */
    bool tls;               /**< Use TLS if possible */
    atomic_schar state;     /**< The state of the server */
+   int lineno;             /**< The line number within the configuration file */
 } __attribute__ ((aligned (64)));
 
 /** @struct
@@ -275,6 +276,7 @@ struct hba
    char username[MAX_USERNAME_LENGTH]; /**< The user name */
    char address[MAX_ADDRESS_LENGTH];   /**< The address / mask */
    char method[MAX_ADDRESS_LENGTH];    /**< The access method */
+   int lineno;                        /**< The line number within the configuration file */
 } __attribute__ ((aligned (64)));
 
 /** @struct
