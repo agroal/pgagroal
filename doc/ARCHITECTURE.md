@@ -51,7 +51,7 @@ The pool operates on the `struct connection` data type defined in [pgagroal.h](.
 
 ## Network and messages
 
-All communication is abstracted using the `struct message` data type defined in [pgagroal.h](../src/include/pgagroal.h).
+All communication is abstracted using the `struct message` data type defined in [message.h](../src/include/message.h).
 
 Reading and writing messages are handled in the [message.h](../src/include/message.h) ([message.c](../src/libpgagroal/message.c))
 files.
@@ -152,8 +152,6 @@ struct worker_io
    int slot;             /* The slot */
    SSL* client_ssl;      /* The client SSL context */
    SSL* server_ssl;      /* The server SSL context */
-   void* shmem;          /* The shared memory segment */
-   void* pipeline_shmem; /* The shared memory segment for the pipeline */
 };
 ```
 defined in [worker.h](../src/include/worker.h).
