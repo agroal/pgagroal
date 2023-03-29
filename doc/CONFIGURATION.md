@@ -155,16 +155,21 @@ anotherdb  userB   10           5       3
 
 | Column | Required | Description |
 |--------|----------|-------------|
-| DATABASE | Yes | Specifies the database for the rule |
-| USER | Yes | Specifies the user for the rule |
-| MAX_SIZE | Yes | Specifies the maximum pool size for the entry. `all` for `max_connections` |
+| DATABASE | Yes | Specifies the database for the rule. `all` for all databases |
+| USER | Yes | Specifies the user for the rule. `all` for all users |
+| MAX_SIZE | Yes | Specifies the maximum pool size for the entry. `all` for all remaining counts from `max_connections` |
 | INITIAL_SIZE | No | Specifies the initial pool size for the entry. `all` for `MAX_SIZE` connections. Default is 0 |
 | MIN_SIZE | No | Specifies the minimum pool size for the entry. `all` for `MAX_SIZE` connections. Default is 0 |
 
 
 There can be up to `64` entries in the configuration file.
 
-In the case a limit entry has incoherent values, for example `initial_size` smaller than `min_size`, the system will try to automatically adjust the settings on the fly, reporting messages in the logs.
+In the case a limit entry has incoherent values, for example `INITIAL_SIZE` smaller than `MIN_SIZE`, the system will try to automatically adjust the settings on the fly, reporting messages in the logs.
+
+The system will find the best match limit entry for a given `DATABASE`-`USER` pair according to the following rules:
+1. Use the first entry with an exact `DATABASE` and `USER` match.
+2. If there is no exact match, use the entry with a `USER` match and `DATABASE` set to `all`.
+3. If Rule 2 does not apply, use the entry with a `DATABASE` match and `USER` set to `all`.
 
 # pgagroal_users configuration
 
