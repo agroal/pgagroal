@@ -132,6 +132,7 @@ pgagroal_init_configuration(void* shm)
 
    config->blocking_timeout = 30;
    config->idle_timeout = 0;
+   config->max_connection_age = 0;
    config->validation = VALIDATION_OFF;
    config->background_interval = 300;
    config->max_retries = 5;
@@ -643,6 +644,11 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       if (config->idle_timeout > 0)
       {
          pgagroal_log_warn("pgagroal: Using idle_timeout for the transaction pipeline is not recommended");
+      }
+
+      if (config->max_connection_age > 0)
+      {
+         pgagroal_log_warn("pgagroal: Using max_connection_age for the transaction pipeline is not recommended");
       }
 
       if (config->validation == VALIDATION_FOREGROUND)
@@ -2262,6 +2268,7 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
 
    config->blocking_timeout = reload->blocking_timeout;
    config->idle_timeout = reload->idle_timeout;
+   config->max_connection_age = reload->max_connection_age;
    config->validation = reload->validation;
    config->background_interval = reload->background_interval;
    config->max_retries = reload->max_retries;
@@ -3190,6 +3197,10 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       {
          return to_int(buffer, config->idle_timeout);
       }
+      else if (!strncmp(key, "max_connection_age", MISC_LENGTH))
+      {
+         return to_int(buffer, config->max_connection_age);
+      }
       else if (!strncmp(key, "validation", MISC_LENGTH))
       {
          return to_validation(buffer, config->validation);
@@ -3997,6 +4008,13 @@ pgagroal_apply_main_configuration(struct configuration* config,
       {
          unknown = true;
       }
+   }
+   else if (key_in_section("max_connection_age", section, key, true, &unknown))
+   {
+       if (as_int(value, &config->max_connection_age))
+       {
+           unknown = true;
+       }
    }
    else if (key_in_section("validation", section, key, true, &unknown))
    {

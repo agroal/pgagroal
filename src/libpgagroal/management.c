@@ -648,6 +648,7 @@ pgagroal_management_write_status(int socket, bool graceful)
          case STATE_FREE:
          case STATE_FLUSH:
          case STATE_IDLE_CHECK:
+         case STATE_MAX_CONNECTION_AGE:
          case STATE_VALIDATION:
          case STATE_REMOVE:
             total++;
@@ -914,6 +915,7 @@ pgagroal_management_write_details(int socket)
 
       memset(&details, 0, sizeof(details));
 
+      pgagroal_write_long(details, (long)config->connections[i].start_time);
       pgagroal_write_long(details, (long)config->connections[i].timestamp);
       pgagroal_write_int32(details + 8, (int)config->connections[i].pid);
       pgagroal_write_int32(details + 12, (int)config->connections[i].fd);

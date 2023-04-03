@@ -95,6 +95,9 @@ blocking_timeout
 idle_timeout
   The number of seconds a connection is been kept alive (disable = 0). Default is 0
 
+max_connection_age
+  The maximum number of seconds that a connection will live (disable = 0). Default is 0
+
 validation
   Should connection validation be performed. Valid options: off, foreground and background. Default is off
 

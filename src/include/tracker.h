@@ -51,17 +51,18 @@ extern "C" {
 
 #define TRACKER_BAD_CONNECTION              9
 #define TRACKER_IDLE_TIMEOUT               10
-#define TRACKER_INVALID_CONNECTION         11
-#define TRACKER_FLUSH                      12
-#define TRACKER_REMOVE_CONNECTION          13
+#define TRACKER_MAX_CONNECTION_AGE         11
+#define TRACKER_INVALID_CONNECTION         12
+#define TRACKER_FLUSH                      13
+#define TRACKER_REMOVE_CONNECTION          14
 
-#define TRACKER_PREFILL                    14
-#define TRACKER_PREFILL_RETURN             15
-#define TRACKER_PREFILL_KILL               16
-#define TRACKER_WORKER_RETURN1             17
-#define TRACKER_WORKER_RETURN2             18
-#define TRACKER_WORKER_KILL1               19
-#define TRACKER_WORKER_KILL2               20
+#define TRACKER_PREFILL                    15
+#define TRACKER_PREFILL_RETURN             16
+#define TRACKER_PREFILL_KILL               17
+#define TRACKER_WORKER_RETURN1             18
+#define TRACKER_WORKER_RETURN2             19
+#define TRACKER_WORKER_KILL1               20
+#define TRACKER_WORKER_KILL2               21
 
 #define TRACKER_TX_RETURN_CONNECTION_START 30
 #define TRACKER_TX_RETURN_CONNECTION_STOP  31

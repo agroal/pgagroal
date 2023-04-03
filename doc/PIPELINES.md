@@ -97,8 +97,8 @@ latency.
 __Important__
 
 Make sure that the `blocking_timeout` settings to set to 0. Otherwise active clients
-may timeout during their workload. Likewise it is best to disable idle connection timeout by
-setting `idle_timeout` to 0.
+may timeout during their workload. Likewise it is best to disable idle connection timeout 
+and max connection age by setting `idle_timeout` and `max_connection_age` to 0.
 
 It is highly recommended that you prefill all connections for each user.
 

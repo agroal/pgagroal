@@ -267,6 +267,11 @@ start:
          }
       }
 
+      if (config->connections[*slot].start_time == -1)
+      {
+         config->connections[*slot].start_time = time(NULL);
+      }
+
       config->connections[*slot].timestamp = time(NULL);
 
       atomic_store(&prometheus->client_wait_time, difftime(time(NULL), start_time));
@@ -364,8 +369,30 @@ pgagroal_return_connection(int slot, SSL* ssl, bool transaction_mode)
 {
    int state;
    struct configuration* config;
+   time_t now;
+   signed char in_use;
+   signed char age_check;
 
    config = (struct configuration*)shmem;
+
+   /* Kill the connection, if it lives longer than max_connection_age */
+   if (config->max_connection_age > 0)
+   {
+      now = time(NULL);
+      in_use = STATE_IN_USE;
+      age_check = STATE_MAX_CONNECTION_AGE;
+      if (atomic_compare_exchange_strong(&config->states[slot], &in_use, age_check))
+      {
+         double age = difftime(now, config->connections[slot].start_time);
+         if ((age >= (double) config->max_connection_age && !config->connections[slot].tx_mode) ||
+             !atomic_compare_exchange_strong(&config->states[slot], &age_check, STATE_IN_USE))
+         {
+            pgagroal_prometheus_connection_max_connection_age();
+            pgagroal_tracking_event_slot(TRACKER_MAX_CONNECTION_AGE, slot);
+            return pgagroal_kill_connection(slot, ssl);
+         }
+      }
+   }
 
    /* Verify the socket for the slot */
    if (!transaction_mode && !pgagroal_socket_isvalid(config->connections[slot].fd))
@@ -509,6 +536,7 @@ pgagroal_kill_connection(int slot, SSL* ssl)
    config->connections[slot].backend_secret = 0;
 
    config->connections[slot].limit_rule = -1;
+   config->connections[slot].start_time = -1;
    config->connections[slot].timestamp = -1;
    config->connections[slot].fd = -1;
    config->connections[slot].pid = -1;
@@ -580,6 +608,65 @@ pgagroal_idle_timeout(void)
 }
 
 void
+pgagroal_max_connection_age(void)
+{
+   bool prefill;
+   time_t now;
+   signed char free;
+   signed char age_check;
+   struct configuration* config;
+
+   pgagroal_start_logging();
+   pgagroal_memory_init();
+
+   config = (struct configuration*)shmem;
+   now = time(NULL);
+   prefill = false;
+
+   pgagroal_log_debug("pgagroal_max_connection_age");
+
+   /* Here we run backwards in order to keep hot connections in the beginning */
+   for (int i = config->max_connections - 1; i >= 0; i--)
+   {
+      free = STATE_FREE;
+      age_check = STATE_MAX_CONNECTION_AGE;
+
+      if (atomic_compare_exchange_strong(&config->states[i], &free, age_check))
+      {
+         double age = difftime(now, config->connections[i].start_time);
+         if (age >= (double)config->max_connection_age && !config->connections[i].tx_mode)
+         {
+            pgagroal_prometheus_connection_max_connection_age();
+            pgagroal_tracking_event_slot(TRACKER_MAX_CONNECTION_AGE, i);
+            pgagroal_kill_connection(i, NULL);
+            prefill = true;
+         }
+         else
+         {
+            if (!atomic_compare_exchange_strong(&config->states[i], &age_check, STATE_FREE))
+            {
+               pgagroal_prometheus_connection_max_connection_age();
+               pgagroal_tracking_event_slot(TRACKER_MAX_CONNECTION_AGE, i);
+               pgagroal_kill_connection(i, NULL);
+               prefill = true;
+            }
+         }
+      }
+   }
+
+   if (prefill)
+   {
+      pgagroal_prefill_if_can(true, false);
+   }
+
+   pgagroal_pool_status();
+   pgagroal_memory_destroy();
+   pgagroal_stop_logging();
+
+   exit(0);
+}
+
+void
 pgagroal_validation(void)
 {
    bool prefill = true;
@@ -605,7 +692,7 @@ pgagroal_validation(void)
       if (atomic_compare_exchange_strong(&config->states[i], &free, validation))
       {
          bool kill = false;
-         double diff;
+         double diff, age;
 
          /* Verify the socket for the slot */
          if (!pgagroal_socket_isvalid(config->connections[i].fd))
@@ -618,6 +705,16 @@ pgagroal_validation(void)
          {
             diff = difftime(now, config->connections[i].timestamp);
             if (diff >= (double)config->idle_timeout)
+            {
+               kill = true;
+            }
+         }
+
+         /* Also check for max_connection_age */
+         if (!kill && config->max_connection_age > 0)
+         {
+            age = difftime(now, config->connections[i].start_time);
+            if (age >= (double)config->max_connection_age)
             {
                kill = true;
             }
@@ -757,6 +854,7 @@ pgagroal_flush(int mode, char* database)
                atomic_store(&config->states[i], STATE_GRACEFULLY);
                break;
             case STATE_IDLE_CHECK:
+            case STATE_MAX_CONNECTION_AGE:
             case STATE_VALIDATION:
             case STATE_REMOVE:
                atomic_store(&config->states[i], STATE_GRACEFULLY);
@@ -817,6 +915,7 @@ pgagroal_flush_server(signed char server)
                atomic_store(&config->states[i], STATE_GRACEFULLY);
                break;
             case STATE_IDLE_CHECK:
+            case STATE_MAX_CONNECTION_AGE:
             case STATE_VALIDATION:
             case STATE_REMOVE:
                atomic_store(&config->states[i], STATE_GRACEFULLY);
@@ -977,6 +1076,7 @@ pgagroal_pool_init(void)
       config->connections[i].server = -1;
       config->connections[i].has_security = SECURITY_INVALID;
       config->connections[i].limit_rule = -1;
+      config->connections[i].start_time = -1;
       config->connections[i].timestamp = -1;
       config->connections[i].fd = -1;
       config->connections[i].pid = -1;
@@ -1137,6 +1237,7 @@ connection_details(int slot)
 {
    int state;
    char time_buf[32];
+   char start_buf[32];
    struct configuration* config;
    struct connection connection;
 
@@ -1148,6 +1249,10 @@ connection_details(int slot)
    memset(&time_buf, 0, sizeof(time_buf));
    ctime_r(&(connection.timestamp), &time_buf[0]);
    time_buf[strlen(time_buf) - 1] = 0;
+
+   memset(&start_buf, 0, sizeof(start_buf));
+   ctime_r(&(connection.start_time), &start_buf[0]);
+   start_buf[strlen(start_buf) - 1] = 0;
 
    switch (state)
    {
@@ -1169,6 +1274,7 @@ connection_details(int slot)
          pgagroal_log_debug("                      Database: %s", connection.database);
          pgagroal_log_debug("                      AppName: %s", connection.appname);
          pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Start: %s", &start_buf[0]);
          pgagroal_log_debug("                      Time: %s", &time_buf[0]);
          pgagroal_log_debug("                      FD: %d", connection.fd);
          pgagroal_log_trace("                      PID: %d", connection.pid);
@@ -1189,6 +1295,7 @@ connection_details(int slot)
          pgagroal_log_debug("                      Database: %s", connection.database);
          pgagroal_log_debug("                      AppName: %s", connection.appname);
          pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Start: %s", &start_buf[0]);
          pgagroal_log_debug("                      Time: %s", &time_buf[0]);
          pgagroal_log_debug("                      FD: %d", connection.fd);
          pgagroal_log_trace("                      PID: %d", connection.pid);
@@ -1209,6 +1316,7 @@ connection_details(int slot)
          pgagroal_log_debug("                      Database: %s", connection.database);
          pgagroal_log_debug("                      AppName: %s", connection.appname);
          pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Start: %s", &start_buf[0]);
          pgagroal_log_debug("                      Time: %s", &time_buf[0]);
          pgagroal_log_debug("                      FD: %d", connection.fd);
          pgagroal_log_trace("                      PID: %d", connection.pid);
@@ -1229,6 +1337,7 @@ connection_details(int slot)
          pgagroal_log_debug("                      Database: %s", connection.database);
          pgagroal_log_debug("                      AppName: %s", connection.appname);
          pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Start: %s", &start_buf[0]);
          pgagroal_log_debug("                      Time: %s", &time_buf[0]);
          pgagroal_log_debug("                      FD: %d", connection.fd);
          pgagroal_log_trace("                      PID: %d", connection.pid);
@@ -1249,6 +1358,28 @@ connection_details(int slot)
          pgagroal_log_debug("                      Database: %s", connection.database);
          pgagroal_log_debug("                      AppName: %s", connection.appname);
          pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Start: %s", &start_buf[0]);
+         pgagroal_log_debug("                      Time: %s", &time_buf[0]);
+         pgagroal_log_debug("                      FD: %d", connection.fd);
+         pgagroal_log_trace("                      PID: %d", connection.pid);
+         pgagroal_log_trace("                      Auth: %d", connection.has_security);
+         for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
+         {
+            pgagroal_log_trace("                      Size: %zd", connection.security_lengths[i]);
+            pgagroal_log_mem(&connection.security_messages[i], connection.security_lengths[i]);
+         }
+         pgagroal_log_trace("                      Backend PID: %d", connection.backend_pid);
+         pgagroal_log_trace("                      Backend Secret: %d", connection.backend_secret);
+         break;
+      case STATE_MAX_CONNECTION_AGE:
+         pgagroal_log_debug("pgagroal_pool_status: State: MAX CONNECTION AGE");
+         pgagroal_log_debug("                      Slot: %d", slot);
+         pgagroal_log_debug("                      Server: %d", connection.server);
+         pgagroal_log_debug("                      User: %s", connection.username);
+         pgagroal_log_debug("                      Database: %s", connection.database);
+         pgagroal_log_debug("                      AppName: %s", connection.appname);
+         pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Start: %s", &start_buf[0]);
          pgagroal_log_debug("                      Time: %s", &time_buf[0]);
          pgagroal_log_debug("                      FD: %d", connection.fd);
          pgagroal_log_trace("                      PID: %d", connection.pid);
@@ -1269,6 +1400,7 @@ connection_details(int slot)
          pgagroal_log_debug("                      Database: %s", connection.database);
          pgagroal_log_debug("                      AppName: %s", connection.appname);
          pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Start: %s", &start_buf[0]);
          pgagroal_log_debug("                      Time: %s", &time_buf[0]);
          pgagroal_log_debug("                      FD: %d", connection.fd);
          pgagroal_log_trace("                      PID: %d", connection.pid);
@@ -1289,6 +1421,7 @@ connection_details(int slot)
          pgagroal_log_debug("                      Database: %s", connection.database);
          pgagroal_log_debug("                      AppName: %s", connection.appname);
          pgagroal_log_debug("                      Rule: %d", connection.limit_rule);
+         pgagroal_log_debug("                      Start: %s", &start_buf[0]);
          pgagroal_log_debug("                      Time: %s", &time_buf[0]);
          pgagroal_log_debug("                      FD: %d", connection.fd);
          pgagroal_log_trace("                      PID: %d", connection.pid);

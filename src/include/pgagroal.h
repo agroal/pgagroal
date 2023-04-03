@@ -92,15 +92,16 @@ extern "C" {
 
 #define NUMBER_OF_SECURITY_MESSAGES 5
 
-#define STATE_NOTINIT    -2
-#define STATE_INIT       -1
-#define STATE_FREE        0
-#define STATE_IN_USE      1
-#define STATE_GRACEFULLY  2
-#define STATE_FLUSH       3
-#define STATE_IDLE_CHECK  4
-#define STATE_VALIDATION  5
-#define STATE_REMOVE      6
+#define STATE_NOTINIT           -2
+#define STATE_INIT              -1
+#define STATE_FREE               0
+#define STATE_IN_USE             1
+#define STATE_GRACEFULLY         2
+#define STATE_FLUSH              3
+#define STATE_IDLE_CHECK         4
+#define STATE_MAX_CONNECTION_AGE 5
+#define STATE_VALIDATION         6
+#define STATE_REMOVE             7
 
 #define SECURITY_INVALID  -2
 #define SECURITY_REJECT   -1
@@ -280,6 +281,7 @@ struct connection
    int backend_secret; /**< The backend secret */
 
    signed char limit_rule; /**< The limit rule used */
+   time_t start_time;      /**< The start timestamp */
    time_t timestamp;       /**< The last used timestamp */
    pid_t pid;              /**< The associated process id */
    int fd;                 /**< The descriptor */
@@ -359,16 +361,17 @@ struct prometheus
    atomic_ulong session_time[HISTOGRAM_BUCKETS]; /**< The histogram buckets */
    atomic_ulong session_time_sum;                /**< Total session time */
 
-   atomic_ulong connection_error;       /**< The number of error calls */
-   atomic_ulong connection_kill;        /**< The number of kill calls */
-   atomic_ulong connection_remove;      /**< The number of remove calls */
-   atomic_ulong connection_timeout;     /**< The number of timeout calls */
-   atomic_ulong connection_return;      /**< The number of return calls */
-   atomic_ulong connection_invalid;     /**< The number of invalid calls */
-   atomic_ulong connection_get;         /**< The number of get calls */
-   atomic_ulong connection_idletimeout; /**< The number of idle timeout calls */
-   atomic_ulong connection_flush;       /**< The number of flush calls */
-   atomic_ulong connection_success;     /**< The number of success calls */
+   atomic_ulong connection_error;              /**< The number of error calls */
+   atomic_ulong connection_kill;               /**< The number of kill calls */
+   atomic_ulong connection_remove;             /**< The number of remove calls */
+   atomic_ulong connection_timeout;            /**< The number of timeout calls */
+   atomic_ulong connection_return;             /**< The number of return calls */
+   atomic_ulong connection_invalid;            /**< The number of invalid calls */
+   atomic_ulong connection_get;                /**< The number of get calls */
+   atomic_ulong connection_idletimeout;        /**< The number of idle timeout calls */
+   atomic_ulong connection_max_connection_age; /**< The number of max connection age calls */
+   atomic_ulong connection_flush;              /**< The number of flush calls */
+   atomic_ulong connection_success;            /**< The number of success calls */
 
    /**< The number of connection awaiting due to `blocking_timeout` */
    atomic_ulong connections_awaiting[NUMBER_OF_LIMITS];
@@ -451,6 +454,7 @@ struct configuration
 
    int blocking_timeout;         /**< The blocking timeout in seconds */
    int idle_timeout;             /**< The idle timeout in seconds */
+   int max_connection_age;       /**< The max connection age in seconds */
    int validation;               /**< Validation mode */
    int background_interval;      /**< Background validation timer in seconds */
    int max_retries;              /**< The maximum number of retries */

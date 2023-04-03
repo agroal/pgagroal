@@ -184,6 +184,7 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
    atomic_init(&prometheus->connection_invalid, 0);
    atomic_init(&prometheus->connection_get, 0);
    atomic_init(&prometheus->connection_idletimeout, 0);
+   atomic_init(&prometheus->connection_max_connection_age, 0);
    atomic_init(&prometheus->connection_flush, 0);
    atomic_init(&prometheus->connection_success, 0);
 
@@ -399,6 +400,16 @@ pgagroal_prometheus_connection_idletimeout(void)
    prometheus = (struct prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_idletimeout, 1);
+}
+
+void
+pgagroal_prometheus_connection_max_connection_age(void)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   atomic_fetch_add(&prometheus->connection_max_connection_age, 1);
 }
 
 void
@@ -650,6 +661,7 @@ pgagroal_prometheus_reset(void)
    atomic_store(&prometheus->connection_invalid, 0);
    atomic_store(&prometheus->connection_get, 0);
    atomic_store(&prometheus->connection_idletimeout, 0);
+   atomic_store(&prometheus->connection_max_connection_age, 0);
    atomic_store(&prometheus->connection_flush, 0);
    atomic_store(&prometheus->connection_success, 0);
 
@@ -1014,6 +1026,7 @@ home_page(int client_fd)
    data = pgagroal_append(data, "            <li>gracefully</li>\n");
    data = pgagroal_append(data, "            <li>flush</li>\n");
    data = pgagroal_append(data, "            <li>idle_check</li>\n");
+   data = pgagroal_append(data, "            <li>max_connection_age</li>\n");
    data = pgagroal_append(data, "            <li>validation</li>\n");
    data = pgagroal_append(data, "            <li>remove</li>\n");
    data = pgagroal_append(data, "          </ul>\n");
@@ -1099,6 +1112,10 @@ home_page(int client_fd)
    data = pgagroal_append(data, "  <h2>pgagroal_connection_idletimeout</h2>\n");
    data = pgagroal_append(data, "  <p>\n");
    data = pgagroal_append(data, "   Number of connection idle timeouts\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_connection_max_connection_age</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of connection max age timeouts\n");
    data = pgagroal_append(data, "  </p>\n");
    data = pgagroal_append(data, "  <h2>pgagroal_connection_flush</h2>\n");
    data = pgagroal_append(data, "  <p>\n");
@@ -1485,6 +1502,7 @@ connection_information(int client_fd)
          case STATE_FREE:
          case STATE_FLUSH:
          case STATE_IDLE_CHECK:
+         case STATE_MAX_CONNECTION_AGE:
          case STATE_VALIDATION:
          case STATE_REMOVE:
             total++;
@@ -1561,6 +1579,9 @@ connection_information(int client_fd)
          case STATE_IDLE_CHECK:
             data = pgagroal_append(data, "idle_check");
             break;
+         case STATE_MAX_CONNECTION_AGE:
+            data = pgagroal_append(data, "max_connection_age");
+            break;
          case STATE_VALIDATION:
             data = pgagroal_append(data, "validation");
             break;
@@ -1584,6 +1605,7 @@ connection_information(int client_fd)
          case STATE_GRACEFULLY:
          case STATE_FLUSH:
          case STATE_IDLE_CHECK:
+         case STATE_MAX_CONNECTION_AGE:
          case STATE_VALIDATION:
          case STATE_REMOVE:
             data = pgagroal_append(data, "1");
@@ -1877,6 +1899,12 @@ pool_information(int client_fd)
    data = pgagroal_append(data, "#TYPE pgagroal_connection_idletimeout counter\n");
    data = pgagroal_append(data, "pgagroal_connection_idletimeout ");
    data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_idletimeout));
+   data = pgagroal_append(data, "\n\n");
+
+   data = pgagroal_append(data, "#HELP pgagroal_connection_max_connection_age Number of connection max age timeouts\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_connection_max_connection_age counter\n");
+   data = pgagroal_append(data, "pgagroal_connection_max_connection_age ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_max_connection_age));
    data = pgagroal_append(data, "\n\n");
 
    data = pgagroal_append(data, "#HELP pgagroal_connection_flush Number of connection flushes\n");

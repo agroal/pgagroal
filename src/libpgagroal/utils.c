@@ -266,6 +266,8 @@ pgagroal_get_state_string(signed char state)
          return "Flush";
       case STATE_IDLE_CHECK:
          return "Idle check";
+      case STATE_MAX_CONNECTION_AGE:
+         return "Max connection age check";
       case STATE_VALIDATION:
          return "Validating";
       case STATE_REMOVE:

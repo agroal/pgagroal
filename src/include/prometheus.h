@@ -126,6 +126,12 @@ void
 pgagroal_prometheus_connection_idletimeout(void);
 
 /**
+ * Connection max connection age
+ */
+void
+pgagroal_prometheus_connection_max_connection_age(void);
+
+/**
  * Connection awaiting due to `blocking_timeout`.
  * Tracks the total awaiting connections and also the
  * per-limit ones.

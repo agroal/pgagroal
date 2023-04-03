@@ -61,6 +61,7 @@ The available keys and their accepted values are reported in the table below.
 | log_disconnections | `off` | Bool | No | Log disconnects |
 | blocking_timeout | 30 | Int | No | The number of seconds the process will be blocking for a connection (disable = 0) |
 | idle_timeout | 0 | Int | No | The number of seconds a connection is been kept alive (disable = 0) |
+| max_connection_age | 0 | Int | No | The maximum number of seconds that a connection will live (disable = 0) |
 | validation | `off` | String | No | Should connection validation be performed. Valid options: `off`, `foreground` and `background` |
 | background_interval | 300 | Int | No | The interval between background validation scans in seconds |
 | max_retries | 5 | Int | No | The maximum number of iterations to obtain a connection |

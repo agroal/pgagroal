@@ -78,6 +78,12 @@ void
 pgagroal_idle_timeout(void);
 
 /**
+ * Perform max connection age check
+ */
+void
+pgagroal_max_connection_age(void);
+
+/**
  * Perform connection validation
  */
 void

@@ -77,6 +77,7 @@ static void reload_cb(struct ev_loop* loop, ev_signal* w, int revents);
 static void graceful_cb(struct ev_loop* loop, ev_signal* w, int revents);
 static void coredump_cb(struct ev_loop* loop, ev_signal* w, int revents);
 static void idle_timeout_cb(struct ev_loop* loop, ev_periodic* w, int revents);
+static void max_connection_age_cb(struct ev_loop* loop, ev_periodic* w, int revents);
 static void validation_cb(struct ev_loop* loop, ev_periodic* w, int revents);
 static void disconnect_client_cb(struct ev_loop* loop, ev_periodic* w, int revents);
 static bool accept_fatal(int error);
@@ -310,6 +311,7 @@ main(int argc, char** argv)
    void* tmp_shmem = NULL;
    struct signal_info signal_watcher[6];
    struct ev_periodic idle_timeout;
+   struct ev_periodic max_connection_age;
    struct ev_periodic validation;
    struct ev_periodic disconnect_client;
    struct rlimit flimit;
@@ -1018,6 +1020,13 @@ read_superuser_path:
       ev_periodic_init (&idle_timeout, idle_timeout_cb, 0.,
                         MAX(1. * config->idle_timeout / 2., 5.), 0);
       ev_periodic_start (main_loop, &idle_timeout);
+   }
+
+   if (config->max_connection_age > 0)
+   {
+      ev_periodic_init (&max_connection_age, max_connection_age_cb, 0.,
+                        MAX(1. * config->max_connection_age / 2., 5.), 0);
+      ev_periodic_start (main_loop, &max_connection_age);
    }
 
    if (config->validation == VALIDATION_BACKGROUND)
@@ -1782,6 +1791,23 @@ idle_timeout_cb(struct ev_loop* loop, ev_periodic* w, int revents)
    {
       shutdown_ports();
       pgagroal_idle_timeout();
+   }
+}
+
+static void
+max_connection_age_cb(struct ev_loop* loop, ev_periodic* w, int revents)
+{
+   if (EV_ERROR & revents)
+   {
+      pgagroal_log_trace("max_connection_age_cb: got invalid event: %s", strerror(errno));
+      return;
+   }
+
+   /* max_connection_age() is always in a fork() */
+   if (!fork())
+   {
+      shutdown_ports();
+      pgagroal_max_connection_age();
    }
 }
 

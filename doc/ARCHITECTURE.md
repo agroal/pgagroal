@@ -35,6 +35,7 @@ connection, and move them around in the connection state diagram. The state diag
 | `STATE_GRACEFULLY` | The connection will be killed upon return to the pool |
 | `STATE_FLUSH` | The connection is being flushed |
 | `STATE_IDLE_CHECK` | The connection is being idle timeout checked |
+| `STATE_MAX_CONNECTION_AGE` | The connection is being max connection age checked |
 | `STATE_VALIDATION` | The connection is being validated |
 | `STATE_REMOVE` | The connection is being removed |
 
