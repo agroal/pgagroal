@@ -1418,7 +1418,7 @@ general_information(int client_fd)
    data = append(data, "\n\n");
 
    data = append(data, "#HELP pgagroal_query_count The number of queries\n");
-   data = append(data, "#TYPE pgagroal_query_count count\n");
+   data = append(data, "#TYPE pgagroal_query_count counter\n");
    data = append(data, "pgagroal_query_count ");
    data = append_ullong(data, atomic_load(&prometheus->query_count));
    data = append(data, "\n\n");
@@ -1451,7 +1451,7 @@ general_information(int client_fd)
    data = append(data, "\n");
 
    data = append(data, "#HELP pgagroal_tx_count The number of transactions\n");
-   data = append(data, "#TYPE pgagroal_tx_count count\n");
+   data = append(data, "#TYPE pgagroal_tx_count counter\n");
    data = append(data, "pgagroal_tx_count ");
    data = append_ullong(data, atomic_load(&prometheus->tx_count));
    data = append(data, "\n\n");
