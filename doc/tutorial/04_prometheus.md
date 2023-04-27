@@ -21,7 +21,7 @@ Add a line like the following to `/etc/pgagroal/pgagroal.conf` by editing such f
 metrics = 2346
 ```
 
-Place it withingr the `[pgagroal]` section, like
+Place it withing the `[pgagroal]` section, like
 
 ```
 [pgagroal]
@@ -59,3 +59,35 @@ It is also possible to get an explaination of what is the meaning of each metric
 ```
 http://localhost:2346/
 ```
+
+## Viewing using prometheus server
+
+If you have a prometheus server running, you can view the 
+metrics inside the server, you simply need to add the metrics endpoint to prometheus
+
+E.g the config below
+
+```yaml
+# This skips some global config things
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: "prometheus"
+
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+
+    static_configs:
+      - targets: ["localhost:9090"] 
+
+  #  This adds pgagroal to prometheus webserver
+  # With this, pgagroal metrics will be visible in the prometheus server
+  - job_name: "pgagroal"
+    static_configs:
+      - targets: ["localhost:2346"]
+```
+
+And using the command ` prometheus --config.file=./pgagroal.yml` (where `pgagroal.yml` is the above config)
+you can view `pgagroal` metrics in prometheus server.
+
+
+![Image of pgagroal metrics on prometheus](../images/prometheus_pgagroal.png)
