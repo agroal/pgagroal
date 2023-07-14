@@ -20,7 +20,7 @@ All properties within a section are in the format `key = value`.
 
 The characters `#` and `;` can be used for comments. A line is totally ignored if the
 very first non-space character is a comment one, but it is possible to put a comment at the end of a line.
-The `Bool` data type supports the following values: `on`, `1`, `true`, `off`, `0` and `false`.
+The `Bool` data type supports the following values: `on`, `yes`, `1`, `true`, `off`, `no`, `0` and `false`.
 
 Each value can be quoted by means of `"` or `'`. Quoted strings must begin and end with the very same quoting character. It is possible to nest quotes.
 As an example of configuration snippet including quoting and comments:
