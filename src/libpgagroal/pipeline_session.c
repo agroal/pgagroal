@@ -38,6 +38,8 @@
 #include <shmem.h>
 #include <utils.h>
 #include <worker.h>
+#include <uthash.h>
+#include <query_cache.h>
 
 /* system */
 #include <errno.h>
@@ -66,7 +68,7 @@ static bool saw_x = false;
 #define CLIENT_IDLE   1
 #define CLIENT_ACTIVE 2
 #define CLIENT_CHECK  3
-
+#define QUERY_KEY_SIZE 1024 * 1024
 struct client_session
 {
    atomic_schar state; /**< The state */
@@ -99,11 +101,25 @@ session_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_si
    size_t session_shmem_size;
    struct client_session* client;
    struct configuration* config;
+   struct client_server_cache* cache_key;
 
    config = (struct configuration*)shmem;
+   client_server_shmem = NULL;
 
    *pipeline_shmem = NULL;
    *pipeline_shmem_size = 0;
+   if (pgagroal_create_shared_memory(sizeof(struct client_server_cache) + QUERY_KEY_SIZE, config->hugepage, (void*)&cache_key))
+   {
+      return 1;
+   }
+   memset(cache_key, 0, sizeof(struct client_server_cache) + QUERY_KEY_SIZE);
+   memset(cache_key->key, 0, QUERY_KEY_SIZE);
+
+   cache_key->kind = '\0';
+   cache_key->key_length = 0;
+   atomic_init(&cache_key->lock, STATE_FREE);
+
+   client_server_shmem = cache_key;
 
    if (config->disconnect_client > 0)
    {
@@ -287,9 +303,14 @@ session_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
    struct configuration* config = NULL;
+   struct client_server_cache* client_query = NULL;
 
    wi = (struct worker_io*)watcher;
    config = (struct configuration*)shmem;
+   client_query = (struct client_server_cache*)client_server_shmem;
+
+   struct query_cache* cache;
+   cache = (struct query_cache*)query_cache_shmem;
 
    client_active(wi->slot);
 
@@ -307,6 +328,54 @@ session_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
       if (likely(msg->kind != 'X'))
       {
+
+         if (msg->kind == 'Q')
+         {
+            size_t key_length = strlen(msg->data + 5);
+
+            memset(client_query->key, 0, QUERY_KEY_SIZE);
+            memcpy(client_query->key, msg->data + 5, key_length);
+            client_query->key[key_length + 1] = '\0';
+
+            client_query->key_length = key_length;
+            client_query->kind = msg->kind;
+
+            struct hashEntry* key = NULL;
+            key = (struct hashEntry*)malloc(sizeof(struct hashEntry) + client_query->key_length + 1);
+
+            if (key == NULL)
+            {
+
+               client_inactive(wi->slot);
+               ev_break(loop, EVBREAK_ONE);
+               return;
+            }
+
+            memset(key->key, 0, client_query->key_length + 1);
+
+            memcpy(key->key, client_query->key, key_length);
+            key->key[client_query->key_length + 1] = '\0';
+
+            key->length = client_query->key_length;
+            struct hashEntry* s = pgagroal_query_cache_get(cache, &(cache->table), key);
+
+            if (s != NULL && s->value != NULL)
+            {
+               // log cache hit
+               struct message* result = NULL;
+
+               if (pgagroal_create_message(s->value, s->length, &result))
+               {
+                  status = pgagroal_write_socket_message(wi->client_fd, result);
+                  client_inactive(wi->slot);
+                  ev_break(loop, EVBREAK_ONE);
+
+                  return;
+               }
+            }
+
+         }
+
          int offset = 0;
 
          while (offset < msg->length)
@@ -453,6 +522,11 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
    struct configuration* config = NULL;
+   struct client_server_cache* client_query = NULL;
+   client_query = (struct client_server_cache*)client_server_shmem;
+
+   struct query_cache* cache;
+   cache = (struct query_cache*)query_cache_shmem;
 
    wi = (struct worker_io*)watcher;
 
@@ -468,7 +542,76 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
    }
    if (likely(status == MESSAGE_STATUS_OK))
    {
+
       pgagroal_prometheus_network_received_add(msg->length);
+
+      if (msg->kind == 'T' && client_query->kind == 'Q')
+      {
+
+         struct message* tmp = NULL;
+         if (!pgagroal_extract_message('Z', msg, &tmp))
+         {
+
+            struct hashEntry* key, * data;
+            key = (struct hashEntry*)malloc(sizeof(struct hashEntry) + client_query->key_length + 1);
+            data = (struct hashEntry*)malloc(sizeof(struct hashEntry) + msg->length);
+
+            if (key == NULL || data == NULL)
+            {
+
+               if (key != NULL)
+               {
+                  free(key);
+                  key = NULL;
+               }
+               if (data != NULL)
+               {
+                  free(data);
+                  data = NULL;
+               }
+               client_inactive(wi->slot);
+               ev_break(loop, EVBREAK_ONE);
+
+               return;
+            }
+
+            data->value = malloc(msg->length);
+            memset(key->key, 0, client_query->key_length + 1);
+
+            if (data->value == NULL)
+            {
+
+               if (data->value != NULL)
+               {
+                  free(data->value);
+                  data->value = NULL;
+               }
+               if (data != NULL)
+               {
+                  free(data);
+                  data = NULL;
+               }
+               client_inactive(wi->slot);
+               ev_break(loop, EVBREAK_ONE);
+
+               return;
+            }
+
+            memcpy(key->key, client_query->key, client_query->key_length);
+            key->key[client_query->key_length + 1] = '\0';
+            key->length = client_query->key_length;
+
+            memset(data->value, 0, msg->length);
+            memcpy(data->value, msg->data, msg->length);
+            data->length = msg->length;
+
+            pgagroal_query_cache_add(cache, &(cache->table), data, key, 1);
+
+         }
+
+      }
+
+      client_query->kind = '\0';
 
       int offset = 0;
 
@@ -479,7 +622,6 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
             char kind = pgagroal_read_byte(msg->data + offset);
             int length = pgagroal_read_int32(msg->data + offset + 1);
 
-            /* The Z message tell us the transaction state */
             if (kind == 'Z')
             {
                char tx_state = pgagroal_read_byte(msg->data + offset + 5);

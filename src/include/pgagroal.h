@@ -38,6 +38,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdlib.h>
 #include <time.h>
+#include <uthash.h>
 #if HAVE_OPENBSD
 #include <sys/limits.h>
 #endif
@@ -80,7 +81,7 @@ extern "C" {
 #define MISC_LENGTH 128
 #define NUMBER_OF_SERVERS 64
 #ifdef DEBUG
-#define MAX_NUMBER_OF_CONNECTIONS 8
+#define MAX_NUMBER_OF_CONNECTIONS 100
 #else
 #define MAX_NUMBER_OF_CONNECTIONS 10000
 #endif
@@ -174,14 +175,14 @@ extern "C" {
 #define unlikely(x)  __builtin_expect (!!(x), 0)
 
 #define MAX(a, b)               \
-   ({ __typeof__ (a) _a = (a);  \
-      __typeof__ (b) _b = (b);  \
-      _a > _b ? _a : _b; })
+        ({ __typeof__ (a) _a = (a);  \
+           __typeof__ (b) _b = (b);  \
+           _a > _b ? _a : _b; })
 
 #define MIN(a, b)               \
-   ({ __typeof__ (a) _a = (a);  \
-      __typeof__ (b) _b = (b);  \
-      _a < _b ? _a : _b; })
+        ({ __typeof__ (a) _a = (a);  \
+           __typeof__ (b) _b = (b);  \
+           _a < _b ? _a : _b; })
 
 /*
  * Common piece of code to perform a sleeping.
@@ -194,13 +195,13 @@ extern "C" {
  *
  */
 #define SLEEP(zzz)                  \
-   do                               \
-   {                                \
-      struct timespec ts_private;   \
-      ts_private.tv_sec = 0;        \
-      ts_private.tv_nsec = zzz;     \
-      nanosleep(&ts_private, NULL); \
-   } while (0);
+        do                               \
+        {                                \
+           struct timespec ts_private;   \
+           ts_private.tv_sec = 0;        \
+           ts_private.tv_nsec = zzz;     \
+           nanosleep(&ts_private, NULL); \
+        } while (0);
 
 /*
  * Commonly used block of code to sleep
@@ -217,14 +218,14 @@ extern "C" {
        SLEEP_AND_GOTO(100000L, retry)
  */
 #define SLEEP_AND_GOTO(zzz, goto_to)    \
-   do                                   \
-   {                                    \
-      struct timespec ts_private;       \
-      ts_private.tv_sec = 0;            \
-      ts_private.tv_nsec = zzz;         \
-      nanosleep(&ts_private, NULL);     \
-      goto goto_to;                     \
-   } while (0);
+        do                                   \
+        {                                    \
+           struct timespec ts_private;       \
+           ts_private.tv_sec = 0;            \
+           ts_private.tv_nsec = zzz;         \
+           nanosleep(&ts_private, NULL);     \
+           goto goto_to;                     \
+        } while (0);
 
 /**
  * The shared memory segment
@@ -246,6 +247,17 @@ extern void* prometheus_shmem;
  * response cache.
  */
 extern void* prometheus_cache_shmem;
+
+/**
+ * Shared memory used to contain the Query
+ * response cache.
+ */
+extern void* query_cache_shmem;
+/**
+ * Shared memory used to contain the Prometheus
+ * response cache.
+ */
+extern void* client_server_shmem;
 
 /** @struct
  * Defines a server
@@ -352,6 +364,13 @@ struct prometheus_cache
    size_t size;          /**< size of the cache */
    char data[];          /**< the payload */
 } __attribute__ ((aligned (64)));
+struct client_server_cache
+{
+   char kind;
+   atomic_schar lock;
+   size_t key_length;
+   char key[];
+} __attribute__ ((aligned (64)));
 
 /** @struct
  * Defines the Prometheus metrics
@@ -400,6 +419,46 @@ struct prometheus
 
 } __attribute__ ((aligned (64)));
 
+/**
+ * A structure to handle the query response
+ * so that it is possible to serve the very same
+ * response over and over depending on the cache
+ * settings.
+ *
+
+ *
+ * The cache is protected by the `lock` field.
+ *
+ * The `size` field stores the size of the hashtable
+ */
+struct query_cache
+{
+   atomic_schar lock;    /**< lock to protect the cache */
+   size_t size;          /**< size of the cache */
+   struct hashTable* table;
+   int max_elements;
+   struct cachev2
+   {
+      struct hashEntry* key;
+      struct hashEntry* data;
+   } cache[100000];
+
+} __attribute__ ((aligned (64)));
+
+struct hashTable
+{
+   struct hashEntry* key;
+   time_t valid_until;
+   struct hashEntry* data;
+   UT_hash_handle hh;
+} __attribute__ ((aligned (64)));
+struct hashEntry
+{
+   void* value;
+   size_t length;
+   char key[1024];
+} __attribute__ ((aligned (64)));
+
 /** @struct
  * Defines the configuration and state of pgagroal
  */
@@ -418,6 +477,7 @@ struct configuration
    int metrics;            /**< The metrics port */
    unsigned int metrics_cache_max_age;      /**< Number of seconds to cache the Prometheus response */
    unsigned int metrics_cache_max_size;     /**< Number of bytes max to cache the Prometheus response */
+   unsigned int query_cache_max_size;     /**< Number of bytes max to cache the query response */
    int management;         /**< The management port */
    bool gracefully;        /**< Is pgagroal in gracefully mode */
 
