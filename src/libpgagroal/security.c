@@ -5829,3 +5829,33 @@ error:
 
    return AUTH_ERROR;
 }
+
+char*
+generate_password(int pwd_length)
+{
+   char* pwd;
+   time_t t;
+   
+   pwd = (char*) malloc((pwd_length + 1) * sizeof(char));
+   if (!pwd)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while generating password");
+      return NULL;
+   }
+
+   srand((unsigned)time(&t));
+   for (int i = 0; i < pwd_length; i++) {
+      pwd[i] = (char) (32 + rand() % (126 - 32 + 1));
+   }
+   pwd[pwd_length] = '\0';
+
+   // avoid leading/trailing/consecutive spaces. 
+   if (pwd[0] == ' ') pwd[0] = (char) (33 + rand() % (126 - 33 + 1));
+   if (pwd[pwd_length - 1] == ' ') pwd[pwd_length - 1] = (char) (33 + rand() % (126 - 33 + 1));
+   for (int i = 2; i < pwd_length - 1; i++) {
+      if (pwd[i] == ' ' && pwd[i-1] == ' ') {
+         pwd[i] = (char) (33 + rand() % (126 - 33 + 1));
+      }
+   }
+   return pwd;
+}

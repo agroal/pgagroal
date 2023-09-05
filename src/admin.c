@@ -45,9 +45,6 @@
 #include <sys/stat.h>
 #include <err.h>
 
-#define DEFAULT_PASSWORD_LENGTH 64
-#define MIN_PASSWORD_LENGTH 8
-
 #define ACTION_UNKNOWN     0
 #define ACTION_MASTER_KEY  1
 #define ACTION_ADD_USER    2
@@ -55,18 +52,11 @@
 #define ACTION_REMOVE_USER 4
 #define ACTION_LIST_USERS  5
 
-static char CHARS[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-                       'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-                       '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-                       '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '[', '{', ']', '}', '\\', '|', ';', ':',
-                       '\'', '\"', ',', '<', '.', '>', '/', '?'};
-
 static int master_key(char* password, bool generate_pwd, int pwd_length);
 static int add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int remove_user(char* users_path, char* username);
 static int list_users(char* users_path);
-static char* generate_password(int pwd_length);
 
 static void
 version(void)
@@ -905,31 +895,4 @@ error:
    }
 
    return 1;
-}
-
-static char*
-generate_password(int pwd_length)
-{
-   char* pwd;
-   size_t s;
-   time_t t;
-
-   s = pwd_length + 1;
-
-   pwd = calloc(1, s);
-   if (pwd == NULL)
-   {
-      pgagroal_log_fatal("Couldn't allocate memory while generating password");
-      return NULL;
-   }
-
-   srand((unsigned)time(&t));
-
-   for (int i = 0; i < s; i++)
-   {
-      *((char*)(pwd + i)) = CHARS[rand() % sizeof(CHARS)];
-   }
-   *((char*)(pwd + pwd_length)) = '\0';
-
-   return pwd;
 }

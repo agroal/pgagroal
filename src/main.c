@@ -88,6 +88,9 @@ static void create_pidfile_or_exit(void);
 static void remove_pidfile(void);
 static void shutdown_ports(void);
 
+static void handle_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
+static void rotate_frontend_password_cb(struct ev_loop* loop, ev_periodic* w, int revents);
+static void accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
 struct accept_io
 {
    struct ev_io io;
@@ -107,10 +110,12 @@ static struct ev_loop* main_loop = NULL;
 static struct accept_io io_main[MAX_FDS];
 static struct accept_io io_mgt;
 static struct accept_io io_uds;
+static struct accept_io io_vault;
 static int* main_fds = NULL;
 static int main_fds_length = -1;
 static int unix_management_socket = -1;
 static int unix_pgsql_socket = -1;
+static int unix_vault_socket = -1;
 static struct accept_io io_metrics[MAX_FDS];
 static int* metrics_fds = NULL;
 static int metrics_fds_length = -1;
@@ -314,6 +319,7 @@ main(int argc, char** argv)
    struct ev_periodic max_connection_age;
    struct ev_periodic validation;
    struct ev_periodic disconnect_client;
+   struct ev_periodic rotate_frontend_password;
    struct rlimit flimit;
    size_t shmem_size;
    size_t pipeline_shmem_size = 0;
@@ -326,6 +332,7 @@ main(int argc, char** argv)
    bool conf_file_mandatory;
    char message[MISC_LENGTH]; // a generic message used for errors
 
+   bool enable_vault = false;
    argv_ptr = argv;
 
    while (1)
@@ -341,11 +348,12 @@ main(int argc, char** argv)
          {"superuser", required_argument, 0, 'S'},
          {"daemon", no_argument, 0, 'd'},
          {"version", no_argument, 0, 'V'},
-         {"help", no_argument, 0, '?'}
+         {"help", no_argument, 0, '?'},
+         {"vault", no_argument, 0, 'v'}
       };
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "dV?a:c:l:u:F:A:S:",
+      c = getopt_long (argc, argv, "dV?va:c:l:u:F:A:S:",
                        long_options, &option_index);
 
       if (c == -1)
@@ -378,6 +386,9 @@ main(int argc, char** argv)
             break;
          case 'd':
             daemon = true;
+            break;
+         case 'v':
+            enable_vault = true;
             break;
          case 'V':
             version();
@@ -1041,6 +1052,54 @@ read_superuser_path:
       ev_periodic_init (&disconnect_client, disconnect_client_cb, 0.,
                         MIN(300., MAX(1. * config->disconnect_client / 2., 1.)), 0);
       ev_periodic_start (main_loop, &disconnect_client);
+   }
+
+   if (enable_vault) {
+      /* TODO:
+       * 1. start rotate cb
+       * 2. start async vault accept cb
+       * 3. fork exec vault
+       */
+      pid_t pid;
+
+      ev_periodic_init(&rotate_frontend_password, rotate_frontend_password_cb, 0., 60, 0);
+      ev_periodic_start (main_loop, &rotate_frontend_password);
+
+      unix_vault_socket = socket(AF_INET, SOCK_STREAM, 0);
+      struct sockaddr_in server_addr;
+
+      server_addr.sin_family = AF_INET;
+      server_addr.sin_port = htons(6789);
+      server_addr.sin_addr.s_addr = INADDR_ANY;
+
+      // set_nonblock(unix_vault_socket);
+
+      bind(unix_vault_socket, (struct sockaddr *)&server_addr, sizeof(server_addr));
+      if(listen(unix_vault_socket, 10) < 0) {
+         pgagroal_log_error("error in listen");
+         goto error;
+      }
+
+      memset(&io_vault, 0, sizeof(struct accept_io));
+      ev_io_init((struct ev_io*)&io_vault, accept_vault_cb, unix_vault_socket, EV_READ);
+      io_vault.socket = unix_vault_socket;
+      io_vault.argv = argv_ptr;
+      ev_io_start(main_loop, (struct ev_io*)&io_vault);
+      
+      pid = fork();
+         
+      if (pid == -1)
+      {
+         /* No process */
+         pgagroal_log_error("Cannot create process");
+      }
+      else if(pid == 0) {
+         // exec
+         execlp("/home/pgmoneta/pgagroal/build/src/pgagroal-vault", "pgagroal-vault", NULL);
+      } else {
+
+      }
+
    }
 
    if (config->metrics > 0)
@@ -1842,6 +1901,88 @@ disconnect_client_cb(struct ev_loop* loop, ev_periodic* w, int revents)
    {
       shutdown_ports();
       main_pipeline.periodic();
+   }
+}
+
+static void
+rotate_frontend_password_cb(struct ev_loop* loop, ev_periodic* w, int revents)
+{
+   char* pwd;
+
+   if (EV_ERROR & revents)
+   {
+      pgagroal_log_trace("rotate_frontend_password_cb: got invalid event: %s", strerror(errno));
+      return;
+   }
+
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+   // TODO: get pwd length from config or random length
+   pwd = generate_password(MIN_PASSWORD_LENGTH);
+   for (int i = 0; i < config->number_of_frontend_users; i++)
+   {
+      if (!strcmp(&config->frontend_users[i].username[0], "test"))
+      {
+         memcpy(&config->frontend_users[i].password, pwd, strlen(pwd)+1);
+         pgagroal_log_info("rotate_pass: current pass for username=%s:%s",config->frontend_users[i].username, config->frontend_users[i].password);
+      }
+   }
+}
+
+static void 
+accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
+{
+   struct sockaddr_in6 client_addr;
+   socklen_t client_addr_length;
+   int client_fd;
+   char address[INET6_ADDRSTRLEN];
+
+   if (EV_ERROR & revents)
+   {
+      pgagroal_log_debug("accept_vault_cb: invalid event: %s", strerror(errno));
+      errno = 0;
+      return;
+   }
+
+   memset(&address, 0, sizeof(address));
+
+   client_addr_length = sizeof(client_addr);
+   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
+
+   if (client_fd == -1)
+   {
+      //TODO: error handling
+   }
+
+   ev_io *vault_watcher = (ev_io*) malloc(sizeof(ev_io));
+   ev_io_init(vault_watcher, handle_vault_cb, client_fd, EV_READ);
+   ev_io_start(main_loop, vault_watcher);
+}
+
+static void
+handle_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
+{
+   struct configuration* config;
+   struct message* msg;
+
+   if (EV_ERROR & revents)
+   {
+      pgagroal_log_debug("accept_vault_cb: invalid event: %s", strerror(errno));
+      errno = 0;
+      return;
+   }
+
+   config = (struct configuration*)shmem;
+
+   pgagroal_read_socket_message(watcher->fd, &msg);
+
+   for (int i = 0; i < config->number_of_frontend_users; i++)
+   {
+      if (!strcmp(&config->frontend_users[i].username[0], (char *)msg->data))
+      {
+         pgagroal_write_frontend_password_response(0, watcher->fd, config->frontend_users[i].password);
+      }
    }
 }
 

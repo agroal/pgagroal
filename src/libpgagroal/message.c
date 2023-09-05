@@ -1188,6 +1188,70 @@ error:
    return false;
 }
 
+int
+pgagroal_write_frontend_password_request(SSL* ssl, int socket, char* username)
+{
+   struct message msg;
+   char* payload = NULL;
+   size_t size;
+   int status;
+
+   memset(&msg, 0, sizeof(struct message));
+   /* Identifies the message as a function call */
+   msg.kind = 'F';
+
+   size = strlen(username) + 1;
+   payload = malloc(size);
+   if (payload == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating frontend_password_request_message");
+      return MESSAGE_STATUS_ERROR;
+   }
+   memcpy(payload, username, size);
+   msg.length = size;
+   msg.data = payload;
+
+   if (ssl == NULL)
+      status = write_message(socket, &msg);
+   else 
+      status = ssl_write_message(ssl, &msg);
+   
+   free(payload);
+   return status;
+}
+
+int
+pgagroal_write_frontend_password_response(SSL* ssl, int socket, char* password)
+{
+   struct message msg;
+   char* payload = NULL;
+   size_t size;
+   int status;
+
+   memset(&msg, 0, sizeof(struct message));
+   /* Identifies the message as a function call result */
+   msg.kind = 'V';
+
+   size = strlen(password) + 1;
+   payload = malloc(size);
+   if (payload == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating frontend_password_response_message");
+      return MESSAGE_STATUS_ERROR;
+   }
+   memcpy(payload, password, size);
+   msg.length = size;
+   msg.data = payload;
+
+   if (ssl == NULL)
+      status = write_message(socket, &msg);
+   else
+      status = ssl_write_message(ssl, &msg);
+   
+   free(payload);
+   return status;
+}
+
 void
 pgagroal_log_message(struct message* msg)
 {

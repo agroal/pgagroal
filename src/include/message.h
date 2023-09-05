@@ -368,8 +368,31 @@ pgagroal_create_startup_message(char* username, char* database, struct message**
  * @param msg The resulting message
  * @return 0 upon success, otherwise 1
  */
+
 int
 pgagroal_create_cancel_request_message(int pid, int secret, struct message** msg);
+
+/**
+ * @brief 
+ * 
+ * @param ssl 
+ * @param socket 
+ * @param username 
+ * @return int 
+ */
+int
+pgagroal_write_frontend_password_request(SSL* ssl, int socket, char* username);
+
+/**
+ * @brief 
+ * 
+ * @param ssl 
+ * @param socket 
+ * @param password 
+ * @return int 
+ */
+int
+pgagroal_write_frontend_password_response(SSL* ssl, int socket, char* password);
 
 /**
  * Is the connection valid

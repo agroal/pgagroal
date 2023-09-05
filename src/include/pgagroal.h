@@ -73,6 +73,8 @@ extern "C" {
 #define MAX_DATABASE_LENGTH   256
 #define MAX_TYPE_LENGTH        16
 #define MAX_ADDRESS_LENGTH     64
+#define DEFAULT_PASSWORD_LENGTH 64
+#define MIN_PASSWORD_LENGTH 8
 #define MAX_PASSWORD_LENGTH  1024
 #define MAX_APPLICATION_NAME   64
 
@@ -493,6 +495,8 @@ struct configuration
    struct user admins[NUMBER_OF_ADMINS];           /**< The admins */
    struct user superuser;                          /**< The superuser */
    struct connection connections[];                /**< The connections (FMA) */
+
+   
 } __attribute__ ((aligned (64)));
 
 #ifdef __cplusplus
