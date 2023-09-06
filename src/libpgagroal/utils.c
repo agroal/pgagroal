@@ -33,6 +33,11 @@
 #include <server.h>
 
 /* system */
+#ifdef __APPLE__
+#include <machine/endian.h>
+#else
+#include <endian.h>
+#endif
 #include <ev.h>
 #include <execinfo.h>
 #include <pwd.h>
@@ -286,53 +291,19 @@ pgagroal_read_byte(void* data)
 int16_t
 pgagroal_read_int16(void* data)
 {
-   unsigned char bytes[] = {*((unsigned char*)data),
-                            *((unsigned char*)(data + 1))};
-
-   int16_t res = (int16_t)((bytes[0] << 8)) |
-                 ((bytes[1]));
-
-   return res;
+   return be16toh(*((uint16_t *)data));
 }
 
 int32_t
 pgagroal_read_int32(void* data)
 {
-   unsigned char bytes[] = {*((unsigned char*)data),
-                            *((unsigned char*)(data + 1)),
-                            *((unsigned char*)(data + 2)),
-                            *((unsigned char*)(data + 3))};
-
-   int32_t res = (int32_t)((bytes[0] << 24)) |
-                 ((bytes[1] << 16)) |
-                 ((bytes[2] << 8)) |
-                 ((bytes[3]));
-
-   return res;
+   return be32toh(*((uint32_t *)data));
 }
 
 long
 pgagroal_read_long(void* data)
 {
-   unsigned char bytes[] = {*((unsigned char*)data),
-                            *((unsigned char*)(data + 1)),
-                            *((unsigned char*)(data + 2)),
-                            *((unsigned char*)(data + 3)),
-                            *((unsigned char*)(data + 4)),
-                            *((unsigned char*)(data + 5)),
-                            *((unsigned char*)(data + 6)),
-                            *((unsigned char*)(data + 7))};
-
-   long res = (long)(((long)bytes[0]) << 56) |
-              (((long)bytes[1]) << 48) |
-              (((long)bytes[2]) << 40) |
-              (((long)bytes[3]) << 32) |
-              (((long)bytes[4]) << 24) |
-              (((long)bytes[5]) << 16) |
-              (((long)bytes[6]) << 8) |
-              (((long)bytes[7]));
-
-   return res;
+   return be64toh(*((uint64_t *)data));
 }
 
 char*
@@ -350,60 +321,19 @@ pgagroal_write_byte(void* data, signed char b)
 void
 pgagroal_write_int32(void* data, int32_t i)
 {
-   char* ptr = (char*)&i;
-
-   *((char*)(data + 3)) = *ptr;
-   ptr++;
-   *((char*)(data + 2)) = *ptr;
-   ptr++;
-   *((char*)(data + 1)) = *ptr;
-   ptr++;
-   *((char*)(data)) = *ptr;
+   *((uint32_t *)data) = htobe32(i);
 }
 
 void
 pgagroal_write_long(void* data, long l)
 {
-   char* ptr = (char*)&l;
-
-   *((char*)(data + 7)) = *ptr;
-   ptr++;
-   *((char*)(data + 6)) = *ptr;
-   ptr++;
-   *((char*)(data + 5)) = *ptr;
-   ptr++;
-   *((char*)(data + 4)) = *ptr;
-   ptr++;
-   *((char*)(data + 3)) = *ptr;
-   ptr++;
-   *((char*)(data + 2)) = *ptr;
-   ptr++;
-   *((char*)(data + 1)) = *ptr;
-   ptr++;
-   *((char*)(data)) = *ptr;
+   *((uint64_t *)data) = htobe64(l);
 }
 
 void
 pgagroal_write_string(void* data, char* s)
 {
    memcpy(data, s, strlen(s));
-}
-
-bool
-pgagroal_bigendian(void)
-{
-   short int word = 0x0001;
-   char* b = (char*)&word;
-   return (b[0] ? false : true);
-}
-
-unsigned int
-pgagroal_swap(unsigned int i)
-{
-   return ((i << 24) & 0xff000000) |
-          ((i << 8) & 0x00ff0000) |
-          ((i >> 8) & 0x0000ff00) |
-          ((i >> 24) & 0x000000ff);
 }
 
 void

@@ -40,6 +40,11 @@
 #include <utils.h>
 
 /* system */
+#ifdef __APPLE__
+#include <machine/endian.h>
+#else
+#include <endian.h>
+#endif
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -3925,7 +3930,7 @@ salted_password(char* password, char* salt, int salt_length, int iterations, uns
 {
    size_t size = 32;
    int password_length;
-   unsigned int one;
+   uint32_t one = htobe32(1);
    unsigned char Ui[size];
    unsigned char Ui_prev[size];
    unsigned int Ui_length;
@@ -3945,15 +3950,6 @@ salted_password(char* password, char* salt, int salt_length, int iterations, uns
    }
 
    password_length = strlen(password);
-
-   if (!pgagroal_bigendian())
-   {
-      one = pgagroal_swap(1);
-   }
-   else
-   {
-      one = 1;
-   }
 
    r = calloc(1, size);
 

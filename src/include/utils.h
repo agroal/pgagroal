@@ -166,21 +166,6 @@ void
 pgagroal_write_string(void* data, char* s);
 
 /**
- * Is the machine big endian ?
- * @return True if big, otherwise false for little
- */
-bool
-pgagroal_bigendian(void);
-
-/**
- * Swap
- * @param i The value
- * @return The swapped value
- */
-unsigned int
-pgagroal_swap(unsigned int i);
-
-/**
  * Print the available libev engines
  */
 void
