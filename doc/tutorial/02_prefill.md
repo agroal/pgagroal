@@ -51,7 +51,7 @@ In order to apply changes to the prefill configuration, you need to restart `pga
 You can do so by stopping it and then re-launch the daemon, as `pgagroal` operating system user:
 
 ```
-pgagroal-cli -c /etc/pgagroal/pgagroal.conf stop
+pgagroal-cli -c /etc/pgagroal/pgagroal.conf shutdown
 pgagroal -c /etc/pgagroal/pgagroal.conf -a /etc/pgagroal/pgagroal_hba.conf -u /etc/pgagroal/pgagroal_users.conf -l /etc/pgagroal/pgagroal_databases.conf
 ```
 

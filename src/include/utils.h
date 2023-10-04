@@ -375,6 +375,125 @@ pgagroal_backtrace(void);
 
 #endif
 
+/**
+ * Utility function to parse the command line
+ * and search for a command.
+ *
+ * The function tries to be smart, in helping to find out
+ * a command with the possible subcommand.
+ *
+ * @param argc the command line counter
+ * @param argv the command line as provided to the application
+ * @param offset the position at which the next token out of `argv`
+ * has to be read. This is usually the `optind` set by getopt_long().
+ * @param command the string to search for as a main command
+ * @param subcommand if not NULL, a subcommand that should be
+ * matched. If no matches are found with the subcommand, the
+ * function fails.
+ *
+ * @param key if not null, a pointer to a string that will be
+ * filled with the next value on the command line (usually
+ * the name of a database/server or a configuration parameter
+ * name)
+ * @param default_key the default value to be specified for a key
+ * if none is found on the command line. For example, if the key
+ * represents a database name, the "*" could be the default_key
+ * to indicate every possible database.
+ *
+ * @param value if not null, a pointer to a string that will be
+ * filled with the extrac value for the command. For example, in the case
+ * of a configuration subcommand, the value will be the setting to apply.
+ *
+ * @param default_value the default value to set on the `value` pointer
+ * variable if nothing is found on the command line.
+ *
+ * @return true if the parsing of the command line was succesful, false
+ * otherwise
+ *
+ *
+ * Possible command lines:
+ * <command> <subcommand>  <key>      <value>
+ * flush      gracefully   pgbench
+ * flush      gracefully
+ * flush
+ * flush                   pgbench
+ * conf       get          log_level
+ * conf       set          log_level   debug
+ *
+ * that in turn are match by
+ *
+ * parse_command(argv, argc, "flush", "gracefully", &database, "*", NULL, NULL)
+ * parse_command(argv, argc, "flush", "gracefully", NULL, "*", NULL, NULL)
+ * parse_command(argv, argc, "flush", NULL, NULL, "*", NULL, NULL)
+ * parse_command(argv, argc, "flush", NULL, &database, "*", NULL, NULL)
+ * parse_command(argv, argc, "conf", "get", &config_key, NULL, NULL, NULL)
+ * parse_command(argv, argc, "conf", "set", &config_key, NULL, &config_value, NULL)
+ */
+bool
+parse_command(int argc,
+              char** argv,
+              int offset,
+              char* command,
+              char* subcommand,
+              char** key,
+              char* default_key,
+              char** value,
+              char* default_value);
+
+/*
+ * A wrapper function to parse a single command (and its subcommand)
+ * without any optional argument.
+ * It calls the parse_command with NULL key, value and defaults.
+ *
+ * Thanks to this wrapper, it is simpler to write the command parsing because
+ * the two following lines are equivalent:
+ *
+ * parse_command( argc, argv, optind, "conf", "reload", NULL, NULL, NULL; NULL );
+ *
+ * parse_command_simple( argc, argv, optind, "conf", "reload");
+ *
+ * @see parse_command
+ */
+bool
+parse_command_simple(int argc,
+                     char** argv,
+                     int offset,
+                     char* command,
+                     char* subcommand);
+
+/**
+ * A function to match against a deprecated command.
+ * It prints out a message to warn the user about
+ * the deprecated usage of the command if there is a specific
+ * "deprecated-by" and "deprecated since" set of information.
+ *
+ *
+ * @param argc the command line counter
+ * @param argv the command line as provided to the application
+ * @param offset the position at which the next token out of `argv`
+ * has to be read. This is usually the `optind` set by getopt_long().
+ * @param command the string to search for as a main command
+ * @param deprecated_by the name of the command to use
+ * instead of the deprecated one
+ * @param value if not null, a pointer to a string that will be
+ * filled with the value of the database. If no database is found
+ * on the command line, the special value "*" will be placed to
+ * mean "all the database"
+ * @param deprecated_since_major major version since the command has been deprecated
+ * @param deprecated_since_minor minor version since the command has been deprecated
+ *
+ * @return true if the parsing of the command line was succesful, false
+ * otherwise
+ */
+bool
+parse_deprecated_command(int argc,
+                         char** argv,
+                         int offset,
+                         char* command,
+                         char** value,
+                         char* deprecated_by,
+                         unsigned int deprecated_since_major,
+                         unsigned int deprecated_since_minor);
 #ifdef __cplusplus
 }
 #endif

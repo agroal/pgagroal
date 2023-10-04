@@ -39,7 +39,7 @@ In order to apply changes, you need to restart `pgagroal`, therefore run the fol
 as the `pgagroal` operating system user:
 
 ```
-pgagroal-cli -c /etc/pgagroal/pgagroal.conf stop
+pgagroal-cli -c /etc/pgagroal/pgagroal.conf shutdown
 pgagroal -c /etc/pgagroal/pgagroal.conf -a /etc/pgagroal/pgagroal_hba.conf
 ```
 

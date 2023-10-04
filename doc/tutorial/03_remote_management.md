@@ -57,7 +57,7 @@ The above will create the `admin` username with the `admin1234` password.
 In order to make the changes available, and therefore activate the remote management, you have to restart `pgagroal`, for example by issuing the following commands from the `pgagroal` operatng system user:
 
 ```
-pgagroal-cli -c /etc/pgagroal/pgagroal.conf stop
+pgagroal-cli -c /etc/pgagroal/pgagroal.conf shutdown
 pgagroal -c /etc/pgagroal/pgagroal.conf -a /etc/pgagroal/pgagroal_hba.conf -u /etc/pgagroal/pgagroal_users.conf -A /etc/pgagroal/pgagroal_admins.conf
 ```
 

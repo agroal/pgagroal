@@ -6,14 +6,75 @@ function _pgagroal_cli()
 {
     local line
     _arguments -C \
-               "1: :(flush-idle flush-all flush-gracefully is-alive enable disable stop gracefully status details switch-to reload reset reset-server config-get config-set)" \
+               "1: :(flush is-alive enable disable shutdown status details switch-to conf clear)" \
+               "*::arg:->args"
+
+    case $line[1] in
+        flush)
+            _pgagroal_cli_flush
+            ;;
+        shutdown)
+            _pgagroal_cli_shutdown
+            ;;
+        clear)
+            _pgagroal_cli_clear
+            ;;
+	conf)
+	    _pgagroal_cli_conf
+	    ;;
+    esac
+}
+
+function _pgagroal_cli_flush()
+{
+    local line
+    _arguments -C \
+               "1: :(gracefully idle all)" \
                "*::arg:->args"
 }
+
+function _pgagroal_cli_conf()
+{
+    local line
+    _arguments -C \
+               "1: :(reload get set)" \
+               "*::arg:->args"
+}
+
+function _pgagroal_cli_shutdown()
+{
+    local line
+    _arguments -C \
+               "1: :(gracefully immediate cancel)" \
+               "*::arg:->args"
+}
+
+function _pgagroal_cli_clear()
+{
+    local line
+    _arguments -C \
+               "1: :(server prometheus)" \
+               "*::arg:->args"
+}
+
 
 function _pgagroal_admin()
 {
     local line
     _arguments -C \
-               "1: :(master-key add-user update-user remove-user list-users)" \
+               "1: :(master-key user)" \
+               "*::arg:->args"
+
+    case $line[1] in
+        user)
+            _pgagroal_admin_user
+            ;;
+    esac
+}
+
+function _pgagroal_admin_user()
+{
+    _arguments -C \
+               "1: :(add del edit ls)" \
                "*::arg:->args"
 }

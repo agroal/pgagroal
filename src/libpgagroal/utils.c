@@ -44,6 +44,7 @@
 #include <unistd.h>
 #include <openssl/pem.h>
 #include <sys/types.h>
+#include <err.h>
 
 #ifndef EVBACKEND_LINUXAIO
 #define EVBACKEND_LINUXAIO 0x00000040U
@@ -952,3 +953,127 @@ pgagroal_backtrace(void)
 }
 
 #endif
+
+bool
+parse_command(int argc,
+              char** argv,
+              int offset,
+              char* command,
+              char* subcommand,
+              char** key,
+              char* default_key,
+              char** value,
+              char* default_value)
+{
+
+   // sanity check: if no arguments, nothing to parse!
+   if (argc <= offset)
+   {
+      return false;
+   }
+
+   // first of all check if the command is the same
+   // as the first argument on the command line
+   if (strncmp(argv[offset], command, MISC_LENGTH))
+   {
+      return false;
+   }
+
+   if (subcommand)
+   {
+      // thre must be a subcommand check
+      offset++;
+
+      if (argc <= offset)
+      {
+         // not enough command args!
+         return false;
+      }
+
+      if (strncmp(argv[offset], subcommand, MISC_LENGTH))
+      {
+         return false;
+      }
+   }
+
+   if (key)
+   {
+      // need to evaluate the database or server or configuration key
+      offset++;
+      *key = argc > offset ? argv[offset] : default_key;
+      if (*key == NULL || strlen(*key) == 0)
+      {
+         goto error;
+      }
+
+      // do I need also a value?
+      if (value)
+      {
+         offset++;
+         *value = argc > offset ? argv[offset] : default_value;
+
+         if (*value == NULL || strlen(*value) == 0)
+         {
+            goto error;
+         }
+
+      }
+   }
+
+   return true;
+
+error:
+   return false;
+}
+
+bool
+parse_deprecated_command(int argc,
+                         char** argv,
+                         int offset,
+                         char* command,
+                         char** value,
+                         char* deprecated_by,
+                         unsigned int deprecated_since_major,
+                         unsigned int deprecated_since_minor)
+{
+   // sanity check: if no arguments, nothing to parse!
+   if (argc <= offset)
+   {
+      return false;
+   }
+
+   // first of all check if the command is the same
+   // as the first argument on the command line
+   if (strncmp(argv[offset], command, MISC_LENGTH))
+   {
+      return false;
+   }
+
+   if (value)
+   {
+      // need to evaluate the database or server
+      offset++;
+      *value = argc > offset ? argv[offset] : "*";
+   }
+
+   // warn the user if there is enough information
+   // about deprecation
+   if (deprecated_by
+       && pgagroal_version_ge(deprecated_since_major, deprecated_since_minor, 0))
+   {
+      warnx("command <%s> has been deprecated by <%s> since version %d.%d\n",
+            command, deprecated_by, deprecated_since_major, deprecated_since_minor);
+   }
+
+   return true;
+}
+
+bool
+parse_command_simple(int argc,
+                     char** argv,
+                     int offset,
+                     char* command,
+                     char* subcommand)
+{
+   return parse_command(argc, argv, offset, command, subcommand, NULL, NULL, NULL, NULL);
+}

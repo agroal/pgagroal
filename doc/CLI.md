@@ -1,8 +1,21 @@
-# pgagroal-cli user guide
+# `pgagroal-cli` user guide
+
+`pgagroal-cli` is a command line interface to interact with `pgagroal`.
+The executable accepts a set of options, as well as a command to execute.
+If no command is provided, the program will show the help screen.
+
+The `pgagroal-cli` utility has the following synopsis:
 
 ```
-pgagroal-cli [ -c CONFIG_FILE ] [ COMMAND ]
+pgagroal-cli [ OPTIONS ] [ COMMAND ]
+```
 
+
+## Options
+
+Available options are the following ones:
+
+```
 -c, --config CONFIG_FILE Set the path to the pgagroal.conf file
 -h, --host HOST          Set the host name
 -p, --port PORT          Set the port number
@@ -12,65 +25,41 @@ pgagroal-cli [ -c CONFIG_FILE ] [ COMMAND ]
 -v, --verbose            Output text string of result
 -V, --version            Display version information
 -?, --help               Display help
+
 ```
 
-Commands are described in the following sections.
-Several commands work against an optional specified database.
-It is possible to specify *all database* at once by means of the special string `*` (take care of shell expansion!).
-If no database name is specified, the command is automatically run against all databases (i.e., as if `*` has been specified).
+Options can be specified either in short or long form, in any position of the command line.
 
-## flush-idle
-Flush idle connections.
-Without any argument, or with `*` as only argument,
-works against all configured databases.
+## Commands
+
+### flush
+The `flush` command performs a connection flushing.
+It accepts a *mode* to operate the actual flushing:
+- `gracefully` (the default if not specified), flush connections when possible;
+- `idle` to flush only connections in state *idle*;
+- `all` to flush all the connections (**use with caution!**).
+
+The command accepts a database name, that if provided, restricts the scope of
+`flush` only to connections related to such database.
+If no database is provided, the `flush` command is operated against all databases.
+
 
 Command
 
 ```
-pgagroal-cli flush-idle [*|<database>]
+pgagroal-cli flush [gracefully|idle|all] [*|<database>]
 ```
 
-Example
+Examples
 
 ```
-pgagroal-cli flush-idle
+pgagroal-cli flush           # pgagroal-cli flush gracefully '*'
+pgagroal-cli flush idle      # pgagroal-cli flush idle '*'
+pgagroal-cli flush all       # pgagroal-cli flush all '*'
+pgagroal-cli flush pgbench   # pgagroal-cli flush gracefully pgbench
 ```
 
-## flush-gracefully
-Flush all connections gracefully.
-Without any argument, or with `*` as only argument,
-works against all configured databases.
-
-Command
-
-```
-pgagroal-cli flush-gracefully [*|<database>]
-```
-
-Example
-
-```
-pgagroal-cli flush-gracefully
-```
-
-## flush-all
-Flush all connections. **USE WITH CAUTION !**
-Without any argument, or with `*` as only argument,
-works against all configured databases.
-
-Command
-
-```
-pgagroal-cli flush-all [*|<database>]
-```
-
-Example
-
-```
-pgagroal-cli flush-all mydb
-```
-
-## is-alive
+### is-alive
 Is pgagroal alive
 
 Command
@@ -85,10 +74,8 @@ Example
 pgagroal-cli is-alive
 ```
 
-## enable
-Enables the specified database.
-Without any argument, or with `*` as only argument,
-works against all configured databases.
+### enable
+Enables a database (or all databases).
 
 Command
 
@@ -102,11 +89,8 @@ Example
 pgagroal-cli enable
 ```
 
-## disable
-Disables a database specified by its name.
-Without any argument, or with `*` as only argument,
-works against all configured databases.
-
+### disable
+Disables a database (or all databases).
 
 Command
 
@@ -120,52 +104,33 @@ Example
 pgagroal-cli disable
 ```
 
-## gracefully
-Stop pgagroal gracefully
+### shutdown
+The `shutdown` command is used to stop the connection pooler.
+It supports the following operating modes:
+- `gracefully` (the default) closes the pooler as soon as no active connections are running;
+- `immediate` force an immediate stop.
+
+If the `gracefully` mode is requested, chances are the system will take some time to
+perform the effective shutdown, and therefore it is possible to abort the request
+issuing another `shutdown` command with the mode `cancel`.
+
 
 Command
 
 ```
-pgagroal-cli gracefully
+pgagroal-cli shutdown [gracefully|immediate|cancel]
 ```
 
-Example
+Examples
 
 ```
-pgagroal-cli gracefully
+pgagroal-cli shutdown   # pgagroal-cli shutdown gracefully
+...
+pgagroal-cli shutdown cancel  # stops the above command
 ```
 
-## stop
-Stop pgagroal
 
-Command
-
-```
-pgagroal-cli stop
-```
-
-Example
-
-```
-pgagroal-cli stop
-```
-
-## cancel-shutdown
-Cancel the graceful shutdown
-
-Command
-
-```
-pgagroal-cli cancel-shutdown
-```
-
-Example
-
-```
-pgagroal-cli cancel-shutdown
-```
-
-## status
+### status
 Status of pgagroal
 
 Command
@@ -180,7 +145,7 @@ Example
 pgagroal-cli status
 ```
 
-## details
+### details
 Detailed status of pgagroal
 
 Command
@@ -195,8 +160,8 @@ Example
 pgagroal-cli details
 ```
 
-## switch-to
-Switch to another primary
+### switch-to
+Switch to another primary server.
 
 Command
 
@@ -210,51 +175,33 @@ Example
 pgagroal-cli switch-to replica
 ```
 
-## reload
-Reload the configuration
+### conf
+Manages the configuration of the running instance.
+This command requires one subcommand, that can be:
+- `reload` issue a reload of the configuration, applying at runtime any changes from the configuration files;
+- `get` provides a configuration parameter value;
+- `set` modifies a configuration parameter at runtime.
 
 Command
 
 ```
-pgagroal-cli reload
+pgagroal-cli conf <what>
 ```
 
-Example
+Examples
 
 ```
-pgagroal-cli reload
-```
+pgagroal-cli conf reload
 
-## reset
-Reset the Prometheus statistics
-Command
+pgagroal-cli conf get max_connections
 
-```
-pgagroal-cli reset
-```
-
-Example
+pgagroal-cli conf set max_connections 25
 
 ```
-pgagroal-cli reset
-```
 
-## reset-server
-Reset the state of a server
+The details about how to get and set values at run-time are explained in the following.
 
-Command
-
-```
-pgagroal-cli reset-server <server>
-```
-
-Example
-
-```
-pgagroal-cli reset-server primary
-```
-
-## config-get
+### conf get
 Given a configuration setting name, provides the current value for such setting.
 
 The configuration setting name must be the same as the one used in the configuration files.
@@ -278,13 +225,13 @@ the form `section.context.key` where:
 
 Examples
 ```
-pgagroal-cli config-get pipeline
+pgagroal-cli conf get pipeline
 performance
 
-pgagroal-cli config-get limit.pgbench.max_size
+pgagroal-cli conf get limit.pgbench.max_size
 2
 
-pgagroal-cli config-get server.venkman.primary
+pgagroal-cli conf get server.venkman.primary
 off
 
 ```
@@ -296,7 +243,7 @@ The `server.venkman.primary` searches for the configuration parameter `primary` 
 If the `--verbose` option is specified, a descriptive string of the configuration parameter is printed as *name = value*:
 
 ```
-pgagroal-cli config-get max_connections --verbose
+pgagroal-cli conf get max_connections --verbose
 max_connections = 4
 Success (0)
 ```
@@ -304,29 +251,30 @@ Success (0)
 If the parameter name specified is not found or invalid, the program `pgagroal-cli` exit normally without printing any value.
 
 
-## config-set
+
+### conf set
 Allows the setting of a configuration parameter at run-time, if possible.
 
 Examples
 ```
-pgagroal-cli config-set log_level debug
-pgagroal-cli config-set server.venkman.port 6432
-pgagroal config-set limit.pgbench.max_size 2
+pgagroal-cli conf set log_level debug
+pgagroal-cli conf set server.venkman.port 6432
+pgagroal conf set limit.pgbench.max_size 2
 ```
 
-The syntax for setting parameters is the same as for the command `config-get`, therefore parameters are organized into namespaces:
+The syntax for setting parameters is the same as for the command `conf get`, therefore parameters are organized into namespaces:
 - `main` (optional) is the main pgagroal configuration namespace, for example `main.log_level` or simply `log_level`;
 - `server` is the namespace referred to a specific server. It has to be followed by the name of the server and the name of the parameter to change, in a dotted notation, like `server.venkman.port`;
 - `limit` is the namespace referred to a specific limit entry, followed by the name of the username used in the limit entry.
 
-When executed, the `config-set` command returns the run-time setting of the specified parameter: if such parameter is equal to the value supplied, the change has been applied, otherwise it means that the old setting has been kept.
+When executed, the `conf set` command returns the run-time setting of the specified parameter: if such parameter is equal to the value supplied, the change has been applied, otherwise it means that the old setting has been kept.
 The `--verbose` flag can be used to understand if the change has been applied:
 
 ```
-$ pgagroal-cli config-set log_level debug
+$ pgagroal-cli conf set log_level debug
 debug
 
-$ pgagroal-cli config-set log_level debug --verbose
+$ pgagroal-cli conf set log_level debug --verbose
 log_level = debug
 pgagroal-cli: Success (0)
 ```
@@ -334,15 +282,15 @@ pgagroal-cli: Success (0)
 When a setting modification cannot be applied, the system returns the "old" setting value and, if `--verbose` is specified, the error indication:
 
 ```
-$ pgagroal-cli config-set max_connections 100
+$ pgagroal-cli conf set max_connections 100
 40
 
-$ pgagroal-cli config-set max_connections 100 --verbose
+$ pgagroal-cli conf set max_connections 100 --verbose
 max_connections = 40
 pgagroal-cli: Error (2)
 ```
 
-When a `config-set` cannot be applied, the system will report in the logs an indication about the problem. With regard to the previous example, the system reports in the logs something like the following (depending on your `log_level`):
+When a `conf set` cannot be applied, the system will report in the logs an indication about the problem. With regard to the previous example, the system reports in the logs something like the following (depending on your `log_level`):
 
 ```
 DEBUG Trying to change main configuration setting <max_connections> to <100>
@@ -350,6 +298,62 @@ INFO  Restart required for max_connections - Existing 40 New 100
 WARN  1 settings cannot be applied
 DEBUG pgagroal_management_write_config_set: unable to apply changes to <max_connections> -> <100>
 ```
+
+
+
+### clear
+Resets different parts of the pooler. It accepts an operational mode:
+- `prometheus` resets the metrics provided without altering the pooler status;
+- `server` resets the specified server status.
+
+
+```
+pgagroal-cli clear [prometheus|server <server>]
+```
+
+Examples
+
+```
+pgagroal-cli clear spengler            # pgagroal-cli clear server spengler
+pgagroal-cli clear prometheus
+```
+
+
+## Deprecated commands
+
+The following commands have been deprecated and will be removed
+in later releases of `pgagroal`.
+For each command, this is the corresponding current mapping
+to the working command:
+
+- `flush-idle` is equivalent to `flush idle`;
+- `flush-all` is equivalent to `flush all`;
+- `flush-gracefully` is equivalent to `flush gracefully` or simply `flush`;
+- `stop` is equivalent to `shutdown immediate`;
+- `gracefully` is equivalent to `shutdown gracefully` or simply `shutdown`;
+- `reset` is equivalent to `clear prometheus`;
+- `reset-server` is equivalent to `clear server` or simply `clear`;
+- `config-get` and `config-set` are respectively `conf get` and `conf set`;
+- `reload` is equivalent to `conf reload`.
+
+
+Whenever you use a deprecated command, the `pgagroal-cli` will print on standard error a warning message.
+For example:
+
+```
+pgagroal-cli reset-server
+
+WARN: command <reset-server> has been deprecated by <clear server> since version 1.6.x
+```
+
+If you don't want to get any warning about deprecated commands, you
+can redirect the `stderr` to `/dev/null` or any other location with:
+
+```
+pgagroal-cli reset-server 2>/dev/null
+```
+
+
 
 
 ## Shell completions

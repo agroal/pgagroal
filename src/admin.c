@@ -87,6 +87,7 @@ usage(void)
    printf("\n");
    printf("Options:\n");
    printf("  -f, --file FILE         Set the path to a user file\n");
+   printf("                          Defaults to %s", PGAGROAL_DEFAULT_USERS_FILE);
    printf("  -U, --user USER         Set the user name\n");
    printf("  -P, --password PASSWORD Set the password for the user\n");
    printf("  -g, --generate          Generate a password\n");
@@ -96,10 +97,11 @@ usage(void)
    printf("\n");
    printf("Commands:\n");
    printf("  master-key              Create or update the master key\n");
-   printf("  add-user                Add a user\n");
-   printf("  update-user             Update a user\n");
-   printf("  remove-user             Remove a user\n");
-   printf("  list-users              List all users\n");
+   printf("  user <subcommand>       Manage a specific user, where <subcommand> can be\n");
+   printf("                          - add  to add a new user\n");
+   printf("                          - del  to remove an existing user\n");
+   printf("                          - edit to change the password for an existing user\n");
+   printf("                          - ls   to list all available users\n");
    printf("\n");
    printf("pgagroal: %s\n", PGAGROAL_HOMEPAGE);
    printf("Report bugs: %s\n", PGAGROAL_ISSUES);
@@ -108,7 +110,6 @@ usage(void)
 int
 main(int argc, char** argv)
 {
-   int exit_code = 0;
    int c;
    char* username = NULL;
    char* password = NULL;
@@ -179,21 +180,45 @@ main(int argc, char** argv)
       {
          action = ACTION_MASTER_KEY;
       }
-      else if (!strcmp("add-user", argv[argc - 1]))
+      else if (parse_command_simple(argc, argv, optind, "user", "add")
+               || parse_deprecated_command(argc, argv, optind, "add-user", NULL, "user add", 1, 6))
       {
          action = ACTION_ADD_USER;
       }
-      else if (!strcmp("update-user", argv[argc - 1]))
+      else if (parse_command_simple(argc, argv, optind, "user", "edit")
+               || parse_deprecated_command(argc, argv, optind, "update-user", NULL, "user edit", 1, 6))
       {
          action = ACTION_UPDATE_USER;
       }
-      else if (!strcmp("remove-user", argv[argc - 1]))
+      else if (parse_command_simple(argc, argv, optind, "user", "del")
+               || parse_deprecated_command(argc, argv, optind, "remove-user", NULL, "user del", 1, 6))
       {
          action = ACTION_REMOVE_USER;
       }
-      else if (!strcmp("list-users", argv[argc - 1]))
+      else if (parse_command_simple(argc, argv, optind, "user", "ls")
+               || parse_deprecated_command(argc, argv, optind, "list-users", NULL, "user ls", 1, 6))
       {
          action = ACTION_LIST_USERS;
+      }
+
+      // exit immediatly if the action is not understood!
+      if (action == ACTION_UNKNOWN)
+      {
+         warnx("unknown command or subcommand <%s>", argv[optind]);
+         usage();
+         goto error;
+      }
+
+      // if here, the action is understood, but we need
+      // the file to oeprate onto!
+      // Therefore, if the user did not specify any config file
+      // the default one is used. Note that in the case of ACTION_MASTER_KEY
+      // there is no need for the file_path to be set, so setting to a default
+      // value does nothing.
+      // Setting the file also means we don't have to check against the file_path value.
+      if (file_path == NULL)
+      {
+         file_path = PGAGROAL_DEFAULT_USERS_FILE;
       }
 
       if (action == ACTION_MASTER_KEY)
@@ -205,69 +230,41 @@ main(int argc, char** argv)
       }
       else if (action == ACTION_ADD_USER)
       {
-         if (file_path != NULL)
+         if (add_user(file_path, username, password, generate_pwd, pwd_length))
          {
-            if (add_user(file_path, username, password, generate_pwd, pwd_length))
-            {
-               errx(1, "Error for add-user");
-            }
-         }
-         else
-         {
-            errx(1, "Missing file argument");
+            errx(1, "Error for <user add>");
          }
       }
       else if (action == ACTION_UPDATE_USER)
       {
-         if (file_path != NULL)
+         if (update_user(file_path, username, password, generate_pwd, pwd_length))
          {
-            if (update_user(file_path, username, password, generate_pwd, pwd_length))
-            {
-               errx(1, "Error for update-user");
-            }
-         }
-         else
-         {
-            errx(1, "Missing file argument");
+            errx(1, "Error for <user edit>");
          }
       }
       else if (action == ACTION_REMOVE_USER)
       {
-         if (file_path != NULL)
+
+         if (remove_user(file_path, username))
          {
-            if (remove_user(file_path, username))
-            {
-               errx(1, "Error for remove-user");
-            }
-         }
-         else
-         {
-            errx(1, "Missing file argument");
+            errx(1, "Error for <user del>");
          }
       }
       else if (action == ACTION_LIST_USERS)
       {
-         if (file_path != NULL)
+
+         if (list_users(file_path))
          {
-            if (list_users(file_path))
-            {
-               errx(1, "Error for list-users");
-            }
+            errx(1, "Error for <user ls>");
          }
-         else
-         {
-            errx(1, "Missing file argument");
-         }
+
       }
    }
 
-   if (action == ACTION_UNKNOWN)
-   {
-      usage();
-      exit_code = 1;
-   }
+   exit(0);
 
-   return exit_code;
+error:
+   exit(1);
 }
 
 static int

@@ -27,7 +27,7 @@ As an example, consider the user `myuser` created in the [Installing pgagroal tu
 To achieve this, as `pgagroal` operating system run the following command:
 
 ```
-pgagroal-admin -f /etc/pgagroal/pgagroal_frontend_users.conf -U myuser -P application_password add-user
+pgagroal-admin -f /etc/pgagroal/pgagroal_frontend_users.conf -U myuser -P application_password user add
 ```
 
 (`pgagroal` user)
@@ -39,7 +39,7 @@ You will need a password mapping for each user defined in the `pgagroal_users.co
 In order to apply changes, you need to restart `pgagroal`, so as the `pgagroal` operating system user do:
 
 ```
-pgagroal-cli -c /etc/pgagroal/pgagroal.conf stop
+pgagroal-cli -c /etc/pgagroal/pgagroal.conf shutdown
 pgagroal -c /etc/pgagroal/pgagroal.conf -a /etc/pgagroal/pgagroal_hba.conf -u /etc/pgagroal/pgagroal_users.conf -F /etc/pgagroal/pgagroal_frontend_users.conf
 ```
 

@@ -98,7 +98,7 @@ usage(void)
    printf("\n");
 
    printf("Usage:\n");
-   printf("  pgagroal-cli [ -c CONFIG_FILE ] [ COMMAND ] \n");
+   printf("  pgagroal-cli [ OPTIONS ] [ COMMAND ] \n");
    printf("\n");
    printf("Options:\n");
    printf("  -c, --config CONFIG_FILE Set the path to the pgagroal.conf file\n");
@@ -113,26 +113,37 @@ usage(void)
    printf("  -?, --help               Display help\n");
    printf("\n");
    printf("Commands:\n");
-   printf("  flush-idle               Flush idle connections\n");
-   printf("  flush-gracefully         Flush all connections gracefully\n");
-   printf("  flush-all                Flush all connections. USE WITH CAUTION !\n");
-   printf("  is-alive                 Is pgagroal alive\n");
-   printf("  enable                   Enable a database\n");
-   printf("  disable                  Disable a database\n");
-   printf("  gracefully               Stop pgagroal gracefully\n");
-   printf("  stop                     Stop pgagroal\n");
-   printf("  cancel-shutdown          Cancel the graceful shutdown\n");
+   printf("  flush [mode] [database]  Flush connections according to <mode>.\n");
+   printf("                           Allowed modes are:\n");
+   printf("                           - 'gracefully' (default) to flush all connections gracefully\n");
+   printf("                           - 'idle' to flush only idle connections\n");
+   printf("                           - 'all' to flush all connections. USE WITH CAUTION!\n");
+   printf("                           If no <database> name is specified, applies to all databases.\n");
+   printf("  is-alive                 Is pgagroal alive?\n");
+   printf("  enable   [database]      Enables the specified databases (or all databases)\n");
+   printf("  disable  [database]      Disables the specified databases (or all databases)\n");
+   printf("  shutdown [mode]          Stops pgagroal pooler. The <mode> can be:\n");
+   printf("                           - 'gracefully' (default) waits for active connections to quit\n");
+   printf("                           - 'immediate' forces connections to close and terminate\n");
+   printf("                           - 'cancel' avoid a previously issued 'shutdown gracefully'\n");
    printf("  status                   Status of pgagroal\n");
    printf("  details                  Detailed status of pgagroal\n");
-   printf("  switch-to                Switch to another primary\n");
-   printf("  reload                   Reload the configuration\n");
-   printf("  reset                    Reset the Prometheus statistics\n");
-   printf("  reset-server             Reset the state of a server\n");
-   printf("  config-get               Retrieves a configuration value\n");
-   printf("  config-set               Modifies a configuration value\n");
+   printf("  switch-to <server>       Switches to the specified primary server\n");
+   printf("  conf <action>            Manages the configuration (e.g., reloads the configuration\n");
+   printf("                           The subcommand <action> can be:\n");
+   printf("                           - 'reload' to issue a configuration reload;\n");
+   printf("                           - 'get' to obtain information about a runtime configuration value;\n");
+   printf("                                   conf get <parameter_name>\n.");
+   printf("                           - 'set' to modify a configuration value;\n");
+   printf("                                   conf set <parameter_name> <parameter_value>\n.");
+   printf("  clear <what>             Resets either the Prometheus statistics or the specified server.\n");
+   printf("                           <what> can be\n");
+   printf("                           - 'server' (default) followed by a server name\n");
+   printf("                           - a server name on its own\n");
+   printf("                           - 'prometheus' to reset the Prometheus metrics\n");
    printf("\n");
-   printf("pgagroal: %s\n", PGAGROAL_HOMEPAGE);
-   printf("Report bugs: %s\n", PGAGROAL_ISSUES);
+   printf("pgagroal: <%s>\n", PGAGROAL_HOMEPAGE);
+   printf("Report bugs: <%s>\n", PGAGROAL_ISSUES);
 }
 
 int
@@ -326,151 +337,129 @@ main(int argc, char** argv)
       }
    }
 
-   if (argc > 0)
+   if (parse_command(argc, argv, optind, "flush", "idle", &database, "*", NULL, NULL)
+       || parse_deprecated_command(argc, argv, optind, "flush-idle", &database, "flush idle", 1, 6))
    {
-      if (!strcmp("flush-idle", argv[argc - 1]) || !strcmp("flush-idle", argv[argc - 2]))
+      mode = FLUSH_IDLE;
+      action = ACTION_FLUSH;
+      pgagroal_log_trace("Command: <flush idle> [%s]", database);
+   }
+   else if (parse_command(argc, argv, optind, "flush", "all", &database, "*", NULL, NULL)
+            || parse_deprecated_command(argc, argv, optind, "flush-all", &database, "flush all", 1, 6))
+   {
+      mode = FLUSH_ALL;
+      action = ACTION_FLUSH;
+      pgagroal_log_trace("Command: <flush all> [%s]", database);
+   }
+   else if (parse_command(argc, argv, optind, "flush", "gracefully", &database, "*", NULL, NULL)
+            || parse_command(argc, argv, optind, "flush", NULL, &database, "*", NULL, NULL)
+            || parse_deprecated_command(argc, argv, optind, "flush-gracefully", &database, "flush", 1, 6))
+   {
+      mode = FLUSH_GRACEFULLY;
+      action = ACTION_FLUSH;
+      pgagroal_log_trace("Command: <flush gracefully> [%s]", database);
+   }
+   else if (parse_command(argc, argv, optind, "enable", NULL, &database, "*", NULL, NULL))
+   {
+      action = ACTION_ENABLEDB;
+      pgagroal_log_trace("Command: <enable> [%s]", database);
+   }
+   else if (parse_command(argc, argv, optind, "disable", NULL, &database, "*", NULL, NULL))
+   {
+      action = ACTION_DISABLEDB;
+      pgagroal_log_trace("Command: <disable> [%s]", database);
+   }
+   else if (parse_command_simple(argc, argv, optind, "shutdown", "immediate")
+            || parse_deprecated_command(argc, argv, optind, "stop", NULL, "shutdown immediate", 1, 6))
+   {
+      action = ACTION_STOP;
+      pgagroal_log_trace("Command: <shutdown immediate>");
+   }
+   else if (parse_command_simple(argc, argv, optind, "shutdown", "cancel")
+            || parse_deprecated_command(argc, argv, optind, "cancel-shutdown", NULL, "shutdown cancel", 1, 6))
+   {
+      action = ACTION_CANCELSHUTDOWN;
+      pgagroal_log_trace("Command: <shutdown cancel>");
+   }
+   else if (parse_command_simple(argc, argv, optind, "shutdown", "gracefully")
+            || parse_command_simple(argc, argv, optind, "shutdown", NULL)
+            || parse_deprecated_command(argc, argv, optind, "gracefully", NULL, "shutdown gracefully", 1, 6))
+   {
+      action = ACTION_GRACEFULLY;
+      pgagroal_log_trace("Command: <shutdown gracefully>");
+   }
+   else if (parse_command_simple(argc, argv, optind, "status", NULL))
+   {
+      action = ACTION_STATUS;
+      pgagroal_log_trace("Command: <status>");
+   }
+   else if (parse_command_simple(argc, argv, optind, "details", NULL))
+   {
+      action = ACTION_DETAILS;
+      pgagroal_log_trace("Command: <details>");
+   }
+   else if (parse_command_simple(argc, argv, optind, "is-alive", NULL))
+   {
+      action = ACTION_ISALIVE;
+      pgagroal_log_trace("Command: <is-alive>");
+   }
+   else if (parse_command_simple(argc, argv, optind, "clear", "prometheus")
+            || parse_deprecated_command(argc, argv, optind, "reset", NULL, "clear prometheus", 1, 6))
+   {
+      action = ACTION_RESET;
+      pgagroal_log_trace("Command: <clear prometheus>");
+   }
+   else if (parse_command(argc, argv, optind, "clear", "server", &server, "\0", NULL, NULL)
+            || parse_command(argc, argv, optind, "clear", NULL, &server, "\0", NULL, NULL)
+            || parse_deprecated_command(argc, argv, optind, "reset-server", &server, "clear server", 1, 6))
+   {
+      action = strlen(server) > 0 ? ACTION_RESET_SERVER : ACTION_UNKNOWN;
+      pgagroal_log_trace("Command: <clear server> [%s]", server);
+   }
+   else if (parse_command(argc, argv, optind, "switch-to", NULL, &server, "\0", NULL, NULL))
+   {
+      action = strlen(server) > 0 ? ACTION_SWITCH_TO : ACTION_UNKNOWN;
+      pgagroal_log_trace("Command: <switch-to> [%s]", server);
+   }
+   else if (parse_command_simple(argc, argv, optind, "conf", "reload")
+            || parse_deprecated_command(argc, argv, optind, "reload", NULL, "conf reload", 1, 6))
+   {
+      /* Local connection only */
+      if (configuration_path != NULL)
       {
-         mode = FLUSH_IDLE;
-         action = ACTION_FLUSH;
-         if (!strcmp("flush-idle", argv[argc - 1]))
-         {
-            database = "*";
-         }
-         else
-         {
-            database = argv[argc - 1];
-         }
+         action = ACTION_RELOAD;
       }
-      else if (!strcmp("flush-gracefully", argv[argc - 1]) || !strcmp("flush-gracefully", argv[argc - 2]))
-      {
-         mode = FLUSH_GRACEFULLY;
-         action = ACTION_FLUSH;
-         if (!strcmp("flush-gracefully", argv[argc - 1]))
-         {
-            database = "*";
-         }
-         else
-         {
-            database = argv[argc - 1];
-         }
-      }
-      else if (!strcmp("flush-all", argv[argc - 1]) || !strcmp("flush-all", argv[argc - 2]))
-      {
-         mode = FLUSH_ALL;
-         action = ACTION_FLUSH;
-         if (!strcmp("flush-all", argv[argc - 1]))
-         {
-            database = "*";
-         }
-         else
-         {
-            database = argv[argc - 1];
-         }
-      }
-      else if (!strcmp("enable", argv[argc - 1]) || !strcmp("enable", argv[argc - 2]))
-      {
-         action = ACTION_ENABLEDB;
-         if (!strcmp("enable", argv[argc - 1]))
-         {
-            database = "*";
-         }
-         else
-         {
-            database = argv[argc - 1];
-         }
-      }
-      else if (!strcmp("disable", argv[argc - 1]) || !strcmp("disable", argv[argc - 2]))
-      {
-         action = ACTION_DISABLEDB;
-         if (!strcmp("disable", argv[argc - 1]))
-         {
-            database = "*";
-         }
-         else
-         {
-            database = argv[argc - 1];
-         }
-      }
-      else if (!strcmp("gracefully", argv[argc - 1]))
-      {
-         action = ACTION_GRACEFULLY;
-      }
-      else if (!strcmp("stop", argv[argc - 1]))
-      {
-         action = ACTION_STOP;
-      }
-      else if (!strcmp("status", argv[argc - 1]))
-      {
-         action = ACTION_STATUS;
-      }
-      else if (!strcmp("details", argv[argc - 1]))
-      {
-         action = ACTION_DETAILS;
-      }
-      else if (!strcmp("is-alive", argv[argc - 1]))
-      {
-         action = ACTION_ISALIVE;
-      }
-      else if (!strcmp("cancel-shutdown", argv[argc - 1]))
-      {
-         action = ACTION_CANCELSHUTDOWN;
-      }
-      else if (!strcmp("reset", argv[argc - 1]))
-      {
-         action = ACTION_RESET;
-      }
-      else if (!strcmp("reset-server", argv[argc - 1]) || !strcmp("reset-server", argv[argc - 2]))
-      {
-         if (!strcmp("reset-server", argv[argc - 2]))
-         {
-            action = ACTION_RESET_SERVER;
-            server = argv[argc - 1];
-         }
-      }
-      else if (!strcmp("switch-to", argv[argc - 1]) || !strcmp("switch-to", argv[argc - 2]))
-      {
-         if (!strcmp("switch-to", argv[argc - 2]))
-         {
-            action = ACTION_SWITCH_TO;
-            server = argv[argc - 1];
-         }
-      }
-      else if (!strcmp("reload", argv[argc - 1]))
-      {
-         /* Local connection only */
-         if (configuration_path != NULL)
-         {
-            action = ACTION_RELOAD;
-         }
-      }
-      else if (argc > 2 && !strncmp("config-get", argv[argc - 2], MISC_LENGTH) && strlen(argv[argc - 1]) > 0)
-      {
-         /* get a configuration value */
-         action = ACTION_CONFIG_GET;
-         config_key = argv[argc - 1];
-      }
-      else if (argc > 3 && !strncmp("config-set", argv[argc - 3], MISC_LENGTH)
-               && strlen(argv[argc - 2]) > 0
-               && strlen(argv[argc - 1]) > 0)
-      {
-         /* set a configuration value */
-         action = ACTION_CONFIG_SET;
-         config_key = argv[argc - 2];
-         config_value = argv[argc - 1];
-      }
+      pgagroal_log_debug("Command: <reload>");
+   }
+   else if (parse_command(argc, argv, optind, "conf", "get", &config_key, NULL, NULL, NULL)
+            || parse_deprecated_command(argc, argv, optind, "config-get", NULL, "conf get", 1, 6))
+   {
+      action = config_key != NULL && strlen(config_key) > 0 ? ACTION_CONFIG_GET : ACTION_UNKNOWN;
+      pgagroal_log_debug("Command: <conf get> [%s]", config_key);
+   }
+   else if (parse_command(argc, argv, optind, "conf", "set", &config_key, NULL, &config_value, NULL)
+            || parse_deprecated_command(argc, argv, optind, "config-set", NULL, "conf set", 1, 6))
+   {
+      // if there is no configuration key set the action to unknown, so the help screen will be printed
+      action = config_key != NULL && strlen(config_key) > 0 ? ACTION_CONFIG_SET : ACTION_UNKNOWN;
+      pgagroal_log_debug("Command: <conf set> [%s] = [%s]", config_key, config_value);
+   }
 
-      if (action != ACTION_UNKNOWN)
+   if (action != ACTION_UNKNOWN)
+   {
+      if (!remote_connection)
       {
-         if (!remote_connection)
+         /* Local connection */
+         if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &socket))
          {
-            /* Local connection */
-            if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &socket))
-            {
-               exit_code = 1;
-               goto done;
-            }
+            exit_code = 1;
+            goto done;
          }
-         else
+      }
+      else
+      {
+         /* Remote connection */
+         if (pgagroal_connect(host, atoi(port), &socket))
          {
             /* Remote connection */
 
@@ -495,123 +484,125 @@ main(int argc, char** argv)
                goto done;
             }
 
-            /* User name */
-            if (username == NULL)
-            {
+         }
+
+         /* User name */
+         if (username == NULL)
+         {
 username:
-               printf("User name: ");
+            printf("User name: ");
 
-               memset(&un, 0, sizeof(un));
-               if (fgets(&un[0], sizeof(un), stdin) == NULL)
-               {
-                  exit_code = 1;
-                  goto done;
-               }
-               un[strlen(un) - 1] = 0;
-               username = &un[0];
+            memset(&un, 0, sizeof(un));
+            if (fgets(&un[0], sizeof(un), stdin) == NULL)
+            {
+               exit_code = 1;
+               goto done;
+            }
+            un[strlen(un) - 1] = 0;
+            username = &un[0];
+         }
+
+         if (username == NULL || strlen(username) == 0)
+         {
+            goto username;
+         }
+
+         /* Password */
+         if (password == NULL)
+         {
+            if (password != NULL)
+            {
+               free(password);
+               password = NULL;
             }
 
-            if (username == NULL || strlen(username) == 0)
-            {
-               goto username;
-            }
+            printf("Password : ");
+            password = pgagroal_get_password();
+            printf("\n");
+         }
+         else
+         {
+            do_free = false;
+         }
 
-            /* Password */
-            if (password == NULL)
+         for (int i = 0; i < strlen(password); i++)
+         {
+            if ((unsigned char)(*(password + i)) & 0x80)
             {
-password:
-               if (password != NULL)
-               {
-                  free(password);
-                  password = NULL;
-               }
 
-               printf("Password : ");
-               password = pgagroal_get_password();
-               printf("\n");
-            }
-            else
-            {
-               do_free = false;
-            }
-
-            for (int i = 0; i < strlen(password); i++)
-            {
-               if ((unsigned char)(*(password + i)) & 0x80)
-               {
-                  goto password;
-               }
-            }
-
-            /* Authenticate */
-            if (pgagroal_remote_management_scram_sha256(username, password, socket, &s_ssl) != AUTH_SUCCESS)
-            {
                warnx("Bad credentials for %s\n", username);
                goto done;
             }
          }
-      }
 
-      if (action == ACTION_FLUSH)
-      {
-         exit_code = flush(s_ssl, socket, mode, database);
+         /* Authenticate */
+         if (pgagroal_remote_management_scram_sha256(username, password, socket, &s_ssl) != AUTH_SUCCESS)
+         {
+            printf("pgagroal-cli: Bad credentials for %s\n", username);
+            goto done;
+         }
       }
-      else if (action == ACTION_ENABLEDB)
-      {
-         exit_code = enabledb(s_ssl, socket, database);
-      }
-      else if (action == ACTION_DISABLEDB)
-      {
-         exit_code = disabledb(s_ssl, socket, database);
-      }
-      else if (action == ACTION_GRACEFULLY)
-      {
-         exit_code = gracefully(s_ssl, socket);
-      }
-      else if (action == ACTION_STOP)
-      {
-         exit_code = stop(s_ssl, socket);
-      }
-      else if (action == ACTION_CANCELSHUTDOWN)
-      {
-         exit_code = cancel_shutdown(s_ssl, socket);
-      }
-      else if (action == ACTION_STATUS)
-      {
-         exit_code = status(s_ssl, socket);
-      }
-      else if (action == ACTION_DETAILS)
-      {
-         exit_code = details(s_ssl, socket);
-      }
-      else if (action == ACTION_ISALIVE)
-      {
-         exit_code = isalive(s_ssl, socket);
-      }
-      else if (action == ACTION_RESET)
-      {
-         exit_code = reset(s_ssl, socket);
-      }
-      else if (action == ACTION_RESET_SERVER)
-      {
-         exit_code = reset_server(s_ssl, socket, server);
-      }
-      else if (action == ACTION_SWITCH_TO)
-      {
-         exit_code = switch_to(s_ssl, socket, server);
-      }
-      else if (action == ACTION_RELOAD)
-      {
-         exit_code = reload(s_ssl, socket);
-      }
-      else if (action == ACTION_CONFIG_GET)
-      {
-         exit_code = config_get(s_ssl, socket, config_key, verbose);
-      }
-      else if (action == ACTION_CONFIG_SET)
-      {
-         exit_code = config_set(s_ssl, socket, config_key, config_value, verbose);
-      }
+   }
+
+   if (action == ACTION_FLUSH)
+   {
+      exit_code = flush(s_ssl, socket, mode, database);
+   }
+   else if (action == ACTION_ENABLEDB)
+   {
+      exit_code = enabledb(s_ssl, socket, database);
+   }
+   else if (action == ACTION_DISABLEDB)
+   {
+      exit_code = disabledb(s_ssl, socket, database);
+   }
+   else if (action == ACTION_GRACEFULLY)
+   {
+      exit_code = gracefully(s_ssl, socket);
+   }
+   else if (action == ACTION_STOP)
+   {
+      exit_code = stop(s_ssl, socket);
+   }
+   else if (action == ACTION_CANCELSHUTDOWN)
+   {
+      exit_code = cancel_shutdown(s_ssl, socket);
+   }
+   else if (action == ACTION_STATUS)
+   {
+      exit_code = status(s_ssl, socket);
+   }
+   else if (action == ACTION_DETAILS)
+   {
+      exit_code = details(s_ssl, socket);
+   }
+   else if (action == ACTION_ISALIVE)
+   {
+      exit_code = isalive(s_ssl, socket);
+   }
+   else if (action == ACTION_RESET)
+   {
+      exit_code = reset(s_ssl, socket);
+   }
+   else if (action == ACTION_RESET_SERVER)
+   {
+      exit_code = reset_server(s_ssl, socket, server);
+   }
+   else if (action == ACTION_SWITCH_TO)
+   {
+      exit_code = switch_to(s_ssl, socket, server);
+   }
+   else if (action == ACTION_RELOAD)
+   {
+      exit_code = reload(s_ssl, socket);
+   }
+   else if (action == ACTION_CONFIG_GET)
+   {
+      exit_code = config_get(s_ssl, socket, config_key, verbose);
+   }
+   else if (action == ACTION_CONFIG_SET)
+   {
+      exit_code = config_set(s_ssl, socket, config_key, config_value, verbose);
    }
 
 done:
@@ -633,6 +624,7 @@ done:
 
    if (action == ACTION_UNKNOWN)
    {
+      printf("pgagroal-cli: unknown command %s\n", argv[optind]);
       usage();
       exit_code = 1;
    }

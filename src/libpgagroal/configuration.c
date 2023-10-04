@@ -4011,10 +4011,10 @@ pgagroal_apply_main_configuration(struct configuration* config,
    }
    else if (key_in_section("max_connection_age", section, key, true, &unknown))
    {
-       if (as_int(value, &config->max_connection_age))
-       {
-           unknown = true;
-       }
+      if (as_int(value, &config->max_connection_age))
+      {
+         unknown = true;
+      }
    }
    else if (key_in_section("validation", section, key, true, &unknown))
    {
