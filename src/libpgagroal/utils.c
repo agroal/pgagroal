@@ -1061,7 +1061,7 @@ parse_deprecated_command(int argc,
    if (deprecated_by
        && pgagroal_version_ge(deprecated_since_major, deprecated_since_minor, 0))
    {
-      warnx("command <%s> has been deprecated by <%s> since version %d.%d\n",
+      warnx("command <%s> has been deprecated by <%s> since version %d.%d",
             command, deprecated_by, deprecated_since_major, deprecated_since_minor);
    }
 
