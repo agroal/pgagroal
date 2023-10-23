@@ -10,7 +10,7 @@ pgagroal_cli_completions()
     if [ "${#COMP_WORDS[@]}" == "2" ]; then
         # main completion: the user has specified nothing at all
         # or a single word, that is a command
-        COMPREPLY=($(compgen -W "flush is-alive enable disable shutdown status details switch-to conf clear" "${COMP_WORDS[1]}"))
+        COMPREPLY=($(compgen -W "flush ping enable disable shutdown status switch-to conf clear" "${COMP_WORDS[1]}"))
     else
         # the user has specified something else
         # subcommand required?
@@ -27,6 +27,8 @@ pgagroal_cli_completions()
 	    conf)
 		COMPREPLY+=($(compgen -W "reload get set" "${COMP_WORDS[2]}"))
 		;;
+	    status)
+		COMPREPLY+=($(compgen -W "details" "${COMP_WORDS[2]}"))
         esac
     fi
 

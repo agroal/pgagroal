@@ -59,19 +59,28 @@ pgagroal-cli flush all       # pgagroal-cli flush all '*'
 pgagroal-cli flush pgbench   # pgagroal-cli flush gracefully pgbench
 ```
 
-### is-alive
-Is pgagroal alive
+### ping
+The `ping` command checks if `pgagroal` is running.
+In case of success, the command does not print anything on the standard output unless the `--verbose` flag is used.
 
 Command
 
 ```
-pgagroal-cli is-alive
+pgagroal-cli ping
 ```
 
 Example
 
 ```
-pgagroal-cli is-alive
+pgagroal-cli ping --verbose  # pgagroal-cli: Success (0)
+pgagroal-cli ping            # $? = 0
+```
+
+In the case `pgagroal` is not running, a message is printed on the standard error and the exit status is set to a non-zero value:
+
+```
+pgagroal-cli ping          # $? = 1
+Connection error on /tmp
 ```
 
 ### enable
@@ -131,7 +140,8 @@ pgagroal-cli shutdown cancel  # stops the above command
 
 
 ### status
-Status of pgagroal
+The `status` command reports the current status of the `pgagroal` pooler.
+Without any subcommand, `status` reports back a short set of information about the pooler.
 
 Command
 
@@ -143,21 +153,15 @@ Example
 
 ```
 pgagroal-cli status
-```
-
-### details
-Detailed status of pgagroal
-
-Command
 
 ```
-pgagroal-cli details
-```
+
+With the `details` subcommand, a more verbose output is printed with a detail about every connection.
 
 Example
 
 ```
-pgagroal-cli details
+pgagroal-cli status details
 ```
 
 ### switch-to
@@ -334,7 +338,9 @@ to the working command:
 - `reset` is equivalent to `clear prometheus`;
 - `reset-server` is equivalent to `clear server` or simply `clear`;
 - `config-get` and `config-set` are respectively `conf get` and `conf set`;
-- `reload` is equivalent to `conf reload`.
+- `reload` is equivalent to `conf reload`;
+- `is-alive` is equivalent to `ping`;
+- `details` is equivalent to `status details`.
 
 
 Whenever you use a deprecated command, the `pgagroal-cli` will print on standard error a warning message.

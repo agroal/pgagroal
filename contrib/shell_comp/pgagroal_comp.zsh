@@ -6,7 +6,7 @@ function _pgagroal_cli()
 {
     local line
     _arguments -C \
-               "1: :(flush is-alive enable disable shutdown status details switch-to conf clear)" \
+               "1: :(flush ping enable disable shutdown status switch-to conf clear)" \
                "*::arg:->args"
 
     case $line[1] in
@@ -21,6 +21,9 @@ function _pgagroal_cli()
             ;;
 	conf)
 	    _pgagroal_cli_conf
+	    ;;
+	status)
+	    _pgagroal_cli_status
 	    ;;
     esac
 }
@@ -76,5 +79,13 @@ function _pgagroal_admin_user()
 {
     _arguments -C \
                "1: :(add del edit ls)" \
+               "*::arg:->args"
+}
+
+function _pgagroal_cli_status()
+{
+    local line
+    _arguments -C \
+               "1: :(details)" \
                "*::arg:->args"
 }

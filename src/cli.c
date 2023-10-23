@@ -55,7 +55,7 @@
 #define ACTION_GRACEFULLY      2
 #define ACTION_STOP            3
 #define ACTION_STATUS          4
-#define ACTION_DETAILS         5
+#define ACTION_STATUS_DETAILS  5
 #define ACTION_ISALIVE         6
 #define ACTION_CANCELSHUTDOWN  7
 #define ACTION_ENABLEDB        8
@@ -119,15 +119,14 @@ usage(void)
    printf("                           - 'idle' to flush only idle connections\n");
    printf("                           - 'all' to flush all connections. USE WITH CAUTION!\n");
    printf("                           If no <database> name is specified, applies to all databases.\n");
-   printf("  is-alive                 Is pgagroal alive?\n");
+   printf("  ping                     Verifies if pgagroal is up and running\n");
    printf("  enable   [database]      Enables the specified databases (or all databases)\n");
    printf("  disable  [database]      Disables the specified databases (or all databases)\n");
    printf("  shutdown [mode]          Stops pgagroal pooler. The <mode> can be:\n");
    printf("                           - 'gracefully' (default) waits for active connections to quit\n");
    printf("                           - 'immediate' forces connections to close and terminate\n");
    printf("                           - 'cancel' avoid a previously issued 'shutdown gracefully'\n");
-   printf("  status                   Status of pgagroal\n");
-   printf("  details                  Detailed status of pgagroal\n");
+   printf("  status [details]         Status of pgagroal, with optional details\n");
    printf("  switch-to <server>       Switches to the specified primary server\n");
    printf("  conf <action>            Manages the configuration (e.g., reloads the configuration\n");
    printf("                           The subcommand <action> can be:\n");
@@ -388,17 +387,20 @@ main(int argc, char** argv)
       action = ACTION_GRACEFULLY;
       pgagroal_log_trace("Command: <shutdown gracefully>");
    }
+   else if (parse_command_simple(argc, argv, optind, "status", "details")
+            || parse_deprecated_command(argc, argv, optind, "details", NULL, "status details", 1, 6))
+   {
+      /* the 'status details' has to be parsed before the normal 'status' command !*/
+      action = ACTION_STATUS_DETAILS;
+      pgagroal_log_trace("Command: <status details>");
+   }
    else if (parse_command_simple(argc, argv, optind, "status", NULL))
    {
       action = ACTION_STATUS;
       pgagroal_log_trace("Command: <status>");
    }
-   else if (parse_command_simple(argc, argv, optind, "details", NULL))
-   {
-      action = ACTION_DETAILS;
-      pgagroal_log_trace("Command: <details>");
-   }
-   else if (parse_command_simple(argc, argv, optind, "is-alive", NULL))
+   else if (parse_command_simple(argc, argv, optind, "ping", NULL)
+            || parse_deprecated_command(argc, argv, optind, "is-alive", NULL, "ping", 1, 6))
    {
       action = ACTION_ISALIVE;
       pgagroal_log_trace("Command: <is-alive>");
@@ -572,7 +574,7 @@ username:
    {
       exit_code = status(s_ssl, socket);
    }
-   else if (action == ACTION_DETAILS)
+   else if (action == ACTION_STATUS_DETAILS)
    {
       exit_code = details(s_ssl, socket);
    }
