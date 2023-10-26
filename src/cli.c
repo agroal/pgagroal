@@ -132,9 +132,9 @@ usage(void)
    printf("                           The subcommand <action> can be:\n");
    printf("                           - 'reload' to issue a configuration reload;\n");
    printf("                           - 'get' to obtain information about a runtime configuration value;\n");
-   printf("                                   conf get <parameter_name>\n.");
+   printf("                                   conf get <parameter_name>\n");
    printf("                           - 'set' to modify a configuration value;\n");
-   printf("                                   conf set <parameter_name> <parameter_value>\n.");
+   printf("                                   conf set <parameter_name> <parameter_value>\n");
    printf("  clear <what>             Resets either the Prometheus statistics or the specified server.\n");
    printf("                           <what> can be\n");
    printf("                           - 'server' (default) followed by a server name\n");
