@@ -11,6 +11,7 @@
 #include <logging.h>
 #include <utils.h>
 #include <message.h>
+#include <memory.h>
 
 #define HTTP_PORT 80
 #define HTTPS_PORT 443
@@ -172,11 +173,13 @@ static void handle_get_password_by_name(const char *method, struct KV *params, c
         if (kv && strcmp(kv->value, "myuser") == 0) {
             struct message* msg;
             pgagroal_write_frontend_password_request(NULL, client_socket, kv->value);
+            // pgagroal_memory_init();
             pgagroal_read_socket_message(client_socket, &msg);
             snprintf(response, response_size, "HTTP/1.1 200 OK\r\n"
                      "Content-Type: text/plain\r\n"
                      "\r\n"
                      "Password is: %s\r\n", (char*)msg->data);
+            // pgagroal_memory_destroy();
         } else {
             snprintf(response, response_size, "HTTP/1.1 400 Bad Request\r\n\r\n");
         }

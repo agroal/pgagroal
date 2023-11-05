@@ -41,6 +41,7 @@
 #include <shmem.h>
 #include <utils.h>
 #include <worker.h>
+#include <memory.h>
 
 /* system */
 #include <errno.h>
@@ -1975,15 +1976,18 @@ handle_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    config = (struct configuration*)shmem;
 
-   pgagroal_read_socket_message(watcher->fd, &msg);
-
-   for (int i = 0; i < config->number_of_frontend_users; i++)
+   pgagroal_memory_init();   
+   if (pgagroal_read_socket_message(watcher->fd, &msg) == MESSAGE_STATUS_OK)
    {
-      if (!strcmp(&config->frontend_users[i].username[0], (char *)msg->data))
+      for (int i = 0; i < config->number_of_frontend_users; i++)
       {
-         pgagroal_write_frontend_password_response(0, watcher->fd, config->frontend_users[i].password);
+         if (!strcmp(&config->frontend_users[i].username[0], (char *)msg->data))
+         {
+            pgagroal_write_frontend_password_response(0, watcher->fd, config->frontend_users[i].password);
+         }
       }
    }
+   pgagroal_memory_destroy();
 }
 
 static bool
