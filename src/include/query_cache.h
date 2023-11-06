@@ -81,7 +81,7 @@ pgagroal_query_cache_init(size_t* p_size, void** p_shmem);
  * @warning The caller should ensure the validity of the 'Table' pointer and the 'key' pointer.
  */
 struct hashEntry*
-pgagroal_query_cache_get(struct query_cache* cache, struct hashTable** Table, struct hashEntry* key);
+pgagroal_query_cache_get(struct query_cache* cache, struct hashTable** Table, char* key);
 
 /**
  * Invalidate a cache entry and remove it from the hash table.
@@ -142,7 +142,7 @@ pgagroal_query_cache_update(struct hashTable** Table, struct hashEntry* key, str
  *          The caller should manage memory to avoid leaks.
  */
 int
-pgagroal_query_cache_add(struct query_cache* cache, struct hashTable** Table, struct hashEntry* data, struct hashEntry* key, int flag);
+pgagroal_query_cache_add(struct query_cache* cache, struct hashTable** Table, struct hashEntry* data, char* key);
 
 /**
  * Clear all cache entries from the hash table and free associated memory.

@@ -339,27 +339,13 @@ session_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
             client_query->key_length = key_length;
             client_query->kind = msg->kind;
+            char key[1024];
+            strcpy(key, msg->data + 5);
+            
 
-            struct hashEntry* key = NULL;
-            key = (struct hashEntry*)malloc(sizeof(struct hashEntry) + client_query->key_length + 1);
-
-            if (key == NULL)
-            {
-
-               client_inactive(wi->slot);
-               ev_break(loop, EVBREAK_ONE);
-               return;
-            }
-
-            memset(key->key, 0, client_query->key_length + 1);
-
-            memcpy(key->key, client_query->key, key_length);
-            key->key[client_query->key_length + 1] = '\0';
-
-            key->length = client_query->key_length;
             struct hashEntry* s = pgagroal_query_cache_get(cache, &(cache->table), key);
 
-            if (s != NULL && s->value != NULL)
+            if (s != NULL)
             {
                // log cache hit
                struct message* result = NULL;
@@ -552,60 +538,18 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
          if (!pgagroal_extract_message('Z', msg, &tmp))
          {
 
-            struct hashEntry* key, * data;
-            key = (struct hashEntry*)malloc(sizeof(struct hashEntry) + client_query->key_length + 1);
+            char key[1024];
+            struct hashEntry* data = NULL;
+
+            strcpy(key, client_query->key);
             data = (struct hashEntry*)malloc(sizeof(struct hashEntry) + msg->length);
-
-            if (key == NULL || data == NULL)
-            {
-
-               if (key != NULL)
-               {
-                  free(key);
-                  key = NULL;
-               }
-               if (data != NULL)
-               {
-                  free(data);
-                  data = NULL;
-               }
-               client_inactive(wi->slot);
-               ev_break(loop, EVBREAK_ONE);
-
-               return;
-            }
-
             data->value = malloc(msg->length);
-            memset(key->key, 0, client_query->key_length + 1);
-
-            if (data->value == NULL)
-            {
-
-               if (data->value != NULL)
-               {
-                  free(data->value);
-                  data->value = NULL;
-               }
-               if (data != NULL)
-               {
-                  free(data);
-                  data = NULL;
-               }
-               client_inactive(wi->slot);
-               ev_break(loop, EVBREAK_ONE);
-
-               return;
-            }
-
-            memcpy(key->key, client_query->key, client_query->key_length);
-            key->key[client_query->key_length + 1] = '\0';
-            key->length = client_query->key_length;
 
             memset(data->value, 0, msg->length);
             memcpy(data->value, msg->data, msg->length);
             data->length = msg->length;
 
-            pgagroal_query_cache_add(cache, &(cache->table), data, key, 1);
+            pgagroal_query_cache_add(cache, &(cache->table), data, key);
 
          }
 

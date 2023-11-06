@@ -92,18 +92,14 @@ error:
    return 1;
 }
 struct hashEntry*
-pgagroal_query_cache_get(struct query_cache* cache, struct hashTable** Table, struct hashEntry* key)
+pgagroal_query_cache_get(struct query_cache* cache, struct hashTable** Table, char* key)
 {
-   for (int i = 0; i < cache->max_elements; i++)
+
+   struct hashTable* s = NULL;
+   HASH_FIND_STR(*Table, key, s);
+   if (s)
    {
-
-      int x = strncmp(cache->cache[i].key->key, key->key, key->length);
-
-      if (x == 0)
-      {
-
-         return cache->cache[i].data;
-      }
+      return s->data;
    }
    return NULL;
 
@@ -127,41 +123,25 @@ int
 pgagroal_query_cache_update(struct hashTable** Table, struct hashEntry* key, struct hashEntry* data)
 {
 
-   struct hashTable* s = NULL;
-   void* qkey = malloc(strlen(key->value) + 1);
-   strcpy(qkey, key->value);
-   HASH_FIND(hh, *Table, qkey, strlen(qkey), s);
-   HASH_DEL(*Table, s);
-   if (s == NULL)
-   {
-      return 0;
-   }
-   if (data->length > HASH_ENTRY_DATA_SIZE)
-   {
-      free(s);
-      return 0;
-   }
-
-   s->data = data;
-   HASH_ADD_KEYPTR(hh, *Table, s->key->value, strlen(s->key->value), s);
    return 1;
 }
 
 int
-pgagroal_query_cache_add(struct query_cache* cache, struct hashTable** Table, struct hashEntry* data, struct hashEntry* key, int flag)
+pgagroal_query_cache_add(struct query_cache* cache, struct hashTable** Table, struct hashEntry* data, char* key)
 {
-   if (cache->max_elements >= QUERY_CACHE_MAX_ENTRIES)
+
+   struct hashTable* s = NULL;
+   HASH_FIND_STR(*Table, key, s);
+   if (s)
    {
-      pgagroal_log_warn("Cache is full %d", cache->max_elements);
-
-      return -1;
+      return 0;
    }
+   s = (struct hashTable*)malloc(sizeof(struct hashTable));
 
-   int idx = cache->max_elements;
-
-   cache->cache[idx].key = key;
-   cache->cache[idx].data = data;
-   cache->max_elements = idx + 1;
+   memset(s->key, 0, 1024);
+   strcpy(s->key, key);
+   s->data = data;
+   HASH_ADD_STR(*Table, key, s);
 
    return 1;
 
