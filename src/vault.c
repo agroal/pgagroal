@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +11,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <err.h>
+#include <getopt.h>
 #ifdef HAVE_LINUX
 #include <systemd/sd-daemon.h>
 #endif
@@ -45,16 +45,12 @@ static void handle(int client_fd, SSL *ssl, int is_http);
 static void handle_url(const char *buffer, int client_fd, SSL *ssl, int is_http);
 static void *http_thread_func(void *arg);
 static void *https_thread_func(void *arg);
-static void handle_get_password_by_name(const char *method, struct KV *params, char *response, size_t response_size);
+static void handle_users(const char *method, char *username, struct KV *params, char *response, size_t response_size);
 static void handle_info(const char *method, const char *contents, char *response, size_t response_size);
 static void handle_default(char *response, size_t response_size);
 
 static SSL_CTX *ssl_ctx;
 static int client_socket;
-static int known_fds[MAX_NUMBER_OF_CONNECTIONS];
-static int* main_fds = NULL;
-static int main_fds_length = -1;
-static int unix_pgsql_socket = -1;
 
 static void initialize_ssl(void)
 {
@@ -161,6 +157,8 @@ static void handle_url(const char *buffer, int client_fd, SSL *ssl, int is_http)
    char method[8];
    char path[128];
    char contents[BUFFER_SIZE];
+   char response[BUFFER_SIZE];
+   char format_string[BUFFER_SIZE];
 
    sscanf(buffer, "%7s %127s", method, path);
 
@@ -180,11 +178,17 @@ static void handle_url(const char *buffer, int client_fd, SSL *ssl, int is_http)
    }
 
    // Call the appropriate handler function for the URL path
-   char response[BUFFER_SIZE];
-   if (strcmp(path, "/get_password_by_name") == 0)
+   if (strncmp(path, "/users/", 7) == 0 && strcmp(method, "GET") == 0)
    {
-      handle_get_password_by_name(method, map, response, sizeof(response));
-   }
+      // Extract the username from the path
+      char username[MAX_USERNAME_LENGTH + 1]; // Assuming username is less than 120 characters
+      snprintf(format_string, sizeof(format_string), "/users/%%%ds", MAX_USERNAME_LENGTH);
+      sscanf(path, "/users/%128s", username);
+
+      // Call the appropriate handler function with the username
+      // handle_users(username, response, sizeof(response));
+      handle_users(method, username, map, response, sizeof(response));
+   }   
    else if (strcmp(path, "/info") == 0)
    {
       handle_info(method, contents, response, sizeof(response));
@@ -210,14 +214,14 @@ static void handle_url(const char *buffer, int client_fd, SSL *ssl, int is_http)
    free_hash_map(&map);
 }
 
-static void handle_get_password_by_name(const char *method, struct KV *params, char *response, size_t response_size)
+static void handle_users(const char *method, char *username, struct KV *params, char *response, size_t response_size)
 {
    if (strcmp(method, "GET") == 0)
    {
       struct KV *kv;
       HASH_FIND_STR(params, "username", kv);
       struct message *msg;
-      pgagroal_write_frontend_password_request(NULL, client_socket, kv->value);
+      pgagroal_write_frontend_password_request(NULL, client_socket, username);
       pgagroal_memory_init();
       pgagroal_read_socket_message(client_socket, &msg);
       if(strcmp((char *)msg->data, "") != 0) {
@@ -361,450 +365,194 @@ static void *https_thread_func(void *arg)
    return NULL;
 }
 
-int main(int arvc, char **argv)
+int main(int argc, char **argv)
 {
-   // Read conifg file just like pgagroal
-   bool has_unix_socket = false;
-   bool has_main_sockets = false;
-   char* configuration_path = NULL;
-   char* hba_path = NULL;
-   char* limit_path = NULL;
-   char* users_path = NULL;
-   char* frontend_users_path = NULL;
-   char* admins_path = NULL;
-   char* superuser_path = NULL;
-   void* tmp_shmem = NULL;
-   size_t shmem_size;
-   size_t tmp_size;
-   struct configuration* config = NULL;
+   // int socket = -1;
+   // SSL* s_ssl = NULL;
    int ret;
-   bool conf_file_mandatory;
-   char message[MISC_LENGTH];
-#ifdef HAVE_LINUX
-   int sds;
-#endif
+   // int exit_code = 0;
+   char* configuration_path = NULL;
+   char* host = NULL;
+   char* port = NULL;
+   char* username = NULL;
+   char* password = NULL;
+   // bool verbose = false;
+   char* logfile = NULL;
+   // bool do_free = true;
+   int c;
+   int option_index = 0;
+   size_t size;
+   // int32_t mode = FLUSH_IDLE;
+   // char* database = NULL;
+   // char un[MAX_USERNAME_LENGTH];
+   // char* server = NULL;
+   struct configuration* config = NULL;
+   bool remote_connection = false;
+   // long l_port;
+   // char* config_key = NULL; /* key for a configuration setting */
+   // char* config_value = NULL; /* value for a configuration setting */
+
+   while (1)
+   {
+      static struct option long_options[] =
+      {
+         {"config", required_argument, 0, 'c'},
+         {"host", required_argument, 0, 'h'},
+         {"port", required_argument, 0, 'p'},
+         {"user", required_argument, 0, 'U'},
+         {"password", required_argument, 0, 'P'},
+         {"logfile", required_argument, 0, 'L'},
+         {"verbose", no_argument, 0, 'v'},
+         {"version", no_argument, 0, 'V'},
+         {"help", no_argument, 0, '?'}
+      };
+
+      c = getopt_long(argc, argv, "vV?c:h:p:U:P:L:",
+                      long_options, &option_index);
+
+      if (c == -1)
+      {
+         break;
+      }
+
+      switch (c)
+      {
+         case 'c':
+            configuration_path = optarg;
+            break;
+         case 'h':
+            host = optarg;
+            break;
+         case 'p':
+            port = optarg;
+            break;
+         case 'U':
+            username = optarg;
+            break;
+         case 'P':
+            password = optarg;
+            break;
+         case 'L':
+            logfile = optarg;
+            break;
+         // case 'v':
+         //    verbose = true;
+         //    break;
+         // case 'V':
+         //    version();
+         //    break;
+         // case '?':
+         //    usage();
+         //    exit(1);
+         //    break;
+         default:
+            break;
+      }
+   }
 
    if (getuid() == 0)
    {
-#ifdef HAVE_LINUX
-      sd_notify(0, "STATUS=Using the root account is not allowed");
-#endif
       errx(1, "Using the root account is not allowed");
    }
 
-   shmem_size = sizeof(struct configuration);
-   if (pgagroal_create_shared_memory(shmem_size, HUGEPAGE_OFF, &shmem))
+   // if the user has specified the host and port
+   // options, she wants a remote connection
+   // but both remote connection parameters have to be set
+   if (host != NULL || port != NULL)
    {
-#ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=Error in creating shared memory");
-#endif
-      errx(1, "Error in creating shared memory");
-   }
-
-   pgagroal_init_configuration(shmem);
-   config = (struct configuration*)shmem;
-
-   memset(&known_fds, 0, sizeof(known_fds));
-   memset(message, 0, MISC_LENGTH);
-
-   // the main configuration file is mandatory!
-   configuration_path = configuration_path != NULL ? configuration_path : PGAGROAL_DEFAULT_CONF_FILE;
-   if ((ret = pgagroal_read_configuration(shmem, configuration_path, true)) != PGAGROAL_CONFIGURATION_STATUS_OK)
-   {
-      // the configuration has some problem, build up a descriptive message
-      if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
+      remote_connection = host != NULL && port != NULL;
+      if (!remote_connection)
       {
-         snprintf(message, MISC_LENGTH, "Configuration file not found");
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
-      {
-         snprintf(message, MISC_LENGTH, "Too many sections");
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_KO)
-      {
-         snprintf(message, MISC_LENGTH, "Invalid configuration file");
-      }
-      else if (ret > 0)
-      {
-         snprintf(message, MISC_LENGTH, "%d problematic or duplicated section%c",
-                  ret,
-                  ret > 1 ? 's' : ' ');
-      }
-
-#ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=%s: %s", message, configuration_path);
-#endif
-      errx(1, "%s (file <%s>)", message, configuration_path);
-   }
-
-   memcpy(&config->configuration_path[0], configuration_path, MIN(strlen(configuration_path), MAX_PATH - 1));
-
-   // the HBA file is mandatory!
-   hba_path = hba_path != NULL ? hba_path : PGAGROAL_DEFAULT_HBA_FILE;
-   memset(message, 0, MISC_LENGTH);
-   ret = pgagroal_read_hba_configuration(shmem, hba_path);
-   if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
-   {
-      snprintf(message, MISC_LENGTH, "HBA configuration file not found");
-#ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=%s: %s", message, hba_path);
-#endif
-      errx(1, "%s (file <%s>)", message, hba_path);
-   }
-   else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
-   {
-      snprintf(message, MISC_LENGTH, "HBA too many entries (max %d)", NUMBER_OF_HBAS);
-#ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=%s: %s", message, hba_path);
-#endif
-
-      errx(1, "%s (file <%s>)", message, hba_path);
-   }
-
-   memcpy(&config->hba_path[0], hba_path, MIN(strlen(hba_path), MAX_PATH - 1));
-
-   conf_file_mandatory = true;
-read_limit_path:
-   if (limit_path != NULL)
-   {
-      memset(message, 0, MISC_LENGTH);
-      ret = pgagroal_read_limit_configuration(shmem, limit_path);
-      if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
-      {
-         memcpy(&config->limit_path[0], limit_path, MIN(strlen(limit_path), MAX_PATH - 1));
-      }
-      else if (conf_file_mandatory && ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
-      {
-
-         snprintf(message, MISC_LENGTH, "LIMIT configuration file not found");
-         printf("pgagroal: %s (file <%s>)\n", message, limit_path);
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=%s: %s", message, limit_path);
-#endif
+         printf("pgagroal-cli: you need both -h and -p options to perform a remote connection\n");
          exit(1);
       }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
-      {
-
-         snprintf(message, MISC_LENGTH, "Too many limit entries");
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=%s: %s", message, limit_path);
-#endif
-         errx(1, "%s (file <%s>)", message, limit_path);
-      }
-
-   }
-   else
-   {
-      // the user did not specify a file on the command line
-      // so try the default one and allow it to be missing
-      limit_path = PGAGROAL_DEFAULT_LIMIT_FILE;
-      conf_file_mandatory = false;
-      goto read_limit_path;
    }
 
-   conf_file_mandatory = true;
-read_users_path:
-   if (users_path != NULL)
+   // if the user has specified either a username or a password
+   // there must be all the other pieces for a remote connection
+   if ((username != NULL || password != NULL) && !remote_connection)
    {
-      memset(message, 0, MISC_LENGTH);
-      ret = pgagroal_read_users_configuration(shmem, users_path);
-      if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
-      {
-         memcpy(&config->users_path[0], users_path, MIN(strlen(users_path), MAX_PATH - 1));
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND && conf_file_mandatory)
-      {
+      errx(1, "you need also -h and -p options to perform a remote connection");
+   }
 
-         snprintf(message, MISC_LENGTH, "USERS configuration file not found");
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=%s : %s", message, users_path);
-#endif
-         errx(1, "%s  (file <%s>)", message, users_path);
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_KO
-               || ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT)
-      {
+   // and she cannot use "local" and "remote" connections at the same time
+   if (configuration_path != NULL && remote_connection)
+   {
+      errx(1, "Use either -c or -h/-p to define endpoint");
+   }
 
-         snprintf(message, MISC_LENGTH, "Invalid master key file");
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=%s: %s", message, users_path);
-#endif
-         errx(1, "%s (file <%s>)", message, users_path);
+   // if (argc <= 1)
+   // {
+   //    usage();
+   //    exit(1);
+   // }
+
+   size = sizeof(struct configuration);
+   if (pgagroal_create_shared_memory(size, HUGEPAGE_OFF, &shmem))
+   {
+      errx(1, "Error creating shared memory");
+   }
+   pgagroal_init_configuration(shmem);
+
+   if (configuration_path != NULL)
+   {
+      ret = pgagroal_read_configuration(shmem, configuration_path, false);
+      if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
+      {
+         errx(1, "Configuration not found: <%s>", configuration_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
-
-         snprintf(message, MISC_LENGTH, "USERS: too many users defined (%d, max %d)", config->number_of_users, NUMBER_OF_USERS);
-
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=%s: %s", message, users_path);
-#endif
-         errx(1, "%s (file <%s>)", message, users_path);
+         errx(1, "Too many sections in the configuration file <%s>", configuration_path);
       }
+
+      if (logfile)
+      {
+         config = (struct configuration*)shmem;
+
+         config->log_type = PGAGROAL_LOGGING_TYPE_FILE;
+         memset(&config->log_path[0], 0, MISC_LENGTH);
+         memcpy(&config->log_path[0], logfile, MIN(MISC_LENGTH - 1, strlen(logfile)));
+      }
+
+      if (pgagroal_start_logging())
+      {
+         errx(1, "Cannot start the logging subsystem");
+      }
+
+      config = (struct configuration*)shmem;
    }
    else
    {
-      // the user did not specify a file on the command line
-      // so try the default one and allow it to be missing
-      users_path = PGAGROAL_DEFAULT_USERS_FILE;
-      conf_file_mandatory = false;
-      goto read_users_path;
-   }
-
-   conf_file_mandatory = true;
-read_frontend_users_path:
-   if (frontend_users_path != NULL)
-   {
-      ret = pgagroal_read_frontend_users_configuration(shmem, frontend_users_path);
-      if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND && conf_file_mandatory)
+      ret = pgagroal_read_configuration(shmem, PGAGROAL_DEFAULT_CONF_FILE, false);
+      if (ret != PGAGROAL_CONFIGURATION_STATUS_OK)
       {
-         memset(message, 0, MISC_LENGTH);
-         snprintf(message, MISC_LENGTH, "FRONTEND USERS configuration file not found");
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=%s: %s", message, frontend_users_path);
-#endif
-         errx(1, "%s (file <%s>)", message, frontend_users_path);
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT
-               || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
-      {
-#ifdef HAVE_LINUX
-         sd_notify(0, "STATUS=Invalid master key file");
-#endif
-         errx(1, "Invalid master key file");
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
-      {
-         memset(message, 0, MISC_LENGTH);
-         snprintf(message, MISC_LENGTH, "FRONTEND USERS: Too many users defined %d (max %d)",
-                  config->number_of_frontend_users, NUMBER_OF_USERS);
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=%s: %s", message, frontend_users_path);
-#endif
-         errx(1, "%s (file <%s>)", message, frontend_users_path);
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
-      {
-         memcpy(&config->frontend_users_path[0], frontend_users_path, MIN(strlen(frontend_users_path), MAX_PATH - 1));
-      }
-   }
-   else
-   {
-      // the user did not specify a file on the command line
-      // so try the default one and allow it to be missing
-      frontend_users_path = PGAGROAL_DEFAULT_FRONTEND_USERS_FILE;
-      conf_file_mandatory = false;
-      goto read_frontend_users_path;
-   }
-
-   conf_file_mandatory = true;
-read_admins_path:
-   if (admins_path != NULL)
-   {
-      memset(message, 0, MISC_LENGTH);
-      ret = pgagroal_read_admins_configuration(shmem, admins_path);
-      if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND && conf_file_mandatory)
-      {
-
-         snprintf(message, MISC_LENGTH, "ADMINS configuration file not found");
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=%s: %s", message, admins_path);
-#endif
-         errx(1, "%s (file <%s>)", message, admins_path);
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT
-               || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
-      {
-#ifdef HAVE_LINUX
-         sd_notify(0, "STATUS=Invalid master key file");
-#endif
-         errx(1, "Invalid master key file");
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
-      {
-         snprintf(message, MISC_LENGTH, "Too many admins defined %d (max %d)", config->number_of_admins, NUMBER_OF_ADMINS);
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=%s %s", message, admins_path);
-#endif
-         errx(1, "%s (file <%s>)", message, admins_path);
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
-      {
-         memcpy(&config->admins_path[0], admins_path, MIN(strlen(admins_path), MAX_PATH - 1));
-      }
-   }
-   else
-   {
-      // the user did not specify a file on the command line
-      // so try the default one and allow it to be missing
-      admins_path = PGAGROAL_DEFAULT_ADMINS_FILE;
-      conf_file_mandatory = false;
-      goto read_admins_path;
-   }
-
-   conf_file_mandatory = true;
-read_superuser_path:
-   if (superuser_path != NULL)
-   {
-      ret = pgagroal_read_superuser_configuration(shmem, superuser_path);
-      memset(message, 0, MISC_LENGTH);
-      if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND && conf_file_mandatory)
-      {
-         snprintf(message, MISC_LENGTH, "SUPERUSER configuration file not found");
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=%s: %s", message, superuser_path);
-#endif
-         errx(1, "%s (file <%s>)", message, superuser_path);
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
-      {
-#ifdef HAVE_LINUX
-         sd_notify(0, "STATUS=Invalid master key file");
-#endif
-         errx(1, "Invalid master key file");
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
-      {
-         snprintf(message, MISC_LENGTH, "SUPERUSER: Too many superusers defined (max 1)");
-#ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=%s: %s", message, superuser_path);
-#endif
-         errx(1, "%s (file <%s>)", message, superuser_path);
-      }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_OK)
-      {
-         memcpy(&config->superuser_path[0], superuser_path, MIN(strlen(superuser_path), MAX_PATH - 1));
-      }
-   }
-   else
-   {
-      // the user did not specify a file on the command line
-      // so try the default one and allow it to be missing
-      superuser_path = PGAGROAL_DEFAULT_SUPERUSER_FILE;
-      conf_file_mandatory = false;
-      goto read_superuser_path;
-   }
-
-   /* systemd sockets */
-#ifdef HAVE_LINUX
-   sds = sd_listen_fds(0);
-   if (sds > 0)
-   {
-      int m = 0;
-
-      main_fds_length = 0;
-
-      for (int i = 0; i < sds; i++)
-      {
-         int fd = SD_LISTEN_FDS_START + i;
-
-         if (sd_is_socket(fd, AF_INET, 0, -1) || sd_is_socket(fd, AF_INET6, 0, -1))
+         if (!remote_connection)
          {
-            main_fds_length++;
+            errx(1, "Host (-h) and port (-p) must be specified to connect to the remote host");
          }
       }
-
-      if (main_fds_length > 0)
+      else
       {
-         main_fds = malloc(main_fds_length * sizeof(int));
-      }
+         configuration_path = PGAGROAL_DEFAULT_CONF_FILE;
 
-      for (int i = 0; i < sds; i++)
-      {
-         int fd = SD_LISTEN_FDS_START + i;
+         if (logfile)
+         {
+            config = (struct configuration*)shmem;
 
-         if (sd_is_socket(fd, AF_UNIX, 0, -1))
-         {
-            unix_pgsql_socket = fd;
-            has_unix_socket = true;
+            config->log_type = PGAGROAL_LOGGING_TYPE_FILE;
+            memset(&config->log_path[0], 0, MISC_LENGTH);
+            memcpy(&config->log_path[0], logfile, MIN(MISC_LENGTH - 1, strlen(logfile)));
          }
-         else if (sd_is_socket(fd, AF_INET, 0, -1) || sd_is_socket(fd, AF_INET6, 0, -1))
+
+         if (pgagroal_start_logging())
          {
-            *(main_fds + (m * sizeof(int))) = fd;
-            has_main_sockets = true;
-            m++;
+            errx(1, "Cannot start the logging subsystem");
          }
+
+         config = (struct configuration*)shmem;
       }
    }
-#endif
-
-   if (pgagroal_init_logging())
-   {
-#ifdef HAVE_LINUX
-      sd_notify(0, "STATUS=Failed to init logging");
-#endif
-      exit(1);
-   }
-
-   if (pgagroal_start_logging())
-   {
-#ifdef HAVE_LINUX
-      sd_notify(0, "STATUS=Failed to start logging");
-#endif
-      errx(1, "Failed to start logging");
-   }
-
-   if (pgagroal_validate_configuration(shmem, has_unix_socket, has_main_sockets))
-   {
-#ifdef HAVE_LINUX
-      sd_notify(0, "STATUS=Invalid configuration");
-#endif
-      errx(1, "Invalid configuration");
-   }
-   if (pgagroal_validate_hba_configuration(shmem))
-   {
-#ifdef HAVE_LINUX
-      sd_notify(0, "STATUS=Invalid HBA configuration");
-#endif
-      errx(1, "Invalid HBA configuration");
-   }
-   if (pgagroal_validate_limit_configuration(shmem))
-   {
-#ifdef HAVE_LINUX
-      sd_notify(0, "STATUS=Invalid LIMIT configuration");
-#endif
-      errx(1, "Invalid LIMIT configuration");
-   }
-   if (pgagroal_validate_users_configuration(shmem))
-   {
-#ifdef HAVE_LINUX
-      sd_notify(0, "STATUS=Invalid USERS configuration");
-#endif
-      errx(1, "Invalid USERS configuration");
-   }
-   if (pgagroal_validate_frontend_users_configuration(shmem))
-   {
-#ifdef HAVE_LINUX
-      sd_notify(0, "STATUS=Invalid FRONTEND USERS configuration");
-#endif
-      errx(1, "Invalid FRONTEND USERS configuration");
-   }
-   if (pgagroal_validate_admins_configuration(shmem))
-   {
-#ifdef HAVE_LINUX
-      sd_notify(0, "STATUS=Invalid ADMINS configuration");
-#endif
-      errx(1, "Invalid ADMINS configuration");
-   }
-
-   if (pgagroal_resize_shared_memory(shmem_size, shmem, &tmp_size, &tmp_shmem))
-   {
-#ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=Error in creating shared memory");
-#endif
-      errx(1, "Error in creating shared memory");
-   }
-   if (pgagroal_destroy_shared_memory(shmem, shmem_size) == -1)
-   {
-#ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=Error in destroying shared memory");
-#endif
-      errx(1, "Error in destroying shared memory");
-   }
-   shmem_size = tmp_size;
-   shmem = tmp_shmem;
-   config = (struct configuration*)shmem;
 
    // sock
    int reuse = 1;

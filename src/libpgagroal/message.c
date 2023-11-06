@@ -1228,23 +1228,20 @@ pgagroal_write_frontend_password_response(SSL* ssl, int socket, char* password)
    int status;
 
    memset(&msg, 0, sizeof(struct message));
-   // if(!password) {
-   //    msg.kind = 'E';
-   // } else {
-      /* Identifies the message as a function call result */
-      msg.kind = 'V';
 
-      size = strlen(password) + 1;
-      payload = malloc(size);
-      if (payload == NULL)
-      {
-         pgagroal_log_fatal("Couldn't allocate memory while creating frontend_password_response_message");
-         return MESSAGE_STATUS_ERROR;
-      }
-      memcpy(payload, password, size);
-      msg.length = size;
-      msg.data = payload;
-   // }
+   /* Identifies the message as a function call result */
+   msg.kind = 'V';
+
+   size = strlen(password) + 1;
+   payload = malloc(size);
+   if (payload == NULL)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while creating frontend_password_response_message");
+      return MESSAGE_STATUS_ERROR;
+   }
+   memcpy(payload, password, size);
+   msg.length = size;
+   msg.data = payload;
 
    if (ssl == NULL)
       status = write_message(socket, &msg);
