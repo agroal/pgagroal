@@ -145,6 +145,12 @@ pgagroal_tls_valid(void);
  */
 char*
 generate_password(int pwd_length);
+
+/**
+ * @brief Initialize RNG
+ * 
+ */
+void initialize_random(void);
 #ifdef __cplusplus
 }
 #endif

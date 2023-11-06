@@ -1063,6 +1063,7 @@ read_superuser_path:
        */
       pid_t pid;
 
+      initialize_random();
       ev_periodic_init(&rotate_frontend_password, rotate_frontend_password_cb, 0., 60, 0);
       ev_periodic_start (main_loop, &rotate_frontend_password);
 
@@ -1920,14 +1921,14 @@ rotate_frontend_password_cb(struct ev_loop* loop, ev_periodic* w, int revents)
 
    config = (struct configuration*)shmem;
    // TODO: get pwd length from config or random length
-   pwd = generate_password(MIN_PASSWORD_LENGTH);
    for (int i = 0; i < config->number_of_frontend_users; i++)
    {
-      if (!strcmp(&config->frontend_users[i].username[0], "test"))
-      {
+      // if (!strcmp(&config->frontend_users[i].username[0], "test"))
+      // {
+         pwd = generate_password(MIN_PASSWORD_LENGTH);
          memcpy(&config->frontend_users[i].password, pwd, strlen(pwd)+1);
          pgagroal_log_info("rotate_pass: current pass for username=%s:%s",config->frontend_users[i].username, config->frontend_users[i].password);
-      }
+      // }
    }
 }
 
@@ -1984,9 +1985,14 @@ handle_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          if (!strcmp(&config->frontend_users[i].username[0], (char *)msg->data))
          {
             pgagroal_write_frontend_password_response(0, watcher->fd, config->frontend_users[i].password);
+            pgagroal_memory_destroy();
+            return;
          }
       }
    }
+
+   // No such username
+   pgagroal_write_frontend_password_response(0, watcher->fd, "");
    pgagroal_memory_destroy();
 }
 

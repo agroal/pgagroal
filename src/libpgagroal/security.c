@@ -5830,11 +5830,15 @@ error:
    return AUTH_ERROR;
 }
 
+void initialize_random() {
+   time_t t;
+   srand((unsigned)time(&t));
+}
+
 char*
 generate_password(int pwd_length)
 {
    char* pwd;
-   time_t t;
    
    pwd = (char*) malloc((pwd_length + 1) * sizeof(char));
    if (!pwd)
@@ -5843,7 +5847,6 @@ generate_password(int pwd_length)
       return NULL;
    }
 
-   srand((unsigned)time(&t));
    for (int i = 0; i < pwd_length; i++) {
       pwd[i] = (char) (32 + rand() % (126 - 32 + 1));
    }
