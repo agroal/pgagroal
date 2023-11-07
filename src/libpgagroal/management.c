@@ -59,6 +59,9 @@ static int write_socket(int socket, void* buf, size_t size);
 static int write_ssl(SSL* ssl, void* buf, size_t size);
 static int write_header(SSL* ssl, int fd, signed char type, int slot);
 
+static int pgagroal_management_write_conf_ls_detail(int socket, char* what);
+static int pgagroal_management_read_conf_ls_detail(SSL* ssl, int socket, char* buffer);
+
 int
 pgagroal_management_read_header(int socket, signed char* id, int32_t* slot)
 {
@@ -175,6 +178,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
       case MANAGEMENT_DISABLEDB:
       case MANAGEMENT_CONFIG_GET:
       case MANAGEMENT_CONFIG_SET:
+
          if (read_complete(NULL, socket, &buf4[0], sizeof(buf4)))
          {
             goto error;
@@ -213,6 +217,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
       case MANAGEMENT_DETAILS:
       case MANAGEMENT_RESET:
       case MANAGEMENT_RELOAD:
+      case MANAGEMENT_CONFIG_LS:
          break;
       default:
          goto error;
@@ -1725,4 +1730,244 @@ error:
    errno = 0;
    return 1;
 
+}
+
+int
+pgagroal_management_conf_ls(SSL* ssl, int fd)
+{
+   if (write_header(ssl, fd, MANAGEMENT_CONFIG_LS, -1))
+   {
+      pgagroal_log_warn("pgagroal_management_conf_ls: write: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+int
+pgagroal_management_read_conf_ls(SSL* ssl, int socket)
+{
+   char buf[4];
+   char* buffer;
+
+   memset(&buf, 0, sizeof(buf));
+   buffer = calloc(1, MAX_PATH);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   printf("Main Configuration file:   %s\n", buffer);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   printf("HBA file:                  %s\n", buffer);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   printf("Limit file:                %s\n", buffer);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   printf("Frontend users file:       %s\n", buffer);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   printf("Admins file:               %s\n", buffer);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   printf("Superuser file:            %s\n", buffer);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   printf("Users file:                %s\n", buffer);
+
+   free(buffer);
+
+   return 0;
+
+error:
+   free(buffer);
+   pgagroal_log_warn("pgagroal_management_read_conf_ls: read: %d %s", socket, strerror(errno));
+   errno = 0;
+
+   return 1;
+}
+
+int
+pgagroal_management_write_conf_ls(int socket)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (pgagroal_management_write_conf_ls_detail(socket, config->configuration_path))
+   {
+      goto error;
+   }
+
+   if (pgagroal_management_write_conf_ls_detail(socket, config->hba_path))
+   {
+      goto error;
+   }
+
+   if (pgagroal_management_write_conf_ls_detail(socket, config->limit_path))
+   {
+      goto error;
+   }
+
+   // 4
+   if (pgagroal_management_write_conf_ls_detail(socket, config->frontend_users_path))
+   {
+      goto error;
+   }
+   //5
+   if (pgagroal_management_write_conf_ls_detail(socket, config->admins_path))
+   {
+      goto error;
+   }
+   //6
+   if (pgagroal_management_write_conf_ls_detail(socket, config->superuser_path))
+   {
+      goto error;
+   }
+   // 7
+   if (pgagroal_management_write_conf_ls_detail(socket, config->users_path))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+   pgagroal_log_debug("pgagroal_management_write_conf_ls: error writing out file paths");
+   return 1;
+}
+
+/**
+ * Utility function to write a single configuration path to the socket.
+ *
+ * @param socket the file descriptor of the open socket
+ * @param what the pointer to the path to send out on the socket. It cannot
+ * exceed in size MAX_PATH - 1.
+ * @returns 0 on success
+ */
+static int
+pgagroal_management_write_conf_ls_detail(int socket, char* what)
+{
+   char buf[4];
+   size_t size = 0;
+   char data[MAX_PATH];
+
+   if (what && strlen(what) > MAX_PATH)
+   {
+      goto error;
+   }
+
+   memset(&buf, 0, sizeof(buf));
+   memset(&data, 0, sizeof(data));
+
+   size = what ? strlen(what) + 1 : 0;
+   if (size > MAX_PATH)
+   {
+      errno = EMSGSIZE;
+      goto error;
+   }
+
+   pgagroal_write_int32(&buf, size);
+
+   if (write_complete(NULL, socket, &buf, sizeof(buf)))
+   {
+      goto error;
+   }
+
+   memcpy(&data[0], what, size);
+   if (write_complete(NULL, socket, data, size))
+   {
+      goto error;
+   }
+
+   pgagroal_log_trace("pgagroal_management_write_conf_ls_deail: writing <%s> with %d bytes", what, size);
+   return 0;
+
+error:
+   pgagroal_log_debug("pgagroal_management_write_conf_ls_detail: error %d %s", errno, strerror(errno));
+   errno = 0;
+   return 1;
+}
+
+/**
+ * Utility function to read back from the socket a configuration path.
+ *
+ * It does zero fill the buffer pointed by its argument, so
+ * it is safe to call this function with a prefilled buffer, but its content
+ * will be lost.
+ *
+ * The buffer will be considered able to store MAX_PATH bytes.
+ *
+ * @param socket the file descriptor of the open socket
+ * @param buffer an already allocated buffer where to place the read value. Only
+ * MAX_PATH bytes will be read out of socket.
+ * @return 0 on success
+ */
+static int
+pgagroal_management_read_conf_ls_detail(SSL* ssl, int socket, char* buffer)
+{
+   char buf[4];
+   int size = 0;
+
+   memset(&buf, 0, sizeof(buf));
+   memset(buffer, 0, MAX_PATH);
+
+   if (read_complete(ssl, socket, &buf[0], sizeof(buf)))
+   {
+      goto error;
+   }
+
+   size = pgagroal_read_int32(&buf);
+
+   if (size > MAX_PATH)
+   {
+      errno = EMSGSIZE;
+      goto error;
+   }
+
+   if (read_complete(ssl, socket, buffer, size))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+   memset(buffer, 0, MAX_PATH);
+   pgagroal_log_warn("pgagroal_management_read_conf_ls_detail: read: %d %s", socket, strerror(errno));
+   errno = 0;
+
+   return 1;
 }

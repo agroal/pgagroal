@@ -184,7 +184,8 @@ Manages the configuration of the running instance.
 This command requires one subcommand, that can be:
 - `reload` issue a reload of the configuration, applying at runtime any changes from the configuration files;
 - `get` provides a configuration parameter value;
-- `set` modifies a configuration parameter at runtime.
+- `set` modifies a configuration parameter at runtime;
+- `ls` prints where the configuration files are located.
 
 Command
 
@@ -205,7 +206,7 @@ pgagroal-cli conf set max_connections 25
 
 The details about how to get and set values at run-time are explained in the following.
 
-### conf get
+#### conf get
 Given a configuration setting name, provides the current value for such setting.
 
 The configuration setting name must be the same as the one used in the configuration files.
@@ -256,7 +257,7 @@ If the parameter name specified is not found or invalid, the program `pgagroal-c
 
 
 
-### conf set
+#### conf set
 Allows the setting of a configuration parameter at run-time, if possible.
 
 Examples
@@ -303,7 +304,20 @@ WARN  1 settings cannot be applied
 DEBUG pgagroal_management_write_config_set: unable to apply changes to <max_connections> -> <100>
 ```
 
+#### conf ls
 
+The command `conf ls` provides information about the location of the configuration files.
+As an example:
+
+```
+Main Configuration file:   /etc/pgagroal/pgagroal.conf
+HBA file:                  /etc/pgagroal/pgagroal_hba.conf
+Limit file:                /etc/pgagroal/pgagroal_databases.conf
+Frontend users file:       /etc/pgagroal/pgagroal_frontend_users.conf
+Admins file:               /etc/pgagroal/pgagroal_admins.conf
+Superuser file:
+Users file:                /etc/pgagroal/pgagroal_users.conf
+```
 
 ### clear
 Resets different parts of the pooler. It accepts an operational mode:

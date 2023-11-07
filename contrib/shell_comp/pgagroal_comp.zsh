@@ -40,7 +40,7 @@ function _pgagroal_cli_conf()
 {
     local line
     _arguments -C \
-               "1: :(reload get set)" \
+               "1: :(reload get set ls)" \
                "*::arg:->args"
 }
 

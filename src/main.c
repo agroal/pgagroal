@@ -1496,6 +1496,10 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          pgagroal_log_debug("pgagroal: Management isalive");
          pgagroal_management_write_isalive(client_fd, config->gracefully);
          break;
+      case MANAGEMENT_CONFIG_LS:
+         pgagroal_log_debug("pgagroal: Management conf ls");
+         pgagroal_management_write_conf_ls(client_fd);
+         break;
       case MANAGEMENT_RESET:
          pgagroal_log_debug("pgagroal: Management reset");
          pgagroal_prometheus_reset();

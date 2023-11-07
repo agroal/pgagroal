@@ -61,6 +61,7 @@ extern "C" {
 #define MANAGEMENT_REMOVE_FD          19
 #define MANAGEMENT_CONFIG_GET         20
 #define MANAGEMENT_CONFIG_SET         21
+#define MANAGEMENT_CONFIG_LS          22
 
 /**
  * Read the management header
@@ -385,6 +386,60 @@ pgagroal_management_config_set(SSL* ssl, int socket, char* config_key, char* con
  */
 int
 pgagroal_management_write_config_set(int socket, char* config_key, char* config_value);
+
+/**
+ * Entry point for managing the `conf ls` command that
+ * will list all the configuration files used by the running
+ * daemon.
+ *
+ * @param ssl the SSL handler
+ * @param fd the socket file descriptor
+ * @returns 0 on success
+ */
+int
+pgagroal_management_conf_ls(SSL* ssl, int fd);
+
+/**
+ * Reads out of the socket the list of configuration
+ * files and prints them out to the standard output.
+ *
+ * The order of the read paths is:
+ * - configuration path
+ * - HBA path
+ * - limit path
+ * - frontend users path
+ * - admins path
+ * - Superusers path
+ * - users path
+ *
+ * @param socket the file descriptor of the open socket
+ * @param ssl the SSL handler
+ * @returns 0 on success
+ */
+int
+pgagroal_management_read_conf_ls(SSL* ssl, int socket);
+
+/**
+ * The management function responsible for sending
+ * the configuration paths into the socket.
+ *
+ * The function sends every path following the path length,
+ * that must be limited to MAX_PATH size.
+ *
+ * The order of the sent paths is:
+ * - configuration path
+ * - HBA path
+ * - limit path
+ * - frontend users path
+ * - admins path
+ * - Superusers path
+ * - users path
+ *
+ * @params socket the file descriptor of the open socket
+ * @returns 0 on success
+ */
+int
+pgagroal_management_write_conf_ls(int socket);
 
 #ifdef __cplusplus
 }

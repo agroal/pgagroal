@@ -66,6 +66,7 @@
 #define ACTION_RELOAD         13
 #define ACTION_CONFIG_GET     14
 #define ACTION_CONFIG_SET     15
+#define ACTION_CONFIG_LS      16
 
 static int flush(SSL* ssl, int socket, int32_t mode, char* database);
 static int enabledb(SSL* ssl, int socket, char* database);
@@ -82,6 +83,7 @@ static int switch_to(SSL* ssl, int socket, char* server);
 static int reload(SSL* ssl, int socket);
 static int config_get(SSL* ssl, int socket, char* config_key, bool verbose);
 static int config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose);
+static int config_ls(SSL* ssl, int socket);
 
 static void
 version(void)
@@ -134,7 +136,8 @@ usage(void)
    printf("                           - 'get' to obtain information about a runtime configuration value;\n");
    printf("                                   conf get <parameter_name>\n");
    printf("                           - 'set' to modify a configuration value;\n");
-   printf("                                   conf set <parameter_name> <parameter_value>\n");
+   printf("                                   conf set <parameter_name> <parameter_value>;\n");
+   printf("                           - 'ls'  lists the configuration files used.\n");
    printf("  clear <what>             Resets either the Prometheus statistics or the specified server.\n");
    printf("                           <what> can be\n");
    printf("                           - 'server' (default) followed by a server name\n");
@@ -431,20 +434,25 @@ main(int argc, char** argv)
       {
          action = ACTION_RELOAD;
       }
-      pgagroal_log_debug("Command: <reload>");
+      pgagroal_log_trace("Command: <reload>");
    }
    else if (parse_command(argc, argv, optind, "conf", "get", &config_key, NULL, NULL, NULL)
             || parse_deprecated_command(argc, argv, optind, "config-get", NULL, "conf get", 1, 6))
    {
       action = config_key != NULL && strlen(config_key) > 0 ? ACTION_CONFIG_GET : ACTION_UNKNOWN;
-      pgagroal_log_debug("Command: <conf get> [%s]", config_key);
+      pgagroal_log_trace("Command: <conf get> [%s]", config_key);
    }
    else if (parse_command(argc, argv, optind, "conf", "set", &config_key, NULL, &config_value, NULL)
             || parse_deprecated_command(argc, argv, optind, "config-set", NULL, "conf set", 1, 6))
    {
       // if there is no configuration key set the action to unknown, so the help screen will be printed
       action = config_key != NULL && strlen(config_key) > 0 ? ACTION_CONFIG_SET : ACTION_UNKNOWN;
-      pgagroal_log_debug("Command: <conf set> [%s] = [%s]", config_key, config_value);
+      pgagroal_log_trace("Command: <conf set> [%s] = [%s]", config_key, config_value);
+   }
+   else if (parse_command_simple(argc, argv, optind, "conf", "ls"))
+   {
+      pgagroal_log_debug("Command: <conf ls>");
+      action = ACTION_CONFIG_LS;
    }
 
    if (action != ACTION_UNKNOWN)
@@ -605,6 +613,10 @@ username:
    else if (action == ACTION_CONFIG_SET)
    {
       exit_code = config_set(s_ssl, socket, config_key, config_value, verbose);
+   }
+   else if (action == ACTION_CONFIG_LS)
+   {
+      exit_code = config_ls(s_ssl, socket);
    }
 
 done:
@@ -967,6 +979,30 @@ config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verb
    }
 
    return status;
+error:
+   return EXIT_STATUS_CONNECTION_ERROR;
+}
+
+/**
+ * Asks the daemon about the configuration file location.
+ *
+ * @returns 0 on success
+ */
+static int
+config_ls(SSL* ssl, int socket)
+{
+
+   if (pgagroal_management_conf_ls(ssl, socket))
+   {
+      goto error;
+   }
+
+   if (pgagroal_management_read_conf_ls(ssl, socket))
+   {
+      goto error;
+   }
+
+   return EXIT_STATUS_OK;
 error:
    return EXIT_STATUS_CONNECTION_ERROR;
 }
