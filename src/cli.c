@@ -74,16 +74,16 @@ static int disabledb(SSL* ssl, int socket, char* database);
 static int gracefully(SSL* ssl, int socket);
 static int stop(SSL* ssl, int socket);
 static int cancel_shutdown(SSL* ssl, int socket);
-static int status(SSL* ssl, int socket);
-static int details(SSL* ssl, int socket);
-static int isalive(SSL* ssl, int socket);
+static int status(SSL* ssl, int socket, char output_format);
+static int details(SSL* ssl, int socket, char output_format);
+static int isalive(SSL* ssl, int socket, char output_format);
 static int reset(SSL* ssl, int socket);
 static int reset_server(SSL* ssl, int socket, char* server);
 static int switch_to(SSL* ssl, int socket, char* server);
 static int reload(SSL* ssl, int socket);
-static int config_get(SSL* ssl, int socket, char* config_key, bool verbose);
-static int config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose);
-static int config_ls(SSL* ssl, int socket);
+static int config_ls(SSL* ssl, int socket, char output_format);
+static int config_get(SSL* ssl, int socket, char* config_key, bool verbose, char output_format);
+static int config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose, char output_format);
 
 static void
 version(void)
@@ -110,6 +110,7 @@ usage(void)
    printf("  -U, --user USERNAME      Set the user name\n");
    printf("  -P, --password PASSWORD  Set the password\n");
    printf("  -L, --logfile FILE       Set the log file\n");
+   printf("  -F, --format text|json   Set the output format\n");
    printf("  -v, --verbose            Output text string of result\n");
    printf("  -V, --version            Display version information\n");
    printf("  -?, --help               Display help\n");
@@ -176,6 +177,7 @@ main(int argc, char** argv)
    long l_port;
    char* config_key = NULL; /* key for a configuration setting */
    char* config_value = NULL; /* value for a configuration setting */
+   char output_format = COMMAND_OUTPUT_FORMAT_TEXT;
 
    while (1)
    {
@@ -187,12 +189,13 @@ main(int argc, char** argv)
          {"user", required_argument, 0, 'U'},
          {"password", required_argument, 0, 'P'},
          {"logfile", required_argument, 0, 'L'},
+         {"format", required_argument, 0, 'F' },
          {"verbose", no_argument, 0, 'v'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
 
-      c = getopt_long(argc, argv, "vV?c:h:p:U:P:L:",
+      c = getopt_long(argc, argv, "vV?c:h:p:U:P:L:F:",
                       long_options, &option_index);
 
       if (c == -1)
@@ -219,6 +222,16 @@ main(int argc, char** argv)
             break;
          case 'L':
             logfile = optarg;
+            break;
+         case 'F':
+            if (!strncmp(optarg, "json", MISC_LENGTH))
+            {
+               output_format = COMMAND_OUTPUT_FORMAT_JSON;
+            }
+            else
+            {
+               output_format = COMMAND_OUTPUT_FORMAT_TEXT;
+            }
             break;
          case 'v':
             verbose = true;
@@ -580,15 +593,15 @@ username:
    }
    else if (action == ACTION_STATUS)
    {
-      exit_code = status(s_ssl, socket);
+      exit_code = status(s_ssl, socket, output_format);
    }
    else if (action == ACTION_STATUS_DETAILS)
    {
-      exit_code = details(s_ssl, socket);
+      exit_code = details(s_ssl, socket, output_format);
    }
    else if (action == ACTION_ISALIVE)
    {
-      exit_code = isalive(s_ssl, socket);
+      exit_code = isalive(s_ssl, socket, output_format);
    }
    else if (action == ACTION_RESET)
    {
@@ -608,15 +621,15 @@ username:
    }
    else if (action == ACTION_CONFIG_GET)
    {
-      exit_code = config_get(s_ssl, socket, config_key, verbose);
+      exit_code = config_get(s_ssl, socket, config_key, verbose, output_format);
    }
    else if (action == ACTION_CONFIG_SET)
    {
-      exit_code = config_set(s_ssl, socket, config_key, config_value, verbose);
+      exit_code = config_set(s_ssl, socket, config_key, config_value, verbose, output_format);
    }
    else if (action == ACTION_CONFIG_LS)
    {
-      exit_code = config_ls(s_ssl, socket);
+      exit_code = config_ls(s_ssl, socket, output_format);
    }
 
 done:
@@ -743,11 +756,11 @@ cancel_shutdown(SSL* ssl, int socket)
 }
 
 static int
-status(SSL* ssl, int socket)
+status(SSL* ssl, int socket, char output_format)
 {
    if (pgagroal_management_status(ssl, socket) == 0)
    {
-      return pgagroal_management_read_status(ssl, socket);
+      return pgagroal_management_read_status(ssl, socket, output_format);
    }
    else
    {
@@ -756,14 +769,12 @@ status(SSL* ssl, int socket)
 }
 
 static int
-details(SSL* ssl, int socket)
+details(SSL* ssl, int socket, char output_format)
 {
    if (pgagroal_management_details(ssl, socket) == 0)
    {
-      if (pgagroal_management_read_status(ssl, socket) == 0)
-      {
-         return pgagroal_management_read_details(ssl, socket);
-      }
+      return pgagroal_management_read_details(ssl, socket, output_format);
+
    }
 
    // if here, an error occurred
@@ -772,18 +783,18 @@ details(SSL* ssl, int socket)
 }
 
 static int
-isalive(SSL* ssl, int socket)
+isalive(SSL* ssl, int socket, char output_format)
 {
    int status = -1;
 
    if (pgagroal_management_isalive(ssl, socket) == 0)
    {
-      if (pgagroal_management_read_isalive(ssl, socket, &status))
+      if (pgagroal_management_read_isalive(ssl, socket, &status, output_format))
       {
          return EXIT_STATUS_CONNECTION_ERROR;
       }
 
-      if (status != 1 && status != 2)
+      if (status != PING_STATUS_RUNNING && status != PING_STATUS_SHUTDOWN_GRACEFULLY)
       {
          return EXIT_STATUS_CONNECTION_ERROR;
       }
@@ -851,12 +862,12 @@ reload(SSL* ssl, int socket)
  * @param config_key the key of the configuration parameter, that is the name
  * of the configuration parameter to read.
  * @param verbose if true the function will print on STDOUT also the config key
+ * @param output_format the format for the output (e.g., json)
  * @returns 0 on success, 1 on network failure, 2 on data failure
  */
 static int
-config_get(SSL* ssl, int socket, char* config_key, bool verbose)
+config_get(SSL* ssl, int socket, char* config_key, bool verbose, char output_format)
 {
-   char* buffer = NULL;
 
    if (!config_key || strlen(config_key) > MISC_LENGTH)
    {
@@ -867,40 +878,10 @@ config_get(SSL* ssl, int socket, char* config_key, bool verbose)
    {
       goto error;
    }
-   else
+
+   if (pgagroal_management_read_config_get(socket, config_key, NULL, verbose, output_format))
    {
-      buffer = calloc(1, MISC_LENGTH);
-      if (buffer == NULL)
-      {
-         goto error;
-      }
-      if (pgagroal_management_read_config_get(socket, &buffer))
-      {
-         free(buffer);
-         goto error;
-      }
-
-      // an empty response means that the
-      // requested configuration parameter has not been
-      // found, so throw an error
-      if (buffer && strlen(buffer))
-      {
-         if (verbose)
-         {
-            printf("%s = %s\n", config_key, buffer);
-         }
-         else
-         {
-            printf("%s\n", buffer);
-         }
-      }
-      else
-      {
-         free(buffer);
-         return EXIT_STATUS_DATA_ERROR;
-      }
-
-      free(buffer);
+      goto error;
    }
 
    return EXIT_STATUS_OK;
@@ -923,10 +904,10 @@ error:
  * @return 0 on success
  */
 static int
-config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose)
+config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose, char output_format)
 {
-   char* buffer = NULL;
-   int status = EXIT_STATUS_DATA_ERROR;
+
+   int status = EXIT_STATUS_OK;
 
    if (!config_key || strlen(config_key) > MISC_LENGTH
        || !config_value || strlen(config_value) > MISC_LENGTH)
@@ -938,45 +919,8 @@ config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verb
    {
       goto error;
    }
-   else
-   {
-      buffer = malloc(MISC_LENGTH);
-      memset(buffer, 0, MISC_LENGTH);
-      if (pgagroal_management_read_config_get(socket, &buffer))
-      {
-         free(buffer);
-         goto error;
-      }
 
-      // if the setting we sent is different from the setting we get
-      // than the system has not applied, so it is an error
-      if (strncmp(config_value, buffer, MISC_LENGTH) == 0)
-      {
-         status = EXIT_STATUS_OK;
-      }
-      else
-      {
-         status = EXIT_STATUS_DATA_ERROR;
-      }
-
-      // assume an empty response is ok,
-      // do not throw an error to indicate no configuration
-      // setting with such name as been found
-      if (buffer && strlen(buffer))
-      {
-         if (verbose)
-         {
-            printf("%s = %s\n", config_key, buffer);
-         }
-         else
-         {
-            printf("%s\n", buffer);
-         }
-      }
-
-      free(buffer);
-      return status;
-   }
+   status = pgagroal_management_read_config_get(socket, config_key, config_value, verbose, output_format);
 
    return status;
 error:
@@ -989,7 +933,7 @@ error:
  * @returns 0 on success
  */
 static int
-config_ls(SSL* ssl, int socket)
+config_ls(SSL* ssl, int socket, char output_format)
 {
 
    if (pgagroal_management_conf_ls(ssl, socket))
@@ -997,7 +941,7 @@ config_ls(SSL* ssl, int socket)
       goto error;
    }
 
-   if (pgagroal_management_read_conf_ls(ssl, socket))
+   if (pgagroal_management_read_conf_ls(ssl, socket, output_format))
    {
       goto error;
    }

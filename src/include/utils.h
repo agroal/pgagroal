@@ -494,6 +494,20 @@ parse_deprecated_command(int argc,
                          char* deprecated_by,
                          unsigned int deprecated_since_major,
                          unsigned int deprecated_since_minor);
+
+/**
+ * Given a server state, it returns a string that
+ * described the state in a human-readable form.
+ *
+ * If the state cannot be determined, the numeric
+ * form of the state is returned as a string.
+ *
+ * @param state the value of the sate for the server
+ * @returns the string representing the state
+ */
+char*
+pgagroal_server_state_as_string(signed char state);
+
 #ifdef __cplusplus
 }
 #endif

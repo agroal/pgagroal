@@ -1077,3 +1077,34 @@ parse_command_simple(int argc,
 {
    return parse_command(argc, argv, offset, command, subcommand, NULL, NULL, NULL, NULL);
 }
+
+/**
+ * Given a server state, it returns a string that
+ * described the state in a human-readable form.
+ *
+ * If the state cannot be determined, the numeric
+ * form of the state is returned as a string.
+ *
+ * @param state the value of the sate for the server
+ * @returns the string representing the state
+ */
+char*
+pgagroal_server_state_as_string(signed char state)
+{
+   char* buf;
+
+   switch (state)
+   {
+      case SERVER_NOTINIT:  return "Not init";
+      case SERVER_NOTINIT_PRIMARY: return "Not init (primary)";
+      case SERVER_PRIMARY: return "Primary";
+      case SERVER_REPLICA: return "Replica";
+      case SERVER_FAILOVER: return "Failover";
+      case SERVER_FAILED: return "Failed";
+      default:
+         buf = malloc(5);
+         memset(buf, 0, 5);
+         snprintf(buf, 5, "%d", state);
+         return buf;
+   }
+}

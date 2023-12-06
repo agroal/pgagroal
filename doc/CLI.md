@@ -22,6 +22,7 @@ Available options are the following ones:
 -U, --user USERNAME      Set the user name
 -P, --password PASSWORD  Set the password
 -L, --logfile FILE       Set the log file
+-F, --format  text|json  Set the output format
 -v, --verbose            Output text string of result
 -V, --version            Display version information
 -?, --help               Display help
@@ -29,6 +30,11 @@ Available options are the following ones:
 ```
 
 Options can be specified either in short or long form, in any position of the command line.
+
+By default the command output, if any, is reported as text. It is possible to specify JSON as the output format,
+and this is the suggested format if there is the need to automtically parse the command output, since the text format
+could be subject to changes in future releases. For more information about the JSON output format,
+please see the [JSON Output Format](#json-output-format) section.
 
 ## Commands
 
@@ -380,3 +386,203 @@ pgagroal-cli reset-server 2>/dev/null
 
 There is a minimal shell completion support for `pgagroal-cli`.
 Please refer to the [Install pgagroal](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/01_install.md) tutorial for detailed information about how to enable and use shell completions.
+
+
+## JSON Output Format
+
+It is possible to obtain the output of a command in a JSON format by specyfing the `-F` (`--format`) option on the command line.
+Supported output formats are:
+- `text` (the default)
+- `json`
+
+As an example, the following are invocations of commands with different output formats:
+
+```
+pgagroal-cli status     # defaults to text output format
+
+pgagroal-cli status --format text  # same as above
+pgagroal-cli status -F text        # same as above
+
+pgagroal-cli status --format json  # outputs as JSON text
+pgagroal-cli status -F json        # same as above
+```
+
+Whenever a command produces output, the latter can be obtained in a JSON format.
+Every command output consists of an object that contains two other objects:
+- a `command` object, with all the details about the command and its output;
+- an `application` object, with all the details about the executable that launched the command (e.g., `pgagroal-cli`).
+
+In the following, details about every object are provided:
+
+### The `application` object
+
+The `application` object is made by the following attributes:
+- `name` a string representing the name of the executable that launched the command;
+- `version` a string representing the version of the executable;
+- `major`, `minor`, `patch` are integers representing every single part of the version of the application.
+
+As an example, when `pgagroal-cli` launches a command, the output includes an `application` object like the following:
+
+```
+ "application":  {
+                "name": "pgagroal-cli",
+                "major":        1,
+                "minor":        6,
+                "patch":        0,
+                "version":      "1.6.0"
+        }
+```
+
+
+### The `command` object
+
+The `command` object represents the launched command and contains also the answer from the `pgagroal`.
+The object is made by the following attributes:
+- `name` a string representing the command launched (e.g., `status`);
+- `status` a string that contains either "OK" or an error string if the command failed;
+- `error` an interger value used as a flag to indicate if the command was in error or not, where `0` means success and `1` means error;
+- `exit-status` an integer that contains zero if the command run succesfully, another value depending on the specific command in case of failure;
+- `output` an object that contains the details of the executed command.
+
+The `output` object is *the variable part* in the JSON command output, that means its effective content depends on the launched command.
+
+Whenever the command output includes an array of stuff, for example a connection list, such array is wrapped into a `list` JSON array with a sibling named `count` that contains the integer size of the array (number of elements).
+
+
+The following are a few examples of commands that provide output in JSON:
+
+
+```
+pgagroal-cli ping --format json
+{
+        "command":      {
+                "name": "ping",
+                "status":       "OK",
+                "error":        0,
+                "exit-status":  0,
+                "output":       {
+                        "status":       1,
+                        "message":      "running"
+                }
+        },
+        "application":  {
+                "name": "pgagroal-cli",
+                "major":        1,
+                "minor":        6,
+                "patch":        0,
+                "version":      "1.6.0"
+        }
+}
+
+
+
+pgagroal-cli status --format json
+{
+        "command":      {
+                "name": "status",
+                "status":       "OK",
+                "error":        0,
+                "exit-status":  0,
+                "output":       {
+                        "status":       {
+                                "message":      "Running",
+                                "status":       1
+                        },
+                        "connections":  {
+                                "active":       0,
+                                "total":        2,
+                                "max":  15
+                        },
+                        "databases":    {
+                                "disabled":     {
+                                        "count":        0,
+                                        "state":        "disabled",
+                                        "list": []
+                                }
+                        }
+                }
+        },
+        "application":  {
+                "name": "pgagroal-cli",
+                "major":        1,
+                "minor":        6,
+                "patch":        0,
+                "version":      "1.6.0"
+        }
+}
+```
+
+As an example, the following is the output of a faulty `conf set` command (note the `status`, `error` and `exist-status` values):
+
+```
+pgagroal-cli conf set max_connections 1000  --format json
+{
+        "command":      {
+                "name": "conf set",
+                "status":       "Current and expected values are different",
+                "error":        true,
+                "exit-status":  2,
+                "output":       {
+                        "key":  "max_connections",
+                        "value":        "15",
+                        "expected":     "1000"
+                }
+        },
+        "application":  {
+                "name": "pgagroal-cli",
+                "major":        1,
+                "minor":        6,
+                "patch":        0,
+                "version":      "1.6.0"
+        }
+}
+```
+
+
+The `conf ls` command returns an array named `files` where each entry is made by a couple `description` and `path`, where the former
+is the mnemonic name of the configuration file, and the latter is the value of the configuration file used:
+
+```
+$ pgagroal-cli conf ls --format json
+{
+        "command":      {
+                "name": "conf ls",
+                "status":       "OK",
+                "error":        0,
+                "exit-status":  0,
+                "output":       {
+                        "files":        {
+                                "list": [{
+                                                "description":  "Main Configuration file",
+                                                "path": "/etc/pgagroal/pgagroal.conf"
+                                        }, {
+                                                "description":  "HBA File",
+                                                "path": "/etc/pgagroal/pgagroal_hba.conf"
+                                        }, {
+                                                "description":  "Limit file",
+                                                "path": "/etc/pgagroal/pgagroal_databases.conf"
+                                        }, {
+                                                "description":  "Frontend users file",
+                                                "path": "/etc/pgagroal/pgagroal_frontend_users.conf"
+                                        }, {
+                                                "description":  "Admins file",
+                                                "path": "/etc/pgagroal/pgagroal_admins.conf"
+                                        }, {
+                                                "description":  "Superuser file",
+                                                "path": ""
+                                        }, {
+                                                "description":  "Users file",
+                                                "path": "/etc/pgagroal/pgagroal_users.conf"
+                                        }]
+                        }
+                }
+        },
+        "application":  {
+                "name": "pgagroal-cli",
+                "major":        1,
+                "minor":        6,
+                "patch":        0,
+                "version":      "1.6.0"
+        }
+}
+```

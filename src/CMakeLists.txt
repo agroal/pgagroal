@@ -22,6 +22,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     ${LIBEV_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
     ${SYSTEMD_INCLUDE_DIRS}
+    ${CJSON_INCLUDE_DIRS}
   )
 
   #
@@ -33,6 +34,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     ${OPENSSL_SSL_LIBRARY}
     ${SYSTEMD_LIBRARIES}
     ${LIBATOMIC_LIBRARY}
+    ${CJSON_LIBRARIES}
   )
 
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
@@ -69,6 +71,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${LIBEV_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIRS}
+    ${CJSON_INCLUDE_DIRS}
   )
 
   #
@@ -77,6 +80,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
   link_libraries(
     ${LIBEV_LIBRARIES}
     ${OPENSSL_LIBRARIES}
+    ${CJSON_LIBRARIES}
   )
 else()
 
@@ -98,6 +102,7 @@ else()
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${LIBEV_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIRS}
+    ${CJSON_INCLUDE_DIRS}
   )
 
   #
@@ -106,6 +111,7 @@ else()
   link_libraries(
     ${LIBEV_LIBRARIES}
     ${OPENSSL_LIBRARIES}
+    ${CJSON_LIBRARIES}
   )
 endif()
 
@@ -314,3 +320,4 @@ endif()
 target_link_libraries(pgagroal-admin-bin pgagroal)
 
 install(TARGETS pgagroal-admin-bin DESTINATION ${CMAKE_INSTALL_BINDIR})
+

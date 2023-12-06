@@ -69,6 +69,7 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
 * [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
 * [rst2man](https://docutils.sourceforge.io/)
 * [libatomic](https://gcc.gnu.org/wiki/Atomic)
+* [cJSON](https://github.com/DaveGamble/cJSON)
 
 On Rocky Linux (and similar) operating systems, the dependencies
 can be installed via `dnf(8)` as follows:
@@ -79,7 +80,8 @@ dnf install git gcc cmake make    \
             openssl openssl-devel \
 	    systemd systemd-devel \
 	    python3-docutils      \
-	    libatomic
+	    libatomic             \
+	    cjson cjson-devel
 ```
 
 Please note that, on Rocky Linux, in order to install the `python3-docutils`

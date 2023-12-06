@@ -64,6 +64,18 @@ extern "C" {
 #define MANAGEMENT_CONFIG_LS          22
 
 /**
+ * Status for the 'ping' (i.e., is-alive) command
+ */
+#define PING_STATUS_RUNNING 1
+#define PING_STATUS_SHUTDOWN_GRACEFULLY 2
+
+/**
+ * Available command output formats
+ */
+#define COMMAND_OUTPUT_FORMAT_TEXT 'T'
+#define COMMAND_OUTPUT_FORMAT_JSON 'J'
+
+/**
  * Read the management header
  * @param socket The socket descriptor
  * @param id The resulting management identifier
@@ -179,10 +191,11 @@ pgagroal_management_status(SSL* ssl, int socket);
 /**
  * Management: Read status
  * @param socket The socket
+ * @param output_format a char describing the type of output (text or json)
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_read_status(SSL* ssl, int socket);
+pgagroal_management_read_status(SSL* ssl, int socket, char output_format);
 
 /**
  * Management: Write status
@@ -205,10 +218,11 @@ pgagroal_management_details(SSL* ssl, int socket);
 /**
  * Management: Read details
  * @param socket The socket
+ * @param output_format the output format for this command (text, json)
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_read_details(SSL* ssl, int socket);
+pgagroal_management_read_details(SSL* ssl, int socket, char output_format);
 
 /**
  * Management: Write details
@@ -233,7 +247,7 @@ pgagroal_management_isalive(SSL* ssl, int socket);
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_read_isalive(SSL* ssl, int socket, int* status);
+pgagroal_management_read_isalive(SSL* ssl, int socket, int* status, char output_format);
 
 /**
  * Management: Write isalive
@@ -332,10 +346,14 @@ pgagroal_management_config_get(SSL* ssl, int socket, char* config_key);
  * @see pgagroal_management_read_payload
  *
  * @param ssl the socket file descriptor
+ * @param config_key the key to read (is used only to print in the output)
+ * @param verbose verbosity flag
+ * @param output_format the output format
+ * @param expected_value if set, a value that the configuration should match
  * @return 0 on success
  */
 int
-pgagroal_management_read_config_get(int socket, char** data);
+pgagroal_management_read_config_get(int socket, char* config_key, char* expected_value, bool verbose, char output_format);
 
 /**
  * Management operation: write the result of a config_get action on the socket.
@@ -414,10 +432,11 @@ pgagroal_management_conf_ls(SSL* ssl, int fd);
  *
  * @param socket the file descriptor of the open socket
  * @param ssl the SSL handler
+ * @param output_format the format to output the command result
  * @returns 0 on success
  */
 int
-pgagroal_management_read_conf_ls(SSL* ssl, int socket);
+pgagroal_management_read_conf_ls(SSL* ssl, int socket, char output_format);
 
 /**
  * The management function responsible for sending

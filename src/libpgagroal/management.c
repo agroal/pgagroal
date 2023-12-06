@@ -35,6 +35,7 @@
 #include <pool.h>
 #include <utils.h>
 #include <configuration.h>
+#include <json.h>
 
 /* system */
 #include <errno.h>
@@ -61,6 +62,14 @@ static int write_header(SSL* ssl, int fd, signed char type, int slot);
 
 static int pgagroal_management_write_conf_ls_detail(int socket, char* what);
 static int pgagroal_management_read_conf_ls_detail(SSL* ssl, int socket, char* buffer);
+
+static int pgagroal_management_json_print_status_details(cJSON* json);
+
+static cJSON* pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_details);
+static cJSON* pgagroal_managment_json_read_config_get(int socket, char* config_key, char* expected_value);
+
+static cJSON* pgagroal_management_json_read_conf_ls(SSL* ssl, int socket);
+static int pgagroal_management_json_print_conf_ls(cJSON* json);
 
 int
 pgagroal_management_read_header(int socket, signed char* id, int32_t* slot)
@@ -560,7 +569,50 @@ error:
 }
 
 int
-pgagroal_management_read_status(SSL* ssl, int socket)
+pgagroal_management_read_status(SSL* ssl, int socket, char output_format)
+{
+   cJSON* json = pgagroal_management_json_read_status_details(ssl, socket, false);
+
+   // check we have an answer and it is not an error
+   if (!json || pgagroal_json_is_command_object_faulty(json))
+   {
+      goto error;
+   }
+
+   // print out the command answer
+   if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
+   {
+      pgagroal_json_print_and_free_json_object(json);
+   }
+   else
+   {
+      pgagroal_management_json_print_status_details(json);
+   }
+
+   return 0;
+
+error:
+   pgagroal_log_warn("pgagroal_management_read_status: command error [%s]",
+                     (json == NULL ? "<unknown>" : pgagroal_json_get_command_object_status(json)));
+   return 1;
+}
+
+/**
+ * Utility method that reads the answer from pgagroal about
+ * either the 'status' or the 'status details' command.
+ * The answer is then wrapped into a JSON object
+ * that contains all the information needed to be printed out in either
+ * JSON format or text format.
+ *
+ * @param ssl the SSL file descriptor for the socket
+ * @param socket the socket file descriptor
+ * @param include_details true if the method has to handle the 'status details' command
+ * or false if the answer is related only to the 'status' command
+ *
+ * @returns the json object, faulty if something goes wrong
+ */
+static cJSON*
+pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_details)
 {
    char buf[16];
    char disabled[NUMBER_OF_DISABLED][MAX_DATABASE_LENGTH];
@@ -568,21 +620,27 @@ pgagroal_management_read_status(SSL* ssl, int socket)
    int active;
    int total;
    int max;
+   int max_connections = 0;
+   int limits = 0;
+   int servers = 0;
+   char header[12 + MAX_NUMBER_OF_CONNECTIONS];
 
    memset(&buf, 0, sizeof(buf));
    memset(&disabled, 0, sizeof(disabled));
+   memset(&header, 0, sizeof(header));
+
+   cJSON* json = pgagroal_json_create_new_command_object(include_details ? "status details" :  "status", true, "pgagroal-cli");
+   cJSON* output = pgagroal_json_extract_command_output_object(json);
 
    if (read_complete(ssl, socket, &buf[0], sizeof(buf)))
    {
-      pgagroal_log_warn("pgagroal_management_read_status: read: %d %s", socket, strerror(errno));
-      errno = 0;
+      pgagroal_log_warn("pgagroal_management_json_read_status_details: read: %d %s", socket, strerror(errno));
       goto error;
    }
 
    if (read_complete(ssl, socket, &disabled[0], sizeof(disabled)))
    {
-      pgagroal_log_warn("pgagroal_management_read_status: read: %d %s", socket, strerror(errno));
-      errno = 0;
+      pgagroal_log_warn("pgagroal_management_json_read_status_details: read: %d %s", socket, strerror(errno));
       goto error;
    }
 
@@ -591,10 +649,24 @@ pgagroal_management_read_status(SSL* ssl, int socket)
    total = pgagroal_read_int32(&(buf[8]));
    max = pgagroal_read_int32(&(buf[12]));
 
-   printf("Status:              %s\n", (status == 1 ? "Running" : "Graceful shutdown"));
-   printf("Active connections:  %d\n", active);
-   printf("Total connections:   %d\n", total);
-   printf("Max connections:     %d\n", max);
+   // status information
+   cJSON* status_json = cJSON_CreateObject();
+   cJSON_AddStringToObject(status_json, "message", (status == 1 ? "Running" : "Graceful shutdown"));
+   cJSON_AddNumberToObject(status_json, "status", status);
+   cJSON_AddItemToObject(output, "status", status_json);
+
+   // define all the information about connections
+   cJSON* connections = cJSON_CreateObject();
+   cJSON_AddNumberToObject(connections, "active", active);
+   cJSON_AddNumberToObject(connections, "total", total);
+   cJSON_AddNumberToObject(connections, "max", max);
+   cJSON_AddItemToObject(output, "connections", connections);
+
+   // define all the information about disabled databases
+   cJSON* databases = cJSON_CreateObject();
+   cJSON* databases_array = cJSON_CreateArray();
+
+   int counter = 0;
 
    for (int i = 0; i < NUMBER_OF_DISABLED; i++)
    {
@@ -602,20 +674,165 @@ pgagroal_management_read_status(SSL* ssl, int socket)
       {
          if (!strcmp(disabled[i], "*"))
          {
-            printf("Disabled database:   ALL\n");
+            cJSON_AddItemToArray(databases_array, cJSON_CreateString("ALL"));
+            counter = -1;
          }
          else
          {
-            printf("Disabled database:   %s\n", disabled[i]);
+            cJSON_AddItemToArray(databases_array, cJSON_CreateString(disabled[i]));
+            counter++;
          }
       }
    }
 
-   return 0;
+   cJSON* disabled_databases = cJSON_CreateObject();
+   cJSON_AddNumberToObject(disabled_databases, "count", counter);
+   cJSON_AddStringToObject(disabled_databases, "state", "disabled");
+   cJSON_AddItemToObject(disabled_databases, JSON_TAG_ARRAY_NAME, databases_array);
+   cJSON_AddItemToObject(databases, "disabled", disabled_databases);
+   cJSON_AddItemToObject(output, "databases", databases);
+
+   // the 'status' command ends here
+   if (!include_details)
+   {
+      goto end;
+   }
+
+   /*********** 'status details ************/
+
+   memset(&header, 0, sizeof(header));
+
+   if (read_complete(ssl, socket, &header[0], sizeof(header)))
+   {
+      goto error;
+   }
+
+   // quantity informations
+   max_connections = pgagroal_read_int32(&header);
+   limits = pgagroal_read_int32(&(header[4]));
+   servers = pgagroal_read_int32(&(header[8]));
+
+   cJSON* json_servers = cJSON_CreateObject();
+   cJSON* json_servers_array = cJSON_CreateArray();
+   cJSON_AddItemToObject(output, "servers", json_servers);
+   cJSON_AddNumberToObject(json_servers, "count", servers);
+
+   // details about the servers
+   for (int i = 0; i < servers; i++)
+   {
+      char server[5 + MISC_LENGTH + MISC_LENGTH];
+
+      memset(&server, 0, sizeof(server));
+
+      if (read_complete(ssl, socket, &server[0], sizeof(server)))
+      {
+         goto error;
+      }
+
+      cJSON* current_server_json = cJSON_CreateObject();
+      cJSON_AddStringToObject(current_server_json, "server", pgagroal_read_string(&(server[0])));
+      cJSON_AddStringToObject(current_server_json, "host", pgagroal_read_string(&(server[MISC_LENGTH])));
+      cJSON_AddNumberToObject(current_server_json, "port", pgagroal_read_int32(&(server[MISC_LENGTH + MISC_LENGTH])));
+      cJSON_AddStringToObject(current_server_json, "state", pgagroal_server_state_as_string(pgagroal_read_byte(&(server[MISC_LENGTH + MISC_LENGTH + 4]))));
+
+      cJSON_AddItemToArray(json_servers_array, current_server_json);
+   }
+
+   cJSON_AddItemToObject(json_servers, JSON_TAG_ARRAY_NAME, json_servers_array);
+
+   // details about the limits
+   cJSON* json_limits = cJSON_CreateObject();
+   cJSON* json_limits_array = cJSON_CreateArray();
+   cJSON_AddItemToObject(json_limits, JSON_TAG_ARRAY_NAME, json_limits_array);
+   cJSON_AddItemToObject(output, "limits", json_limits);
+   cJSON_AddNumberToObject(json_limits, "count", limits);
+
+   for (int i = 0; i < limits; i++)
+   {
+      char limit[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH];
+      memset(&limit, 0, sizeof(limit));
+
+      if (read_complete(ssl, socket, &limit[0], sizeof(limit)))
+      {
+         goto error;
+      }
+
+      cJSON* current_limit_json = cJSON_CreateObject();
+
+      cJSON_AddStringToObject(current_limit_json, "database", pgagroal_read_string(&(limit[16])));
+      cJSON_AddStringToObject(current_limit_json, "username", pgagroal_read_string(&(limit[16 + MAX_DATABASE_LENGTH])));
+
+      cJSON* current_connections = cJSON_CreateObject();
+
+      cJSON_AddNumberToObject(current_connections, "active", pgagroal_read_int32(&(limit)));
+      cJSON_AddNumberToObject(current_connections, "max", pgagroal_read_int32(&(limit[4])));
+      cJSON_AddNumberToObject(current_connections, "initial", pgagroal_read_int32(&(limit[8])));
+      cJSON_AddNumberToObject(current_connections, "min", pgagroal_read_int32(&(limit[12])));
+
+      cJSON_AddItemToObject(current_limit_json, "connections", current_connections);
+      cJSON_AddItemToArray(json_limits_array, current_limit_json);
+
+   }
+
+   // max connections details (note that the connections json object has been created
+   // as part of the status output)
+   cJSON* connections_array = cJSON_CreateArray();
+   cJSON_AddItemToObject(connections, JSON_TAG_ARRAY_NAME, connections_array);
+
+   for (int i = 0; i < max_connections; i++)
+   {
+      char details[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH + MAX_APPLICATION_NAME];
+      signed char state;
+      long time;
+      time_t t;
+      char ts[20] = {0};
+      int pid;
+      char p[10] = {0};
+      int fd;
+      char f[10] = {0};
+
+      memset(&details, 0, sizeof(details));
+
+      if (read_complete(ssl, socket, &details[0], sizeof(details)))
+      {
+
+         goto error;
+      }
+
+      state = (signed char)header[12 + i];
+      time = pgagroal_read_long(&(details[0]));
+      pid = pgagroal_read_int32(&(details[8]));
+      fd = pgagroal_read_int32(&(details[12]));
+
+      t = time;
+      strftime(ts, 20, "%Y-%m-%d %H:%M:%S", localtime(&t));
+
+      sprintf(p, "%d", pid);
+      sprintf(f, "%d", fd);
+
+      cJSON* current_connection_json = cJSON_CreateObject();
+
+      cJSON_AddNumberToObject(current_connection_json, "number", i);
+      cJSON_AddStringToObject(current_connection_json, "state", pgagroal_server_state_as_string(state));
+      cJSON_AddStringToObject(current_connection_json, "time", time > 0 ? ts : "");
+      cJSON_AddStringToObject(current_connection_json, "pid", pid > 0 ? p : "");
+      cJSON_AddStringToObject(current_connection_json, "fd", fd > 0 ? f : "");
+      cJSON_AddStringToObject(current_connection_json, "database", pgagroal_read_string(&(details[16])));
+      cJSON_AddStringToObject(current_connection_json, "user", pgagroal_read_string(&(details[16 + MAX_DATABASE_LENGTH])));
+      cJSON_AddStringToObject(current_connection_json, "detail", pgagroal_read_string(&(details[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH])));
+
+      cJSON_AddItemToArray(connections_array, current_connection_json);
+
+   }
+
+end:
+   return json;
 
 error:
-
-   return 1;
+   // set the json object as faulty and erase the errno
+   pgagroal_json_set_command_object_faulty(json, strerror(errno), errno);
+   errno = 0;
+   return json;
 }
 
 int
@@ -706,143 +923,31 @@ error:
 }
 
 int
-pgagroal_management_read_details(SSL* ssl, int socket)
+pgagroal_management_read_details(SSL* ssl, int socket, char output_format)
 {
-   char header[12 + MAX_NUMBER_OF_CONNECTIONS];
-   int max_connections = 0;
-   int limits = 0;
-   int servers = 0;
+   cJSON* json = pgagroal_management_json_read_status_details(ssl, socket, true);
 
-   memset(&header, 0, sizeof(header));
-
-   if (read_complete(ssl, socket, &header[0], sizeof(header)))
+   // check we have an answer and it is not an error
+   if (!json || pgagroal_json_is_command_object_faulty(json))
    {
-      pgagroal_log_warn("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
-      errno = 0;
       goto error;
    }
 
-   max_connections = pgagroal_read_int32(&header);
-   limits = pgagroal_read_int32(&(header[4]));
-   servers = pgagroal_read_int32(&(header[8]));
-
-   for (int i = 0; i < servers; i++)
+   // print out the command answer
+   if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      char server[5 + MISC_LENGTH + MISC_LENGTH];
-      signed char state;
-
-      memset(&server, 0, sizeof(server));
-
-      if (read_complete(ssl, socket, &server[0], sizeof(server)))
-      {
-         pgagroal_log_warn("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
-         errno = 0;
-         goto error;
-      }
-
-      state = pgagroal_read_byte(&(server[MISC_LENGTH + MISC_LENGTH + 4]));
-
-      printf("---------------------\n");
-      printf("Server:              %s\n", pgagroal_read_string(&(server[0])));
-      printf("Host:                %s\n", pgagroal_read_string(&(server[MISC_LENGTH])));
-      printf("Port:                %d\n", pgagroal_read_int32(&(server[MISC_LENGTH + MISC_LENGTH])));
-
-      switch (state)
-      {
-         case SERVER_NOTINIT:
-            printf("State:               Not init\n");
-            break;
-         case SERVER_NOTINIT_PRIMARY:
-            printf("State:               Not init (primary)\n");
-            break;
-         case SERVER_PRIMARY:
-            printf("State:               Primary\n");
-            break;
-         case SERVER_REPLICA:
-            printf("State:               Replica\n");
-            break;
-         case SERVER_FAILOVER:
-            printf("State:               Failover\n");
-            break;
-         case SERVER_FAILED:
-            printf("State:               Failed\n");
-            break;
-         default:
-            printf("State:               %d\n", state);
-            break;
-      }
+      pgagroal_json_print_and_free_json_object(json);
    }
-
-   printf("---------------------\n");
-
-   for (int i = 0; i < limits; i++)
+   else
    {
-      char limit[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH];
-
-      memset(&limit, 0, sizeof(limit));
-
-      if (read_complete(ssl, socket, &limit[0], sizeof(limit)))
-      {
-         pgagroal_log_warn("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
-         errno = 0;
-         goto error;
-      }
-
-      printf("Database:            %s\n", pgagroal_read_string(&(limit[16])));
-      printf("Username:            %s\n", pgagroal_read_string(&(limit[16 + MAX_DATABASE_LENGTH])));
-      printf("Active connections:  %d\n", pgagroal_read_int32(&(limit)));
-      printf("Max connections:     %d\n", pgagroal_read_int32(&(limit[4])));
-      printf("Initial connections: %d\n", pgagroal_read_int32(&(limit[8])));
-      printf("Min connections:     %d\n", pgagroal_read_int32(&(limit[12])));
-      printf("---------------------\n");
-   }
-
-   for (int i = 0; i < max_connections; i++)
-   {
-      char details[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH + MAX_APPLICATION_NAME];
-      signed char state;
-      long time;
-      time_t t;
-      char ts[20] = {0};
-      int pid;
-      char p[10] = {0};
-      int fd;
-      char f[10] = {0};
-
-      memset(&details, 0, sizeof(details));
-
-      if (read_complete(ssl, socket, &details[0], sizeof(details)))
-      {
-         pgagroal_log_warn("pgagroal_management_read_details: read: %d %s", socket, strerror(errno));
-         errno = 0;
-         goto error;
-      }
-
-      state = (signed char)header[12 + i];
-      time = pgagroal_read_long(&(details[0]));
-      pid = pgagroal_read_int32(&(details[8]));
-      fd = pgagroal_read_int32(&(details[12]));
-
-      t = time;
-      strftime(ts, 20, "%Y-%m-%d %H:%M:%S", localtime(&t));
-
-      sprintf(p, "%d", pid);
-      sprintf(f, "%d", fd);
-
-      printf("Connection %4d:     %-15s %-19s %-6s %-6s %s %s %s\n",
-             i,
-             pgagroal_get_state_string(state),
-             time > 0 ? ts : "",
-             pid > 0 ? p : "",
-             fd > 0 ? f : "",
-             pgagroal_read_string(&(details[16])),
-             pgagroal_read_string(&(details[16 + MAX_DATABASE_LENGTH])),
-             pgagroal_read_string(&(details[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH])));
+      pgagroal_management_json_print_status_details(json);
    }
 
    return 0;
 
 error:
+   pgagroal_log_warn("pgagroal_management_read_details: command error [%s]",
+                     (json == NULL ? "<unknown>" : pgagroal_json_get_command_object_status(json)));
 
    return 1;
 }
@@ -962,7 +1067,7 @@ error:
 }
 
 int
-pgagroal_management_read_isalive(SSL* ssl, int socket, int* status)
+pgagroal_management_read_isalive(SSL* ssl, int socket, int* status, char output_format)
 {
    char buf[4];
 
@@ -976,6 +1081,31 @@ pgagroal_management_read_isalive(SSL* ssl, int socket, int* status)
    }
 
    *status = pgagroal_read_int32(&buf);
+
+   // do I need to provide JSON output?
+   if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
+   {
+      cJSON* json = pgagroal_json_create_new_command_object("ping", true, "pgagroal-cli");
+      cJSON* output = pgagroal_json_extract_command_output_object(json);
+
+      cJSON_AddNumberToObject(output, "status", *status);
+
+      if (*status == PING_STATUS_RUNNING)
+      {
+         cJSON_AddStringToObject(output, "message", "running");
+      }
+      else if (*status == PING_STATUS_SHUTDOWN_GRACEFULLY)
+      {
+         cJSON_AddStringToObject(output, "message", "shutdown gracefully");
+      }
+      else
+      {
+         cJSON_AddStringToObject(output, "message", "unknown");
+      }
+
+      pgagroal_json_print_and_free_json_object(json);
+
+   }
 
    return 0;
 
@@ -993,11 +1123,11 @@ pgagroal_management_write_isalive(int socket, bool gracefully)
 
    if (!gracefully)
    {
-      pgagroal_write_int32(buf, 1);
+      pgagroal_write_int32(buf, PING_STATUS_RUNNING);
    }
    else
    {
-      pgagroal_write_int32(buf, 2);
+      pgagroal_write_int32(buf, PING_STATUS_SHUTDOWN_GRACEFULLY);
    }
 
    if (write_complete(NULL, socket, &buf, sizeof(buf)))
@@ -1608,11 +1738,105 @@ error:
 
 }
 
-int
-pgagroal_management_read_config_get(int socket, char** data)
+/**
+ * Utility method to wrap the answer about a configuration setting
+ * into a JSON object.
+ *
+ * @param socket the socket from which reading the data from
+ * @param config_key the key requested, used only to populate the json
+ * @param expected_value the config value expected in the case of a `config set`.
+ * If the expetced_value is not null, the function checks if the obtained config value and
+ * the expected one are equal, and in case are not set the JSON object as faulty.
+ *
+ * @return the JSON object
+ */
+static cJSON*
+pgagroal_managment_json_read_config_get(int socket, char* config_key, char* expected_value)
 {
+
    int size = MISC_LENGTH;
-   return pgagroal_management_read_payload(socket, MANAGEMENT_CONFIG_GET, &size, data);
+   char* buffer = NULL;
+   bool is_config_set = false;
+
+   buffer = calloc(1, size);
+   if (buffer == NULL)
+   {
+      goto error;
+   }
+
+   if (pgagroal_management_read_payload(socket, MANAGEMENT_CONFIG_GET, &size, &buffer))
+   {
+      goto error;
+   }
+
+   // is this the answer from a 'conf set' command ?
+   is_config_set = (expected_value && strlen(expected_value) > 0);
+
+   cJSON* json = pgagroal_json_create_new_command_object(is_config_set ? "conf set" :  "conf get", true, "pgagroal-cli");
+   cJSON* output = pgagroal_json_extract_command_output_object(json);
+   cJSON_AddStringToObject(output, "key", config_key);
+   cJSON_AddStringToObject(output, "value", buffer);
+
+   if (is_config_set)
+   {
+      cJSON_AddStringToObject(output, "expected", expected_value);
+
+      // if the expected value is not what we get, this means there is an error
+      // (e.g., cannot apply the config set)
+      if (strncmp(buffer, expected_value, size))
+      {
+         pgagroal_json_set_command_object_faulty(json, "Current and expected values are different", EXIT_STATUS_DATA_ERROR);
+      }
+   }
+
+   free(buffer);
+   return json;
+error:
+   if (buffer)
+   {
+      free(buffer);
+   }
+   return NULL;
+}
+
+int
+pgagroal_management_read_config_get(int socket, char* config_key, char* expected_value, bool verbose, char output_format)
+{
+
+   cJSON* json = pgagroal_managment_json_read_config_get(socket, config_key, expected_value);
+
+   if (!json)
+   {
+      goto error;
+   }
+
+   if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
+   {
+      pgagroal_json_print_and_free_json_object(json);
+      goto end;
+   }
+
+   // if here, print out in text format
+   cJSON* output = pgagroal_json_extract_command_output_object(json);
+   cJSON* value = cJSON_GetObjectItemCaseSensitive(output, "value");
+   cJSON* key = cJSON_GetObjectItemCaseSensitive(output, "key");
+   if (verbose)
+   {
+      printf("%s = %s\n", key->valuestring, value->valuestring);
+   }
+   else
+   {
+      printf("%s\n", value->valuestring);
+   }
+
+end:
+   return pgagroal_json_command_object_exit_status(json);
+
+error:
+
+   pgagroal_log_warn("pgagroal_management_read_config_get : error retrieving configuration for <%s> : %s", config_key, strerror(errno));
+   errno = 0;
+   return EXIT_STATUS_DATA_ERROR;
 }
 
 int
@@ -1750,69 +1974,31 @@ error:
 }
 
 int
-pgagroal_management_read_conf_ls(SSL* ssl, int socket)
+pgagroal_management_read_conf_ls(SSL* ssl, int socket, char output_format)
 {
-   char buf[4];
-   char* buffer;
 
-   memset(&buf, 0, sizeof(buf));
-   buffer = calloc(1, MAX_PATH);
+   // get the JSON output
+   cJSON* json = pgagroal_management_json_read_conf_ls(ssl, socket);
 
-   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   // check we have an answer and it is not an error
+   if (!json || pgagroal_json_is_command_object_faulty(json))
    {
       goto error;
    }
 
-   printf("Main Configuration file:   %s\n", buffer);
-
-   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   // print out the command answer
+   if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      goto error;
+      pgagroal_json_print_and_free_json_object(json);
    }
-
-   printf("HBA file:                  %s\n", buffer);
-
-   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   else
    {
-      goto error;
+      pgagroal_management_json_print_conf_ls(json);
    }
-
-   printf("Limit file:                %s\n", buffer);
-
-   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
-   {
-      goto error;
-   }
-
-   printf("Frontend users file:       %s\n", buffer);
-
-   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
-   {
-      goto error;
-   }
-
-   printf("Admins file:               %s\n", buffer);
-
-   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
-   {
-      goto error;
-   }
-
-   printf("Superuser file:            %s\n", buffer);
-
-   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
-   {
-      goto error;
-   }
-
-   printf("Users file:                %s\n", buffer);
-
-   free(buffer);
 
    return 0;
 
 error:
-   free(buffer);
    pgagroal_log_warn("pgagroal_management_read_conf_ls: read: %d %s", socket, strerror(errno));
    errno = 0;
 
@@ -1969,5 +2155,309 @@ error:
    pgagroal_log_warn("pgagroal_management_read_conf_ls_detail: read: %d %s", socket, strerror(errno));
    errno = 0;
 
+   return 1;
+}
+
+/**
+ * Utility function to print out the result of a 'status'
+ * or a 'status details' command already wrapped into a
+ * JSON object.
+ * The function tries to understand from the command name
+ * within the JSON object if the output refers to the
+ * 'status' or 'status details' command.
+ *
+ * If the command is faulty, this method does nothing, therefore
+ * printing out information about faulty commands has to be done
+ * at an higher level.
+ *
+ * @param json the JSON object
+ *
+ * @returns 0 on success
+ */
+int
+pgagroal_management_json_print_status_details(cJSON* json)
+{
+   bool is_command_details = false; /* is this command 'status details' ? */
+
+   // sanity check
+   if (!json || pgagroal_json_is_command_object_faulty(json))
+   {
+      return 1;
+   }
+
+   // the command must be 'status' or 'status details'
+   if (pgagroal_json_is_command_name_equals_to(json, "status"))
+   {
+      is_command_details = false;
+   }
+   else if (pgagroal_json_is_command_name_equals_to(json, "status details"))
+   {
+      is_command_details = true;
+   }
+   else
+   {
+      goto error;
+   }
+
+   // now get the output and start printing it
+   cJSON* output = pgagroal_json_extract_command_output_object(json);
+
+   // overall status
+   printf("Status:              %s\n",
+          cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(output, "status"), "message")->valuestring);
+
+   // connections
+   cJSON* connections = cJSON_GetObjectItemCaseSensitive(output, "connections");
+   if (!connections)
+   {
+      goto error;
+   }
+
+   printf("Active connections:  %d\n", cJSON_GetObjectItemCaseSensitive(connections, "active")->valueint);
+   printf("Total connections:   %d\n", cJSON_GetObjectItemCaseSensitive(connections, "total")->valueint);
+   printf("Max connections:     %d\n", cJSON_GetObjectItemCaseSensitive(connections, "max")->valueint);
+
+   // databases
+   cJSON* databases = cJSON_GetObjectItemCaseSensitive(output, "databases");
+   if (!databases)
+   {
+      goto error;
+   }
+
+   cJSON* disabled_databases = cJSON_GetObjectItemCaseSensitive(databases, "disabled");
+   if (!disabled_databases)
+   {
+      goto error;
+   }
+
+   cJSON* disabled_databases_list = cJSON_GetObjectItemCaseSensitive(disabled_databases, JSON_TAG_ARRAY_NAME);
+   cJSON* current;
+   cJSON_ArrayForEach(current, disabled_databases_list)
+   {
+      printf("Disabled database:   %s\n", current->valuestring);
+   }
+
+   // the status command ends here
+   if (!is_command_details)
+   {
+      goto end;
+   }
+
+   // dump the servers information
+   cJSON* servers = cJSON_GetObjectItemCaseSensitive(output, "servers");
+   if (!servers)
+   {
+      goto error;
+   }
+
+   cJSON* servers_list = cJSON_GetObjectItemCaseSensitive(servers, JSON_TAG_ARRAY_NAME);
+   cJSON_ArrayForEach(current, servers_list)
+   {
+      printf("---------------------\n");
+      printf("Server:              %s\n", cJSON_GetObjectItemCaseSensitive(current, "server")->valuestring);
+      printf("Host:                %s\n", cJSON_GetObjectItemCaseSensitive(current, "host")->valuestring);
+      printf("Port:                %d\n", cJSON_GetObjectItemCaseSensitive(current, "port")->valueint);
+      printf("State:               %s\n", cJSON_GetObjectItemCaseSensitive(current, "state")->valuestring);
+      printf("---------------------\n");
+
+   }
+
+   // dump the limits information
+   cJSON* limits = cJSON_GetObjectItemCaseSensitive(output, "limits");
+   cJSON* limits_list = cJSON_GetObjectItemCaseSensitive(limits, JSON_TAG_ARRAY_NAME);
+   cJSON_ArrayForEach(current, limits_list)
+   {
+      printf("---------------------\n");
+      printf("Database:            %s\n", cJSON_GetObjectItemCaseSensitive(current, "database")->valuestring);
+      printf("Username:            %s\n", cJSON_GetObjectItemCaseSensitive(current, "username")->valuestring);
+      cJSON* current_connections = cJSON_GetObjectItemCaseSensitive(current, "connections");
+      printf("Active connections:  %d\n", cJSON_GetObjectItemCaseSensitive(current_connections, "active")->valueint);
+      printf("Max connections:     %d\n", cJSON_GetObjectItemCaseSensitive(current_connections, "max")->valueint);
+      printf("Initial connections: %d\n", cJSON_GetObjectItemCaseSensitive(current_connections, "initial")->valueint);
+      printf("Min connections:     %d\n", cJSON_GetObjectItemCaseSensitive(current_connections, "min")->valueint);
+      printf("---------------------\n");
+   }
+
+   // print the connection information
+   int i = 0;
+   cJSON_ArrayForEach(current, cJSON_GetObjectItemCaseSensitive(connections, JSON_TAG_ARRAY_NAME))
+   {
+      printf("Connection %4d:     %-15s %-19s %-6s %-6s %s %s %s\n",
+             i++,
+             cJSON_GetObjectItemCaseSensitive(current, "state")->valuestring,
+             cJSON_GetObjectItemCaseSensitive(current, "time")->valuestring,
+             cJSON_GetObjectItemCaseSensitive(current, "pid")->valuestring,
+             cJSON_GetObjectItemCaseSensitive(current, "fd")->valuestring,
+             cJSON_GetObjectItemCaseSensitive(current, "user")->valuestring,
+             cJSON_GetObjectItemCaseSensitive(current, "database")->valuestring,
+             cJSON_GetObjectItemCaseSensitive(current, "detail")->valuestring);
+
+   }
+
+end:
+   return 0;
+
+error:
+   return 1;
+
+}
+
+/**
+ * Utility method to get the information about the `conf ls` command.
+ * This method produces a cJSON object that needs to be printed out in textual format.
+ *
+ * @param ssl the SSL file descriptor
+ * @param socket the file descriptor for the socket
+ *
+ * @returns the cJSON object, faulty if something went wrong
+ */
+static cJSON*
+pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
+{
+   char buf[4];
+   char* buffer;
+
+   cJSON* json = pgagroal_json_create_new_command_object("conf ls", true, "pgagroal-cli");
+   cJSON* output = pgagroal_json_extract_command_output_object(json);
+
+   // add an array that will contain the files
+   cJSON* files = cJSON_CreateObject();
+   cJSON* files_array = cJSON_CreateArray();
+   cJSON_AddItemToObject(output, "files", files);
+   cJSON_AddItemToObject(files, JSON_TAG_ARRAY_NAME, files_array);
+
+   memset(&buf, 0, sizeof(buf));
+   buffer = calloc(1, MAX_PATH);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   // add the main configuration file entry
+   cJSON* mainConf = cJSON_CreateObject();
+   cJSON_AddStringToObject(mainConf, "description", "Main Configuration file");
+   cJSON_AddStringToObject(mainConf, "path", buffer);
+   cJSON_AddItemToArray(files_array, mainConf);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   // add the HBA file
+   cJSON* hbaConf = cJSON_CreateObject();
+   cJSON_AddStringToObject(hbaConf, "description", "HBA File");
+   cJSON_AddStringToObject(hbaConf, "path", buffer);
+   cJSON_AddItemToArray(files_array, hbaConf);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   // add the limit file
+   cJSON* limitConf = cJSON_CreateObject();
+   cJSON_AddStringToObject(limitConf, "description", "Limit file");
+   cJSON_AddStringToObject(limitConf, "path", buffer);
+   cJSON_AddItemToArray(files_array, limitConf);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   // add the frontend file
+   cJSON* frontendConf = cJSON_CreateObject();
+   cJSON_AddStringToObject(frontendConf, "description", "Frontend users file");
+   cJSON_AddStringToObject(frontendConf, "path", buffer);
+   cJSON_AddItemToArray(files_array, frontendConf);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   // add the admins file
+   cJSON* adminsConf = cJSON_CreateObject();
+   cJSON_AddStringToObject(adminsConf, "description", "Admins file");
+   cJSON_AddStringToObject(adminsConf, "path", buffer);
+   cJSON_AddItemToArray(files_array, adminsConf);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   // add the superuser file
+   cJSON* superuserConf = cJSON_CreateObject();
+   cJSON_AddStringToObject(superuserConf, "description", "Superuser file");
+   cJSON_AddStringToObject(superuserConf, "path", buffer);
+   cJSON_AddItemToArray(files_array, superuserConf);
+
+   if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
+   {
+      goto error;
+   }
+
+   // add the users file
+   cJSON* usersConf = cJSON_CreateObject();
+   cJSON_AddStringToObject(usersConf, "description", "Users file");
+   cJSON_AddStringToObject(usersConf, "path", buffer);
+   cJSON_AddItemToArray(files_array, usersConf);
+
+   // all done
+   goto end;
+
+error:
+   free(buffer);
+   pgagroal_log_warn("pgagroal_management_json_read_conf_ls: read: %d %s", socket, strerror(errno));
+   errno = 0;
+   pgagroal_json_set_command_object_faulty(json, strerror(errno), errno);
+
+end:
+   free(buffer);
+   return json;
+
+}
+
+/**
+ * Utility function to handle a JSON object and print it out
+ * as normal text.
+ *
+ * @param json the JSON object
+ * @returns 0 on success
+ */
+static int
+pgagroal_management_json_print_conf_ls(cJSON* json)
+{
+   // sanity check
+   if (!json || pgagroal_json_is_command_object_faulty(json))
+   {
+      goto error;
+   }
+
+   // now get the output and start printing it
+   cJSON* output = pgagroal_json_extract_command_output_object(json);
+
+   // files
+   cJSON* files = cJSON_GetObjectItemCaseSensitive(output, "files");
+   if (!files)
+   {
+      goto error;
+   }
+
+   cJSON* files_array = cJSON_GetObjectItemCaseSensitive(files, JSON_TAG_ARRAY_NAME);
+   cJSON* current;
+   cJSON_ArrayForEach(current, files_array)
+   {
+      // the current JSON object is made by two different values
+      printf("%-25s : %s\n",
+             cJSON_GetObjectItemCaseSensitive(current, "description")->valuestring,
+             cJSON_GetObjectItemCaseSensitive(current, "path")->valuestring);
+   }
+
+error:
+   cJSON_Delete(json);
    return 1;
 }

@@ -78,6 +78,16 @@ else ()
   message(FATAL_ERROR "rst2man needed")
 endif()
 
+# search for cJSON library
+# <https://github.com/DaveGamble/cJSON>
+find_package(cJSON)
+if (cJSON_FOUND)
+  message(STATUS "cJSON found version ${CJSON_VERSION}")
+else ()
+  message(FATAL_ERROR "cJSON needed")
+endif()
+
+
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   find_package(Libatomic)
   if (LIBATOMIC_FOUND)
