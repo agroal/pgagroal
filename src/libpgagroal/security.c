@@ -2128,6 +2128,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
 
    if (msg->length > SECURITY_BUFFER_SIZE)
    {
+      pgagroal_log_message(msg);
       pgagroal_log_error("Security message too large: %ld", msg->length);
       goto error;
    }
@@ -2155,6 +2156,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
 
       if (msg->length > SECURITY_BUFFER_SIZE)
       {
+         pgagroal_log_message(msg);
          pgagroal_log_error("Security message too large: %ld", msg->length);
          goto error;
       }
@@ -2180,6 +2182,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
       {
          if (msg->length > SECURITY_BUFFER_SIZE)
          {
+            pgagroal_log_message(msg);
             pgagroal_log_error("Security message too large: %ld", msg->length);
             goto error;
          }
@@ -2203,6 +2206,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
 
          if (msg->length > SECURITY_BUFFER_SIZE)
          {
+            pgagroal_log_message(msg);
             pgagroal_log_error("Security message too large: %ld", msg->length);
             goto error;
          }
@@ -2233,6 +2237,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
       {
          if (msg->length > SECURITY_BUFFER_SIZE)
          {
+            pgagroal_log_message(msg);
             pgagroal_log_error("Security message too large: %ld", msg->length);
             goto error;
          }
@@ -2321,6 +2326,7 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
 
    if (msg->length > SECURITY_BUFFER_SIZE)
    {
+      pgagroal_log_message(msg);
       pgagroal_log_error("Security message too large: %ld", msg->length);
       goto error;
    }
@@ -2439,6 +2445,7 @@ server_password(char* username, char* password, int slot, SSL* server_ssl)
    status = pgagroal_read_block_message(server_ssl, server_fd, &auth_msg);
    if (auth_msg->length > SECURITY_BUFFER_SIZE)
    {
+      pgagroal_log_message(auth_msg);
       pgagroal_log_error("Security message too large: %ld", auth_msg->length);
       goto error;
    }
@@ -2450,6 +2457,7 @@ server_password(char* username, char* password, int slot, SSL* server_ssl)
    {
       if (auth_msg->length > SECURITY_BUFFER_SIZE)
       {
+         pgagroal_log_message(auth_msg);
          pgagroal_log_error("Security message too large: %ld", auth_msg->length);
          goto error;
       }
@@ -2556,6 +2564,7 @@ server_md5(char* username, char* password, int slot, SSL* server_ssl)
    status = pgagroal_read_block_message(server_ssl, server_fd, &auth_msg);
    if (auth_msg->length > SECURITY_BUFFER_SIZE)
    {
+      pgagroal_log_message(auth_msg);
       pgagroal_log_error("Security message too large: %ld", auth_msg->length);
       goto error;
    }
@@ -2567,6 +2576,7 @@ server_md5(char* username, char* password, int slot, SSL* server_ssl)
    {
       if (auth_msg->length > SECURITY_BUFFER_SIZE)
       {
+         pgagroal_log_message(auth_msg);
          pgagroal_log_error("Security message too large: %ld", auth_msg->length);
          goto error;
       }
@@ -2686,6 +2696,7 @@ server_scram256(char* username, char* password, int slot, SSL* server_ssl)
    status = pgagroal_read_block_message(server_ssl, server_fd, &msg);
    if (msg->length > SECURITY_BUFFER_SIZE)
    {
+      pgagroal_log_message(msg);
       pgagroal_log_error("Security message too large: %ld", msg->length);
       goto error;
    }
@@ -2750,6 +2761,7 @@ server_scram256(char* username, char* password, int slot, SSL* server_ssl)
    status = pgagroal_read_block_message(server_ssl, server_fd, &msg);
    if (msg->length > SECURITY_BUFFER_SIZE)
    {
+      pgagroal_log_message(msg);
       pgagroal_log_error("Security message too large: %ld", msg->length);
       goto error;
    }
@@ -5004,6 +5016,7 @@ auth_query_server_md5(struct message* startup_response_msg, char* username, char
    status = pgagroal_read_block_message(server_ssl, socket, &auth_msg);
    if (auth_msg->length > SECURITY_BUFFER_SIZE)
    {
+      pgagroal_log_message(auth_msg);
       pgagroal_log_error("Security message too large: %ld", auth_msg->length);
       goto error;
    }
@@ -5015,6 +5028,7 @@ auth_query_server_md5(struct message* startup_response_msg, char* username, char
    {
       if (auth_msg->length > SECURITY_BUFFER_SIZE)
       {
+         pgagroal_log_message(auth_msg);
          pgagroal_log_error("Security message too large: %ld", auth_msg->length);
          goto error;
       }
