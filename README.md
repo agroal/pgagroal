@@ -68,12 +68,29 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
 * [OpenSSL](http://www.openssl.org/)
 * [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
 * [rst2man](https://docutils.sourceforge.io/)
+* [libatomic](https://gcc.gnu.org/wiki/Atomic)
+
+On Rocky Linux (and similar) operating systems, the dependencies
+can be installed via `dnf(8)` as follows:
 
 ```sh
-dnf install git gcc cmake make libev libev-devel openssl openssl-devel systemd systemd-devel python3-docutils
+dnf install git gcc cmake make    \
+            libev libev-devel     \
+            openssl openssl-devel \
+	    systemd systemd-devel \
+	    python3-docutils      \
+	    libatomic
 ```
 
-Alternative [clang 8+](https://clang.llvm.org/) can be used.
+Please note that, on Rocky Linux, in order to install the `python3-docutils`
+package (that provides `rst2man` executable), you need to enable the `crb` repository:
+
+```sh
+dnf config-manager --set-enabled crb
+```
+
+
+Alternatively to GCC, [clang 8+](https://clang.llvm.org/) can be used.
 
 ### Release build
 
