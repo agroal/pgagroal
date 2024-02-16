@@ -125,7 +125,7 @@ static int  create_ssl_ctx(bool client, SSL_CTX** ctx);
 static int  create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, SSL** ssl);
 static int  create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl);
 static int  establish_client_tls_connection(int server, int fd, SSL** ssl);
-static int  create_client_tls_connection(int fd, SSL** ssl);
+static int  create_client_tls_connection(int fd, SSL** ssl, char* tls_key_file, char* tls_cert_file, char* tls_ca_file);
 
 static int auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method);
 static int auth_query_get_connection(char* username, char* password, char* database, int* server_fd, SSL** server_ssl);
@@ -4484,7 +4484,7 @@ create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, S
       goto error;
    }
 
-   if (have_cert && strlen(key) > 0)
+   if (have_cert && key != NULL && strlen(key) > 0)
    {
       if (SSL_use_PrivateKey_file(s, key, SSL_FILETYPE_PEM) != 1)
       {
@@ -5716,7 +5716,6 @@ error:
 static int
 establish_client_tls_connection(int server, int fd, SSL** ssl)
 {
-   bool use_ssl = false;
    struct configuration* config = NULL;
    struct message* ssl_msg = NULL;
    struct message* msg = NULL;
@@ -5724,9 +5723,7 @@ establish_client_tls_connection(int server, int fd, SSL** ssl)
 
    config = (struct configuration*)shmem;
 
-   use_ssl = config->servers[server].tls;
-
-   if (use_ssl)
+   if (config->servers[server].tls)
    {
       status = pgagroal_create_ssl_message(&ssl_msg);
       if (status != MESSAGE_STATUS_OK)
@@ -5748,7 +5745,7 @@ establish_client_tls_connection(int server, int fd, SSL** ssl)
 
       if (msg->kind == 'S')
       {
-         create_client_tls_connection(fd, ssl);
+         create_client_tls_connection(fd, ssl, config->servers[server].tls_key_file, config->servers[server].tls_cert_file, config->servers[server].tls_ca_file);
       }
    }
 
@@ -5766,7 +5763,7 @@ error:
 }
 
 static int
-create_client_tls_connection(int fd, SSL** ssl)
+create_client_tls_connection(int fd, SSL** ssl, char* tls_key_file, char* tls_cert_file, char* tls_ca_file)
 {
    SSL_CTX* ctx = NULL;
    SSL* s = NULL;
@@ -5780,7 +5777,7 @@ create_client_tls_connection(int fd, SSL** ssl)
    }
 
    /* Create SSL structure */
-   if (create_ssl_client(ctx, NULL, NULL, NULL, fd, &s))
+   if (create_ssl_client(ctx, tls_key_file, tls_cert_file, tls_ca_file, fd, &s))
    {
       pgagroal_log_error("Client failed");
       goto error;

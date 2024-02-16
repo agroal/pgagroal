@@ -106,6 +106,9 @@ There can be up to `64` host sections, each with an unique name and different co
 | port | | Int | Yes | The port of the PostgreSQL instance |
 | primary | | Bool | No | Identify the instance as primary (hint) |
 | tls | `off` | Bool | No | Enable Transport Layer Security (TLS) support (Experimental - no pooling) |
+| tls_cert_file | | String | No | Certificate file for TLS. This file must be owned by either the user running pgagroal or root. |
+| tls_key_file | | String | No | Private key file for TLS. This file must be owned by either the user running pgagroal or root. Additionally permissions must be at least `0640` when owned by root or `0600` otherwise. |
+| tls_ca_file | | String | No | Certificate Authority (CA) file for TLS. This file must be owned by either the user running pgagroal or root.  |
 
 Note, that if `host` starts with a `/` it represents a path and `pgagroal` will connect using a Unix Domain Socket.
 

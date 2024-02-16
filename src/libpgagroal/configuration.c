@@ -2524,6 +2524,7 @@ restart_server(struct server* src, struct server* dst)
       restart_string(restart_message, dst->host, src->host, false);
       snprintf(restart_message, sizeof(restart_message), "Server <%s>, parameter <port>", src->name);
       restart_int(restart_message, dst->port, src->port);
+      /* TODO - TLS */
       return 1;
    }
 
@@ -3163,7 +3164,6 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       else if (!strncmp(key, "pipeline", MISC_LENGTH))
       {
          return to_pipeline(buffer, config->pipeline);
-
       }
       else if (!strncmp(key, "failover_script", MISC_LENGTH))
       {
@@ -3344,6 +3344,22 @@ pgagroal_write_server_config_value(char* buffer, char* server_name, char* config
       }
 
       return to_bool(buffer, primary);
+   }
+   else if (!strncmp(config_key, "tls", MISC_LENGTH))
+   {
+      return to_bool(buffer, config->servers[server_index].tls);
+   }
+   else if (!strncmp(config_key, "tls_cert_file", MISC_LENGTH))
+   {
+      return to_string(buffer, config->servers[server_index].tls_cert_file, buffer_size);
+   }
+   else if (!strncmp(config_key, "tls_key_file", MISC_LENGTH))
+   {
+      return to_string(buffer, config->servers[server_index].tls_key_file, buffer_size);
+   }
+   else if (!strncmp(config_key, "tls_ca_file", MISC_LENGTH))
+   {
+      return to_string(buffer, config->servers[server_index].tls_ca_file, buffer_size);
    }
    else
    {
@@ -3976,6 +3992,15 @@ pgagroal_apply_main_configuration(struct configuration* config,
       }
       memcpy(config->tls_ca_file, value, max);
    }
+   else if (key_in_section("tls_ca_file", section, key, false, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(srv->tls_ca_file, value, max);
+   }
    else if (key_in_section("tls_cert_file", section, key, true, &unknown))
    {
       max = strlen(value);
@@ -3985,6 +4010,15 @@ pgagroal_apply_main_configuration(struct configuration* config,
       }
       memcpy(config->tls_cert_file, value, max);
    }
+   else if (key_in_section("tls_cert_file", section, key, false, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(srv->tls_cert_file, value, max);
+   }
    else if (key_in_section("tls_key_file", section, key, true, &unknown))
    {
       max = strlen(value);
@@ -3993,6 +4027,15 @@ pgagroal_apply_main_configuration(struct configuration* config,
          max = MISC_LENGTH - 1;
       }
       memcpy(config->tls_key_file, value, max);
+   }
+   else if (key_in_section("tls_key_file", section, key, false, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(srv->tls_key_file, value, max);
    }
    else if (key_in_section("blocking_timeout", section, key, true, &unknown))
    {

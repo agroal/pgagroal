@@ -252,12 +252,15 @@ extern void* prometheus_cache_shmem;
  */
 struct server
 {
-   char name[MISC_LENGTH]; /**< The name of the server */
-   char host[MISC_LENGTH]; /**< The host name of the server */
-   int port;               /**< The port of the server */
-   bool tls;               /**< Use TLS if possible */
-   atomic_schar state;     /**< The state of the server */
-   int lineno;             /**< The line number within the configuration file */
+   char name[MISC_LENGTH];          /**< The name of the server */
+   char host[MISC_LENGTH];          /**< The host name of the server */
+   int port;                        /**< The port of the server */
+   bool tls;                        /**< Use TLS if possible */
+   char tls_cert_file[MISC_LENGTH]; /**< TLS certificate path */
+   char tls_key_file[MISC_LENGTH];  /**< TLS key path */
+   char tls_ca_file[MISC_LENGTH];   /**< TLS CA certificate path */
+   atomic_schar state;              /**< The state of the server */
+   int lineno;                      /**< The line number within the configuration file */
 } __attribute__ ((aligned (64)));
 
 /** @struct
