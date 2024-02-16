@@ -582,14 +582,12 @@ pgagroal_management_read_status(SSL* ssl, int socket, char output_format)
    // print out the command answer
    if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      pgagroal_json_print_and_free_json_object(json);
+      return pgagroal_json_print_and_free_json_object(json);
    }
    else
    {
-      pgagroal_management_json_print_status_details(json);
+      return pgagroal_management_json_print_status_details(json);
    }
-
-   return 0;
 
 error:
    pgagroal_log_warn("pgagroal_management_read_status: command error [%s]",
@@ -936,14 +934,12 @@ pgagroal_management_read_details(SSL* ssl, int socket, char output_format)
    // print out the command answer
    if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      pgagroal_json_print_and_free_json_object(json);
+      return pgagroal_json_print_and_free_json_object(json);
    }
    else
    {
-      pgagroal_management_json_print_status_details(json);
+      return pgagroal_management_json_print_status_details(json);
    }
-
-   return 0;
 
 error:
    pgagroal_log_warn("pgagroal_management_read_details: command error [%s]",
@@ -1103,7 +1099,7 @@ pgagroal_management_read_isalive(SSL* ssl, int socket, int* status, char output_
          cJSON_AddStringToObject(output, "message", "unknown");
       }
 
-      pgagroal_json_print_and_free_json_object(json);
+      return pgagroal_json_print_and_free_json_object(json);
 
    }
 
@@ -1804,15 +1800,21 @@ pgagroal_management_read_config_get(int socket, char* config_key, char* expected
 {
 
    cJSON* json = pgagroal_managment_json_read_config_get(socket, config_key, expected_value);
+   int status = EXIT_STATUS_OK;
 
-   if (!json)
+   if (!json || pgagroal_json_is_command_object_faulty(json))
    {
       goto error;
    }
 
+   // extract the command status
+   status = pgagroal_json_command_object_exit_status(json);
+
    if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      return pgagroal_json_print_and_free_json_object(json);
+      pgagroal_json_print_and_free_json_object(json);
+      json = NULL;
+      goto end;
    }
 
    // if here, print out in text format
@@ -1828,13 +1830,20 @@ pgagroal_management_read_config_get(int socket, char* config_key, char* expected
       printf("%s\n", value->valuestring);
    }
 
-   return pgagroal_json_command_object_exit_status(json);
+   goto end;
 
 error:
 
    pgagroal_log_warn("pgagroal_management_read_config_get : error retrieving configuration for <%s> : %s", config_key, strerror(errno));
    errno = 0;
-   return EXIT_STATUS_DATA_ERROR;
+   status = EXIT_STATUS_DATA_ERROR;
+end:
+   if (json)
+   {
+      cJSON_Delete(json);
+   }
+
+   return status;
 }
 
 int
@@ -1987,14 +1996,12 @@ pgagroal_management_read_conf_ls(SSL* ssl, int socket, char output_format)
    // print out the command answer
    if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      pgagroal_json_print_and_free_json_object(json);
+      return pgagroal_json_print_and_free_json_object(json);
    }
    else
    {
-      pgagroal_management_json_print_conf_ls(json);
+      return pgagroal_management_json_print_conf_ls(json);
    }
-
-   return 0;
 
 error:
    pgagroal_log_warn("pgagroal_management_read_conf_ls: read: %d %s", socket, strerror(errno));
@@ -2176,11 +2183,12 @@ int
 pgagroal_management_json_print_status_details(cJSON* json)
 {
    bool is_command_details = false; /* is this command 'status details' ? */
+   int status = EXIT_STATUS_OK;
 
    // sanity check
    if (!json || pgagroal_json_is_command_object_faulty(json))
    {
-      return 1;
+      goto error;
    }
 
    // the command must be 'status' or 'status details'
@@ -2292,11 +2300,15 @@ pgagroal_management_json_print_status_details(cJSON* json)
 
    }
 
-end:
-   return 0;
-
 error:
-   return 1;
+   status = 1;
+end:
+   if (json)
+   {
+      cJSON_Delete(json);
+   }
+
+   return status;
 
 }
 
@@ -2429,6 +2441,8 @@ end:
 static int
 pgagroal_management_json_print_conf_ls(cJSON* json)
 {
+   int status = EXIT_STATUS_OK;
+
    // sanity check
    if (!json || pgagroal_json_is_command_object_faulty(json))
    {
@@ -2455,7 +2469,16 @@ pgagroal_management_json_print_conf_ls(cJSON* json)
              cJSON_GetObjectItemCaseSensitive(current, "path")->valuestring);
    }
 
+   status = pgagroal_json_command_object_exit_status(json);
+   goto end;
+
 error:
-   cJSON_Delete(json);
-   return 1;
+   status = EXIT_STATUS_DATA_ERROR;
+end:
+   if (json)
+   {
+      cJSON_Delete(json);
+   }
+
+   return status;
 }
