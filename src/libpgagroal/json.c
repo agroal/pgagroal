@@ -260,9 +260,11 @@ error:
 
 }
 
-void
+int
 pgagroal_json_print_and_free_json_object(cJSON* json)
 {
+   int status = pgagroal_json_command_object_exit_status(json);
    printf("%s\n", cJSON_Print(json));
    cJSON_Delete(json);
+   return status;
 }

@@ -1812,8 +1812,7 @@ pgagroal_management_read_config_get(int socket, char* config_key, char* expected
 
    if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      pgagroal_json_print_and_free_json_object(json);
-      goto end;
+      return pgagroal_json_print_and_free_json_object(json);
    }
 
    // if here, print out in text format
@@ -1829,7 +1828,6 @@ pgagroal_management_read_config_get(int socket, char* config_key, char* expected
       printf("%s\n", value->valuestring);
    }
 
-end:
    return pgagroal_json_command_object_exit_status(json);
 
 error:

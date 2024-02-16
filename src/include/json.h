@@ -155,9 +155,14 @@ pgagroal_json_is_command_name_equals_to(cJSON* json, char* command_name);
  * when there is the need to print out the information
  * contained in a json object.
  *
+ * Since the JSON object will be invalidated, the method
+ * returns the status of the JSON command within it
+ * to be used.
+ *
  * @param json the json object to print
+ * @return the command status within the JSON object
  */
-void
+int
 pgagroal_json_print_and_free_json_object(cJSON* json);
 
 /**
