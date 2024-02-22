@@ -172,8 +172,8 @@ Commands:
                            - 'immediate' forces connections to close and terminate
                            - 'cancel' avoid a previously issued 'shutdown gracefully'
   status [details]         Status of pgagroal, with optional details
-  switch-to <server>       Switches to the specified primary server
-  conf <action>            Manages the configuration (e.g., reloads the configuration
+  switch-to [server]       Switches to the specified primary server
+  conf [action]            Manages the configuration (e.g., reloads the configuration
                            The subcommand <action> can be:
                            - 'reload' to issue a configuration reload;
                            - 'get' to obtain information about a runtime configuration value;
@@ -181,7 +181,7 @@ Commands:
                            - 'set' to modify a configuration value;
                                    conf set <parameter_name> <parameter_value>;
                            - 'ls'  lists the configuration files used.
-  clear <what>             Resets either the Prometheus statistics or the specified server.
+  clear [what]             Resets either the Prometheus statistics or the specified server.
                            <what> can be
                            - 'server' (default) followed by a server name
                            - a server name on its own
