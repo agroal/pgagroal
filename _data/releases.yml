@@ -100,3 +100,6 @@
 - name: pgagroal 1.5.1
   date: 2023-01-10
   announce: release/announcement/2023/01/10/pgagroal-1.5.1.html
+- name: pgagroal 1.6.0
+  date: 2024-02-22
+  announce: release/announcement/2024/02/22/pgagroal-1.6.0.html
