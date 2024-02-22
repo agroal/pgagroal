@@ -142,35 +142,53 @@ pgagroal-cli 1.6.0
   Command line utility for pgagroal
 
 Usage:
-  pgagroal-cli [ -c CONFIG_FILE ] [ COMMAND ]
+  pgagroal-cli [ OPTIONS ] [ COMMAND ] 
 
 Options:
   -c, --config CONFIG_FILE Set the path to the pgagroal.conf file
+                           Default: /etc/pgagroal/pgagroal.conf
   -h, --host HOST          Set the host name
   -p, --port PORT          Set the port number
   -U, --user USERNAME      Set the user name
   -P, --password PASSWORD  Set the password
   -L, --logfile FILE       Set the log file
-  -v, --verbose            Output text string of the result
+  -F, --format text|json   Set the output format
+  -v, --verbose            Output text string of result
   -V, --version            Display version information
   -?, --help               Display help
 
 Commands:
-  flush-idle               Flush idle connections
-  flush-gracefully         Flush all connections gracefully
-  flush-all                Flush all connections. USE WITH CAUTION !
-  is-alive                 Is pgagroal alive
-  enable                   Enable a database
-  disable                  Disable a database
-  gracefully               Stop pgagroal gracefully
-  stop                     Stop pgagroal
-  cancel-shutdown          Cancel the graceful shutdown
-  status                   Status of pgagroal
-  details                  Detailed status of pgagroal
-  switch-to                Switch to another primary
-  reload                   Reload the configuration
-  reset                    Reset the Prometheus statistics
-  reset-server             Reset the state of a server
+  flush [mode] [database]  Flush connections according to <mode>.
+                           Allowed modes are:
+                           - 'gracefully' (default) to flush all connections gracefully
+                           - 'idle' to flush only idle connections
+                           - 'all' to flush all connections. USE WITH CAUTION!
+                           If no <database> name is specified, applies to all databases.
+  ping                     Verifies if pgagroal is up and running
+  enable   [database]      Enables the specified databases (or all databases)
+  disable  [database]      Disables the specified databases (or all databases)
+  shutdown [mode]          Stops pgagroal pooler. The <mode> can be:
+                           - 'gracefully' (default) waits for active connections to quit
+                           - 'immediate' forces connections to close and terminate
+                           - 'cancel' avoid a previously issued 'shutdown gracefully'
+  status [details]         Status of pgagroal, with optional details
+  switch-to <server>       Switches to the specified primary server
+  conf <action>            Manages the configuration (e.g., reloads the configuration
+                           The subcommand <action> can be:
+                           - 'reload' to issue a configuration reload;
+                           - 'get' to obtain information about a runtime configuration value;
+                                   conf get <parameter_name>
+                           - 'set' to modify a configuration value;
+                                   conf set <parameter_name> <parameter_value>;
+                           - 'ls'  lists the configuration files used.
+  clear <what>             Resets either the Prometheus statistics or the specified server.
+                           <what> can be
+                           - 'server' (default) followed by a server name
+                           - a server name on its own
+                           - 'prometheus' to reset the Prometheus metrics
+
+pgagroal: <https://agroal.github.io/pgagroal/>
+Report bugs: <https://github.com/agroal/pgagroal/issues>
     </pre>
 
     This tool can be used on the machine running pgagroal to flush connections.
