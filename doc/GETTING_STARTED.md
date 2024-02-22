@@ -182,7 +182,7 @@ This tool can be used on the machine running `pgagroal` to flush connections.
 To flush all idle connections you would use
 
 ```
-pgagroal-cli -c pgagroal.conf flush-idle
+pgagroal-cli -c pgagroal.conf flush idle
 ```
 
 To stop pgagroal you would use
