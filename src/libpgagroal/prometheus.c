@@ -2101,7 +2101,7 @@ send_chunk(int client_fd, char* data)
       return MESSAGE_STATUS_ERROR;
    }
 
-   sprintf(m, "%lX\r\n", strlen(data));
+   sprintf(m, "%zX\r\n", strlen(data));
 
    m = pgagroal_append(m, data);
    m = pgagroal_append(m, "\r\n");
