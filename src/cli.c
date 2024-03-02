@@ -163,7 +163,6 @@ main(int argc, char** argv)
    char* password = NULL;
    bool verbose = false;
    char* logfile = NULL;
-   bool do_free = true;
    int c;
    int option_index = 0;
    size_t size;
@@ -218,7 +217,11 @@ main(int argc, char** argv)
             username = optarg;
             break;
          case 'P':
-            password = optarg;
+            password = strdup(optarg);
+            if (password == NULL)
+            {
+               errx(1, "Error allocating memory for password");
+            }
             break;
          case 'L':
             logfile = optarg;
@@ -533,19 +536,9 @@ username:
          /* Password */
          if (password == NULL)
          {
-            if (password != NULL)
-            {
-               free(password);
-               password = NULL;
-            }
-
             printf("Password : ");
             password = pgagroal_get_password();
             printf("\n");
-         }
-         else
-         {
-            do_free = false;
          }
 
          for (int i = 0; i < strlen(password); i++)
@@ -676,10 +669,7 @@ done:
    pgagroal_stop_logging();
    pgagroal_destroy_shared_memory(shmem, size);
 
-   if (do_free)
-   {
-      free(password);
-   }
+   free(password);
 
    if (verbose)
    {
