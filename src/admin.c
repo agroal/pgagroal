@@ -68,6 +68,94 @@ static int remove_user(char* users_path, char* username);
 static int list_users(char* users_path);
 static char* generate_password(int pwd_length);
 
+const struct pgagroal_command command_table[] =
+{
+   {
+      .command = "master-key",
+      .subcommand = "",
+      .accepted_argument_count = {0},
+      .deprecated = false,
+      .action = ACTION_MASTER_KEY,
+      .log_message = "<master-key>",
+   },
+   {
+      .command = "user",
+      .subcommand = "add",
+      .accepted_argument_count = {0},
+      .deprecated = false,
+      .action = ACTION_ADD_USER,
+      .log_message = "<user add> [%s]",
+   },
+   {
+      .command = "user",
+      .subcommand = "edit",
+      .accepted_argument_count = {0},
+      .deprecated = false,
+      .action = ACTION_UPDATE_USER,
+      .log_message = "<user edit> [%s]",
+   },
+   {
+      .command = "user",
+      .subcommand = "del",
+      .accepted_argument_count = {0},
+      .deprecated = false,
+      .action = ACTION_REMOVE_USER,
+      .log_message = "<user del> [%s]",
+   },
+   {
+      .command = "user",
+      .subcommand = "ls",
+      .accepted_argument_count = {0},
+      .deprecated = false,
+      .action = ACTION_LIST_USERS,
+      .log_message = "<user ls>",
+   },
+   {
+      .command = "add-user",
+      .subcommand = "",
+      .accepted_argument_count = {0},
+      .deprecated = true,
+      .action = ACTION_ADD_USER,
+      .log_message = "<deprecated: use 'user add'> [%s]",
+      .deprecated_since_major = 1,
+      .deprecated_since_minor = 6,
+      .deprecated_by = "user add",
+   },
+   {
+      .command = "update-user",
+      .subcommand = "",
+      .accepted_argument_count = {0},
+      .deprecated = true,
+      .action = ACTION_UPDATE_USER,
+      .log_message = "<deprecated: use 'user edit'> [%s]",
+      .deprecated_since_major = 1,
+      .deprecated_since_minor = 6,
+      .deprecated_by = "user edit",
+   },
+   {
+      .command = "remove-user",
+      .subcommand = "",
+      .accepted_argument_count = {0},
+      .deprecated = true,
+      .action = ACTION_REMOVE_USER,
+      .log_message = "<deprecated: use 'user del'>",
+      .deprecated_since_major = 1,
+      .deprecated_since_minor = 6,
+      .deprecated_by = "user del",
+   },
+   {
+      .command = "list-users",
+      .subcommand = "",
+      .accepted_argument_count = {0},
+      .deprecated = true,
+      .action = ACTION_LIST_USERS,
+      .log_message = "<deprecated: use 'user ls'>",
+      .deprecated_since_major = 1,
+      .deprecated_since_minor = 6,
+      .deprecated_by = "user ls",
+   },
+};
+
 static void
 version(void)
 {
@@ -117,7 +205,8 @@ main(int argc, char** argv)
    bool generate_pwd = false;
    int pwd_length = DEFAULT_PASSWORD_LENGTH;
    int option_index = 0;
-   int32_t action = ACTION_UNKNOWN;
+   size_t command_count = sizeof(command_table) / sizeof(struct pgagroal_command);
+   struct pgagroal_parsed_command parsed = {.cmd = NULL, .args = {0}};
 
    while (1)
    {
@@ -174,96 +263,67 @@ main(int argc, char** argv)
       errx(1, "Using the root account is not allowed");
    }
 
-   if (argc > 0)
+   if (!parse_command(argc, argv, optind, &parsed, command_table, command_count))
    {
-      if (!strcmp("master-key", argv[argc - 1]))
+      usage();
+      goto error;
+   }
+
+   // if here, the action is understood, but we need
+   // the file to operate onto!
+   // Therefore, if the user did not specify any config file
+   // the default one is used. Note that in the case of ACTION_MASTER_KEY
+   // there is no need for the file_path to be set, so setting to a default
+   // value does nothing.
+   // Setting the file also means we don't have to check against the file_path value.
+   if (file_path == NULL)
+   {
+      file_path = PGAGROAL_DEFAULT_USERS_FILE;
+   }
+
+   if (parsed.cmd->action == ACTION_MASTER_KEY)
+   {
+      if (master_key(password, generate_pwd, pwd_length))
       {
-         action = ACTION_MASTER_KEY;
+         errx(1, "Error for master key");
       }
-      else if (parse_command_simple(argc, argv, optind, "user", "add")
-               || parse_deprecated_command(argc, argv, optind, "add-user", NULL, "user add", 1, 6))
+   }
+   else if (parsed.cmd->action == ACTION_ADD_USER)
+   {
+      if (add_user(file_path, username, password, generate_pwd, pwd_length))
       {
-         action = ACTION_ADD_USER;
+         errx(1, "Error for <user add>");
       }
-      else if (parse_command_simple(argc, argv, optind, "user", "edit")
-               || parse_deprecated_command(argc, argv, optind, "update-user", NULL, "user edit", 1, 6))
+   }
+   else if (parsed.cmd->action == ACTION_UPDATE_USER)
+   {
+      if (update_user(file_path, username, password, generate_pwd, pwd_length))
       {
-         action = ACTION_UPDATE_USER;
+         errx(1, "Error for <user edit>");
       }
-      else if (parse_command_simple(argc, argv, optind, "user", "del")
-               || parse_deprecated_command(argc, argv, optind, "remove-user", NULL, "user del", 1, 6))
+   }
+   else if (parsed.cmd->action == ACTION_REMOVE_USER)
+   {
+
+      if (remove_user(file_path, username))
       {
-         action = ACTION_REMOVE_USER;
+         errx(1, "Error for <user del>");
       }
-      else if (parse_command_simple(argc, argv, optind, "user", "ls")
-               || parse_deprecated_command(argc, argv, optind, "list-users", NULL, "user ls", 1, 6))
+   }
+   else if (parsed.cmd->action == ACTION_LIST_USERS)
+   {
+
+      if (list_users(file_path))
       {
-         action = ACTION_LIST_USERS;
+         errx(1, "Error for <user ls>");
       }
 
-      // exit immediatly if the action is not understood!
-      if (action == ACTION_UNKNOWN)
-      {
-         warnx("unknown command or subcommand <%s>", argv[optind]);
-         usage();
-         goto error;
-      }
-
-      // if here, the action is understood, but we need
-      // the file to oeprate onto!
-      // Therefore, if the user did not specify any config file
-      // the default one is used. Note that in the case of ACTION_MASTER_KEY
-      // there is no need for the file_path to be set, so setting to a default
-      // value does nothing.
-      // Setting the file also means we don't have to check against the file_path value.
-      if (file_path == NULL)
-      {
-         file_path = PGAGROAL_DEFAULT_USERS_FILE;
-      }
-
-      if (action == ACTION_MASTER_KEY)
-      {
-         if (master_key(password, generate_pwd, pwd_length))
-         {
-            errx(1, "Error for master key");
-         }
-      }
-      else if (action == ACTION_ADD_USER)
-      {
-         if (add_user(file_path, username, password, generate_pwd, pwd_length))
-         {
-            errx(1, "Error for <user add>");
-         }
-      }
-      else if (action == ACTION_UPDATE_USER)
-      {
-         if (update_user(file_path, username, password, generate_pwd, pwd_length))
-         {
-            errx(1, "Error for <user edit>");
-         }
-      }
-      else if (action == ACTION_REMOVE_USER)
-      {
-
-         if (remove_user(file_path, username))
-         {
-            errx(1, "Error for <user del>");
-         }
-      }
-      else if (action == ACTION_LIST_USERS)
-      {
-
-         if (list_users(file_path))
-         {
-            errx(1, "Error for <user ls>");
-         }
-
-      }
    }
 
    exit(0);
 
 error:
+
    exit(1);
 }
 

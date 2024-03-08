@@ -47,6 +47,58 @@ struct signal_info
    int slot;                /**< The slot */
 };
 
+/** @struct
+ * Defines pgagroal commands.
+ * The necessary fields are marked with an ">".
+ *
+ * Fields:
+ * > command: The primary name of the command.
+ * > subcommand: The subcommand name. If there is no subcommand, it should be filled with an empty literal string.
+ * > accepted_argument_count: An array defining all the number of arguments this command accepts.
+ *    Each entry represents a valid count of arguments, allowing the command to support overloads.
+ * - default_argument: A default value for the command argument, used when no explicit argument is provided.
+ * - log_message: A template string for logging command execution, which can include placeholders for dynamic values.
+ * > action: A value indicating the specific action.
+ * - mode: A value specifying the mode of operation or context in which the command applies.
+ * > deprecated: A flag indicating whether this command is deprecated.
+ * - deprecated_since_major: The major version number in which the command was deprecated.
+ * - deprecated_since_minor: The minor version number in which the command was deprecated.
+ * - deprecated_by: A string naming the command that replaces the deprecated command.
+ *
+ * This struct is key to extending and maintaining the command processing functionality in pgagroal,
+ * allowing for clear definition and handling of all supported commands.
+ */
+struct pgagroal_command
+{
+   const char* command;
+   const char* subcommand;
+   const int accepted_argument_count[MISC_LENGTH];
+
+   const int action;
+   const int mode;
+   const char* default_argument;
+   const char* log_message;
+
+   /* Deprecation information */
+   bool deprecated;
+   unsigned int deprecated_since_major;
+   unsigned int deprecated_since_minor;
+   const char* deprecated_by;
+};
+
+/** @struct
+ * Holds parsed command data.
+ *
+ * Fields:
+ * - cmd: A pointer to the command struct that was parsed.
+ * - args: An array of pointers to the parsed arguments of the command (points to argv).
+ */
+struct pgagroal_parsed_command
+{
+   const struct pgagroal_command* cmd;
+   char* args[MISC_LENGTH];
+};
+
 /**
  * Get the request identifier
  * @param msg The message
@@ -386,114 +438,22 @@ pgagroal_backtrace(void);
  * @param argv the command line as provided to the application
  * @param offset the position at which the next token out of `argv`
  * has to be read. This is usually the `optind` set by getopt_long().
- * @param command the string to search for as a main command
- * @param subcommand if not NULL, a subcommand that should be
- * matched. If no matches are found with the subcommand, the
- * function fails.
- *
- * @param key if not null, a pointer to a string that will be
- * filled with the next value on the command line (usually
- * the name of a database/server or a configuration parameter
- * name)
- * @param default_key the default value to be specified for a key
- * if none is found on the command line. For example, if the key
- * represents a database name, the "*" could be the default_key
- * to indicate every possible database.
- *
- * @param value if not null, a pointer to a string that will be
- * filled with the extrac value for the command. For example, in the case
- * of a configuration subcommand, the value will be the setting to apply.
- *
- * @param default_value the default value to set on the `value` pointer
- * variable if nothing is found on the command line.
- *
+ * @param parsed an `struct pgagroal_parsed_command` to hold the parsed
+ * data. It is modified inside the function to be accessed outside.
+ * @param command_table array containing one `struct pgagroal_command` for
+ * every possible command.
+ * @param command_count number of commands in `command_table`.
  * @return true if the parsing of the command line was succesful, false
  * otherwise
  *
- *
- * Possible command lines:
- * <command> <subcommand>  <key>      <value>
- * flush      gracefully   pgbench
- * flush      gracefully
- * flush
- * flush                   pgbench
- * conf       get          log_level
- * conf       set          log_level   debug
- *
- * that in turn are match by
- *
- * parse_command(argv, argc, "flush", "gracefully", &database, "*", NULL, NULL)
- * parse_command(argv, argc, "flush", "gracefully", NULL, "*", NULL, NULL)
- * parse_command(argv, argc, "flush", NULL, NULL, "*", NULL, NULL)
- * parse_command(argv, argc, "flush", NULL, &database, "*", NULL, NULL)
- * parse_command(argv, argc, "conf", "get", &config_key, NULL, NULL, NULL)
- * parse_command(argv, argc, "conf", "set", &config_key, NULL, &config_value, NULL)
  */
 bool
 parse_command(int argc,
               char** argv,
               int offset,
-              char* command,
-              char* subcommand,
-              char** key,
-              char* default_key,
-              char** value,
-              char* default_value);
-
-/*
- * A wrapper function to parse a single command (and its subcommand)
- * without any optional argument.
- * It calls the parse_command with NULL key, value and defaults.
- *
- * Thanks to this wrapper, it is simpler to write the command parsing because
- * the two following lines are equivalent:
- *
- * parse_command( argc, argv, optind, "conf", "reload", NULL, NULL, NULL; NULL );
- *
- * parse_command_simple( argc, argv, optind, "conf", "reload");
- *
- * @see parse_command
- */
-bool
-parse_command_simple(int argc,
-                     char** argv,
-                     int offset,
-                     char* command,
-                     char* subcommand);
-
-/**
- * A function to match against a deprecated command.
- * It prints out a message to warn the user about
- * the deprecated usage of the command if there is a specific
- * "deprecated-by" and "deprecated since" set of information.
- *
- *
- * @param argc the command line counter
- * @param argv the command line as provided to the application
- * @param offset the position at which the next token out of `argv`
- * has to be read. This is usually the `optind` set by getopt_long().
- * @param command the string to search for as a main command
- * @param deprecated_by the name of the command to use
- * instead of the deprecated one
- * @param value if not null, a pointer to a string that will be
- * filled with the value of the database. If no database is found
- * on the command line, the special value "*" will be placed to
- * mean "all the database"
- * @param deprecated_since_major major version since the command has been deprecated
- * @param deprecated_since_minor minor version since the command has been deprecated
- *
- * @return true if the parsing of the command line was succesful, false
- * otherwise
- */
-bool
-parse_deprecated_command(int argc,
-                         char** argv,
-                         int offset,
-                         char* command,
-                         char** value,
-                         char* deprecated_by,
-                         unsigned int deprecated_since_major,
-                         unsigned int deprecated_since_minor);
+              struct pgagroal_parsed_command* parsed,
+              const struct pgagroal_command command_table[],
+              size_t command_count);
 
 /**
  * Given a server state, it returns a string that

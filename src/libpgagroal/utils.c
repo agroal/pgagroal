@@ -954,128 +954,130 @@ pgagroal_backtrace(void)
 
 #endif
 
+/* Parser for pgagroal-cli commands */
 bool
 parse_command(int argc,
               char** argv,
               int offset,
-              char* command,
-              char* subcommand,
-              char** key,
-              char* default_key,
-              char** value,
-              char* default_value)
+              struct pgagroal_parsed_command* parsed,
+              const struct pgagroal_command command_table[],
+              size_t command_count)
 {
+#define EMPTY_STR(_s) (_s[0] == 0)
 
-   // sanity check: if no arguments, nothing to parse!
-   if (argc <= offset)
+   char* command = NULL;
+   char* subcommand = NULL;
+   bool command_match = false;
+   int default_command_match = -1;
+   int arg_count = -1;
+   int command_index = -1;
+
+   /* Parse command, and exit if there is no match */
+   if (offset < argc)
    {
+      command = argv[offset++];
+   }
+   else
+   {
+      warnx("A command is required\n");
       return false;
    }
 
-   // first of all check if the command is the same
-   // as the first argument on the command line
-   if (strncmp(argv[offset], command, MISC_LENGTH))
+   if (offset < argc)
    {
-      return false;
+      subcommand = argv[offset];
    }
 
-   if (subcommand)
+   for (int i = 0; i < command_count; i++)
    {
-      // thre must be a subcommand check
-      offset++;
-
-      if (argc <= offset)
+      if (strncmp(command, command_table[i].command, MISC_LENGTH) == 0)
       {
-         // not enough command args!
-         return false;
-      }
-
-      if (strncmp(argv[offset], subcommand, MISC_LENGTH))
-      {
-         return false;
-      }
-   }
-
-   if (key)
-   {
-      // need to evaluate the database or server or configuration key
-      offset++;
-      *key = argc > offset ? argv[offset] : default_key;
-      if (*key == NULL || strlen(*key) == 0)
-      {
-         goto error;
-      }
-
-      // do I need also a value?
-      if (value)
-      {
-         offset++;
-         *value = argc > offset ? argv[offset] : default_value;
-
-         if (*value == NULL || strlen(*value) == 0)
+         command_match = true;
+         if (subcommand && strncmp(subcommand, command_table[i].subcommand, MISC_LENGTH) == 0)
          {
-            goto error;
+            offset++;
+            command_index = i;
+            break;
          }
-
+         else if (EMPTY_STR(command_table[i].subcommand))
+         {
+            /* Default command does not require a subcommand, might be followed by an argument */
+            default_command_match = i;
+         }
       }
    }
 
-   return true;
-
-error:
-   return false;
-}
-
-bool
-parse_deprecated_command(int argc,
-                         char** argv,
-                         int offset,
-                         char* command,
-                         char** value,
-                         char* deprecated_by,
-                         unsigned int deprecated_since_major,
-                         unsigned int deprecated_since_minor)
-{
-   // sanity check: if no arguments, nothing to parse!
-   if (argc <= offset)
+   if (command_match == false)
    {
+      warnx("Unknown command '%s'\n", command);
       return false;
    }
 
-   // first of all check if the command is the same
-   // as the first argument on the command line
-   if (strncmp(argv[offset], command, MISC_LENGTH))
+   if (command_index == -1 && default_command_match >= 0)
    {
+      command_index = default_command_match;
+      subcommand = "";
+   }
+   else if (command_index == -1)  /* Command was matched, but subcommand was not */
+   {
+      if (subcommand)
+      {
+         warnx("Unknown subcommand '%s' for command '%s'\n", subcommand, command);
+      }
+      else  /* User did not type a subcommand */
+      {
+         warnx("Command '%s' requires a subcommand\n", command);
+      }
       return false;
    }
 
-   if (value)
+   parsed->cmd = &command_table[command_index];
+
+   /* Iterate until find an accepted_arg_count that is equal or greater than the typed command arg_count */
+   arg_count = argc - offset;
+   int j;
+   for (j = 0; j < MISC_LENGTH; j++)
    {
-      // need to evaluate the database or server
-      offset++;
-      *value = argc > offset ? argv[offset] : "*";
+      if (parsed->cmd->accepted_argument_count[j] >= arg_count)
+      {
+         break;
+      }
+   }
+   if (arg_count < parsed->cmd->accepted_argument_count[0])
+   {
+      warnx("Too few arguments provided for command '%s%s%s'\n", command,
+            (command && !EMPTY_STR(subcommand)) ? " " : "", subcommand);
+      return false;
+   }
+   if (j == MISC_LENGTH || arg_count > parsed->cmd->accepted_argument_count[j])
+   {
+      warnx("Too many arguments provided for command '%s%s%s'\n", command,
+            (command && !EMPTY_STR(subcommand)) ? " " : "", subcommand);
+      return false;
    }
 
-   // warn the user if there is enough information
-   // about deprecation
-   if (deprecated_by
-       && pgagroal_version_ge(deprecated_since_major, deprecated_since_minor, 0))
+   /* Copy argv + offset pointers into parsed->args */
+   for (int i = 0; i < arg_count; i++)
+   {
+      parsed->args[i] = argv[i + offset];
+   }
+   parsed->args[0] = parsed->args[0] ? parsed->args[0] : (char*) parsed->cmd->default_argument;
+
+   /* Warn the user if there is enough information about deprecation */
+   if (parsed->cmd->deprecated
+       && pgagroal_version_ge(parsed->cmd->deprecated_since_major,
+                              parsed->cmd->deprecated_since_minor, 0))
    {
       warnx("command <%s> has been deprecated by <%s> since version %d.%d",
-            command, deprecated_by, deprecated_since_major, deprecated_since_minor);
+            parsed->cmd->command,
+            parsed->cmd->deprecated_by,
+            parsed->cmd->deprecated_since_major,
+            parsed->cmd->deprecated_since_minor);
    }
 
    return true;
-}
 
-bool
-parse_command_simple(int argc,
-                     char** argv,
-                     int offset,
-                     char* command,
-                     char* subcommand)
-{
-   return parse_command(argc, argv, offset, command, subcommand, NULL, NULL, NULL, NULL);
+#undef EMPTY_STR
 }
 
 /**
