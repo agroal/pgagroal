@@ -62,6 +62,7 @@ extern "C" {
 #define MANAGEMENT_CONFIG_GET         20
 #define MANAGEMENT_CONFIG_SET         21
 #define MANAGEMENT_CONFIG_LS          22
+#define MANAGEMENT_GET_PASSWORD       23
 
 /**
  * Status for the 'ping' (i.e., is-alive) command
@@ -74,6 +75,26 @@ extern "C" {
  */
 #define COMMAND_OUTPUT_FORMAT_TEXT 'T'
 #define COMMAND_OUTPUT_FORMAT_JSON 'J'
+
+/**
+ * Get the frontend password of a user
+ * @param ssl The SSL connection
+ * @param socket The socket descriptor
+ * @param user The frontend user
+ * @param password The desired password
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_get_password(SSL* ssl, int socket, char* username, char* password);
+
+/**
+ * Write the frontend password of a user to the socket
+ * @param socket The socket descriptor
+ * @param password The frontend user
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_write_get_password(int socket, char* password);
 
 /**
  * Read the management header

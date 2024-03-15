@@ -98,9 +98,9 @@ session_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_si
    void* session_shmem = NULL;
    size_t session_shmem_size;
    struct client_session* client;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    *pipeline_shmem = NULL;
    *pipeline_shmem_size = 0;
@@ -133,9 +133,9 @@ static void
 session_start(struct ev_loop* loop, struct worker_io* w)
 {
    struct client_session* client;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    in_tx = false;
    next_client_message = 0;
@@ -195,9 +195,9 @@ session_periodic(void)
    int socket;
    struct message* cancel_msg = NULL;
    struct client_session* client;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (config->disconnect_client > 0 && pipeline_shmem != NULL)
    {
@@ -244,7 +244,7 @@ session_periodic(void)
                   }
                   else
                   {
-                     ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &socket);
+                     ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &socket, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay);
                   }
 
                   if (ret == 0)
@@ -286,10 +286,10 @@ session_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
    wi = (struct worker_io*)watcher;
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    client_active(wi->slot);
 
@@ -452,7 +452,7 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
    bool fatal = false;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
    wi = (struct worker_io*)watcher;
 
@@ -554,7 +554,7 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
    return;
 
 client_error:
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[S] Client error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->client_fd, status);
@@ -569,7 +569,7 @@ client_error:
    return;
 
 server_done:
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    pgagroal_log_debug("[S] Server done (slot %d database %s user %s): %s (socket %d status %d)",
                       wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                       strerror(errno), wi->server_fd, status);
@@ -582,7 +582,7 @@ server_done:
    return;
 
 server_error:
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[S] Server error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->server_fd, status);

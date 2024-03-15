@@ -321,3 +321,19 @@ target_link_libraries(pgagroal-admin-bin pgagroal)
 
 install(TARGETS pgagroal-admin-bin DESTINATION ${CMAKE_INSTALL_BINDIR})
 
+
+
+#
+# Build pgagroal-vault
+#
+add_executable(pgagroal-vault-bin vault.c ${RESOURCE_OBJECT})
+if (CMAKE_C_LINK_PIE_SUPPORTED)
+  set_target_properties(pgagroal-vault-bin PROPERTIES LINKER_LANGUAGE C POSITION_INDEPENDENT_CODE TRUE OUTPUT_NAME pgagroal-vault)
+else()
+  set_target_properties(pgagroal-vault-bin PROPERTIES LINKER_LANGUAGE C POSITION_INDEPENDENT_CODE FALSE OUTPUT_NAME pgagroal-vault)
+endif()
+target_link_libraries(pgagroal-vault-bin pgagroal)
+
+install(TARGETS pgagroal-vault-bin DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+

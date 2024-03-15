@@ -31,6 +31,7 @@
 #include <configuration.h>
 #include <logging.h>
 #include <management.h>
+#include <memory.h>
 #include <network.h>
 #include <pipeline.h>
 #include <pool.h>
@@ -43,25 +44,25 @@
 #include <worker.h>
 
 /* system */
+#include <arpa/inet.h>
+#include <err.h>
 #include <errno.h>
 #include <ev.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <netinet/in.h>
+#include <openssl/crypto.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <err.h>
+#include <unistd.h>
 
-#include <openssl/crypto.h>
 #ifdef HAVE_LINUX
 #include <systemd/sd-daemon.h>
 #endif
@@ -78,6 +79,7 @@ static void graceful_cb(struct ev_loop* loop, ev_signal* w, int revents);
 static void coredump_cb(struct ev_loop* loop, ev_signal* w, int revents);
 static void idle_timeout_cb(struct ev_loop* loop, ev_periodic* w, int revents);
 static void max_connection_age_cb(struct ev_loop* loop, ev_periodic* w, int revents);
+static void rotate_frontend_password_cb(struct ev_loop* loop, ev_periodic* w, int revents);
 static void validation_cb(struct ev_loop* loop, ev_periodic* w, int revents);
 static void disconnect_client_cb(struct ev_loop* loop, ev_periodic* w, int revents);
 static bool accept_fatal(int error);
@@ -87,19 +89,6 @@ static void reload_configuration(void);
 static void create_pidfile_or_exit(void);
 static void remove_pidfile(void);
 static void shutdown_ports(void);
-
-struct accept_io
-{
-   struct ev_io io;
-   int socket;
-   char** argv;
-};
-
-struct client
-{
-   pid_t pid;
-   struct client* next;
-};
 
 static volatile int keep_running = 1;
 static char** argv_ptr;
@@ -134,9 +123,9 @@ start_mgt(void)
 static void
 shutdown_mgt(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    ev_io_stop(main_loop, (struct ev_io*)&io_mgt);
    pgagroal_disconnect(unix_management_socket);
@@ -159,12 +148,12 @@ static void
 shutdown_uds(void)
 {
    char pgsql[MISC_LENGTH];
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    memset(&pgsql, 0, sizeof(pgsql));
-   snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->port);
+   snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->common.port);
 
    ev_io_stop(main_loop, (struct ev_io*)&io_uds);
    pgagroal_disconnect(unix_pgsql_socket);
@@ -314,18 +303,18 @@ main(int argc, char** argv)
    struct ev_periodic max_connection_age;
    struct ev_periodic validation;
    struct ev_periodic disconnect_client;
+   struct ev_periodic rotate_frontend_password;
    struct rlimit flimit;
    size_t shmem_size;
    size_t pipeline_shmem_size = 0;
    size_t prometheus_shmem_size = 0;
    size_t prometheus_cache_shmem_size = 0;
    size_t tmp_size;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
    int ret;
    int c;
    bool conf_file_mandatory;
    char message[MISC_LENGTH]; // a generic message used for errors
-
    argv_ptr = argv;
 
    while (1)
@@ -399,7 +388,7 @@ main(int argc, char** argv)
       errx(1, "Using the root account is not allowed");
    }
 
-   shmem_size = sizeof(struct configuration);
+   shmem_size = sizeof(struct main_configuration);
    if (pgagroal_create_shared_memory(shmem_size, HUGEPAGE_OFF, &shmem))
    {
 #ifdef HAVE_LINUX
@@ -409,7 +398,7 @@ main(int argc, char** argv)
    }
 
    pgagroal_init_configuration(shmem);
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    memset(&known_fds, 0, sizeof(known_fds));
    memset(message, 0, MISC_LENGTH);
@@ -444,7 +433,7 @@ main(int argc, char** argv)
       errx(1, "%s (file <%s>)", message, configuration_path);
    }
 
-   memcpy(&config->configuration_path[0], configuration_path, MIN(strlen(configuration_path), MAX_PATH - 1));
+   memcpy(&config->common.configuration_path[0], configuration_path, MIN(strlen(configuration_path), MAX_PATH - 1));
 
    // the HBA file is mandatory!
    hba_path = hba_path != NULL ? hba_path : PGAGROAL_DEFAULT_HBA_FILE;
@@ -811,7 +800,7 @@ read_superuser_path:
    }
    shmem_size = tmp_size;
    shmem = tmp_shmem;
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (pgagroal_init_prometheus(&prometheus_shmem_size, &prometheus_shmem))
    {
@@ -850,7 +839,7 @@ read_superuser_path:
 
    if (daemon)
    {
-      if (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
+      if (config->common.log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
       {
 #ifdef HAVE_LINUX
          sd_notify(0, "STATUS=Daemon mode can't be used with console logging");
@@ -886,6 +875,7 @@ read_superuser_path:
    create_pidfile_or_exit();
 
    pgagroal_pool_init();
+   pgagroal_initialize_random();
 
    pgagroal_set_proc_title(argc, argv, "main", NULL);
 
@@ -904,7 +894,7 @@ read_superuser_path:
       char pgsql[MISC_LENGTH];
 
       memset(&pgsql, 0, sizeof(pgsql));
-      snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->port);
+      snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->common.port);
 
       if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], &unix_pgsql_socket))
       {
@@ -919,11 +909,11 @@ read_superuser_path:
    /* Bind main socket */
    if (!has_main_sockets)
    {
-      if (pgagroal_bind(config->host, config->port, &main_fds, &main_fds_length))
+      if (pgagroal_bind(config->common.host, config->common.port, &main_fds, &main_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
       {
-         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->port);
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.port);
 #ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->port);
+         sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->common.host, config->common.port);
 #endif
          goto error;
       }
@@ -1043,14 +1033,21 @@ read_superuser_path:
       ev_periodic_start (main_loop, &disconnect_client);
    }
 
+   if (config->rotate_frontend_password_timeout > 0)
+   {
+      ev_periodic_init (&rotate_frontend_password, rotate_frontend_password_cb, 0.,
+                        config->rotate_frontend_password_timeout, 0);
+      ev_periodic_start (main_loop, &rotate_frontend_password);
+   }
+
    if (config->metrics > 0)
    {
       /* Bind metrics socket */
-      if (pgagroal_bind(config->host, config->metrics, &metrics_fds, &metrics_fds_length))
+      if (pgagroal_bind(config->common.host, config->metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
       {
-         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->metrics);
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->metrics);
 #ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->metrics);
+         sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->common.host, config->metrics);
 #endif
          goto error;
       }
@@ -1070,11 +1067,11 @@ read_superuser_path:
    if (config->management > 0)
    {
       /* Bind management socket */
-      if (pgagroal_bind(config->host, config->management, &management_fds, &management_fds_length))
+      if (pgagroal_bind(config->common.host, config->management, &management_fds, &management_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
       {
-         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->management);
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->management);
 #ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->host, config->management);
+         sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->common.host, config->management);
 #endif
          goto error;
       }
@@ -1093,8 +1090,8 @@ read_superuser_path:
 
    pgagroal_log_info("pgagroal: %s started on %s:%d",
                      PGAGROAL_VERSION,
-                     config->host,
-                     config->port);
+                     config->common.host,
+                     config->common.port);
    for (int i = 0; i < main_fds_length; i++)
    {
       pgagroal_log_debug("Socket: %d", *(main_fds + i));
@@ -1209,7 +1206,7 @@ accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    char address[INET6_ADDRSTRLEN];
    pid_t pid;
    struct accept_io* ai;
-   struct configuration* config;
+   struct main_configuration* config;
 
    if (EV_ERROR & revents)
    {
@@ -1219,7 +1216,7 @@ accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    }
 
    ai = (struct accept_io*)watcher;
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    memset(&address, 0, sizeof(address));
 
@@ -1237,7 +1234,7 @@ accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          shutdown_uds();
 
          memset(&pgsql, 0, sizeof(pgsql));
-         snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->port);
+         snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->common.port);
 
          if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], &unix_pgsql_socket))
          {
@@ -1249,9 +1246,9 @@ accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          main_fds = NULL;
          main_fds_length = 0;
 
-         if (pgagroal_bind(config->host, config->port, &main_fds, &main_fds_length))
+         if (pgagroal_bind(config->common.host, config->common.port, &main_fds, &main_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
          {
-            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->port);
+            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.port);
             exit(1);
          }
 
@@ -1330,7 +1327,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    int payload_i, secondary_payload_i;
    char* payload_s = NULL;
    char* secondary_payload_s = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
 
    if (EV_ERROR & revents)
    {
@@ -1338,7 +1335,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       return;
    }
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
@@ -1558,6 +1555,25 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          pgagroal_log_debug("pgagroal: Management config-set for key <%s> setting value to <%s>", payload_s, secondary_payload_s);
          pgagroal_management_write_config_set(client_fd, payload_s, secondary_payload_s);
          break;
+      case MANAGEMENT_GET_PASSWORD:
+      {
+         // get frontend password
+         char frontend_password[MAX_PASSWORD_LENGTH];
+         memset(frontend_password, 0, sizeof(frontend_password));
+
+         for (int i = 0; i < config->number_of_frontend_users; i++)
+         {
+            if (!strcmp(&config->frontend_users[i].username[0], payload_s))
+            {
+               memcpy(frontend_password, config->frontend_users[i].password, strlen(config->frontend_users[i].password));
+            }
+         }
+
+         // Send password to the vault
+         pgagroal_management_write_get_password(client_fd, frontend_password);
+         pgagroal_disconnect(client_fd);
+         return;
+      }
       default:
          pgagroal_log_debug("pgagroal: Unknown management id: %d", id);
          break;
@@ -1584,7 +1600,7 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    struct sockaddr_in6 client_addr;
    socklen_t client_addr_length;
    int client_fd;
-   struct configuration* config;
+   struct main_configuration* config;
 
    if (EV_ERROR & revents)
    {
@@ -1593,7 +1609,7 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       return;
    }
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
@@ -1612,9 +1628,9 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          metrics_fds = NULL;
          metrics_fds_length = 0;
 
-         if (pgagroal_bind(config->host, config->metrics, &metrics_fds, &metrics_fds_length))
+         if (pgagroal_bind(config->common.host, config->metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
          {
-            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->metrics);
+            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->metrics);
             exit(1);
          }
 
@@ -1658,7 +1674,7 @@ accept_management_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    socklen_t client_addr_length;
    int client_fd;
    char address[INET6_ADDRSTRLEN];
-   struct configuration* config;
+   struct main_configuration* config;
 
    if (EV_ERROR & revents)
    {
@@ -1669,7 +1685,7 @@ accept_management_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    memset(&address, 0, sizeof(address));
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
@@ -1688,9 +1704,9 @@ accept_management_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          management_fds = NULL;
          management_fds_length = 0;
 
-         if (pgagroal_bind(config->host, config->management, &management_fds, &management_fds_length))
+         if (pgagroal_bind(config->common.host, config->management, &management_fds, &management_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
          {
-            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->management);
+            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->management);
             exit(1);
          }
 
@@ -1756,9 +1772,9 @@ reload_cb(struct ev_loop* loop, ev_signal* w, int revents)
 static void
 graceful_cb(struct ev_loop* loop, ev_signal* w, int revents)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    pgagroal_log_debug("pgagroal: gracefully requested");
 
@@ -1846,6 +1862,34 @@ disconnect_client_cb(struct ev_loop* loop, ev_periodic* w, int revents)
    {
       shutdown_ports();
       main_pipeline.periodic();
+   }
+}
+
+static void
+rotate_frontend_password_cb(struct ev_loop* loop, ev_periodic* w, int revents)
+{
+   char* pwd;
+
+   if (EV_ERROR & revents)
+   {
+      pgagroal_log_trace("rotate_frontend_password_cb: got invalid event: %s", strerror(errno));
+      return;
+   }
+
+   struct main_configuration* config;
+
+   config = (struct main_configuration*)shmem;
+
+   for (int i = 0; i < config->number_of_frontend_users; i++)
+   {
+      if (pgagroal_generate_password(config->rotate_frontend_password_length, &pwd))
+      {
+         pgagroal_log_debug("rotate_frontend_password_cb: unable to rotate password");
+         return;
+      }
+      memcpy(&config->frontend_users[i].password, pwd, strlen(pwd) + 1);
+      pgagroal_log_trace("rotate_frontend_password_cb: current pass for username=%s:%s", config->frontend_users[i].username, config->frontend_users[i].password);
+      free(pwd);
    }
 }
 
@@ -1939,9 +1983,9 @@ static void
 reload_configuration(void)
 {
    char pgsql[MISC_LENGTH];
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    shutdown_io();
    shutdown_uds();
@@ -1951,7 +1995,7 @@ reload_configuration(void)
    pgagroal_reload_configuration();
 
    memset(&pgsql, 0, sizeof(pgsql));
-   snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->port);
+   snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->common.port);
 
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], &unix_pgsql_socket))
    {
@@ -1963,9 +2007,9 @@ reload_configuration(void)
    main_fds = NULL;
    main_fds_length = 0;
 
-   if (pgagroal_bind(config->host, config->port, &main_fds, &main_fds_length))
+   if (pgagroal_bind(config->common.host, config->common.port, &main_fds, &main_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
    {
-      pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->port);
+      pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.port);
       goto error;
    }
 
@@ -1985,9 +2029,9 @@ reload_configuration(void)
       metrics_fds_length = 0;
 
       /* Bind metrics socket */
-      if (pgagroal_bind(config->host, config->metrics, &metrics_fds, &metrics_fds_length))
+      if (pgagroal_bind(config->common.host, config->metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
       {
-         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->metrics);
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->metrics);
          goto error;
       }
 
@@ -2007,9 +2051,9 @@ reload_configuration(void)
       management_fds_length = 0;
 
       /* Bind management socket */
-      if (pgagroal_bind(config->host, config->management, &management_fds, &management_fds_length))
+      if (pgagroal_bind(config->common.host, config->management, &management_fds, &management_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
       {
-         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->host, config->management);
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->management);
          goto error;
       }
 
@@ -2056,9 +2100,9 @@ create_pidfile_or_exit(void)
    pid_t pid;
    int r;
    int fd;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (strlen(config->pidfile) > 0)
    {
@@ -2093,9 +2137,9 @@ create_pidfile_or_exit(void)
 static void
 remove_pidfile(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (strlen(config->pidfile) > 0)
    {
@@ -2109,9 +2153,9 @@ remove_pidfile(void)
 static void
 shutdown_ports(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    shutdown_io();
 

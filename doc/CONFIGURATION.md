@@ -61,6 +61,8 @@ The available keys and their accepted values are reported in the table below.
 | log_disconnections | `off` | Bool | No | Log disconnects |
 | blocking_timeout | 30 | Int | No | The number of seconds the process will be blocking for a connection (disable = 0) |
 | idle_timeout | 0 | Int | No | The number of seconds a connection is been kept alive (disable = 0) |
+| rotate_frontend_password_timeout | 0 | Int | No | The number of seconds after which the passwords of frontend users are updated periodically (disable = 0) |
+| rotate_frontend_password_length | 8 | Int | No | The length of the randomized frontend password |
 | max_connection_age | 0 | Int | No | The maximum number of seconds that a connection will live (disable = 0) |
 | validation | `off` | String | No | Should connection validation be performed. Valid options: `off`, `foreground` and `background` |
 | background_interval | 300 | Int | No | The interval between background validation scans in seconds |

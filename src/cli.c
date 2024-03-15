@@ -499,7 +499,7 @@ main(int argc, char** argv)
    int option_index = 0;
    size_t size;
    char un[MAX_USERNAME_LENGTH];
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
    bool remote_connection = false;
    long l_port;
    char output_format = COMMAND_OUTPUT_FORMAT_TEXT;
@@ -616,7 +616,7 @@ main(int argc, char** argv)
       exit(1);
    }
 
-   size = sizeof(struct configuration);
+   size = sizeof(struct main_configuration);
    if (pgagroal_create_shared_memory(size, HUGEPAGE_OFF, &shmem))
    {
       errx(1, "Error creating shared memory");
@@ -637,11 +637,11 @@ main(int argc, char** argv)
 
       if (logfile)
       {
-         config = (struct configuration*)shmem;
+         config = (struct main_configuration*)shmem;
 
-         config->log_type = PGAGROAL_LOGGING_TYPE_FILE;
-         memset(&config->log_path[0], 0, MISC_LENGTH);
-         memcpy(&config->log_path[0], logfile, MIN(MISC_LENGTH - 1, strlen(logfile)));
+         config->common.log_type = PGAGROAL_LOGGING_TYPE_FILE;
+         memset(&config->common.log_path[0], 0, MISC_LENGTH);
+         memcpy(&config->common.log_path[0], logfile, MIN(MISC_LENGTH - 1, strlen(logfile)));
       }
 
       if (pgagroal_start_logging())
@@ -649,7 +649,7 @@ main(int argc, char** argv)
          errx(1, "Cannot start the logging subsystem");
       }
 
-      config = (struct configuration*)shmem;
+      config = (struct main_configuration*)shmem;
    }
    else
    {
@@ -667,11 +667,11 @@ main(int argc, char** argv)
 
          if (logfile)
          {
-            config = (struct configuration*)shmem;
+            config = (struct main_configuration*)shmem;
 
-            config->log_type = PGAGROAL_LOGGING_TYPE_FILE;
-            memset(&config->log_path[0], 0, MISC_LENGTH);
-            memcpy(&config->log_path[0], logfile, MIN(MISC_LENGTH - 1, strlen(logfile)));
+            config->common.log_type = PGAGROAL_LOGGING_TYPE_FILE;
+            memset(&config->common.log_path[0], 0, MISC_LENGTH);
+            memcpy(&config->common.log_path[0], logfile, MIN(MISC_LENGTH - 1, strlen(logfile)));
          }
 
          if (pgagroal_start_logging())
@@ -679,7 +679,7 @@ main(int argc, char** argv)
             errx(1, "Cannot start the logging subsystem");
          }
 
-         config = (struct configuration*)shmem;
+         config = (struct main_configuration*)shmem;
       }
    }
 
@@ -703,10 +703,9 @@ main(int argc, char** argv)
    else
    {
       /* Remote connection */
-      if (pgagroal_connect(host, atoi(port), &socket))
+      if (pgagroal_connect(host, atoi(port), &socket, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay))
       {
          /* Remote connection */
-
          l_port = strtol(port, NULL, 10);
          if ((errno == ERANGE && (l_port == LONG_MAX || l_port == LONG_MIN)) || (errno != 0 && l_port == 0))
          {
@@ -722,7 +721,7 @@ main(int argc, char** argv)
             goto done;
          }
 
-         if (pgagroal_connect(host, (int)l_port, &socket))
+         if (pgagroal_connect(host, (int)l_port, &socket, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay))
          {
             warnx("No route to host: %s:%ld\n", host, l_port);
             goto done;

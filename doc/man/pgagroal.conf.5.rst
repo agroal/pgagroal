@@ -95,6 +95,12 @@ blocking_timeout
 idle_timeout
   The number of seconds a connection is been kept alive (disable = 0). Default is 0
 
+rotate_frontend_password_timeout 
+  The number of seconds after which the passwords of frontend users are updated periodically (disable = 0). Default is 0
+
+rotate_frontend_password_length 
+  The length of randomized frontend passwords. Default is 8
+
 max_connection_age
   The maximum number of seconds that a connection will live (disable = 0). Default is 0
 
@@ -216,4 +222,4 @@ pgagroal is licensed under the 3-clause BSD License.
 SEE ALSO
 ========
 
-pgagroal_hba.conf(5), pgagroal_databases.conf(5), pgagroal(1), pgagroal-cli(1), pgagroal-admin(1)
+pgagroal_hba.conf(5), pgagroal_databases.conf(5), pgagroal_vault.conf(5), pgagroal(1), pgagroal-cli(1), pgagroal-admin(1), pgagroal-vault(1)

@@ -74,14 +74,14 @@ static void extract_limit(char* str, int server_max, char** database, char** use
 static unsigned int as_seconds(char* str, unsigned int* age, unsigned int default_age);
 static unsigned int as_bytes(char* str, unsigned int* bytes, unsigned int default_bytes);
 
-static int transfer_configuration(struct configuration* config, struct configuration* reload);
+static int transfer_configuration(struct main_configuration* config, struct main_configuration* reload);
 static void copy_server(struct server* dst, struct server* src);
 static void copy_hba(struct hba* dst, struct hba* src);
 static void copy_user(struct user* dst, struct user* src);
 static int restart_int(char* name, int e, int n);
 static int restart_bool(char* name, bool e, bool n);
 static int restart_string(char* name, char* e, char* n, bool skip_non_existing);
-static int restart_limit(char* name, struct configuration* config, struct configuration* reload);
+static int restart_limit(char* name, struct main_configuration* config, struct main_configuration* reload);
 static int restart_server(struct server* src, struct server* dst);
 
 static bool is_empty_string(char* s);
@@ -115,9 +115,9 @@ static int to_log_type(char* where, int value);
 int
 pgagroal_init_configuration(void* shm)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    atomic_init(&config->active_connections, 0);
 
@@ -131,9 +131,10 @@ pgagroal_init_configuration(void* shm)
    config->gracefully = false;
    config->pipeline = PIPELINE_AUTO;
    config->authquery = false;
-
    config->blocking_timeout = 30;
    config->idle_timeout = 0;
+   config->rotate_frontend_password_timeout = 0;
+   config->rotate_frontend_password_length = MIN_PASSWORD_LENGTH;
    config->max_connection_age = 0;
    config->validation = VALIDATION_OFF;
    config->background_interval = 300;
@@ -151,12 +152,14 @@ pgagroal_init_configuration(void* shm)
    config->tracker = false;
    config->track_prepared_statements = false;
 
-   config->log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
-   config->log_level = PGAGROAL_LOGGING_LEVEL_INFO;
-   config->log_connections = false;
-   config->log_disconnections = false;
-   config->log_mode = PGAGROAL_LOGGING_MODE_APPEND;
-   atomic_init(&config->log_lock, STATE_FREE);
+   config->common.log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
+   config->common.log_level = PGAGROAL_LOGGING_LEVEL_INFO;
+   config->common.log_connections = false;
+   config->common.log_disconnections = false;
+   config->common.log_mode = PGAGROAL_LOGGING_MODE_APPEND;
+   atomic_init(&config->common.log_lock, STATE_FREE);
+
+   memcpy(config->common.default_log_path, "pgagroal.log", strlen("pgagroal.log"));
 
    config->max_connections = 100;
    config->allow_unknown_users = true;
@@ -186,14 +189,14 @@ struct config_section
  *
  */
 int
-pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
+pgagroal_read_configuration(void* shm, char* filename, bool emit_warnings)
 {
    FILE* file;
    char section[LINE_LENGTH];
    char line[LINE_LENGTH];
    char* key = NULL;
    char* value = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
    int idx_server = 0;
    struct server srv;
    bool has_main_section = false;
@@ -215,7 +218,7 @@ pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
 
    memset(&section, 0, LINE_LENGTH);
    memset(&sections, 0, sizeof(struct config_section) * NUMBER_OF_SERVERS + 1);
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -280,7 +283,7 @@ pgagroal_read_configuration(void* shm, char* filename, bool emitWarnings)
                   unknown = true;
                }
 
-               if (unknown && emitWarnings)
+               if (unknown && emit_warnings)
                {
                   // we cannot use logging here...
                   // if we have a section, the key is not known,
@@ -369,21 +372,21 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
 {
    bool tls;
    struct stat st;
-   struct configuration* config;
+   struct main_configuration* config;
 
    tls = false;
 
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    if (!has_main_sockets)
    {
-      if (strlen(config->host) == 0)
+      if (strlen(config->common.host) == 0)
       {
          pgagroal_log_fatal("pgagroal: No host defined");
          return 1;
       }
 
-      if (config->port <= 0)
+      if (config->common.port <= 0)
       {
          pgagroal_log_fatal("pgagroal: No port defined");
          return 1;
@@ -461,6 +464,12 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       return 1;
    }
 
+   if (config->rotate_frontend_password_length < MIN_PASSWORD_LENGTH || config->rotate_frontend_password_length > MAX_PASSWORD_LENGTH)
+   {
+      pgagroal_log_fatal("pgagroal: rotate_frontend_password_length should be within [8-1024] characters");
+      return 1;
+   }
+
    if (config->max_connections > MAX_NUMBER_OF_CONNECTIONS)
    {
       pgagroal_log_warn("pgagroal: max_connections (%d) is greater than allowed (%d)", config->max_connections, MAX_NUMBER_OF_CONNECTIONS);
@@ -525,7 +534,7 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       {
          pgagroal_log_fatal("pgagroal: No host defined for server [%s] (%s:%d)",
                             config->servers[i].name,
-                            config->configuration_path,
+                            config->common.configuration_path[0],
                             config->servers[i].lineno);
          return 1;
       }
@@ -534,7 +543,7 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       {
          pgagroal_log_fatal("pgagroal: No port defined for server [%s] (%s:%d)",
                             config->servers[i].name,
-                            config->configuration_path,
+                            config->common.configuration_path[0],
                             config->servers[i].lineno);
          return 1;
       }
@@ -550,7 +559,7 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
             pgagroal_log_fatal("pgagroal: Servers [%s] and [%s] are duplicated! (%s:%d:%d)",
                                config->servers[i].name,
                                config->servers[j].name,
-                               config->configuration_path,
+                               config->common.configuration_path[0],
                                config->servers[i].lineno,
                                config->servers[j].lineno);
             return 1;
@@ -648,6 +657,11 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
          pgagroal_log_warn("pgagroal: Using idle_timeout for the transaction pipeline is not recommended");
       }
 
+      if (config->rotate_frontend_password_timeout > 0)
+      {
+         pgagroal_log_warn("pgagroal: Using rotate_frontend_password_timeout for the transaction pipeline is not recommended");
+      }
+
       if (config->max_connection_age > 0)
       {
          pgagroal_log_warn("pgagroal: Using max_connection_age for the transaction pipeline is not recommended");
@@ -695,6 +709,234 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
  *
  */
 int
+pgagroal_vault_init_configuration(void* shm)
+{
+   struct vault_configuration* config;
+
+   config = (struct vault_configuration*)shm;
+
+   config->common.port = 0;
+
+   config->vault_server.server.port = 0;
+   config->vault_server.server.tls = false;
+   config->number_of_users = 0;
+
+   config->common.log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
+   config->common.log_level = PGAGROAL_LOGGING_LEVEL_INFO;
+   config->common.log_connections = false;
+   config->common.log_disconnections = false;
+   config->common.log_mode = PGAGROAL_LOGGING_MODE_APPEND;
+   atomic_init(&config->common.log_lock, STATE_FREE);
+   memcpy(config->common.default_log_path, "pgagroal-vault.log", strlen("pgagroal-vault.log"));
+
+   memset(config->vault_server.user.password, 0, MAX_PASSWORD_LENGTH);
+
+   return 0;
+}
+
+/**
+ *
+ */
+int
+pgagroal_vault_read_configuration(void* shm, char* filename, bool emit_warnings)
+{
+   FILE* file;
+   char section[LINE_LENGTH];
+   char line[LINE_LENGTH];
+   char* key = NULL;
+   char* value = NULL;
+   struct vault_configuration* config;
+   int idx_server = 0;
+   struct vault_server srv;
+   bool has_vault_section = false;
+
+   // the max number of sections allowed in the configuration
+   // file is done by the max number of servers plus the main `pgagroal`
+   // configuration section
+   struct config_section sections[1 + 1];
+   int idx_sections = 0;
+   int lineno = 0;
+   int return_value = 0;
+
+   file = fopen(filename, "r");
+
+   if (!file)
+   {
+      return PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND;
+   }
+
+   memset(&section, 0, LINE_LENGTH);
+   memset(&sections, 0, sizeof(struct config_section) * 2);
+   config = (struct vault_configuration*)shm;
+
+   while (fgets(line, sizeof(line), file))
+   {
+      lineno++;
+      if (!is_empty_string(line) && !is_comment_line(line))
+      {
+         if (section_line(line, section))
+         {
+            // check we don't overflow the number of available sections
+            if (idx_sections >= 2)
+            {
+               warnx("Max number of sections (%d) in configuration file <%s> reached!",
+                     2,
+                     filename);
+               return PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG;
+            }
+
+            // initialize the section structure
+            memset(sections[idx_sections].name, 0, LINE_LENGTH);
+            memcpy(sections[idx_sections].name, section, strlen(section));
+            sections[idx_sections].lineno = lineno;
+            sections[idx_sections].main = !strncmp(section, PGAGROAL_VAULT_INI_SECTION, LINE_LENGTH);
+            if (sections[idx_sections].main)
+            {
+               has_vault_section = true;
+            }
+
+            idx_sections++;
+
+            if (strcmp(section, PGAGROAL_VAULT_INI_SECTION))
+            {
+               if (idx_server > 0 && idx_server <= 2)
+               {
+                  memcpy(&(config->vault_server), &srv, sizeof(struct vault_server));
+               }
+               else if (idx_server > 1)
+               {
+                  printf("Maximum number of servers exceeded\n");
+               }
+
+               memset(&srv, 0, sizeof(struct vault_server));
+               memcpy(&srv.server.name, &section, strlen(section));
+               srv.server.lineno = lineno;
+               idx_server++;
+            }
+         }
+         else
+         {
+            extract_key_value(line, &key, &value);
+
+            if (key && value)
+            {
+               bool unknown = false;
+
+               //printf("\nSection <%s> key <%s> = <%s>", section, key, value);
+
+               // apply the configuration setting
+               if (pgagroal_apply_vault_configuration(config, &srv, section, key, value))
+               {
+                  unknown = true;
+               }
+
+               if (unknown && emit_warnings)
+               {
+                  // we cannot use logging here...
+                  // if we have a section, the key is not known,
+                  // otherwise it is outside of a section at all
+                  if (strlen(section) > 0)
+                  {
+                     warnx("Unknown key <%s> with value <%s> in section [%s] (line %d of file <%s>)",
+                           key,
+                           value,
+                           section,
+                           lineno,
+                           filename);
+                  }
+                  else
+                  {
+                     warnx("Key <%s> with value <%s> out of any section (line %d of file <%s>)",
+                           key,
+                           value,
+                           lineno,
+                           filename);
+                  }
+               }
+
+               free(key);
+               free(value);
+               key = NULL;
+               value = NULL;
+            }
+         }
+      }
+   }
+
+   if (strlen(srv.server.name) > 0)
+   {
+      memcpy(&(config->vault_server), &srv, sizeof(struct vault_server));
+   }
+
+   fclose(file);
+
+   // check there is at least one main section
+   if (!has_vault_section)
+   {
+      warnx("No vault configuration section [%s] found in file <%s>",
+            PGAGROAL_VAULT_INI_SECTION,
+            filename);
+      return PGAGROAL_CONFIGURATION_STATUS_KO;
+   }
+
+   return return_value;
+}
+
+/**
+ *
+ */
+int
+pgagroal_vault_validate_configuration (void* shm)
+{
+   struct vault_configuration* config;
+   config = (struct vault_configuration*)shm;
+
+   if (strlen(config->common.host) == 0)
+   {
+      pgagroal_log_fatal("pgagroal-vault: No host defined");
+      return 1;
+   }
+
+   if (config->common.port <= 0)
+   {
+      pgagroal_log_fatal("pgagroal-vault: No port defined");
+      return 1;
+   }
+
+   if (strlen(config->vault_server.server.host) == 0)
+   {
+      pgagroal_log_fatal("pgagroal-vault: No host defined for server [%s] (%s:%d)",
+                         config->vault_server.server.name,
+                         config->common.configuration_path,
+                         config->vault_server.server.lineno);
+      return 1;
+   }
+
+   if (config->vault_server.server.port == 0)
+   {
+      pgagroal_log_fatal("pgagroal-vault: No port defined for server [%s] (%s:%d)",
+                         config->vault_server.server.name,
+                         config->common.configuration_path,
+                         config->vault_server.server.lineno);
+      return 1;
+   }
+
+   if (strlen(config->vault_server.user.username) == 0)
+   {
+      pgagroal_log_fatal("pgagroal-vault: No user defined for server [%s] (%s:%d)",
+                         config->vault_server.server.name,
+                         config->common.configuration_path,
+                         config->vault_server.server.lineno);
+      return 1;
+   }
+
+   return 0;
+}
+
+/**
+ *
+ */
+int
 pgagroal_read_hba_configuration(void* shm, char* filename)
 {
    FILE* file;
@@ -706,7 +948,7 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
    char* address = NULL;
    char* method = NULL;
    int lineno = 0;
-   struct configuration* config;
+   struct main_configuration* config;
 
    file = fopen(filename, "r");
 
@@ -716,7 +958,7 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
    }
 
    index = 0;
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -774,9 +1016,9 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
 int
 pgagroal_validate_hba_configuration(void* shm)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    if (config->number_of_hbas == 0)
    {
@@ -832,7 +1074,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
    int min_size;
    int server_max;
    int lineno;
-   struct configuration* config;
+   struct main_configuration* config;
 
    file = fopen(filename, "r");
 
@@ -843,7 +1085,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
 
    index = 0;
    lineno = 0;
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    server_max = config->max_connections;
 
@@ -923,10 +1165,10 @@ int
 pgagroal_validate_limit_configuration(void* shm)
 {
    int total_connections;
-   struct configuration* config;
+   struct main_configuration* config;
 
    total_connections = 0;
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    for (int i = 0; i < config->number_of_limits; i++)
    {
@@ -1022,7 +1264,7 @@ pgagroal_read_users_configuration(void* shm, char* filename)
    char* decoded = NULL;
    int decoded_length = 0;
    char* ptr = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
    int status;
 
    file = fopen(filename, "r");
@@ -1040,7 +1282,7 @@ pgagroal_read_users_configuration(void* shm, char* filename)
    }
 
    index = 0;
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1144,7 +1386,7 @@ pgagroal_read_frontend_users_configuration(void* shm, char* filename)
    char* decoded = NULL;
    int decoded_length = 0;
    char* ptr = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
    int status = PGAGROAL_CONFIGURATION_STATUS_OK;
 
    file = fopen(filename, "r");
@@ -1162,7 +1404,7 @@ pgagroal_read_frontend_users_configuration(void* shm, char* filename)
    }
 
    index = 0;
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1248,9 +1490,9 @@ error:
 int
 pgagroal_validate_frontend_users_configuration(void* shm)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    for (int i = 0; i < config->number_of_frontend_users; i++)
    {
@@ -1291,7 +1533,7 @@ pgagroal_read_admins_configuration(void* shm, char* filename)
    char* decoded = NULL;
    int decoded_length = 0;
    char* ptr = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
    int status = PGAGROAL_CONFIGURATION_STATUS_OK;
 
    file = fopen(filename, "r");
@@ -1309,7 +1551,7 @@ pgagroal_read_admins_configuration(void* shm, char* filename)
    }
 
    index = 0;
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1393,11 +1635,124 @@ error:
  *
  */
 int
+pgagroal_vault_read_users_configuration(void* shm, char* filename)
+{
+   FILE* file;
+   char line[LINE_LENGTH];
+   int index;
+   char* master_key = NULL;
+   char* username = NULL;
+   char* password = NULL;
+   char* decoded = NULL;
+   int decoded_length = 0;
+   char* ptr = NULL;
+   struct vault_configuration* config;
+   int status = PGAGROAL_CONFIGURATION_STATUS_OK;
+
+   file = fopen(filename, "r");
+
+   if (!file)
+   {
+      status = PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND;
+      goto error;
+   }
+
+   if (pgagroal_get_master_key(&master_key))
+   {
+      status = PGAGROAL_CONFIGURATION_STATUS_KO;
+      goto error;
+   }
+
+   index = 0;
+   config = (struct vault_configuration*)shm;
+
+   while (fgets(line, sizeof(line), file))
+   {
+      if (!is_empty_string(line) && !is_comment_line(line))
+      {
+         ptr = strtok(line, ":");
+
+         username = ptr;
+
+         ptr = strtok(NULL, ":");
+
+         if (ptr == NULL)
+         {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
+            goto error;
+         }
+
+         if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
+         {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
+            goto error;
+         }
+
+         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+         {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
+            goto error;
+         }
+
+         if (strlen(username) < MAX_USERNAME_LENGTH &&
+             strlen(password) < MAX_PASSWORD_LENGTH &&
+             !strcmp(config->vault_server.user.username, username))
+         {
+            memcpy(&config->vault_server.user.password, password, strlen(password));
+         }
+         else
+         {
+            printf("pgagroal: Invalid ADMIN entry\n");
+            printf("%s\n", line);
+         }
+
+         free(password);
+         free(decoded);
+
+         password = NULL;
+         decoded = NULL;
+
+         index++;
+      }
+   }
+
+   config->number_of_users = index;
+
+   if (config->number_of_users > NUMBER_OF_ADMINS)
+   {
+      status = PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG;
+      goto error;
+   }
+
+   free(master_key);
+
+   fclose(file);
+
+   return PGAGROAL_CONFIGURATION_STATUS_OK;
+
+error:
+
+   free(master_key);
+   free(password);
+   free(decoded);
+
+   if (file)
+   {
+      fclose(file);
+   }
+
+   return status;
+}
+
+/**
+ *
+ */
+int
 pgagroal_validate_admins_configuration(void* shm)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    if (config->management > 0 && config->number_of_admins == 0)
    {
@@ -1419,7 +1774,7 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
    char* decoded = NULL;
    int decoded_length = 0;
    char* ptr = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
    int status = PGAGROAL_CONFIGURATION_STATUS_OK;
 
    file = fopen(filename, "r");
@@ -1437,7 +1792,7 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
    }
 
    index = 0;
-   config = (struct configuration*)shm;
+   config = (struct main_configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1530,12 +1885,12 @@ int
 pgagroal_reload_configuration(void)
 {
    size_t reload_size;
-   struct configuration* reload = NULL;
-   struct configuration* config;
+   struct main_configuration* reload = NULL;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
-   pgagroal_log_trace("Configuration: %s", config->configuration_path);
+   pgagroal_log_trace("Configuration: %s", config->common.configuration_path);
    pgagroal_log_trace("HBA: %s", config->hba_path);
    pgagroal_log_trace("Limit: %s", config->limit_path);
    pgagroal_log_trace("Users: %s", config->users_path);
@@ -1543,7 +1898,7 @@ pgagroal_reload_configuration(void)
    pgagroal_log_trace("Admins: %s", config->admins_path);
    pgagroal_log_trace("Superuser: %s", config->superuser_path);
 
-   reload_size = sizeof(struct configuration);
+   reload_size = sizeof(struct main_configuration);
 
    if (pgagroal_create_shared_memory(reload_size, HUGEPAGE_OFF, (void**)&reload))
    {
@@ -1552,7 +1907,7 @@ pgagroal_reload_configuration(void)
 
    pgagroal_init_configuration((void*)reload);
 
-   if (pgagroal_read_configuration((void*)reload, config->configuration_path, true))
+   if (pgagroal_read_configuration((void*)reload, config->common.configuration_path, true))
    {
       goto error;
    }
@@ -2193,7 +2548,7 @@ extract_value(char* str, int offset, char** value)
  * parameters), a positive value in the case of a dramatic error.
  */
 static int
-transfer_configuration(struct configuration* config, struct configuration* reload)
+transfer_configuration(struct main_configuration* config, struct main_configuration* reload)
 {
 #ifdef HAVE_LINUX
    sd_notify(0, "RELOADING=1");
@@ -2201,8 +2556,8 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
 
    int unchanged = 0;
 
-   memcpy(config->host, reload->host, MISC_LENGTH);
-   config->port = reload->port;
+   memcpy(config->common.host, reload->common.host, MISC_LENGTH);
+   config->common.port = reload->common.port;
    config->metrics = reload->metrics;
    config->metrics_cache_max_age = reload->metrics_cache_max_age;
    unchanged -= restart_int("metrics_cache_max_size", config->metrics_cache_max_size, reload->metrics_cache_max_size);
@@ -2221,29 +2576,29 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
    memcpy(config->failover_script, reload->failover_script, MISC_LENGTH);
 
    /* log_type */
-   restart_int("log_type", config->log_type, reload->log_type);
-   config->log_level = reload->log_level;
+   restart_int("log_type", config->common.log_type, reload->common.log_type);
+   config->common.log_level = reload->common.log_level;
 
    /* log_path */
    // if the log main parameters have changed, we need
    // to restart the logging system
-   if (strncmp(config->log_path, reload->log_path, MISC_LENGTH)
-       || config->log_rotation_size != reload->log_rotation_size
-       || config->log_rotation_age != reload->log_rotation_age
-       || config->log_mode != reload->log_mode)
+   if (strncmp(config->common.log_path, reload->common.log_path, MISC_LENGTH)
+       || config->common.log_rotation_size != reload->common.log_rotation_size
+       || config->common.log_rotation_age != reload->common.log_rotation_age
+       || config->common.log_mode != reload->common.log_mode)
    {
       pgagroal_log_debug("Log restart triggered!");
       pgagroal_stop_logging();
-      config->log_rotation_size = reload->log_rotation_size;
-      config->log_rotation_age = reload->log_rotation_age;
-      config->log_mode = reload->log_mode;
-      memcpy(config->log_line_prefix, reload->log_line_prefix, MISC_LENGTH);
-      memcpy(config->log_path, reload->log_path, MISC_LENGTH);
+      config->common.log_rotation_size = reload->common.log_rotation_size;
+      config->common.log_rotation_age = reload->common.log_rotation_age;
+      config->common.log_mode = reload->common.log_mode;
+      memcpy(config->common.log_line_prefix, reload->common.log_line_prefix, MISC_LENGTH);
+      memcpy(config->common.log_path, reload->common.log_path, MISC_LENGTH);
       pgagroal_start_logging();
    }
 
-   config->log_connections = reload->log_connections;
-   config->log_disconnections = reload->log_disconnections;
+   config->common.log_connections = reload->common.log_connections;
+   config->common.log_disconnections = reload->common.log_disconnections;
 
    /* log_lock */
 
@@ -2270,6 +2625,8 @@ transfer_configuration(struct configuration* config, struct configuration* reloa
 
    config->blocking_timeout = reload->blocking_timeout;
    config->idle_timeout = reload->idle_timeout;
+   config->rotate_frontend_password_timeout = reload->rotate_frontend_password_timeout;
+   config->rotate_frontend_password_length = reload->rotate_frontend_password_length;
    config->max_connection_age = reload->max_connection_age;
    config->validation = reload->validation;
    config->background_interval = reload->background_interval;
@@ -2515,7 +2872,7 @@ restart_string(char* name, char* e, char* n, bool skip_non_existing)
 }
 
 static int
-restart_limit(char* name, struct configuration* config, struct configuration* reload)
+restart_limit(char* name, struct main_configuration* config, struct main_configuration* reload)
 {
    int ret;
 
@@ -2643,16 +3000,16 @@ as_logging_rotation_age(char* str, unsigned int* age)
 void
 pgagroal_init_pidfile_if_needed(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (strlen(config->pidfile) == 0)
    {
       // no pidfile set, use a default one
       snprintf(config->pidfile, sizeof(config->pidfile), "%s/pgagroal.%d.pid",
                config->unix_socket_dir,
-               config->port);
+               config->common.port);
       pgagroal_log_debug("PID file automatically set to: [%s]", config->pidfile);
    }
 }
@@ -2660,9 +3017,9 @@ pgagroal_init_pidfile_if_needed(void)
 bool
 pgagroal_can_prefill(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (config->number_of_users > 0 && config->number_of_limits > 0)
    {
@@ -2709,7 +3066,7 @@ key_in_section(char* wanted, char* section, char* key, bool global, bool* unknow
 
    // if here there is a match on the key, ensure the section is
    // appropriate
-   if (global && !strncmp(section, PGAGROAL_MAIN_INI_SECTION, MISC_LENGTH))
+   if (global && (!strncmp(section, PGAGROAL_MAIN_INI_SECTION, MISC_LENGTH) | !strncmp(section, PGAGROAL_VAULT_INI_SECTION, MISC_LENGTH)))
    {
       return true;
    }
@@ -3066,7 +3423,7 @@ as_update_process_title(char* str, unsigned int* policy, unsigned int default_po
 int
 pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
    char section[MISC_LENGTH];
    char context[MISC_LENGTH];
@@ -3074,7 +3431,7 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
    int begin = -1, end = -1;
    bool main_section;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    memset(section, 0, MISC_LENGTH);
    memset(context, 0, MISC_LENGTH);
@@ -3149,50 +3506,50 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
 
       if (!strncmp(key, "host", MISC_LENGTH))
       {
-         return to_string(buffer, config->host, buffer_size);
+         return to_string(buffer, config->common.host, buffer_size);
       }
       else if (!strncmp(key, "port", MISC_LENGTH))
       {
-         return to_int(buffer, config->port);
+         return to_int(buffer, config->common.port);
       }
       else if (!strncmp(key, "log_type", MISC_LENGTH))
       {
-         return to_log_type(buffer, config->log_type);
+         return to_log_type(buffer, config->common.log_type);
       }
       else if (!strncmp(key, "log_mode", MISC_LENGTH))
       {
-         return to_log_mode(buffer, config->log_mode);
+         return to_log_mode(buffer, config->common.log_mode);
       }
       else if (!strncmp(key, "log_line_prefix", MISC_LENGTH))
       {
-         return to_string(buffer, config->log_line_prefix, buffer_size);
+         return to_string(buffer, config->common.log_line_prefix, buffer_size);
       }
 
       else if (!strncmp(key, "log_level", MISC_LENGTH))
       {
-         return to_log_level(buffer, config->log_level);
+         return to_log_level(buffer, config->common.log_level);
       }
       else if (!strncmp(key, "log_rotation_size", MISC_LENGTH))
       {
-         return to_int(buffer, config->log_rotation_size);
+         return to_int(buffer, config->common.log_rotation_size);
 
       }
       else if (!strncmp(key, "log_rotation_age", MISC_LENGTH))
       {
-         return to_int(buffer, config->log_rotation_age);
+         return to_int(buffer, config->common.log_rotation_age);
 
       }
       else if (!strncmp(key, "log_connections", MISC_LENGTH))
       {
-         return to_bool(buffer, config->log_connections);
+         return to_bool(buffer, config->common.log_connections);
       }
       else if (!strncmp(key, "log_disconnections", MISC_LENGTH))
       {
-         return to_bool(buffer, config->log_disconnections);
+         return to_bool(buffer, config->common.log_disconnections);
       }
       else if (!strncmp(key, "log_path", MISC_LENGTH))
       {
-         return to_string(buffer, config->log_path, buffer_size);
+         return to_string(buffer, config->common.log_path, buffer_size);
       }
       else if (!strncmp(key, "metrics", MISC_LENGTH))
       {
@@ -3245,6 +3602,14 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       else if (!strncmp(key, "idle_timeout", MISC_LENGTH))
       {
          return to_int(buffer, config->idle_timeout);
+      }
+      else if (!strncmp(key, "rotate_frontend_password_timeout", MISC_LENGTH))
+      {
+         return to_int(buffer, config->rotate_frontend_password_timeout);
+      }
+      else if (!strncmp(key, "rotate_frontend_password_length", MISC_LENGTH))
+      {
+         return to_int(buffer, config->rotate_frontend_password_length);
       }
       else if (!strncmp(key, "max_connection_age", MISC_LENGTH))
       {
@@ -3348,10 +3713,10 @@ static int
 pgagroal_write_server_config_value(char* buffer, char* server_name, char* config_key, size_t buffer_size)
 {
    int server_index = -1;
-   struct configuration* config;
+   struct main_configuration* config;
    int state;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -3436,9 +3801,9 @@ static int
 pgagroal_write_hba_config_value(char* buffer, char* username, char* config_key, size_t buffer_size)
 {
    int hba_index = -1;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < NUMBER_OF_HBAS; i++)
    {
@@ -3500,9 +3865,9 @@ static int
 pgagroal_write_limit_config_value(char* buffer, char* database, char* config_key, size_t buffer_size)
 {
    int limit_index = -1;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < NUMBER_OF_LIMITS; i++)
    {
@@ -3792,7 +4157,7 @@ to_pipeline(char* where, int value)
  * into one of its possible string descriptions.
  *
  * @param where the buffer used to store the stringy thing
- * @param value the config->log_level setting
+ * @param value the config->common.log_level setting
  * @return 0 on success, 1 otherwise
  */
 static int
@@ -3835,7 +4200,7 @@ to_log_level(char* where, int value)
  * into one of its possible string descriptions.
  *
  * @param where the buffer used to store the stringy thing
- * @param value the config->log_mode setting
+ * @param value the config->common.log_mode setting
  * @return 0 on success, 1 otherwise
  */
 static int
@@ -3865,7 +4230,7 @@ to_log_mode(char* where, int value)
  * into one of its possible string descriptions.
  *
  * @param where the buffer used to store the stringy thing
- * @param value the config->log_type setting
+ * @param value the config->common.log_type setting
  * @return 0 on success, 1 otherwise
  */
 static int
@@ -3894,7 +4259,7 @@ to_log_type(char* where, int value)
 }
 
 int
-pgagroal_apply_main_configuration(struct configuration* config,
+pgagroal_apply_main_configuration(struct main_configuration* config,
                                   struct server* srv,
                                   char* section,
                                   char* key,
@@ -3912,7 +4277,7 @@ pgagroal_apply_main_configuration(struct configuration* config,
       {
          max = MISC_LENGTH - 1;
       }
-      memcpy(config->host, value, max);
+      memcpy(config->common.host, value, max);
    }
    else if (key_in_section("host", section, key, false, &unknown))
    {
@@ -3932,7 +4297,7 @@ pgagroal_apply_main_configuration(struct configuration* config,
    }
    else if (key_in_section("port", section, key, true, NULL))
    {
-      if (as_int(value, &config->port))
+      if (as_int(value, &config->common.port))
       {
          unknown = true;
       }
@@ -4101,6 +4466,20 @@ pgagroal_apply_main_configuration(struct configuration* config,
          unknown = true;
       }
    }
+   else if (key_in_section("rotate_frontend_password_timeout", section, key, true, &unknown))
+   {
+      if (as_int(value, &config->rotate_frontend_password_timeout))
+      {
+         unknown = true;
+      }
+   }
+   else if (key_in_section("rotate_frontend_password_length", section, key, true, &unknown))
+   {
+      if (as_int(value, &config->rotate_frontend_password_length))
+      {
+         unknown = true;
+      }
+   }
    else if (key_in_section("max_connection_age", section, key, true, &unknown))
    {
       if (as_int(value, &config->max_connection_age))
@@ -4165,11 +4544,11 @@ pgagroal_apply_main_configuration(struct configuration* config,
    }
    else if (key_in_section("log_type", section, key, true, &unknown))
    {
-      config->log_type = as_logging_type(value);
+      config->common.log_type = as_logging_type(value);
    }
    else if (key_in_section("log_level", section, key, true, &unknown))
    {
-      config->log_level = as_logging_level(value);
+      config->common.log_level = as_logging_level(value);
    }
    else if (key_in_section("log_path", section, key, true, &unknown))
    {
@@ -4178,18 +4557,18 @@ pgagroal_apply_main_configuration(struct configuration* config,
       {
          max = MISC_LENGTH - 1;
       }
-      memcpy(config->log_path, value, max);
+      memcpy(config->common.log_path, value, max);
    }
    else if (key_in_section("log_rotation_size", section, key, true, &unknown))
    {
-      if (as_logging_rotation_size(value, &config->log_rotation_size))
+      if (as_logging_rotation_size(value, &config->common.log_rotation_size))
       {
          unknown = true;
       }
    }
    else if (key_in_section("log_rotation_age", section, key, true, &unknown))
    {
-      if (as_logging_rotation_age(value, &config->log_rotation_age))
+      if (as_logging_rotation_age(value, &config->common.log_rotation_age))
       {
          unknown = true;
       }
@@ -4202,26 +4581,26 @@ pgagroal_apply_main_configuration(struct configuration* config,
          max = MISC_LENGTH - 1;
       }
 
-      memcpy(config->log_line_prefix, value, max);
+      memcpy(config->common.log_line_prefix, value, max);
    }
    else if (key_in_section("log_connections", section, key, true, &unknown))
    {
 
-      if (as_bool(value, &config->log_connections))
+      if (as_bool(value, &config->common.log_connections))
       {
          unknown = true;
       }
    }
    else if (key_in_section("log_disconnections", section, key, true, &unknown))
    {
-      if (as_bool(value, &config->log_disconnections))
+      if (as_bool(value, &config->common.log_disconnections))
       {
          unknown = true;
       }
    }
    else if (key_in_section("log_mode", section, key, true, &unknown))
    {
-      config->log_mode = as_logging_mode(value);
+      config->common.log_mode = as_logging_mode(value);
    }
    else if (key_in_section("max_connections", section, key, true, &unknown))
    {
@@ -4329,10 +4708,167 @@ pgagroal_apply_main_configuration(struct configuration* config,
 }
 
 int
+pgagroal_apply_vault_configuration(struct vault_configuration* config,
+                                   struct vault_server* srv,
+                                   char* section,
+                                   char* key,
+                                   char* value)
+{
+   size_t max = 0;
+   bool unknown = false;
+
+   //   pgagroal_log_trace( "Configuration setting [%s] <%s> -> <%s>", section, key, value );
+
+   if (key_in_section("host", section, key, true, NULL))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(config->common.host, value, max);
+   }
+   else if (key_in_section("host", section, key, false, &unknown))
+   {
+      max = strlen(section);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(&srv->server.name, section, max);
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(&srv->server.host, value, max);
+   }
+   else if (key_in_section("port", section, key, true, NULL))
+   {
+      if (as_int(value, &config->common.port))
+      {
+         unknown = true;
+      }
+   }
+   else if (key_in_section("port", section, key, false, &unknown))
+   {
+      memcpy(&srv->server.name, section, strlen(section));
+      if (as_int(value, &srv->server.port))
+      {
+         unknown = true;
+      }
+   }
+   else if (key_in_section("user", section, key, false, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(&srv->user.username, value, max);
+   }
+   else if (key_in_section("tls", section, key, false, &unknown))
+   {
+      if (as_bool(value, &srv->server.tls))
+      {
+         unknown = true;
+      }
+   }
+   else if (key_in_section("tls_ca_file", section, key, false, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(&srv->server.tls_ca_file, value, max);
+   }
+   else if (key_in_section("tls_cert_file", section, key, false, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(&srv->server.tls_cert_file, value, max);
+   }
+   else if (key_in_section("tls_key_file", section, key, false, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(&srv->server.tls_key_file, value, max);
+   }
+   else if (key_in_section("log_type", section, key, true, &unknown))
+   {
+      config->common.log_type = as_logging_type(value);
+   }
+   else if (key_in_section("log_level", section, key, true, &unknown))
+   {
+      config->common.log_level = as_logging_level(value);
+   }
+   else if (key_in_section("log_path", section, key, true, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(config->common.log_path, value, max);
+   }
+   else if (key_in_section("log_rotation_size", section, key, true, &unknown))
+   {
+      if (as_logging_rotation_size(value, &config->common.log_rotation_size))
+      {
+         unknown = true;
+      }
+   }
+   else if (key_in_section("log_rotation_age", section, key, true, &unknown))
+   {
+      if (as_logging_rotation_age(value, &config->common.log_rotation_age))
+      {
+         unknown = true;
+      }
+   }
+   else if (key_in_section("log_line_prefix", section, key, true, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+
+      memcpy(config->common.log_line_prefix, value, max);
+   }
+   else if (key_in_section("log_connections", section, key, true, &unknown))
+   {
+
+      if (as_bool(value, &config->common.log_connections))
+      {
+         unknown = true;
+      }
+   }
+   else if (key_in_section("log_disconnections", section, key, true, &unknown))
+   {
+      if (as_bool(value, &config->common.log_disconnections))
+      {
+         unknown = true;
+      }
+   }
+   else if (key_in_section("log_mode", section, key, true, &unknown))
+   {
+      config->common.log_mode = as_logging_mode(value);
+   }
+   return 0;
+}
+
+int
 pgagroal_apply_configuration(char* config_key, char* config_value)
 {
-   struct configuration* config;
-   struct configuration* current_config;
+   struct main_configuration* config;
+   struct main_configuration* current_config;
 
    char section[MISC_LENGTH];
    char context[MISC_LENGTH];
@@ -4344,9 +4880,9 @@ pgagroal_apply_configuration(char* config_key, char* config_value)
    struct server* srv_src;
 
    // get the currently running configuration
-   current_config = (struct configuration*)shmem;
+   current_config = (struct main_configuration*)shmem;
    // create a new configuration that will be the clone of the previous one
-   config_size = sizeof(struct configuration);
+   config_size = sizeof(struct main_configuration);
    if (pgagroal_create_shared_memory(config_size, HUGEPAGE_OFF, (void**)&config))
    {
       goto error;
@@ -4537,7 +5073,7 @@ error:
 
    if (config != NULL)
    {
-      memcpy(config, current_config, sizeof(struct configuration));
+      memcpy(config, current_config, sizeof(struct main_configuration));
       pgagroal_destroy_shared_memory((void*)config, config_size);
    }
 

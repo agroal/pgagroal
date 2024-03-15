@@ -104,9 +104,9 @@ transaction_start(struct ev_loop* loop, struct worker_io* w)
 {
    char p[MISC_LENGTH];
    bool is_new;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    slot = -1;
    memcpy(&username[0], config->connections[w->slot].username, MAX_USERNAME_LENGTH);
@@ -162,9 +162,9 @@ transaction_stop(struct ev_loop* loop, struct worker_io* w)
 {
    if (slot != -1)
    {
-      struct configuration* config = NULL;
+      struct main_configuration* config = NULL;
 
-      config = (struct configuration*)shmem;
+      config = (struct main_configuration*)shmem;
 
       /* We are either in 'X' or the client terminated (consider cancel query) */
       if (in_tx)
@@ -199,10 +199,10 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    SSL* s_ssl = NULL;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
    wi = (struct worker_io*)watcher;
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    /* We can't use the information from wi except from client_fd/client_ssl */
    if (slot == -1)
@@ -402,10 +402,10 @@ transaction_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
    bool has_z = false;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
    wi = (struct worker_io*)watcher;
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    /* We can't use the information from wi except from client_fd/client_ssl */
    wi->server_fd = config->connections[slot].fd;
@@ -591,9 +591,9 @@ static void
 shutdown_mgt(struct ev_loop* loop)
 {
    char p[MISC_LENGTH];
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    memset(&p, 0, sizeof(p));
    snprintf(&p[0], sizeof(p), ".s.%d", getpid());
@@ -615,9 +615,9 @@ accept_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    int32_t payload_slot;
    int payload_i;
    char* payload_s = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (EV_ERROR & revents)
    {

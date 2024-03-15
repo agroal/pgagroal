@@ -186,6 +186,7 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
       case MANAGEMENT_ENABLEDB:
       case MANAGEMENT_DISABLEDB:
       case MANAGEMENT_CONFIG_GET:
+      case MANAGEMENT_GET_PASSWORD:
       case MANAGEMENT_CONFIG_SET:
 
          if (read_complete(NULL, socket, &buf4[0], sizeof(buf4)))
@@ -249,13 +250,13 @@ int
 pgagroal_management_transfer_connection(int32_t slot)
 {
    int fd;
-   struct configuration* config;
+   struct main_configuration* config;
    struct cmsghdr* cmptr = NULL;
    struct iovec iov[1];
    struct msghdr msg;
    char buf2[2];
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &fd))
    {
@@ -321,9 +322,9 @@ int
 pgagroal_management_return_connection(int32_t slot)
 {
    int fd;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &fd))
    {
@@ -354,9 +355,9 @@ pgagroal_management_kill_connection(int32_t slot, int socket)
 {
    int fd;
    char buf[4];
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &fd))
    {
@@ -458,6 +459,68 @@ pgagroal_management_enabledb(SSL* ssl, int fd, char* database)
       errno = 0;
       goto error;
    }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+int
+pgagroal_management_get_password(SSL* ssl, int fd, char* username, char* pass)
+{
+   char buf[4];
+   int* password_length = NULL;
+   char password[MAX_PASSWORD_LENGTH];
+
+   password_length = (int*)malloc(sizeof(int));
+   if (!password_length)
+   {
+      goto error;
+   }
+
+   if (write_header(ssl, fd, MANAGEMENT_GET_PASSWORD, -1))
+   {
+      pgagroal_log_warn("pgagroal_management_get_password: write-header: %d", fd);
+      errno = 0;
+      goto error;
+   }
+
+   pgagroal_write_int32(&buf, strlen(username));
+   if (write_complete(ssl, fd, &buf, sizeof(buf)))
+   {
+      pgagroal_log_warn("pgagroal_management_get_password: write: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   if (write_complete(ssl, fd, username, strlen(username)))
+   {
+      pgagroal_log_warn("pgagroal_management_get_password: write: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   // Read the Password length
+   if (read_complete(ssl, fd, &buf, sizeof(buf)))
+   {
+      pgagroal_log_warn("pgagroal_management_get_password: read: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+   *password_length = pgagroal_read_int32(&buf);
+
+   // Read the Password
+   memset(password, 0, sizeof(password));
+   if (read_complete(ssl, fd, password, *password_length))
+   {
+      pgagroal_log_warn("pgagroal_management_get_password: read: %d %s", fd, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   memcpy(pass, password, *password_length);
 
    return 0;
 
@@ -839,13 +902,13 @@ pgagroal_management_write_status(int socket, bool graceful)
    char buf[16];
    int active;
    int total;
-   struct configuration* config;
+   struct main_configuration* config;
 
    memset(&buf, 0, sizeof(buf));
    active = 0;
    total = 0;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (!graceful)
    {
@@ -952,9 +1015,9 @@ int
 pgagroal_management_write_details(int socket)
 {
    char header[12 + MAX_NUMBER_OF_CONNECTIONS];
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    memset(&header, 0, sizeof(header));
 
@@ -1141,6 +1204,29 @@ error:
 }
 
 int
+pgagroal_management_write_get_password(int socket, char* password)
+{
+   char buffer[MAX_PASSWORD_LENGTH + 4]; // first 4 bytes contains the length of the password
+   memset(buffer, 0, sizeof(buffer));
+
+   pgagroal_write_int32(&buffer, strlen(password));
+   memcpy(buffer + 4, password, strlen(password));
+
+   if (write_complete(NULL, socket, buffer, strlen(password) + 4))
+   {
+      pgagroal_log_warn("pgagroal_management_write_get_password: write: %d %s\n", socket, strerror(errno));
+      errno = 0;
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+int
 pgagroal_management_reset(SSL* ssl, int fd)
 {
    if (write_header(ssl, fd, MANAGEMENT_RESET, -1))
@@ -1191,9 +1277,9 @@ pgagroal_management_client_done(pid_t pid)
 {
    char buf[4];
    int fd;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &fd))
    {
@@ -1234,13 +1320,13 @@ pgagroal_management_client_fd(int32_t slot, pid_t pid)
 {
    char p[MISC_LENGTH];
    int fd;
-   struct configuration* config;
+   struct main_configuration* config;
    struct cmsghdr* cmptr = NULL;
    struct iovec iov[1];
    struct msghdr msg;
    char buf[2]; /* send_fd()/recv_fd() 2-byte protocol */
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    memset(&p, 0, sizeof(p));
    snprintf(&p[0], sizeof(p), ".s.%d", pid);
@@ -1353,9 +1439,9 @@ pgagroal_management_remove_fd(int32_t slot, int socket, pid_t pid)
    char p[MISC_LENGTH];
    int fd;
    char buf[4];
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (atomic_load(&config->states[slot]) == STATE_NOTINIT)
    {
@@ -2013,11 +2099,11 @@ error:
 int
 pgagroal_management_write_conf_ls(int socket)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
-   if (pgagroal_management_write_conf_ls_detail(socket, config->configuration_path))
+   if (pgagroal_management_write_conf_ls_detail(socket, config->common.configuration_path))
    {
       goto error;
    }

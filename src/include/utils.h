@@ -48,6 +48,25 @@ struct signal_info
 };
 
 /** @struct
+ * Defines the accept io structure
+ */
+struct accept_io
+{
+   struct ev_io io;
+   int socket;
+   char** argv;
+};
+
+/** @struct
+ * Defines the client structure
+ */
+struct client
+{
+   pid_t pid;
+   struct client* next;
+};
+
+/** @struct
  * Defines pgagroal commands.
  * The necessary fields are marked with an ">".
  *

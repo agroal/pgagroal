@@ -63,7 +63,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    time_t start_time;
    bool started = false;
    int auth_status;
-   struct configuration* config;
+   struct main_configuration* config;
    struct pipeline p;
    bool tx_pool = false;
    int32_t slot = -1;
@@ -73,7 +73,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    pgagroal_start_logging();
    pgagroal_memory_init();
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    memset(&client_io, 0, sizeof(struct worker_io));
    memset(&server_io, 0, sizeof(struct worker_io));
@@ -96,7 +96,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
 
       pgagroal_tracking_event_socket(TRACKER_SOCKET_ASSOCIATE_SERVER, config->connections[slot].fd);
 
-      if (config->log_connections)
+      if (config->common.log_connections)
       {
          pgagroal_log_info("connect: user=%s database=%s address=%s", config->connections[slot].username,
                            config->connections[slot].database, address);
@@ -186,14 +186,14 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    }
    else
    {
-      if (config->log_connections)
+      if (config->common.log_connections)
       {
          pgagroal_log_info("connect: address=%s", address);
       }
       pgagroal_prometheus_client_wait_sub();
    }
 
-   if (config->log_disconnections)
+   if (config->common.log_disconnections)
    {
       if (auth_status == AUTH_SUCCESS)
       {

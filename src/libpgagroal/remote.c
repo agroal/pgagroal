@@ -54,14 +54,14 @@ pgagroal_remote_management(int client_fd, char* address)
    signed char type;
    SSL* client_ssl = NULL;
    struct message* msg = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
 
    pgagroal_start_logging();
    pgagroal_memory_init();
 
    exit_code = 0;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    pgagroal_log_debug("pgagroal_remote_management: connect %d", client_fd);
 
@@ -145,6 +145,34 @@ pgagroal_remote_management(int client_fd, char* address)
             }
 
             status = pgagroal_write_message(NULL, server_fd, msg);
+            if (status != MESSAGE_STATUS_OK)
+            {
+               goto done;
+            }
+
+            break;
+
+         case MANAGEMENT_GET_PASSWORD:
+            // Read username size from local
+            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->authentication_timeout, &msg);
+            if (status != MESSAGE_STATUS_OK)
+            {
+               goto done;
+            }
+
+            status = pgagroal_write_message(NULL, server_fd, msg);
+            if (status != MESSAGE_STATUS_OK)
+            {
+               goto done;
+            }
+
+            status = pgagroal_read_timeout_message(NULL, server_fd, config->authentication_timeout, &msg);
+            if (status != MESSAGE_STATUS_OK)
+            {
+               goto done;
+            }
+
+            status = pgagroal_write_message(client_ssl, client_fd, msg);
             if (status != MESSAGE_STATUS_OK)
             {
                goto done;

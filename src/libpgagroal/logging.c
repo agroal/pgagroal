@@ -174,7 +174,7 @@ pgagroal_init_logging(void)
 
       if (!log_file)
       {
-         printf("Failed to open log file %s due to %s\n", strlen(config->log_path) > 0 ? config->log_path : "pgagroal.log", strerror(errno));
+         printf("Failed to open log file %s due to %s\n", strlen(config->log_path) > 0 ? config->log_path : config->default_log_path, strerror(errno));
          errno = 0;
          log_rotation_disable();
          return 1;
@@ -200,7 +200,7 @@ pgagroal_start_logging(void)
 
       if (!log_file)
       {
-         printf("Failed to open log file %s due to %s\n", strlen(config->log_path) > 0 ? config->log_path : "pgagroal.log", strerror(errno));
+         printf("Failed to open log file %s due to %s\n", strlen(config->log_path) > 0 ? config->log_path : config->default_log_path, strerror(errno));
          errno = 0;
          return 1;
       }
@@ -241,7 +241,7 @@ log_file_open(void)
       if (strftime(current_log_path, sizeof(current_log_path), config->log_path, tm) <= 0)
       {
          // cannot parse the format string, fallback to default logging
-         memcpy(current_log_path, "pgagroal.log", strlen("pgagroal.log"));
+         memcpy(current_log_path, config->default_log_path, strlen(config->default_log_path));
          log_rotation_disable();
       }
 

@@ -730,9 +730,9 @@ pgagroal_set_proc_title(int argc, char** argv, char* s1, char* s2)
    size_t size;
    char** env = environ;
    int es = 0;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    // sanity check: if the user does not want to
    // update the process title, do nothing
@@ -819,11 +819,11 @@ pgagroal_set_proc_title(int argc, char** argv, char* s1, char* s2)
 void
 pgagroal_set_connection_proc_title(int argc, char** argv, struct connection* connection)
 {
-   struct configuration* config;
+   struct main_configuration* config;
    int primary;
    char* info = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (pgagroal_get_primary(&primary))
    {

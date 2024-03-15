@@ -79,9 +79,9 @@ performance_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shme
 static void
 performance_start(struct ev_loop* loop, struct worker_io* w)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < config->max_connections; i++)
    {
@@ -115,7 +115,7 @@ performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
    wi = (struct worker_io*)watcher;
 
@@ -156,7 +156,7 @@ performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    return;
 
 client_done:
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    pgagroal_log_debug("[C] Client done (slot %d database %s user %s): %s (socket %d status %d)",
                       wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                       strerror(errno), wi->client_fd, status);
@@ -176,7 +176,7 @@ client_done:
    return;
 
 client_error:
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[C] Client error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->client_fd, status);
@@ -189,7 +189,7 @@ client_error:
    return;
 
 server_error:
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[C] Server error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->server_fd, status);
@@ -209,7 +209,7 @@ performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
    bool fatal = false;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
    wi = (struct worker_io*)watcher;
 
@@ -258,7 +258,7 @@ performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
    return;
 
 client_error:
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[S] Client error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->client_fd, status);
@@ -271,7 +271,7 @@ client_error:
    return;
 
 server_done:
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    pgagroal_log_debug("[S] Server done (slot %d database %s user %s): %s (socket %d status %d)",
                       wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                       strerror(errno), wi->server_fd, status);
@@ -282,7 +282,7 @@ server_done:
    return;
 
 server_error:
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[S] Server error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->server_fd, status);

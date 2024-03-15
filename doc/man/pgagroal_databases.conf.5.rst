@@ -55,4 +55,4 @@ pgagroal is licensed under the 3-clause BSD License.
 SEE ALSO
 ========
 
-pgagroal.conf(5), pgagroal_hba.conf(5), pgagroal(1), pgagroal-cli(1), pgagroal-admin(1)
+pgagroal.conf(5), pgagroal_hba.conf(5), pgagroal_vault.conf(5), pgagroal(1), pgagroal-cli(1), pgagroal-admin(1), pgagroal-vault(1)

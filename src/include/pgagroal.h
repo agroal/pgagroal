@@ -62,22 +62,27 @@ extern "C" {
 #define PGAGROAL_DEFAULT_FRONTEND_USERS_FILE PGAGROAL_DEFAULT_CONFIGURATION_PATH "pgagroal_frontend_users.conf"
 #define PGAGROAL_DEFAULT_ADMINS_FILE PGAGROAL_DEFAULT_CONFIGURATION_PATH "pgagroal_admins.conf"
 #define PGAGROAL_DEFAULT_SUPERUSER_FILE PGAGROAL_DEFAULT_CONFIGURATION_PATH "pgagroal_superuser.conf"
+#define PGAGROAL_DEFAULT_VAULT_CONF_FILE PGAGROAL_DEFAULT_CONFIGURATION_PATH "pgagroal_vault.conf"
+#define PGAGROAL_DEFAULT_VAULT_USERS_FILE PGAGROAL_DEFAULT_CONFIGURATION_PATH "pgagroal_vault_users.conf"
 
 #define MAX_PROCESS_TITLE_LENGTH 256
 
 #define MAX_BUFFER_SIZE      65535
 #define DEFAULT_BUFFER_SIZE  65535
 #define SECURITY_BUFFER_SIZE  1024
+#define HTTP_BUFFER_SIZE      1024
 
-#define MAX_USERNAME_LENGTH   128
-#define MAX_DATABASE_LENGTH   256
-#define MAX_TYPE_LENGTH        16
-#define MAX_ADDRESS_LENGTH     64
-#define MAX_PASSWORD_LENGTH  1024
-#define MAX_APPLICATION_NAME   64
+#define MAX_USERNAME_LENGTH    128
+#define MAX_DATABASE_LENGTH    256
+#define MAX_TYPE_LENGTH         16
+#define MAX_ADDRESS_LENGTH      64
+#define DEFAULT_PASSWORD_LENGTH 64
+#define MIN_PASSWORD_LENGTH      8
+#define MAX_PASSWORD_LENGTH   1024
+#define MAX_APPLICATION_NAME    64
 
-#define MAX_PATH 1024
-#define MISC_LENGTH 128
+#define MAX_PATH        1024
+#define MISC_LENGTH      128
 #define NUMBER_OF_SERVERS 64
 #ifdef DEBUG
 #define MAX_NUMBER_OF_CONNECTIONS 8
@@ -173,15 +178,15 @@ extern "C" {
 #define likely(x)    __builtin_expect (!!(x), 1)
 #define unlikely(x)  __builtin_expect (!!(x), 0)
 
-#define MAX(a, b)               \
-        ({ __typeof__ (a) _a = (a);  \
-           __typeof__ (b) _b = (b);  \
-           _a > _b ? _a : _b; })
+#define MAX(a, b)            \
+({ __typeof__ (a) _a = (a);  \
+   __typeof__ (b) _b = (b);  \
+   _a > _b ? _a : _b; })
 
-#define MIN(a, b)               \
-        ({ __typeof__ (a) _a = (a);  \
-           __typeof__ (b) _b = (b);  \
-           _a < _b ? _a : _b; })
+#define MIN(a, b)            \
+({ __typeof__ (a) _a = (a);  \
+   __typeof__ (b) _b = (b);  \
+   _a < _b ? _a : _b; })
 
 /*
  * Common piece of code to perform a sleeping.
@@ -193,14 +198,14 @@ extern "C" {
    SLEEP(5000000L)
  *
  */
-#define SLEEP(zzz)                  \
-        do                               \
-        {                                \
-           struct timespec ts_private;   \
-           ts_private.tv_sec = 0;        \
-           ts_private.tv_nsec = zzz;     \
-           nanosleep(&ts_private, NULL); \
-        } while (0);
+#define SLEEP(zzz)               \
+do                               \
+{                                \
+   struct timespec ts_private;   \
+   ts_private.tv_sec = 0;        \
+   ts_private.tv_nsec = zzz;     \
+   nanosleep(&ts_private, NULL); \
+} while (0);
 
 /*
  * Commonly used block of code to sleep
@@ -216,15 +221,15 @@ extern "C" {
      else
        SLEEP_AND_GOTO(100000L, retry)
  */
-#define SLEEP_AND_GOTO(zzz, goto_to)    \
-        do                                   \
-        {                                    \
-           struct timespec ts_private;       \
-           ts_private.tv_sec = 0;            \
-           ts_private.tv_nsec = zzz;         \
-           nanosleep(&ts_private, NULL);     \
-           goto goto_to;                     \
-        } while (0);
+#define SLEEP_AND_GOTO(zzz, goto_to) \
+do                                   \
+{                                    \
+   struct timespec ts_private;       \
+   ts_private.tv_sec = 0;            \
+   ts_private.tv_nsec = zzz;         \
+   nanosleep(&ts_private, NULL);     \
+   goto goto_to;                     \
+} while (0);
 
 /**
  * The shared memory segment
@@ -327,6 +332,15 @@ struct user
 } __attribute__ ((aligned (64)));
 
 /** @struct
+ * Defines a vault server
+ */
+struct vault_server
+{
+   struct server server;
+   struct user user;
+} __attribute__ ((aligned (64)));
+
+/** @struct
  * Defines the Prometheus connection metric
  */
 struct prometheus_connection
@@ -404,11 +418,45 @@ struct prometheus
 } __attribute__ ((aligned (64)));
 
 /** @struct
- * Defines the configuration and state of pgagroal
+ * Defines the common configurations between pgagroal and vault
  */
 struct configuration
 {
    char configuration_path[MAX_PATH]; /**< The configuration path */
+   char host[MISC_LENGTH];            /**< The host */
+   int port;                          /**< The port */
+
+   // Logging
+   int log_type;                       /**< The logging type */
+   int log_level;                      /**< The logging level */
+   char log_path[MISC_LENGTH];         /**< The logging path */
+   bool log_connections;               /**< Log successful logins */
+   bool log_disconnections;            /**< Log disconnects */
+   int log_mode;                       /**< The logging mode */
+   unsigned int log_rotation_size;     /**< bytes to force log rotation */
+   unsigned int log_rotation_age;      /**< minutes for log rotation */
+   char log_line_prefix[MISC_LENGTH];  /**< The logging prefix */
+   atomic_schar log_lock;              /**< The logging lock */
+   char default_log_path[MISC_LENGTH]; /**< The default logging path */
+};
+
+/** @struct
+ * Defines the configuration of pgagroal-vault
+ */
+struct vault_configuration
+{
+   struct configuration common;      /**< Common base class */
+   char users_path[MAX_PATH];        /**< The configuration path */
+   int number_of_users;              /**< The number of users */
+   struct vault_server vault_server; /**< The vault servers */
+} __attribute__ ((aligned (64)));
+
+/** @struct
+ * Defines the configuration and state of pgagroal
+ */
+struct main_configuration
+{
+   struct configuration common;          /**< Common configurations */
    char hba_path[MAX_PATH];           /**< The HBA path */
    char limit_path[MAX_PATH];         /**< The limit path */
    char users_path[MAX_PATH];         /**< The users path */
@@ -416,8 +464,6 @@ struct configuration
    char admins_path[MAX_PATH];        /**< The admins path */
    char superuser_path[MAX_PATH];     /**< The superuser path */
 
-   char host[MISC_LENGTH]; /**< The host */
-   int port;               /**< The port */
    int metrics;            /**< The metrics port */
    unsigned int metrics_cache_max_age;      /**< Number of seconds to cache the Prometheus response */
    unsigned int metrics_cache_max_size;     /**< Number of bytes max to cache the Prometheus response */
@@ -430,17 +476,6 @@ struct configuration
 
    bool failover;                     /**< Is failover enabled */
    char failover_script[MISC_LENGTH]; /**< The failover script */
-
-   int log_type;                      /**< The logging type */
-   int log_level;                     /**< The logging level */
-   char log_path[MISC_LENGTH];        /**< The logging path */
-   bool log_connections;              /**< Log successful logins */
-   bool log_disconnections;           /**< Log disconnects */
-   int log_mode;                      /**< The logging mode */
-   unsigned int log_rotation_size;    /**< bytes to force log rotation */
-   unsigned int log_rotation_age;     /**< minutes for log rotation */
-   char log_line_prefix[MISC_LENGTH]; /**< The logging prefix */
-   atomic_schar log_lock;             /**< The logging lock */
 
    unsigned int update_process_title;  /**< Behaviour for updating the process title */
 
@@ -457,6 +492,8 @@ struct configuration
 
    int blocking_timeout;         /**< The blocking timeout in seconds */
    int idle_timeout;             /**< The idle timeout in seconds */
+   int rotate_frontend_password_timeout;  /**< The rotation frontend password timeout in seconds */
+   int rotate_frontend_password_length;   /**< Length of randomised passwords */
    int max_connection_age;       /**< The max connection age in seconds */
    int validation;               /**< Validation mode */
    int background_interval;      /**< Background validation timer in seconds */

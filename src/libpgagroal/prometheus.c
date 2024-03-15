@@ -99,12 +99,12 @@ pgagroal_prometheus(int client_fd)
    int status;
    int page;
    struct message* msg = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
 
    pgagroal_start_logging();
    pgagroal_memory_init();
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    status = pgagroal_read_timeout_message(NULL, client_fd, config->authentication_timeout, &msg);
    if (status != MESSAGE_STATUS_OK)
@@ -154,10 +154,10 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
 {
    size_t tmp_p_size = 0;
    void* tmp_p_shmem = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
    struct prometheus* prometheus;
 
-   config = (struct configuration*) shmem;
+   config = (struct main_configuration*) shmem;
 
    *p_size = 0;
    *p_shmem = NULL;
@@ -639,11 +639,11 @@ void
 pgagroal_prometheus_reset(void)
 {
    signed char cache_is_free;
-   struct configuration* config;
+   struct main_configuration* config;
    struct prometheus* prometheus;
    struct prometheus_cache* cache;
 
-   config = (struct configuration*) shmem;
+   config = (struct main_configuration*) shmem;
    prometheus = (struct prometheus*)prometheus_shmem;
    cache = (struct prometheus_cache*)prometheus_cache_shmem;
 
@@ -729,10 +729,10 @@ pgagroal_prometheus_failed_servers(void)
 {
    int count;
    struct prometheus* prometheus;
-   struct configuration* config;
+   struct main_configuration* config;
 
    prometheus = (struct prometheus*)prometheus_shmem;
-   config = (struct configuration*) shmem;
+   config = (struct main_configuration*) shmem;
 
    count = 0;
 
@@ -1348,10 +1348,10 @@ static void
 general_information(int client_fd)
 {
    char* data = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
    struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    prometheus = (struct prometheus*)prometheus_shmem;
 
@@ -1483,9 +1483,9 @@ connection_information(int client_fd)
    char* data = NULL;
    int active;
    int total;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    active = 0;
    total = 0;
@@ -1640,9 +1640,9 @@ static void
 limit_information(int client_fd)
 {
    char* data = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (config->number_of_limits > 0)
    {
@@ -2031,10 +2031,10 @@ static void
 connection_awaiting_information(int client_fd)
 {
    char* data = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
    struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    prometheus = (struct prometheus*)prometheus_shmem;
 
@@ -2128,9 +2128,9 @@ send_chunk(int client_fd, char* data)
 static bool
 is_metrics_cache_configured(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    // cannot have caching if not set metrics!
    if (config->metrics == 0)
@@ -2171,11 +2171,11 @@ int
 pgagroal_init_prometheus_cache(size_t* p_size, void** p_shmem)
 {
    struct prometheus_cache* cache;
-   struct configuration* config;
+   struct main_configuration* config;
    size_t cache_size = 0;
    size_t struct_size = 0;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    // first of all, allocate the overall cache structure
    cache_size = metrics_cache_size_to_alloc();
@@ -2219,10 +2219,10 @@ error:
 static size_t
 metrics_cache_size_to_alloc(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
    size_t cache_size = 0;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    // which size to use ?
    // either the configured (i.e., requested by user) if lower than the max size
@@ -2230,8 +2230,8 @@ metrics_cache_size_to_alloc(void)
    if (is_metrics_cache_configured())
    {
       cache_size = config->metrics_cache_max_size > 0
-            ? MIN(config->metrics_cache_max_size, PROMETHEUS_MAX_CACHE_SIZE)
-            : PROMETHEUS_DEFAULT_CACHE_SIZE;
+                   ? MIN(config->metrics_cache_max_size, PROMETHEUS_MAX_CACHE_SIZE)
+                   : PROMETHEUS_DEFAULT_CACHE_SIZE;
    }
 
    return cache_size;
@@ -2320,12 +2320,12 @@ metrics_cache_append(char* data)
 static bool
 metrics_cache_finalize(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
    struct prometheus_cache* cache;
    time_t now;
 
    cache = (struct prometheus_cache*)prometheus_cache_shmem;
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (!is_metrics_cache_configured())
    {
