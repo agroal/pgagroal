@@ -50,10 +50,10 @@ pgagroal_get_primary(int* server)
 {
    int primary;
    signed char server_state;
-   struct configuration* config;
+   struct main_configuration* config;
 
    primary = -1;
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    /* Find PRIMARY */
    for (int i = 0; primary == -1 && i < config->number_of_servers; i++)
@@ -114,9 +114,9 @@ pgagroal_update_server_state(int slot, int socket, SSL* ssl)
    char is_recovery[size];
    struct message qmsg;
    struct message* tmsg = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    server = config->connections[slot].server;
 
    memset(&qmsg, 0, sizeof(struct message));
@@ -171,9 +171,9 @@ error:
 int
 pgagroal_server_status(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -219,9 +219,9 @@ pgagroal_server_failover(int slot)
    signed char primary;
    signed char old_primary;
    int ret = 1;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    primary = SERVER_PRIMARY;
 
@@ -245,9 +245,9 @@ pgagroal_server_force_failover(int server)
 {
    signed char cur_state;
    signed char prev_state;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    cur_state = atomic_load(&config->servers[server].state);
 
@@ -272,9 +272,9 @@ int
 pgagroal_server_reset(char* server)
 {
    signed char state;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < config->number_of_servers; i++)
    {
@@ -300,9 +300,9 @@ pgagroal_server_switch(char* server)
    int old_primary;
    int new_primary;
    signed char state;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    old_primary = -1;
    new_primary = -1;
@@ -345,9 +345,9 @@ failover(int old_primary)
    char new_primary_port[6];
    int status;
    pid_t pid;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    new_primary = -1;
 

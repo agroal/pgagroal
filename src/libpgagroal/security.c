@@ -143,7 +143,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
    int server = 0;
    int server_fd = -1;
    int hba_method;
-   struct configuration* config;
+   struct main_configuration* config;
    struct message* msg = NULL;
    struct message* request_msg = NULL;
    int32_t request;
@@ -152,7 +152,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
    char* appname = NULL;
    SSL* c_ssl = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    *slot = -1;
    *client_ssl = NULL;
@@ -191,7 +191,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
       }
       else
       {
-         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &server_fd);
+         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &server_fd, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay);
       }
 
       if (ret)
@@ -475,13 +475,13 @@ pgagroal_prefill_auth(char* username, char* password, char* database, int* slot,
    int server_fd = -1;
    int auth_type = -1;
    signed char server_state;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
    struct message* startup_msg = NULL;
    struct message* msg = NULL;
    int ret = -1;
    int status = -1;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    *slot = -1;
    *server_ssl = NULL;
@@ -575,7 +575,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
 {
    int status = MESSAGE_STATUS_ERROR;
    int hba_method;
-   struct configuration* config;
+   struct main_configuration* config;
    struct message* msg = NULL;
    struct message* request_msg = NULL;
    int32_t request;
@@ -585,7 +585,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
    char* password = NULL;
    SSL* c_ssl = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    *client_ssl = NULL;
 
@@ -1263,12 +1263,12 @@ static int
 use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, SSL** server_ssl)
 {
    int status = MESSAGE_STATUS_ERROR;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
    struct message* auth_msg = NULL;
    struct message* msg = NULL;
    char* password = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    password = get_frontend_password(username);
    if (password == NULL)
@@ -1430,9 +1430,9 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    signed char server_state;
    struct message* msg = NULL;
    struct message* auth_msg = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    server_fd = config->connections[slot].fd;
 
    password = get_frontend_password(username);
@@ -1629,12 +1629,12 @@ client_password(SSL* c_ssl, int client_fd, char* username, char* password, int s
    int status;
    time_t start_time;
    bool non_blocking;
-   struct configuration* config;
+   struct main_configuration* config;
    struct message* msg = NULL;
 
    pgagroal_log_debug("client_password %d %d", client_fd, slot);
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    status = pgagroal_write_auth_password(c_ssl, client_fd);
    if (status != MESSAGE_STATUS_OK)
@@ -1708,12 +1708,12 @@ client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot)
    char* shadow = NULL;
    char* md5_req = NULL;
    char* md5 = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
    struct message* msg = NULL;
 
    pgagroal_log_debug("client_md5 %d %d", client_fd, slot);
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    salt[0] = (char)(random() & 0xFF);
    salt[1] = (char)(random() & 0xFF);
@@ -1838,14 +1838,14 @@ client_scram256(SSL* c_ssl, int client_fd, char* username, char* password, int s
    unsigned char* server_signature_calc = NULL;
    int server_signature_calc_length = 0;
    char* base64_server_signature_calc = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
    struct message* msg = NULL;
    struct message* sasl_continue = NULL;
    struct message* sasl_final = NULL;
 
    pgagroal_log_debug("client_scram256 %d %d", client_fd, slot);
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    status = pgagroal_write_auth_scram256(c_ssl, client_fd);
    if (status != MESSAGE_STATUS_OK)
@@ -2042,12 +2042,12 @@ client_ok(SSL* c_ssl, int client_fd, int slot)
    size_t size;
    char* data;
    struct message msg;
-   struct configuration* config;
+   struct main_configuration* config;
 
    data = NULL;
    memset(&msg, 0, sizeof(msg));
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (config->connections[slot].has_security == SECURITY_TRUST)
    {
@@ -2114,9 +2114,9 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
    int auth_response = -1;
    struct message* smsg = NULL;
    struct message* kmsg = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    server_fd = config->connections[slot].fd;
 
    pgagroal_log_trace("server_passthrough %d %d", auth_type, slot);
@@ -2315,9 +2315,9 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
    int ret = AUTH_ERROR;
    struct message* smsg = NULL;
    struct message* kmsg = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < NUMBER_OF_SECURITY_MESSAGES; i++)
    {
@@ -2399,9 +2399,9 @@ error:
 static int
 server_trust(int slot, SSL* server_ssl)
 {
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    pgagroal_log_trace("server_trust");
 
@@ -2419,9 +2419,9 @@ server_password(char* username, char* password, int slot, SSL* server_ssl)
    int server_fd;
    struct message* auth_msg = NULL;
    struct message* password_msg = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    server_fd = config->connections[slot].fd;
 
    pgagroal_log_trace("server_password");
@@ -2510,9 +2510,9 @@ server_md5(char* username, char* password, int slot, SSL* server_ssl)
    char* salt = NULL;
    struct message* auth_msg = NULL;
    struct message* md5_msg = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    server_fd = config->connections[slot].fd;
 
    pgagroal_log_trace("server_md5");
@@ -2662,9 +2662,9 @@ server_scram256(char* username, char* password, int slot, SSL* server_ssl)
    struct message* sasl_continue_response = NULL;
    struct message* sasl_final = NULL;
    struct message* msg = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    server_fd = config->connections[slot].fd;
 
    pgagroal_log_trace("server_scram256");
@@ -2865,9 +2865,9 @@ error:
 static bool
 is_allowed(char* username, char* database, char* address, int* hba_method)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < config->number_of_hbas; i++)
    {
@@ -3045,9 +3045,9 @@ is_allowed_address(char* address, char* entry)
 static bool
 is_disabled(char* database)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < NUMBER_OF_DISABLED; i++)
    {
@@ -3064,9 +3064,9 @@ is_disabled(char* database)
 static int
 get_hba_method(int index)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (!strcasecmp(config->hbas[index].method, "reject"))
    {
@@ -3104,9 +3104,9 @@ get_hba_method(int index)
 static char*
 get_password(char* username)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < config->number_of_users; i++)
    {
@@ -3122,9 +3122,9 @@ get_password(char* username)
 static char*
 get_frontend_password(char* username)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < config->number_of_frontend_users; i++)
    {
@@ -3140,9 +3140,9 @@ get_frontend_password(char* username)
 static char*
 get_admin_password(char* username)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < config->number_of_admins; i++)
    {
@@ -3314,9 +3314,9 @@ pgagroal_md5(char* str, int length, char** md5)
 bool
 pgagroal_user_known(char* user)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < config->number_of_users; i++)
    {
@@ -3332,10 +3332,10 @@ pgagroal_user_known(char* user)
 int
 pgagroal_tls_valid(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
    struct stat st = {0};
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (config->tls)
    {
@@ -4350,9 +4350,9 @@ error:
 static bool
 is_tls_user(char* username, char* database)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < config->number_of_hbas; i++)
    {
@@ -4533,9 +4533,9 @@ create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl)
 {
    SSL* s = NULL;
    STACK_OF(X509_NAME) * root_cert_list = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (strlen(config->tls_cert_file) == 0)
    {
@@ -4641,9 +4641,9 @@ auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, 
    SSL* su_ssl = NULL;
    char* shadow = NULL;
    int ret;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    /* Get connection to server using the superuser */
    ret = auth_query_get_connection(config->superuser.username, config->superuser.password, database, &su_socket, &su_ssl);
@@ -4752,14 +4752,14 @@ auth_query_get_connection(char* username, char* password, char* database, int* s
    signed char isfree;
    time_t start_time;
    char* error = NULL;
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
    struct message* startup_msg = NULL;
    struct message* startup_response_msg = NULL;
    struct message* msg = NULL;
    int ret = -1;
    int status = -1;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    *server_fd = -1;
 
@@ -4791,7 +4791,7 @@ retry:
       }
       else
       {
-         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, server_fd);
+         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, server_fd, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay);
       }
 
       if (ret)
@@ -5385,10 +5385,10 @@ auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int
    bool non_blocking;
    char* md5_req = NULL;
    char* md5 = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
    struct message* msg = NULL;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    salt[0] = (char)(random() & 0xFF);
    salt[1] = (char)(random() & 0xFF);
@@ -5505,14 +5505,14 @@ auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username, char* shad
    unsigned char* server_signature_calc = NULL;
    int server_signature_calc_length = 0;
    char* base64_server_signature_calc = NULL;
-   struct configuration* config;
+   struct main_configuration* config;
    struct message* msg = NULL;
    struct message* sasl_continue = NULL;
    struct message* sasl_final = NULL;
 
    pgagroal_log_debug("auth_query_client_scram256 %d %d", client_fd, slot);
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    status = pgagroal_write_auth_scram256(c_ssl, client_fd);
    if (status != MESSAGE_STATUS_OK)
@@ -5716,12 +5716,12 @@ error:
 static int
 establish_client_tls_connection(int server, int fd, SSL** ssl)
 {
-   struct configuration* config = NULL;
+   struct main_configuration* config = NULL;
    struct message* ssl_msg = NULL;
    struct message* msg = NULL;
    int status = -1;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (config->servers[server].tls)
    {
@@ -5839,4 +5839,49 @@ error:
    *ssl = s;
 
    return AUTH_ERROR;
+}
+
+void
+pgagroal_initialize_random()
+{
+   time_t t;
+   srand((unsigned)time(&t));
+}
+
+int
+pgagroal_generate_password(int pwd_length, char** password)
+{
+   char* pwd;
+
+   pwd = (char*) malloc((pwd_length + 1) * sizeof(char));
+   if (!pwd)
+   {
+      pgagroal_log_fatal("Couldn't allocate memory while generating password");
+      return 1;
+   }
+
+   for (int i = 0; i < pwd_length; i++)
+   {
+      pwd[i] = (char) (32 + rand() % (126 - 32 + 1));
+   }
+   pwd[pwd_length] = '\0';
+
+   // avoid leading/trailing/consecutive spaces.
+   if (pwd[0] == ' ')
+   {
+      pwd[0] = (char) (33 + rand() % (126 - 33 + 1));
+   }
+   if (pwd[pwd_length - 1] == ' ')
+   {
+      pwd[pwd_length - 1] = (char) (33 + rand() % (126 - 33 + 1));
+   }
+   for (int i = 2; i < pwd_length - 1; i++)
+   {
+      if (pwd[i] == ' ' && pwd[i - 1] == ' ')
+      {
+         pwd[i] = (char) (33 + rand() % (126 - 33 + 1));
+      }
+   }
+   *password = pwd;
+   return 0;
 }

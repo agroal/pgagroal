@@ -52,13 +52,13 @@ static void* data = NULL;
 void
 pgagroal_memory_init(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
 #ifdef DEBUG
    assert(shmem != NULL);
 #endif
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    pgagroal_memory_size(config->buffer_size);
 }
