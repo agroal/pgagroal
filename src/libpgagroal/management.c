@@ -573,8 +573,8 @@ pgagroal_management_read_status(SSL* ssl, int socket, char output_format)
 {
    cJSON* json = pgagroal_management_json_read_status_details(ssl, socket, false);
 
-   // check we have an answer and it is not an error
-   if (!json || pgagroal_json_is_command_object_faulty(json))
+   // check we have an answer, note that a faulty answer is still valid to be printed!
+   if (!json)
    {
       goto error;
    }
@@ -925,8 +925,8 @@ pgagroal_management_read_details(SSL* ssl, int socket, char output_format)
 {
    cJSON* json = pgagroal_management_json_read_status_details(ssl, socket, true);
 
-   // check we have an answer and it is not an error
-   if (!json || pgagroal_json_is_command_object_faulty(json))
+   // check we have an answer, note that a faulty answer is still worth to be printed
+   if (!json)
    {
       goto error;
    }
@@ -1802,7 +1802,7 @@ pgagroal_management_read_config_get(int socket, char* config_key, char* expected
    cJSON* json = pgagroal_managment_json_read_config_get(socket, config_key, expected_value);
    int status = EXIT_STATUS_OK;
 
-   if (!json || pgagroal_json_is_command_object_faulty(json))
+   if (!json)
    {
       goto error;
    }
@@ -1988,7 +1988,7 @@ pgagroal_management_read_conf_ls(SSL* ssl, int socket, char output_format)
    cJSON* json = pgagroal_management_json_read_conf_ls(ssl, socket);
 
    // check we have an answer and it is not an error
-   if (!json || pgagroal_json_is_command_object_faulty(json))
+   if (!json)
    {
       goto error;
    }
@@ -2187,7 +2187,7 @@ pgagroal_management_json_print_status_details(cJSON* json)
    bool previous_section_printed = false;  /* in 'status details', print an header bar between sections */
 
    // sanity check
-   if (!json || pgagroal_json_is_command_object_faulty(json))
+   if (!json)
    {
       goto error;
    }
@@ -2461,7 +2461,7 @@ pgagroal_management_json_print_conf_ls(cJSON* json)
    int status = EXIT_STATUS_OK;
 
    // sanity check
-   if (!json || pgagroal_json_is_command_object_faulty(json))
+   if (!json)
    {
       goto error;
    }
