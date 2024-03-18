@@ -76,7 +76,7 @@
  * response object
  */
 cJSON*
-pgagroal_json_create_new_command_object(char* command_name, bool success, char* executable_name);
+pgagroal_json_create_new_command_object(char* command_name, bool success, char* executable_name, char* executable_version);
 
 /**
  * Utility method to "jump" to the output JSON object wrapped into

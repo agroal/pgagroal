@@ -53,12 +53,17 @@
 #include <openssl/ssl.h>
 
 #define MANAGEMENT_HEADER_SIZE 5
+#define MANAGEMENT_INFO_SIZE 13
+
+#define S "S:"
+#define V ",V:"
 
 static int read_complete(SSL* ssl, int socket, void* buf, size_t size);
 static int write_complete(SSL* ssl, int socket, void* buf, size_t size);
 static int write_socket(int socket, void* buf, size_t size);
 static int write_ssl(SSL* ssl, void* buf, size_t size);
 static int write_header(SSL* ssl, int fd, signed char type, int slot);
+static int write_info(char* buffer, int command, int offset);
 
 static int pgagroal_management_write_conf_ls_detail(int socket, char* what);
 static int pgagroal_management_read_conf_ls_detail(SSL* ssl, int socket, char* buffer);
@@ -71,10 +76,15 @@ static cJSON* pgagroal_managment_json_read_config_get(int socket, char* config_k
 static cJSON* pgagroal_management_json_read_conf_ls(SSL* ssl, int socket);
 static int pgagroal_management_json_print_conf_ls(cJSON* json);
 
+static int pgagroal_executable_version_number(char* version, size_t version_size);
+static int pgagroal_executable_version_string(char** version_string, int version_number);
+static char* pgagroal_executable_name(int command);
+
 int
 pgagroal_management_read_header(int socket, signed char* id, int32_t* slot)
 {
    char header[MANAGEMENT_HEADER_SIZE];
+   char buf_info[MANAGEMENT_INFO_SIZE];
 
    if (read_complete(NULL, socket, &header[0], sizeof(header)))
    {
@@ -85,6 +95,13 @@ pgagroal_management_read_header(int socket, signed char* id, int32_t* slot)
 
    *id = pgagroal_read_byte(&(header));
    *slot = pgagroal_read_int32(&(header[1]));
+
+   if (read_complete(NULL, socket, &buf_info[0], sizeof(buf_info)))
+   {
+      pgagroal_log_warn("pgagroal_management_read_header: %d %s", socket, strerror(errno));
+      errno = 0;
+      goto error;
+   }
 
    return 0;
 
@@ -188,7 +205,6 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
       case MANAGEMENT_CONFIG_GET:
       case MANAGEMENT_GET_PASSWORD:
       case MANAGEMENT_CONFIG_SET:
-
          if (read_complete(NULL, socket, &buf4[0], sizeof(buf4)))
          {
             goto error;
@@ -687,12 +703,33 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
    int limits = 0;
    int servers = 0;
    char header[12 + MAX_NUMBER_OF_CONNECTIONS];
+   char buf_info[MANAGEMENT_INFO_SIZE];
+   int application;
+   int version;
 
+   memset(&buf_info, 0, sizeof(buf_info));
    memset(&buf, 0, sizeof(buf));
    memset(&disabled, 0, sizeof(disabled));
    memset(&header, 0, sizeof(header));
 
-   cJSON* json = pgagroal_json_create_new_command_object(include_details ? "status details" :  "status", true, "pgagroal-cli");
+   if (read_complete(ssl, socket, &buf_info[0], sizeof(buf_info)))
+   {
+      pgagroal_log_warn("pgagroal_management_json_read_status_details: read: %d %s", socket, strerror(errno));
+      errno = 0;
+      return NULL;
+   }
+
+   application = pgagroal_read_int32(&(buf_info[2]));
+   version = pgagroal_read_int32(&(buf_info[9]));
+
+   char* version_buf = NULL;
+
+   if (pgagroal_executable_version_string(&version_buf, version))
+   {
+      return NULL;
+   }
+
+   cJSON* json = pgagroal_json_create_new_command_object(include_details ? "status details" :  "status", true, pgagroal_executable_name(application), version_buf);
    cJSON* output = pgagroal_json_extract_command_output_object(json);
 
    if (read_complete(ssl, socket, &buf[0], sizeof(buf)))
@@ -889,6 +926,7 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
    }
 
 end:
+   free(version_buf);
    return json;
 
 error:
@@ -902,9 +940,23 @@ int
 pgagroal_management_write_status(int socket, bool graceful)
 {
    char buf[16];
+   char buf_info[MANAGEMENT_INFO_SIZE];
+
    int active;
    int total;
    struct main_configuration* config;
+
+   if (write_info(buf_info, PGAGROAL_EXECUTABLE, 0))
+   {
+      goto error;
+   }
+
+   if (write_complete(NULL, socket, &buf_info, sizeof(buf_info)))
+   {
+      pgagroal_log_warn("pgagroal_management_write_status: write: %d %s", socket, strerror(errno));
+      errno = 0;
+      goto error;
+   }
 
    memset(&buf, 0, sizeof(buf));
    active = 0;
@@ -1016,8 +1068,9 @@ error:
 int
 pgagroal_management_write_details(int socket)
 {
-   char header[12 + MAX_NUMBER_OF_CONNECTIONS];
    struct main_configuration* config;
+   int offset = 12;
+   char header[offset + MAX_NUMBER_OF_CONNECTIONS];
 
    config = (struct main_configuration*)shmem;
 
@@ -1030,7 +1083,7 @@ pgagroal_management_write_details(int socket)
    for (int i = 0; i < config->max_connections; i++)
    {
       signed char state = atomic_load(&config->states[i]);
-      header[12 + i] = (char)state;
+      header[offset + i] = (char)state;
    }
 
    if (write_complete(NULL, socket, header, sizeof(header)))
@@ -1130,7 +1183,9 @@ error:
 int
 pgagroal_management_read_isalive(SSL* ssl, int socket, int* status, char output_format)
 {
-   char buf[4];
+   char buf[MANAGEMENT_INFO_SIZE + 4];
+   int application;
+   int version;
 
    memset(&buf, 0, sizeof(buf));
 
@@ -1141,12 +1196,22 @@ pgagroal_management_read_isalive(SSL* ssl, int socket, int* status, char output_
       goto error;
    }
 
-   *status = pgagroal_read_int32(&buf);
+   application = pgagroal_read_int32(&(buf[2]));
+   version = pgagroal_read_int32(&(buf[9]));
+
+   *status = pgagroal_read_int32(&buf[MANAGEMENT_INFO_SIZE]);
 
    // do I need to provide JSON output?
    if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      cJSON* json = pgagroal_json_create_new_command_object("ping", true, "pgagroal-cli");
+      char* version_buf = NULL;
+
+      if (pgagroal_executable_version_string(&version_buf, version))
+      {
+         goto error;
+      }
+
+      cJSON* json = pgagroal_json_create_new_command_object("ping", true, pgagroal_executable_name(application), version_buf);
       cJSON* output = pgagroal_json_extract_command_output_object(json);
 
       cJSON_AddNumberToObject(output, "status", *status);
@@ -1179,6 +1244,19 @@ int
 pgagroal_management_write_isalive(int socket, bool gracefully)
 {
    char buf[4];
+   char buf_info[MANAGEMENT_INFO_SIZE];
+
+   if (write_info(buf_info, PGAGROAL_EXECUTABLE, 0))
+   {
+      goto error;
+   }
+
+   if (write_complete(NULL, socket, &buf_info, sizeof(buf_info)))
+   {
+      pgagroal_log_warn("pgagroal_management_write_isalive: write: %d %s", socket, strerror(errno));
+      errno = 0;
+      goto error;
+   }
 
    memset(&buf, 0, sizeof(buf));
 
@@ -1698,15 +1776,171 @@ write_ssl(SSL* ssl, void* buf, size_t size)
    return 1;
 }
 
+/**
+ * Function to write sender application name and its version
+ * into header socket.
+ *
+ * @param header: the header to write sender application name and its version into
+ * @param command: the server application name
+ * @param offset: the offset at which info has to be written
+ * @return 0 on success
+ */
+static int
+write_info(char* buffer, int command, int offset)
+{
+   int exec_version = pgagroal_executable_version_number(PGAGROAL_VERSION, sizeof(PGAGROAL_VERSION));
+   if (exec_version == 1)
+   {
+      return 1;
+   }
+
+   char* exec_name = pgagroal_executable_name(command);
+   if (exec_name == NULL)
+   {
+      return 1;
+   }
+
+   struct pgagroal_version_info info = {
+      .command = command,
+      .version = exec_version,
+   };
+
+   memcpy(&(info.s), S, sizeof(info.s));
+   memcpy(&(info.v), V, sizeof(info.v));
+
+   memcpy(&(buffer[offset]), info.s, sizeof(info.s));
+   pgagroal_write_int32(&(buffer[offset + 2]), info.command);
+
+   memcpy(&(buffer[offset + 6]), info.v, sizeof(info.v));
+   pgagroal_write_int32(&(buffer[offset + 9]), info.version);
+
+   pgagroal_log_debug("%s version %d", exec_name, exec_version);
+
+   return 0;
+}
+
+/*
+ * Utility function to convert PGAGROAL_VERSION into a number.
+ * The major version is represented by a single digit.
+ * For minor and patch, a leading 0 is added if they are single digits.
+ */
+static int
+pgagroal_executable_version_number(char* version, size_t version_size)
+{
+   int major;
+   int minor;
+   int patch;
+
+   long val;
+
+   char* del = ".";
+   char* endptr;
+
+   if (version == NULL)
+   {
+      version = PGAGROAL_VERSION;
+      version_size = sizeof(version);
+   }
+
+   char buf[version_size];
+
+   memcpy(buf, version, sizeof(buf));
+
+   char* token = strtok(buf, del);
+   val = strtol(token, &endptr, 10);
+   if (errno == ERANGE || val <= LONG_MIN || val >= LONG_MAX)
+   {
+      goto error;
+   }
+   major = (int)val;
+
+   token = strtok(NULL, del);
+   val = strtol(token, &endptr, 10);
+   if (errno == ERANGE || val <= LONG_MIN || val >= LONG_MAX)
+   {
+      goto error;
+   }
+   minor = (int)val;
+
+   token = strtok(NULL, del);
+   val = strtol(token, &endptr, 10);
+   if (errno == ERANGE || val <= LONG_MIN || val >= LONG_MAX)
+   {
+      goto error;
+   }
+   patch = (int)val;
+
+   int version_number = (major % 10) * 10000 + (minor / 10) * 1000 + (minor % 10) * 100 + patch;
+
+   if (version_number < INT_MIN || version_number > INT_MAX || version_number < 10700)
+   {
+      goto error;
+   }
+
+   return version_number;
+
+error:
+   pgagroal_log_debug("pgagroal_get_executable_number got overflowed or suspicious value: %s %s", version, strerror(errno));
+   errno = 0;
+   return 1;
+}
+
+/*
+ * Utility function to convert back version_number into a string.
+ */
+static int
+pgagroal_executable_version_string(char** version_string, int version_number)
+{
+   char* v = NULL;
+   int major = version_number / 10000;
+   int minor = (version_number / 100) % 100;
+   int patch = version_number % 100;
+
+   v = pgagroal_append_int(v, major);
+   v = pgagroal_append(v, ".");
+   v = pgagroal_append_int(v, minor);
+   v = pgagroal_append(v, ".");
+   v = pgagroal_append_int(v, patch);
+
+   *version_string = v;
+
+   return 0;
+}
+
+/*
+ * Utility function to convert command into a string.
+ */
+static char*
+pgagroal_executable_name(int command)
+{
+   switch (command)
+   {
+      case PGAGROAL_EXECUTABLE:
+         return "pgagroal";
+      case PGAGROAL_EXECUTABLE_CLI:
+         return "pgagroal-cli";
+      case PGAGROAL_EXECUTABLE_VAULT:
+         return "pgagroal-vault";
+      default:
+         pgagroal_log_debug("pgagroal_get_command_name got unexpected value: %d", command);
+         return NULL;
+   }
+}
+
 static int
 write_header(SSL* ssl, int fd, signed char type, int slot)
 {
-   char header[MANAGEMENT_HEADER_SIZE];
+   char header[MANAGEMENT_HEADER_SIZE + MANAGEMENT_INFO_SIZE];
 
    pgagroal_write_byte(&(header), type);
    pgagroal_write_int32(&(header[1]), slot);
 
-   return write_complete(ssl, fd, &(header), MANAGEMENT_HEADER_SIZE);
+   if (write_info(header, PGAGROAL_EXECUTABLE_CLI, MANAGEMENT_HEADER_SIZE))
+   {
+      return 1;
+   }
+
+   return write_complete(ssl, fd, &(header), sizeof(header));
 }
 
 int
@@ -1770,7 +2004,20 @@ pgagroal_management_write_config_get(int socket, char* config_key)
 {
    char data[MISC_LENGTH];
    char buf[4];
+   char buf_info[MANAGEMENT_INFO_SIZE];
+
    size_t size;
+
+   if (write_info(buf_info, PGAGROAL_EXECUTABLE, 0))
+   {
+      goto error;
+   }
+
+   if (write_complete(NULL, socket, buf_info, sizeof(buf_info)))
+   {
+      pgagroal_log_debug("pgagroal_management_config_get: write: %d %s", socket, strerror(errno));
+      goto error;
+   }
 
    if (!config_key || !strlen(config_key))
    {
@@ -1837,6 +2084,16 @@ error:
 static cJSON*
 pgagroal_managment_json_read_config_get(int socket, char* config_key, char* expected_value)
 {
+   char buf_info[MANAGEMENT_INFO_SIZE];
+   int version;
+   int application;
+
+   if (read_complete(NULL, socket, &buf_info[0], sizeof(buf_info)))
+   {
+      pgagroal_log_debug("pgagroal_management_write_config_get (%s): write: %d %s", config_key, socket, strerror(errno));
+      errno = 0;
+      return NULL;
+   }
 
    int size = MISC_LENGTH;
    char* buffer = NULL;
@@ -1856,8 +2113,19 @@ pgagroal_managment_json_read_config_get(int socket, char* config_key, char* expe
    // is this the answer from a 'conf set' command ?
    is_config_set = (expected_value && strlen(expected_value) > 0);
 
-   cJSON* json = pgagroal_json_create_new_command_object(is_config_set ? "conf set" :  "conf get", true, "pgagroal-cli");
+   application = pgagroal_read_int32(&(buf_info[2]));
+   version = pgagroal_read_int32(&(buf_info[9]));
+
+   char* version_buf = NULL;
+
+   if (pgagroal_executable_version_string(&version_buf, version))
+   {
+      goto error;
+   }
+
+   cJSON* json = pgagroal_json_create_new_command_object(is_config_set ? "conf set" :  "conf get", true, pgagroal_executable_name(application), version_buf);
    cJSON* output = pgagroal_json_extract_command_output_object(json);
+
    cJSON_AddStringToObject(output, "key", config_key);
    cJSON_AddStringToObject(output, "value", buffer);
 
@@ -1876,17 +2144,13 @@ pgagroal_managment_json_read_config_get(int socket, char* config_key, char* expe
    free(buffer);
    return json;
 error:
-   if (buffer)
-   {
-      free(buffer);
-   }
+   free(buffer);
    return NULL;
 }
 
 int
 pgagroal_management_read_config_get(int socket, char* config_key, char* expected_value, bool verbose, char output_format)
 {
-
    cJSON* json = pgagroal_managment_json_read_config_get(socket, config_key, expected_value);
    int status = EXIT_STATUS_OK;
 
@@ -2104,6 +2368,17 @@ pgagroal_management_write_conf_ls(int socket)
    struct main_configuration* config;
 
    config = (struct main_configuration*)shmem;
+
+   char buf_info[MANAGEMENT_INFO_SIZE];
+   if (write_info(buf_info, PGAGROAL_EXECUTABLE, 0))
+   {
+      goto error;
+   }
+
+   if (write_complete(NULL, socket, &buf_info, sizeof(buf_info)))
+   {
+      goto error;
+   }
 
    if (pgagroal_management_write_conf_ls_detail(socket, config->common.configuration_path))
    {
@@ -2431,8 +2706,28 @@ pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
 {
    char buf[4];
    char* buffer;
+   char buf_info[MANAGEMENT_INFO_SIZE];
+   int application;
+   int version;
 
-   cJSON* json = pgagroal_json_create_new_command_object("conf ls", true, "pgagroal-cli");
+   if (read_complete(ssl, socket, &buf_info[0], sizeof(buf_info)))
+   {
+      pgagroal_log_warn("pgagroal_management_json_read_conf_ls: read: %d %s", socket, strerror(errno));
+      errno = 0;
+      return NULL;
+   }
+
+   application = pgagroal_read_int32(&(buf_info[2]));
+   version = pgagroal_read_int32(&(buf_info[9]));
+
+   char* version_buf = NULL;
+
+   if (pgagroal_executable_version_string(&version_buf, version))
+   {
+      return NULL;
+   }
+
+   cJSON* json = pgagroal_json_create_new_command_object("conf ls", true, pgagroal_executable_name(application), version_buf);
    cJSON* output = pgagroal_json_extract_command_output_object(json);
 
    // add an array that will contain the files

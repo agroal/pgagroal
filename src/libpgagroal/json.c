@@ -29,9 +29,10 @@
 /* pgagroal */
 #include <pgagroal.h>
 #include <json.h>
+#include <errno.h>
 
 cJSON*
-pgagroal_json_create_new_command_object(char* command_name, bool success, char* executable_name)
+pgagroal_json_create_new_command_object(char* command_name, bool success, char* executable_name, char* executable_version)
 {
    // root of the JSON structure
    cJSON* json = cJSON_CreateObject();
@@ -70,11 +71,22 @@ pgagroal_json_create_new_command_object(char* command_name, bool success, char* 
       goto error;
    }
 
+   long minor = strtol(&executable_version[2], NULL, 10);
+   if (errno == ERANGE || minor <= LONG_MIN || minor >= LONG_MAX)
+   {
+      goto error;
+   }
+   long patch = strtol(&executable_version[5], NULL, 10);
+   if (errno == ERANGE || patch <= LONG_MIN || patch >= LONG_MAX)
+   {
+      goto error;
+   }
+
    cJSON_AddStringToObject(application, JSON_TAG_APPLICATION_NAME, executable_name);
-   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_MAJOR, PGAGROAL_MAJOR_VERSION);
-   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_MINOR, PGAGROAL_MINOR_VERSION);
-   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_PATCH, PGAGROAL_PATCH_VERSION);
-   cJSON_AddStringToObject(application, JSON_TAG_APPLICATION_VERSION, PGAGROAL_VERSION);
+   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_MAJOR, executable_version[0] - '0');
+   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_MINOR, (int)minor);
+   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_PATCH, (int)patch);
+   cJSON_AddStringToObject(application, JSON_TAG_APPLICATION_VERSION, executable_version);
 
    // add objects to the whole json thing
    cJSON_AddItemToObject(json, "command", command);

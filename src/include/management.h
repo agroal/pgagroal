@@ -77,6 +77,25 @@ extern "C" {
 #define COMMAND_OUTPUT_FORMAT_JSON 'J'
 
 /**
+ * Available applications
+ */
+#define PGAGROAL_EXECUTABLE 1
+#define PGAGROAL_EXECUTABLE_CLI 2
+#define PGAGROAL_EXECUTABLE_VAULT 3
+
+/*
+ * stores the application name and its version
+ * which are sent through the socket
+ */
+struct pgagroal_version_info
+{
+   char s[2];
+   int command;
+   char v[3];
+   int version;
+};
+
+/**
  * Get the frontend password of a user
  * @param ssl The SSL connection
  * @param socket The socket descriptor

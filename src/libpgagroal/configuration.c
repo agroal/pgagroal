@@ -3066,7 +3066,7 @@ key_in_section(char* wanted, char* section, char* key, bool global, bool* unknow
 
    // if here there is a match on the key, ensure the section is
    // appropriate
-   if (global && (!strncmp(section, PGAGROAL_MAIN_INI_SECTION, MISC_LENGTH) | !strncmp(section, PGAGROAL_VAULT_INI_SECTION, MISC_LENGTH)))
+   if (global && (!strncmp(section, PGAGROAL_MAIN_INI_SECTION, MISC_LENGTH) || !strncmp(section, PGAGROAL_VAULT_INI_SECTION, MISC_LENGTH)))
    {
       return true;
    }
