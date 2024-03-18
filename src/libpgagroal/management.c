@@ -810,7 +810,7 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
 
       cJSON* current_connection_json = cJSON_CreateObject();
 
-      cJSON_AddNumberToObject(current_connection_json, "number", i);
+      cJSON_AddNumberToObject(current_connection_json, "number", i + 1);
       cJSON_AddStringToObject(current_connection_json, "state", pgagroal_server_state_as_string(state));
       cJSON_AddStringToObject(current_connection_json, "time", time > 0 ? ts : "");
       cJSON_AddStringToObject(current_connection_json, "pid", pid > 0 ? p : "");
@@ -2184,6 +2184,7 @@ pgagroal_management_json_print_status_details(cJSON* json)
 {
    bool is_command_details = false; /* is this command 'status details' ? */
    int status = EXIT_STATUS_OK;
+   bool previous_section_printed = false;  /* in 'status details', print an header bar between sections */
 
    // sanity check
    if (!json || pgagroal_json_is_command_object_faulty(json))
@@ -2259,7 +2260,11 @@ pgagroal_management_json_print_status_details(cJSON* json)
    cJSON* servers_list = cJSON_GetObjectItemCaseSensitive(servers, JSON_TAG_ARRAY_NAME);
    cJSON_ArrayForEach(current, servers_list)
    {
-      printf("---------------------\n");
+      if (!previous_section_printed)
+      {
+         printf("---------------------\n");
+         previous_section_printed = true;
+      }
       printf("Server:              %s\n", cJSON_GetObjectItemCaseSensitive(current, "server")->valuestring);
       printf("Host:                %s\n", cJSON_GetObjectItemCaseSensitive(current, "host")->valuestring);
       printf("Port:                %d\n", cJSON_GetObjectItemCaseSensitive(current, "port")->valueint);
@@ -2273,7 +2278,11 @@ pgagroal_management_json_print_status_details(cJSON* json)
    cJSON* limits_list = cJSON_GetObjectItemCaseSensitive(limits, JSON_TAG_ARRAY_NAME);
    cJSON_ArrayForEach(current, limits_list)
    {
-      printf("---------------------\n");
+      if (!previous_section_printed)
+      {
+         printf("---------------------\n");
+         previous_section_printed = true;
+      }
       printf("Database:            %s\n", cJSON_GetObjectItemCaseSensitive(current, "database")->valuestring);
       printf("Username:            %s\n", cJSON_GetObjectItemCaseSensitive(current, "username")->valuestring);
       cJSON* current_connections = cJSON_GetObjectItemCaseSensitive(current, "connections");
@@ -2285,11 +2294,16 @@ pgagroal_management_json_print_status_details(cJSON* json)
    }
 
    // print the connection information
-   int i = 0;
    cJSON_ArrayForEach(current, cJSON_GetObjectItemCaseSensitive(connections, JSON_TAG_ARRAY_NAME))
    {
+      if (!previous_section_printed)
+      {
+         printf("---------------------\n");
+         previous_section_printed = false;
+      }
+
       printf("Connection %4d:     %-15s %-19s %-6s %-6s %s %s %s\n",
-             i++,
+             cJSON_GetObjectItemCaseSensitive(current, "number")->valueint,
              cJSON_GetObjectItemCaseSensitive(current, "state")->valuestring,
              cJSON_GetObjectItemCaseSensitive(current, "time")->valuestring,
              cJSON_GetObjectItemCaseSensitive(current, "pid")->valuestring,
@@ -2299,6 +2313,9 @@ pgagroal_management_json_print_status_details(cJSON* json)
              cJSON_GetObjectItemCaseSensitive(current, "detail")->valuestring);
 
    }
+
+   // all done
+   goto end;
 
 error:
    status = 1;
