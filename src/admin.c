@@ -285,7 +285,7 @@ main(int argc, char** argv)
    {
       if (master_key(password, generate_pwd, pwd_length))
       {
-         errx(1, "Error for master key");
+         errx(1, "Cannot generate master key");
       }
    }
    else if (parsed.cmd->action == ACTION_ADD_USER)
@@ -367,7 +367,7 @@ master_key(char* password, bool generate_pwd, int pwd_length)
       }
       else
       {
-         warnx("Wrong permissions for ~/.pgagroal (must be 0700)");
+         warnx("Wrong permissions for directory <%s> (must be 0700)", &buf[0]);
          goto error;
       }
    }
@@ -387,7 +387,7 @@ master_key(char* password, bool generate_pwd, int pwd_length)
       }
       else
       {
-         warnx("Wrong permissions for ~/.pgagroal/master.key (must be 0600)");
+         warnx("Wrong permissions for file <%s> (must be 0600)", &buf[0]);
          goto error;
       }
    }
