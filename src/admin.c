@@ -175,7 +175,7 @@ usage(void)
    printf("\n");
    printf("Options:\n");
    printf("  -f, --file FILE         Set the path to a user file\n");
-   printf("                          Defaults to %s", PGAGROAL_DEFAULT_USERS_FILE);
+   printf("                          Defaults to %s\n", PGAGROAL_DEFAULT_USERS_FILE);
    printf("  -U, --user USER         Set the user name\n");
    printf("  -P, --password PASSWORD Set the password for the user\n");
    printf("  -g, --generate          Generate a password\n");
