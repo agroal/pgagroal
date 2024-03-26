@@ -224,6 +224,14 @@ char*
 pgagroal_get_password(void);
 
 /**
+ * File/directory exists
+ * @param f The file/directory
+ * @return The result
+ */
+bool
+pgagroal_exists(char* f);
+
+/**
  * BASE64 encode a string
  * @param raw The string
  * @param raw_length The length of the raw string

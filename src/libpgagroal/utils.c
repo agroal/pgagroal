@@ -621,6 +621,17 @@ pgagroal_get_password(void)
    return result;
 }
 
+bool
+pgagroal_exists(char* f)
+{
+   if (access(f, F_OK) == 0)
+   {
+      return true;
+   }
+
+   return false;
+}
+
 int
 pgagroal_base64_encode(char* raw, int raw_length, char** encoded)
 {
