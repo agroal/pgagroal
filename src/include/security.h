@@ -90,7 +90,7 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_get_master_key(char** masterkey);
+pgagroal_get_master_key(char** masterkey, char* foldername);
 
 /**
  * Encrypt a string

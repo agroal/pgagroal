@@ -477,6 +477,7 @@ struct configuration
    bool track_prepared_statements; /**< Track prepared statements (transaction pooling) */
 
    char unix_socket_dir[MISC_LENGTH]; /**< The directory for the Unix Domain Socket */
+   char master_key_file_location[MISC_LENGTH]; /**< The directory for the MasterKey */
 
    atomic_schar su_connection; /**< The superuser connection */
 

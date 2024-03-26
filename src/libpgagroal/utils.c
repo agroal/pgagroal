@@ -564,7 +564,7 @@ pgagroal_libev_engine(unsigned int val)
 
 char*
 pgagroal_get_home_directory(void)
-{
+{   
    struct passwd* pw = getpwuid(getuid());
 
    if (pw == NULL)
