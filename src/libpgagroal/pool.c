@@ -73,10 +73,10 @@ pgagroal_get_connection(char* username, char* database, bool reuse, bool transac
    int retries;
    int ret;
 
-   struct configuration* config;
+   struct main_configuration* config;
    struct prometheus* prometheus;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    prometheus = (struct prometheus*)prometheus_shmem;
 
    pgagroal_prometheus_connection_get();
@@ -181,7 +181,7 @@ start:
          }
          else
          {
-            ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &fd);
+            ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &fd, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay);
          }
 
          if (ret)
@@ -368,12 +368,12 @@ int
 pgagroal_return_connection(int slot, SSL* ssl, bool transaction_mode)
 {
    int state;
-   struct configuration* config;
+   struct main_configuration* config;
    time_t now;
    signed char in_use;
    signed char age_check;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    /* Kill the connection, if it lives longer than max_connection_age */
    if (config->max_connection_age > 0)
@@ -470,9 +470,9 @@ pgagroal_kill_connection(int slot, SSL* ssl)
    int ssl_shutdown;
    int result = 0;
    int fd;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    pgagroal_log_debug("pgagroal_kill_connection: Slot %d FD %d State %d PID %d",
                       slot, config->connections[slot].fd, atomic_load(&config->states[slot]),
@@ -555,12 +555,12 @@ pgagroal_idle_timeout(void)
    time_t now;
    signed char free;
    signed char idle_check;
-   struct configuration* config;
+   struct main_configuration* config;
 
    pgagroal_start_logging();
    pgagroal_memory_init();
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    now = time(NULL);
    prefill = false;
 
@@ -614,12 +614,12 @@ pgagroal_max_connection_age(void)
    time_t now;
    signed char free;
    signed char age_check;
-   struct configuration* config;
+   struct main_configuration* config;
 
    pgagroal_start_logging();
    pgagroal_memory_init();
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    now = time(NULL);
    prefill = false;
 
@@ -673,12 +673,12 @@ pgagroal_validation(void)
    time_t now;
    signed char free;
    signed char validation;
-   struct configuration* config;
+   struct main_configuration* config;
 
    pgagroal_start_logging();
    pgagroal_memory_init();
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
    now = time(NULL);
 
    pgagroal_log_debug("pgagroal_validation");
@@ -766,12 +766,12 @@ pgagroal_flush(int mode, char* database)
    signed char in_use;
    bool do_kill;
    signed char server_state;
-   struct configuration* config;
+   struct main_configuration* config;
 
    pgagroal_start_logging();
    pgagroal_memory_init();
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    prefill = false;
 
@@ -880,13 +880,13 @@ pgagroal_flush(int mode, char* database)
 void
 pgagroal_flush_server(signed char server)
 {
-   struct configuration* config;
+   struct main_configuration* config;
    int primary = -1;
 
    pgagroal_start_logging();
    pgagroal_memory_init();
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    pgagroal_log_debug("pgagroal_flush_server %s", config->servers[server].name);
    for (int i = 0; i < config->max_connections; i++)
@@ -948,12 +948,12 @@ pgagroal_flush_server(signed char server)
 void
 pgagroal_prefill(bool initial)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
    pgagroal_start_logging();
    pgagroal_memory_init();
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    pgagroal_log_debug("pgagroal_prefill");
 
@@ -1058,9 +1058,9 @@ pgagroal_prefill(bool initial)
 int
 pgagroal_pool_init(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    /* States */
    for (int i = 0; i < MAX_NUMBER_OF_CONNECTIONS; i++)
@@ -1088,9 +1088,9 @@ pgagroal_pool_init(void)
 int
 pgagroal_pool_shutdown(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < config->max_connections; i++)
    {
@@ -1122,9 +1122,9 @@ pgagroal_pool_shutdown(void)
 int
 pgagroal_pool_status(void)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    pgagroal_log_debug("pgagroal_pool_status: %d/%d", atomic_load(&config->active_connections), config->max_connections);
 
@@ -1144,10 +1144,10 @@ static int
 find_best_rule(char* username, char* database)
 {
    int best_rule;
-   struct configuration* config;
+   struct main_configuration* config;
 
    best_rule = -1;
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (config->number_of_limits > 0)
    {
@@ -1197,9 +1197,9 @@ remove_connection(char* username, char* database)
 {
    signed char free;
    signed char remove;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    pgagroal_log_trace("remove_connection");
    for (int i = config->max_connections - 1; i >= 0; i--)
@@ -1238,10 +1238,10 @@ connection_details(int slot)
    int state;
    char time_buf[32];
    char start_buf[32];
-   struct configuration* config;
+   struct main_configuration* config;
    struct connection connection;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    connection = config->connections[slot];
    state = atomic_load(&config->states[slot]);
@@ -1446,9 +1446,9 @@ do_prefill(char* username, char* database, int size)
    signed char state;
    int free = 0;
    int connections = 0;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < config->max_connections; i++)
    {

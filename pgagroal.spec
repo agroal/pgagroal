@@ -45,6 +45,7 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/ARCHITECTURE.md %{buildroot}%{_docdir}/%{name}/ARCHITECTURE.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/CLI.md %{buildroot}%{_docdir}/%{name}/CLI.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/CONFIGURATION.md %{buildroot}%{_docdir}/%{name}/CONFIGURATION.md
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/VAULT.md %{buildroot}%{_docdir}/%{name}/VAULT.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/FAILOVER.md %{buildroot}%{_docdir}/%{name}/FAILOVER.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/GETTING_STARTED.md %{buildroot}%{_docdir}/%{name}/GETTING_STARTED.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/PERFORMANCE.md %{buildroot}%{_docdir}/%{name}/PERFORMANCE.md
@@ -71,19 +72,23 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal.1 %{buildroot}%{_mandir}/man1/pgagroal.1
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal-admin.1 %{buildroot}%{_mandir}/man1/pgagroal-admin.1
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal-cli.1 %{buildroot}%{_mandir}/man1/pgagroal-cli.1
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal-vault.1 %{buildroot}%{_mandir}/man1/pgagroal-vault.1
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal.conf.5 %{buildroot}%{_mandir}/man5/pgagroal.conf.5
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal_databases.conf.5 %{buildroot}%{_mandir}/man5/pgagroal_databases.conf.5
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal_hba.conf.5 %{buildroot}%{_mandir}/man5/pgagroal_hba.conf.5
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/build/doc/pgagroal_vault.conf.5 %{buildroot}%{_mandir}/man5/pgagroal_vault.conf.5
 
 %{__install} -m 755 %{_builddir}/%{name}-%{version}/build/src/pgagroal %{buildroot}%{_bindir}/pgagroal
 %{__install} -m 755 %{_builddir}/%{name}-%{version}/build/src/pgagroal-cli %{buildroot}%{_bindir}/pgagroal-cli
 %{__install} -m 755 %{_builddir}/%{name}-%{version}/build/src/pgagroal-admin %{buildroot}%{_bindir}/pgagroal-admin
+%{__install} -m 755 %{_builddir}/%{name}-%{version}/build/src/pgagroal-vault %{buildroot}%{_bindir}/pgagroal-vault
 
 %{__install} -m 755 %{_builddir}/%{name}-%{version}/build/src/libpgagroal.so.%{version} %{buildroot}%{_libdir}/libpgagroal.so.%{version}
 
 chrpath -r %{_libdir} %{buildroot}%{_bindir}/pgagroal
 chrpath -r %{_libdir} %{buildroot}%{_bindir}/pgagroal-cli
 chrpath -r %{_libdir} %{buildroot}%{_bindir}/pgagroal-admin
+chrpath -r %{_libdir} %{buildroot}%{_bindir}/pgagroal-vault
 
 cd %{buildroot}%{_libdir}/
 %{__ln_s} -f libpgagroal.so.%{version} libpgagroal.so.1
@@ -95,6 +100,7 @@ cd %{buildroot}%{_libdir}/
 %{_docdir}/%{name}/CLI.md
 %{_docdir}/%{name}/CODE_OF_CONDUCT.md
 %{_docdir}/%{name}/CONFIGURATION.md
+%{_docdir}/%{name}/VAULT.md
 %{_docdir}/%{name}/FAILOVER.md
 %{_docdir}/%{name}/GETTING_STARTED.md
 %{_docdir}/%{name}/PERFORMANCE.md
@@ -121,14 +127,17 @@ cd %{buildroot}%{_libdir}/
 %{_mandir}/man1/pgagroal.1*
 %{_mandir}/man1/pgagroal-admin.1*
 %{_mandir}/man1/pgagroal-cli.1*
+%{_mandir}/man1/pgagroal-vault.1*
 %{_mandir}/man5/pgagroal.conf.5*
 %{_mandir}/man5/pgagroal_databases.conf.5*
 %{_mandir}/man5/pgagroal_hba.conf.5*
+%{_mandir}/man5/pgagroal_vault.conf.5*
 %config %{_sysconfdir}/pgagroal/pgagroal.conf
 %config %{_sysconfdir}/pgagroal/pgagroal_hba.conf
 %{_bindir}/pgagroal
 %{_bindir}/pgagroal-cli
 %{_bindir}/pgagroal-admin
+%{_bindir}/pgagroal-vault
 %{_libdir}/libpgagroal.so
 %{_libdir}/libpgagroal.so.1
 %{_libdir}/libpgagroal.so.%{version}

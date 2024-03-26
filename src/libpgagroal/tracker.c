@@ -46,9 +46,9 @@ void
 pgagroal_tracking_event_basic(int id, char* username, char* database)
 {
    int primary;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (config->tracker)
    {
@@ -93,9 +93,9 @@ pgagroal_tracking_event_basic(int id, char* username, char* database)
 void
 pgagroal_tracking_event_slot(int id, int slot)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (config->tracker)
    {
@@ -144,9 +144,9 @@ pgagroal_tracking_event_slot(int id, int slot)
 void
 pgagroal_tracking_event_socket(int id, int socket)
 {
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if (config->tracker)
    {
@@ -168,9 +168,9 @@ static int
 count_connections(void)
 {
    int active = 0;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    for (int i = 0; i < config->max_connections; i++)
    {

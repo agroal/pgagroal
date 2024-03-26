@@ -42,10 +42,14 @@ extern "C" {
  * @param port The port number
  * @param fds The resulting descriptors
  * @param length The resulting length of descriptors
+ * @param non_blocking Use non blocking
+ * @param buffer_size Socket buffer size
+ * @param no_delay Use NODELAY
+ * @param backlog the number of backlogs
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_bind(const char* hostname, int port, int** fds, int* length);
+pgagroal_bind(const char* hostname, int port, int** fds, int* length, bool no_blocking, int* buffer_size, bool no_delay, int backlog);
 
 /**
  * Bind a Unix Domain Socket
@@ -71,10 +75,14 @@ pgagroal_remove_unix_socket(const char* directory, const char* file);
  * @param hostname The host name
  * @param port The port number
  * @param fd The resulting descriptor
+ * @param keep_alive Use keep alive
+ * @param non_blocking Use non blocking
+ * @param buffer_size Socket buffer size
+ * @param no_delay Use NODELAY
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_connect(const char* hostname, int port, int* fd);
+pgagroal_connect(const char* hostname, int port, int* fd, bool keep_alive, bool non_blocking, int* buffer_size, bool no_delay);
 
 /**
  * Connect to a Unix Domain Socket
@@ -130,10 +138,11 @@ pgagroal_tcp_nodelay(int fd);
 /**
  * Set the configured socket buffer size to a descriptor
  * @param fd The descriptor
+ * @param buffer_size Socket buffer size
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_socket_buffers(int fd);
+pgagroal_socket_buffers(int fd, int* buffer_size);
 
 /**
  * Apply O_NONBLOCK to a descriptor

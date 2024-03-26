@@ -138,6 +138,21 @@ pgagroal_user_known(char* user);
 int
 pgagroal_tls_valid(void);
 
+/**
+ * @brief Generate a random ASCII password have size of pwd_length
+ * @param password the resultant password
+ * @param password_length length of the password
+ * @return 0 if success, otherwise 1
+ */
+int
+pgagroal_generate_password(int password_length, char** password);
+
+/**
+ * @brief Initialize RNG
+ *
+ */
+void
+pgagroal_initialize_random(void);
 #ifdef __cplusplus
 }
 #endif

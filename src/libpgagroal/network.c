@@ -47,17 +47,18 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-static int bind_host(const char* hostname, int port, int** fds, int* length);
+static int bind_host(const char* hostname, int port, int** fds, int* length, bool non_blocking, int* buffer_size, bool no_delay, int backlog);
 
 /**
  *
  */
 int
-pgagroal_bind(const char* hostname, int port, int** fds, int* length)
+pgagroal_bind(const char* hostname, int port, int** fds, int* length, bool non_blocking, int* buffer_size, bool no_delay, int backlog)
 {
    struct ifaddrs* ifaddr, * ifa;
    struct sockaddr_in* sa4;
@@ -97,7 +98,7 @@ pgagroal_bind(const char* hostname, int port, int** fds, int* length)
                inet_ntop(AF_INET6, &sa6->sin6_addr, addr, sizeof(addr));
             }
 
-            if (bind_host(addr, port, &new_fds, &new_length))
+            if (bind_host(addr, port, &new_fds, &new_length, non_blocking, buffer_size, no_delay, backlog))
             {
                free(new_fds);
                continue;
@@ -127,7 +128,7 @@ pgagroal_bind(const char* hostname, int port, int** fds, int* length)
       return 0;
    }
 
-   return bind_host(hostname, port, fds, length);
+   return bind_host(hostname, port, fds, length, non_blocking, buffer_size, no_delay, backlog);
 }
 
 /**
@@ -140,9 +141,9 @@ pgagroal_bind_unix_socket(const char* directory, const char* file, int* fd)
    char buf[107];
    struct stat st = {0};
    struct sockaddr_un addr;
-   struct configuration* config;
+   struct main_configuration* config;
 
-   config = (struct configuration*)shmem;
+   config = (struct main_configuration*)shmem;
 
    if ((*fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
    {
@@ -220,7 +221,7 @@ pgagroal_remove_unix_socket(const char* directory, const char* file)
  *
  */
 int
-pgagroal_connect(const char* hostname, int port, int* fd)
+pgagroal_connect(const char* hostname, int port, int* fd, bool keep_alive, bool non_blocking, int* buffer_size, bool no_delay)
 {
    struct addrinfo hints = {0};
    struct addrinfo* servinfo = NULL;
@@ -230,9 +231,6 @@ pgagroal_connect(const char* hostname, int port, int* fd)
    int rv;
    char sport[5];
    int error = 0;
-   struct configuration* config;
-
-   config = (struct configuration*)shmem;
 
    memset(&sport, 0, sizeof(sport));
    sprintf(&sport[0], "%d", port);
@@ -265,7 +263,7 @@ pgagroal_connect(const char* hostname, int port, int* fd)
 
       if (*fd != -1)
       {
-         if (config != NULL && config->keep_alive)
+         if (keep_alive)
          {
             if (setsockopt(*fd, SOL_SOCKET, SO_KEEPALIVE, &yes, optlen) == -1)
             {
@@ -277,7 +275,7 @@ pgagroal_connect(const char* hostname, int port, int* fd)
             }
          }
 
-         if (config != NULL && config->nodelay)
+         if (no_delay)
          {
             if (setsockopt(*fd, IPPROTO_TCP, TCP_NODELAY, &yes, optlen) == -1)
             {
@@ -289,25 +287,22 @@ pgagroal_connect(const char* hostname, int port, int* fd)
             }
          }
 
-         if (config != NULL)
+         if (setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, buffer_size, optlen) == -1)
          {
-            if (setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &config->buffer_size, optlen) == -1)
-            {
-               error = errno;
-               pgagroal_disconnect(*fd);
-               errno = 0;
-               *fd = -1;
-               continue;
-            }
+            error = errno;
+            pgagroal_disconnect(*fd);
+            errno = 0;
+            *fd = -1;
+            continue;
+         }
 
-            if (setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &config->buffer_size, optlen) == -1)
-            {
-               error = errno;
-               pgagroal_disconnect(*fd);
-               errno = 0;
-               *fd = -1;
-               continue;
-            }
+         if (setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, buffer_size, optlen) == -1)
+         {
+            error = errno;
+            pgagroal_disconnect(*fd);
+            errno = 0;
+            *fd = -1;
+            continue;
          }
 
          if (connect(*fd, p->ai_addr, p->ai_addrlen) == -1)
@@ -329,7 +324,7 @@ pgagroal_connect(const char* hostname, int port, int* fd)
    freeaddrinfo(servinfo);
 
    /* Set O_NONBLOCK on the socket */
-   if (config != NULL && config->non_blocking)
+   if (non_blocking)
    {
       pgagroal_socket_nonblocking(*fd, true);
    }
@@ -506,41 +501,32 @@ error:
 int
 pgagroal_tcp_nodelay(int fd)
 {
-   struct configuration* config;
    int yes = 1;
    socklen_t optlen = sizeof(int);
 
-   config = (struct configuration*)shmem;
-
-   if (config->nodelay)
+   if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &yes, optlen) == -1)
    {
-      if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &yes, optlen) == -1)
-      {
-         pgagroal_log_warn("tcp_nodelay: %d %s", fd, strerror(errno));
-         errno = 0;
-         return 1;
-      }
+      pgagroal_log_warn("tcp_nodelay: %d %s", fd, strerror(errno));
+      errno = 0;
+      return 1;
    }
 
    return 0;
 }
 
 int
-pgagroal_socket_buffers(int fd)
+pgagroal_socket_buffers(int fd, int* buffer_size)
 {
-   struct configuration* config;
    socklen_t optlen = sizeof(int);
 
-   config = (struct configuration*)shmem;
-
-   if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &config->buffer_size, optlen) == -1)
+   if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, buffer_size, optlen) == -1)
    {
       pgagroal_log_warn("socket_buffers: SO_RCVBUF %d %s", fd, strerror(errno));
       errno = 0;
       return 1;
    }
 
-   if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &config->buffer_size, optlen) == -1)
+   if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, buffer_size, optlen) == -1)
    {
       pgagroal_log_warn("socket_buffers: SO_SNDBUF %d %s", fd, strerror(errno));
       errno = 0;
@@ -554,7 +540,7 @@ pgagroal_socket_buffers(int fd)
  *
  */
 static int
-bind_host(const char* hostname, int port, int** fds, int* length)
+bind_host(const char* hostname, int port, int** fds, int* length, bool non_blocking, int* buffer_size, bool no_delay, int backlog)
 {
    int* result = NULL;
    int index, size;
@@ -563,9 +549,6 @@ bind_host(const char* hostname, int port, int** fds, int* length)
    int yes = 1;
    int rv;
    char* sport;
-   struct configuration* config;
-
-   config = (struct configuration*)shmem;
 
    index = 0;
    size = 0;
@@ -621,7 +604,7 @@ bind_host(const char* hostname, int port, int** fds, int* length)
          continue;
       }
 
-      if (config->non_blocking)
+      if (non_blocking)
       {
          if (pgagroal_socket_nonblocking(sockfd, true))
          {
@@ -630,16 +613,19 @@ bind_host(const char* hostname, int port, int** fds, int* length)
          }
       }
 
-      if (pgagroal_socket_buffers(sockfd))
+      if (pgagroal_socket_buffers(sockfd, buffer_size))
       {
          pgagroal_disconnect(sockfd);
          continue;
       }
 
-      if (pgagroal_tcp_nodelay(sockfd))
+      if (no_delay)
       {
-         pgagroal_disconnect(sockfd);
-         continue;
+         if (pgagroal_tcp_nodelay(sockfd))
+         {
+            pgagroal_disconnect(sockfd);
+            continue;
+         }
       }
 
       if (bind(sockfd, addr->ai_addr, addr->ai_addrlen) == -1)
@@ -649,7 +635,7 @@ bind_host(const char* hostname, int port, int** fds, int* length)
          continue;
       }
 
-      if (listen(sockfd, config->backlog) == -1)
+      if (listen(sockfd, backlog) == -1)
       {
          pgagroal_disconnect(sockfd);
          pgagroal_log_debug("server: listen: %s:%d (%s)", hostname, port, strerror(errno));
