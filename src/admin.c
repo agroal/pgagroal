@@ -375,6 +375,12 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    memset(&buf, 0, sizeof(buf));
    snprintf(&buf[0], sizeof(buf), "%s/.pgagroal/master.key", pgagroal_get_home_directory());
 
+   if (pgagroal_exists(&buf[0]))
+   {
+      warnx("The file ~/.pgexporter/master.key already exists");
+      goto error;
+   }
+
    if (stat(&buf[0], &st) == -1)
    {
       /* Ok */
