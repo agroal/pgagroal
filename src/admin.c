@@ -61,7 +61,7 @@ static char CHARS[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L
                        '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '[', '{', ']', '}', '\\', '|', ';', ':',
                        '\'', '\"', ',', '<', '.', '>', '/', '?'};
 
-static int master_key(char* password, bool generate_pwd, int pwd_length, char* filename);
+static int master_key(char* password, bool generate_pwd, int pwd_length);
 static int add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int remove_user(char* users_path, char* username);
@@ -73,7 +73,7 @@ const struct pgagroal_command command_table[] =
    {
       .command = "master-key",
       .subcommand = "",
-      .accepted_argument_count = {0, 1},
+      .accepted_argument_count = {0},
       .deprecated = false,
       .action = ACTION_MASTER_KEY,
       .log_message = "<master-key>",
@@ -184,7 +184,7 @@ usage(void)
    printf("  -?, --help              Display help\n");
    printf("\n");
    printf("Commands:\n");
-   printf("  master-key <filename>   Create or update the master key\n");
+   printf("  master-key              Create or update the master key\n");
    printf("  user <subcommand>       Manage a specific user, where <subcommand> can be\n");
    printf("                          - add  to add a new user\n");
    printf("                          - del  to remove an existing user\n");
@@ -283,7 +283,7 @@ main(int argc, char** argv)
 
    if (parsed.cmd->action == ACTION_MASTER_KEY)
    {
-      if (master_key(password, generate_pwd, pwd_length, parsed.args[0]))
+      if (master_key(password, generate_pwd, pwd_length))
       {
          errx(1, "Cannot generate master key");
       }
@@ -328,113 +328,77 @@ error:
 }
 
 static int
-master_key(char* password, bool generate_pwd, int pwd_length, char* filename)
+master_key(char* password, bool generate_pwd, int pwd_length)
 {
    FILE* file = NULL;
    char buf[MISC_LENGTH];
    char* encoded = NULL;
    struct stat st = {0};
    bool do_free = true;
-   if(filename == NULL)
+
+   if (pgagroal_get_home_directory() == NULL)
    {
-      if (pgagroal_get_home_directory() == NULL)
+      char* username = pgagroal_get_user_name();
+
+      if (username != NULL)
       {
-         char* username = pgagroal_get_user_name();
-
-         if (username != NULL)
-         {
-            warnx("No home directory for user \'%s\'", username);
-         }
-         else
-         {
-            warnx("No home directory for user running pgagroal");
-         }
-
-         goto error;
-      }
-
-      memset(&buf, 0, sizeof(buf));
-      snprintf(&buf[0], sizeof(buf), "%s/.pgagroal", pgagroal_get_home_directory());
-
-      if (stat(&buf[0], &st) == -1)
-      {
-         mkdir(&buf[0], S_IRWXU);
+         warnx("No home directory for user \'%s\'", username);
       }
       else
       {
-         if (S_ISDIR(st.st_mode) && st.st_mode & S_IRWXU && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
-         {
-            /* Ok */
-         }
-         else
-         {
-            warnx("Wrong permissions for directory <%s> (must be 0700)", &buf[0]);
-            goto error;
-         }
+         warnx("No home directory for user running pgagroal");
       }
 
-      memset(&buf, 0, sizeof(buf));
-      snprintf(&buf[0], sizeof(buf), "%s/.pgagroal/master.key", pgagroal_get_home_directory());
+      goto error;
+   }
 
-      if (pgagroal_exists(&buf[0]))
-      {
-         warnx("The file ~/.pgexporter/master.key already exists");
-         goto error;
-      }
+   memset(&buf, 0, sizeof(buf));
+   snprintf(&buf[0], sizeof(buf), "%s/.pgagroal", pgagroal_get_home_directory());
 
-      if (stat(&buf[0], &st) == -1)
+   if (stat(&buf[0], &st) == -1)
+   {
+      mkdir(&buf[0], S_IRWXU);
+   }
+   else
+   {
+      if (S_ISDIR(st.st_mode) && st.st_mode & S_IRWXU && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
       {
          /* Ok */
       }
       else
       {
-         if (S_ISREG(st.st_mode) && st.st_mode & (S_IRUSR | S_IWUSR) && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
-         {
-            /* Ok */
-         }
-         else
-         {
-            warnx("Wrong permissions for file <%s> (must be 0600)", &buf[0]);
-            goto error;
-         }
+         warnx("Wrong permissions for directory <%s> (must be 0700)", &buf[0]);
+         goto error;
       }
    }
 
-   if(filename != NULL)
-   {
-   snprintf(&buf[0], sizeof(buf), "%s", filename);
+   memset(&buf, 0, sizeof(buf));
+   snprintf(&buf[0], sizeof(buf), "%s/.pgagroal/master.key", pgagroal_get_home_directory());
+
    if (pgagroal_exists(&buf[0]))
-      {
-         warnx("The file ~/.pgexporter/master.key already exists");
-         goto error;
-      }
+   {
+      warnx("The file ~/.pgexporter/master.key already exists");
+      goto error;
+   }
 
-      if (stat(&buf[0], &st) == -1)
+   if (stat(&buf[0], &st) == -1)
+   {
+      /* Ok */
+   }
+   else
+   {
+      if (S_ISREG(st.st_mode) && st.st_mode & (S_IRUSR | S_IWUSR) && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
       {
          /* Ok */
       }
       else
       {
-         if (S_ISREG(st.st_mode) && st.st_mode & (S_IRUSR | S_IWUSR) && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
-         {
-            /* Ok */
-         }
-         else
-         {
-            warnx("Wrong permissions for file <%s> (must be 0600)", &buf[0]);
-            goto error;
-         }
+         warnx("Wrong permissions for file <%s> (must be 0600)", &buf[0]);
+         goto error;
       }
-
-      file = fopen(filename, "w+");
    }
 
-   else{
-      file = fopen(&buf[0], "w+");
-
-   }
-
-
+   file = fopen(&buf[0], "w+");
    if (file == NULL)
    {
       warnx("Could not write to master key file <%s>", &buf[0]);
