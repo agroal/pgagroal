@@ -53,12 +53,18 @@
 #include <openssl/ssl.h>
 
 #define MANAGEMENT_HEADER_SIZE 5
+#define MANAGEMENT_INFO_SIZE sizeof(struct info)
+
+#define pgagroal 1
+#define pgagroal_cli 2
+#define pgagroal_vualt 3
 
 static int read_complete(SSL* ssl, int socket, void* buf, size_t size);
 static int write_complete(SSL* ssl, int socket, void* buf, size_t size);
 static int write_socket(int socket, void* buf, size_t size);
 static int write_ssl(SSL* ssl, void* buf, size_t size);
 static int write_header(SSL* ssl, int fd, signed char type, int slot);
+static int write_info(char* buffer, int command, int offset);
 
 static int pgagroal_management_write_conf_ls_detail(int socket, char* what);
 static int pgagroal_management_read_conf_ls_detail(SSL* ssl, int socket, char* buffer);
@@ -71,10 +77,26 @@ static cJSON* pgagroal_managment_json_read_config_get(int socket, char* config_k
 static cJSON* pgagroal_management_json_read_conf_ls(SSL* ssl, int socket);
 static int pgagroal_management_json_print_conf_ls(cJSON* json);
 
+static int get_version_number(char* version);
+static char* get_command_string(int command);
+
+/*
+ * stores the application name and its version
+ * which are sent through the socket
+ */
+struct info
+{
+   char* s;
+   int command;
+   char* v;
+   int version;
+};
+
 int
 pgagroal_management_read_header(int socket, signed char* id, int32_t* slot)
 {
    char header[MANAGEMENT_HEADER_SIZE];
+   char buf_info[MANAGEMENT_INFO_SIZE];
 
    if (read_complete(NULL, socket, &header[0], sizeof(header)))
    {
@@ -85,6 +107,13 @@ pgagroal_management_read_header(int socket, signed char* id, int32_t* slot)
 
    *id = pgagroal_read_byte(&(header));
    *slot = pgagroal_read_int32(&(header[1]));
+
+   if (read_complete(NULL, socket, &buf_info[0], sizeof(buf_info)))
+   {
+      pgagroal_log_warn("pgagroal_management_read_header: %d %s", socket, strerror(errno));
+      errno = 0;
+      goto error;
+   }
 
    return 0;
 
@@ -187,7 +216,6 @@ pgagroal_management_read_payload(int socket, signed char id, int* payload_i, cha
       case MANAGEMENT_DISABLEDB:
       case MANAGEMENT_CONFIG_GET:
       case MANAGEMENT_CONFIG_SET:
-
          if (read_complete(NULL, socket, &buf4[0], sizeof(buf4)))
          {
             goto error;
@@ -622,10 +650,14 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
    int limits = 0;
    int servers = 0;
    char header[12 + MAX_NUMBER_OF_CONNECTIONS];
+   char buf_info[MANAGEMENT_INFO_SIZE];
 
    memset(&buf, 0, sizeof(buf));
    memset(&disabled, 0, sizeof(disabled));
    memset(&header, 0, sizeof(header));
+
+   // consumes info
+   read_complete(ssl, socket, &buf_info[0], sizeof(buf_info));
 
    cJSON* json = pgagroal_json_create_new_command_object(include_details ? "status details" :  "status", true, "pgagroal-cli");
    cJSON* output = pgagroal_json_extract_command_output_object(json);
@@ -837,9 +869,20 @@ int
 pgagroal_management_write_status(int socket, bool graceful)
 {
    char buf[16];
+   char buf_info[MANAGEMENT_INFO_SIZE];
+
    int active;
    int total;
    struct configuration* config;
+
+   write_info(buf_info, pgagroal, 0);
+
+   if (write_complete(NULL, socket, &buf_info, sizeof(buf_info)))
+   {
+      pgagroal_log_warn("pgagroal_management_write_status: write: %d %s", socket, strerror(errno));
+      errno = 0;
+      goto error;
+   }
 
    memset(&buf, 0, sizeof(buf));
    active = 0;
@@ -951,7 +994,8 @@ error:
 int
 pgagroal_management_write_details(int socket)
 {
-   char header[12 + MAX_NUMBER_OF_CONNECTIONS];
+   int offset = 12;
+   char header[offset + MAX_NUMBER_OF_CONNECTIONS];
    struct configuration* config;
 
    config = (struct configuration*)shmem;
@@ -965,7 +1009,7 @@ pgagroal_management_write_details(int socket)
    for (int i = 0; i < config->max_connections; i++)
    {
       signed char state = atomic_load(&config->states[i]);
-      header[12 + i] = (char)state;
+      header[offset + i] = (char)state;
    }
 
    if (write_complete(NULL, socket, header, sizeof(header)))
@@ -1065,7 +1109,7 @@ error:
 int
 pgagroal_management_read_isalive(SSL* ssl, int socket, int* status, char output_format)
 {
-   char buf[4];
+   char buf[MANAGEMENT_INFO_SIZE + 4];
 
    memset(&buf, 0, sizeof(buf));
 
@@ -1076,7 +1120,7 @@ pgagroal_management_read_isalive(SSL* ssl, int socket, int* status, char output_
       goto error;
    }
 
-   *status = pgagroal_read_int32(&buf);
+   *status = pgagroal_read_int32(&buf[MANAGEMENT_INFO_SIZE]);
 
    // do I need to provide JSON output?
    if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
@@ -1114,6 +1158,16 @@ int
 pgagroal_management_write_isalive(int socket, bool gracefully)
 {
    char buf[4];
+   char buf_info[MANAGEMENT_INFO_SIZE];
+
+   write_info(buf_info, pgagroal, 0);
+
+   if (write_complete(NULL, socket, &buf_info, sizeof(buf_info)))
+   {
+      pgagroal_log_warn("pgagroal_management_write_isalive: write: %d %s", socket, strerror(errno));
+      errno = 0;
+      goto error;
+   }
 
    memset(&buf, 0, sizeof(buf));
 
@@ -1610,15 +1664,84 @@ write_ssl(SSL* ssl, void* buf, size_t size)
    return 1;
 }
 
+/**
+ * Function to write sender application name and its version
+ * into header socket.
+ *
+ * @param header: the header to write sender application name and its version into
+ * @param command: the server application name
+ * @param offset: the offset at which info has to be written
+ * @return 0 on success
+ */
+static int
+write_info(char* buffer, int command, int offset)
+{
+   struct info info;
+
+   info.command = command;
+   info.version = get_version_number(PGAGROAL_VERSION);
+   info.s = "S:";
+   info.v = ",V:";
+
+   pgagroal_write_string(buffer + offset, info.s);
+   pgagroal_write_int32(buffer + offset + 2, info.command);
+   pgagroal_write_string(buffer + offset + 6, info.v);
+   pgagroal_write_int32(buffer + offset + 9, info.version);
+
+   char* str_command = get_command_string(command);
+
+   pgagroal_log_debug("Info: %s%s%s%d", info.s, str_command, info.v, info.version);
+
+   return 0;
+}
+
+/*
+ * Utility function to convert PGAGROAL_VERSION into a number.
+ */
+static int
+get_version_number(char* version)
+{
+   int major = 0;
+   int minor = 0;
+   int patch = 0;
+   sscanf(version, "%d.%d.%d", &major, &minor, &patch);
+
+   int version_number = major * 100000 + minor * 1000 + 10 * patch;
+
+   return version_number;
+}
+
+/*
+ * Utility function to convert command  into a string.
+ */
+static char*
+get_command_string(int command)
+{
+   switch (command)
+   {
+      case 1:
+         return "pgagroal";
+      case 2:
+         return "pgagroal-cli";
+      case 3:
+         return "pgagroal-vault";
+      default:
+         pgagroal_log_debug("get_command_string got unexpected value: %d\n", command);
+         return "unexpected";
+   }
+}
+
 static int
 write_header(SSL* ssl, int fd, signed char type, int slot)
 {
-   char header[MANAGEMENT_HEADER_SIZE];
+   char header[MANAGEMENT_HEADER_SIZE + MANAGEMENT_INFO_SIZE];
 
    pgagroal_write_byte(&(header), type);
    pgagroal_write_int32(&(header[1]), slot);
 
-   return write_complete(ssl, fd, &(header), MANAGEMENT_HEADER_SIZE);
+   write_info(header, pgagroal_cli, MANAGEMENT_HEADER_SIZE);
+
+   return write_complete(ssl, fd, &(header), sizeof(header));
 }
 
 int
@@ -1682,7 +1805,16 @@ pgagroal_management_write_config_get(int socket, char* config_key)
 {
    char data[MISC_LENGTH];
    char buf[4];
+   char buf_info[MANAGEMENT_INFO_SIZE];
+
    size_t size;
+
+   write_info(buf_info, pgagroal, 0);
+   if (write_complete(NULL, socket, buf_info, sizeof(buf_info)))
+   {
+      pgagroal_log_debug("pgagroal_management_config_get: write: %d %s", socket, strerror(errno));
+      goto error;
+   }
 
    if (!config_key || !strlen(config_key))
    {
@@ -1798,6 +1930,8 @@ error:
 int
 pgagroal_management_read_config_get(int socket, char* config_key, char* expected_value, bool verbose, char output_format)
 {
+   char buf_info[MANAGEMENT_INFO_SIZE];
+   read_complete(NULL, socket, &buf_info[0], sizeof(buf_info));
 
    cJSON* json = pgagroal_managment_json_read_config_get(socket, config_key, expected_value);
    int status = EXIT_STATUS_OK;
@@ -2016,6 +2150,14 @@ pgagroal_management_write_conf_ls(int socket)
    struct configuration* config;
 
    config = (struct configuration*)shmem;
+
+   char buf_info[MANAGEMENT_INFO_SIZE];
+   write_info(buf_info, pgagroal, 0);
+
+   if (write_complete(NULL, socket, &buf_info, sizeof(buf_info)))
+   {
+      goto error;
+   }
 
    if (pgagroal_management_write_conf_ls_detail(socket, config->configuration_path))
    {
@@ -2343,6 +2485,7 @@ pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
 {
    char buf[4];
    char* buffer;
+   char buf_info[MANAGEMENT_INFO_SIZE];
 
    cJSON* json = pgagroal_json_create_new_command_object("conf ls", true, "pgagroal-cli");
    cJSON* output = pgagroal_json_extract_command_output_object(json);
@@ -2355,6 +2498,11 @@ pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
 
    memset(&buf, 0, sizeof(buf));
    buffer = calloc(1, MAX_PATH);
+
+   if (read_complete(ssl, socket, &buf_info[0], sizeof(buf_info)))
+   {
+      goto error;
+   }
 
    if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
    {
