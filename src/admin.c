@@ -55,25 +55,27 @@
 #define ACTION_REMOVE_USER 4
 #define ACTION_LIST_USERS  5
 
+
 static char CHARS[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
                        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
                        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
                        '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '[', '{', ']', '}', '\\', '|', ';', ':',
                        '\'', '\"', ',', '<', '.', '>', '/', '?'};
 
-static int master_key(char* password, bool generate_pwd, int pwd_length);
+static int master_key(char* password, bool generate_pwd, int pwd_length, char* filename);
 static int add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int remove_user(char* users_path, char* username);
 static int list_users(char* users_path);
 static char* generate_password(int pwd_length);
 
+
 const struct pgagroal_command command_table[] =
 {
    {
       .command = "master-key",
       .subcommand = "",
-      .accepted_argument_count = {0},
+      .accepted_argument_count = {0, 1},
       .deprecated = false,
       .action = ACTION_MASTER_KEY,
       .log_message = "<master-key>",
@@ -156,6 +158,7 @@ const struct pgagroal_command command_table[] =
    },
 };
 
+
 static void
 version(void)
 {
@@ -184,7 +187,7 @@ usage(void)
    printf("  -?, --help              Display help\n");
    printf("\n");
    printf("Commands:\n");
-   printf("  master-key              Create or update the master key\n");
+   printf("  master-key <filename>     Create or update the master key\n");
    printf("  user <subcommand>       Manage a specific user, where <subcommand> can be\n");
    printf("                          - add  to add a new user\n");
    printf("                          - del  to remove an existing user\n");
@@ -198,6 +201,7 @@ usage(void)
 int
 main(int argc, char** argv)
 {
+   
    int c;
    char* username = NULL;
    char* password = NULL;
@@ -283,7 +287,7 @@ main(int argc, char** argv)
 
    if (parsed.cmd->action == ACTION_MASTER_KEY)
    {
-      if (master_key(password, generate_pwd, pwd_length))
+      if (master_key(password, generate_pwd, pwd_length, parsed.args[0]))
       {
          errx(1, "Cannot generate master key");
       }
@@ -328,8 +332,29 @@ error:
 }
 
 static int
-master_key(char* password, bool generate_pwd, int pwd_length)
-{
+master_key(char* password, bool generate_pwd, int pwd_length, char* filename)
+{  
+   /*
+   Write the filename to master_key.txt
+   */
+   FILE *filePointer;
+   if(filename==NULL){
+      filename = "";
+   }
+
+   filePointer = fopen("master_key.txt", "w");
+   if (filePointer == NULL)
+   {
+      warnx("Could not write to master key folder file");
+      goto error;
+   }
+   fwrite(filename, sizeof(char), strlen(filename), filePointer);
+   fclose(filePointer);
+
+   /*
+   End
+   */
+
    FILE* file = NULL;
    char buf[MISC_LENGTH];
    char* encoded = NULL;
@@ -371,10 +396,15 @@ master_key(char* password, bool generate_pwd, int pwd_length)
          goto error;
       }
    }
-
-   memset(&buf, 0, sizeof(buf));
-   snprintf(&buf[0], sizeof(buf), "%s/.pgagroal/master.key", pgagroal_get_home_directory());
-
+   if(filename==NULL){
+      memset(&buf, 0, sizeof(buf));
+      snprintf(&buf[0], sizeof(buf), "%s/.pgagroal/master.key", pgagroal_get_home_directory());
+   }
+   else{
+      memset(&buf, 0, sizeof(buf));
+      snprintf(&buf[0], sizeof(buf), "%s", filename);
+   }
+   
    if (pgagroal_exists(&buf[0]))
    {
       warnx("The file ~/.pgexporter/master.key already exists");
