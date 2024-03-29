@@ -3170,8 +3170,13 @@ get_salt(void* data, char** salt)
 }
 
 int
+<<<<<<< HEAD
 pgagroal_get_master_key(char** masterkey)
 {
+=======
+pgagroal_get_master_key(char** masterkey, char* foldername)
+{   
+>>>>>>> a9dc5ea (Added master key file location in pgagroal.conf)
    FILE* master_key_file = NULL;
    char buf[MISC_LENGTH];
    char line[MISC_LENGTH];
@@ -3179,9 +3184,58 @@ pgagroal_get_master_key(char** masterkey)
    int mk_length = 0;
    struct stat st = {0};
 
+<<<<<<< HEAD
    if (pgagroal_get_home_directory() == NULL)
    {
       goto error;
+=======
+   if(foldername == NULL){
+      if (pgagroal_get_home_directory() == NULL)
+      {
+         goto error;
+      }
+
+      memset(&buf, 0, sizeof(buf));
+      snprintf(&buf[0], sizeof(buf), "%s/.pgagroal", pgagroal_get_home_directory());
+
+      if (stat(&buf[0], &st) == -1)
+      {
+         goto error;
+      }
+      else
+      {
+         if (S_ISDIR(st.st_mode) && st.st_mode & S_IRWXU && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
+         {
+            /* Ok */
+         }
+         else
+         {
+            goto error;
+         }
+      }
+
+      memset(&buf, 0, sizeof(buf));
+      snprintf(&buf[0], sizeof(buf), "%s/.pgagroal/master.key", pgagroal_get_home_directory());
+
+      if (stat(&buf[0], &st) == -1)
+      {
+         goto error;
+      }
+      else
+      {
+         if (S_ISREG(st.st_mode) && st.st_mode & (S_IRUSR | S_IWUSR) && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
+         {
+            /* Ok */
+         }
+         else
+         {
+            goto error;
+         }
+      }
+      master_key_file = fopen(&buf[0], "r");
+
+
+>>>>>>> a9dc5ea (Added master key file location in pgagroal.conf)
    }
 
    memset(&buf, 0, sizeof(buf));
@@ -3193,6 +3247,7 @@ pgagroal_get_master_key(char** masterkey)
    }
    else
    {
+<<<<<<< HEAD
       if (S_ISDIR(st.st_mode) && st.st_mode & S_IRWXU && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
       {
          /* Ok */
@@ -3201,6 +3256,9 @@ pgagroal_get_master_key(char** masterkey)
       {
          goto error;
       }
+=======
+      master_key_file = fopen(foldername, "r");
+>>>>>>> a9dc5ea (Added master key file location in pgagroal.conf)
    }
 
    memset(&buf, 0, sizeof(buf));

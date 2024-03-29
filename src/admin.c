@@ -44,6 +44,8 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <err.h>
+#include <shmem.h>
+#include <configuration.h>
 
 #define DEFAULT_PASSWORD_LENGTH 64
 #define MIN_PASSWORD_LENGTH 8
@@ -61,9 +63,9 @@ static char CHARS[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L
                        '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '[', '{', ']', '}', '\\', '|', ';', ':',
                        '\'', '\"', ',', '<', '.', '>', '/', '?'};
 
-static int master_key(char* password, bool generate_pwd, int pwd_length, char* filename);
-static int add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
-static int update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
+static int master_key(char* password, bool generate_pwd, int pwd_length, char* foldername);
+static int add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length, char* foldername);
+static int update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length, char* foldername);
 static int remove_user(char* users_path, char* username);
 static int list_users(char* users_path);
 static char* generate_password(int pwd_length);
@@ -73,7 +75,7 @@ const struct pgagroal_command command_table[] =
    {
       .command = "master-key",
       .subcommand = "",
-      .accepted_argument_count = {0, 1},
+      .accepted_argument_count = {0},
       .deprecated = false,
       .action = ACTION_MASTER_KEY,
       .log_message = "<master-key>",
@@ -174,6 +176,8 @@ usage(void)
    printf("  pgagroal-admin [ -f FILE ] [ COMMAND ] \n");
    printf("\n");
    printf("Options:\n");
+   printf("  -c, --config CONFIG_FILE Set the path to the pgagroal.conf file\n");
+   printf("                           Default: %s\n", PGAGROAL_DEFAULT_CONF_FILE);
    printf("  -f, --file FILE         Set the path to a user file\n");
    printf("                          Defaults to %s\n", PGAGROAL_DEFAULT_USERS_FILE);
    printf("  -U, --user USER         Set the user name\n");
@@ -184,7 +188,11 @@ usage(void)
    printf("  -?, --help              Display help\n");
    printf("\n");
    printf("Commands:\n");
+<<<<<<< HEAD
    printf("  master-key <filename>   Create or update the master key\n");
+=======
+   printf("  master-key              Create or update the master key\n");
+>>>>>>> a9dc5ea (Added master key file location in pgagroal.conf)
    printf("  user <subcommand>       Manage a specific user, where <subcommand> can be\n");
    printf("                          - add  to add a new user\n");
    printf("                          - del  to remove an existing user\n");
@@ -197,7 +205,17 @@ usage(void)
 
 int
 main(int argc, char** argv)
+<<<<<<< HEAD
 {
+=======
+{ 
+   struct configuration* config = NULL;
+   char* configuration_path = NULL;
+   char* logfile = NULL;
+   bool remote_connection = false;
+   size_t size;
+   int ret;   
+>>>>>>> a9dc5ea (Added master key file location in pgagroal.conf)
    int c;
    char* username = NULL;
    char* password = NULL;
@@ -212,6 +230,7 @@ main(int argc, char** argv)
    {
       static struct option long_options[] =
       {
+         {"config", required_argument, 0, 'c'},
          {"user", required_argument, 0, 'U'},
          {"password", required_argument, 0, 'P'},
          {"file", required_argument, 0, 'f'},
@@ -221,7 +240,7 @@ main(int argc, char** argv)
          {"help", no_argument, 0, '?'}
       };
 
-      c = getopt_long(argc, argv, "gV?f:U:P:l:",
+      c = getopt_long(argc, argv, "gV?c:f:U:P:l:",
                       long_options, &option_index);
 
       if (c == -1)
@@ -231,6 +250,9 @@ main(int argc, char** argv)
 
       switch (c)
       {
+         case 'c':
+            configuration_path = optarg;
+            break;
          case 'U':
             username = optarg;
             break;
@@ -262,6 +284,59 @@ main(int argc, char** argv)
    {
       errx(1, "Using the root account is not allowed");
    }
+      
+   size = sizeof(struct configuration);
+   if (pgagroal_create_shared_memory(size, HUGEPAGE_OFF, &shmem))
+   {
+      errx(1, "Error creating shared memory");
+   }
+   pgagroal_init_configuration(shmem);
+
+   if (configuration_path != NULL)
+   {
+      ret = pgagroal_read_configuration(shmem, configuration_path, false);
+      if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
+      {
+         errx(1, "Configuration not found: <%s>", configuration_path);
+      }
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
+      {
+         errx(1, "Too many sections in the configuration file <%s>", configuration_path);
+      }
+
+      config = (struct configuration*)shmem;
+   }
+else
+   {
+      ret = pgagroal_read_configuration(shmem, PGAGROAL_DEFAULT_CONF_FILE, false);
+      if (ret != PGAGROAL_CONFIGURATION_STATUS_OK)
+      {
+         if (!remote_connection)
+         {
+            errx(1, "Host (-h) and port (-p) must be specified to connect to the remote host");
+         }
+      }
+      else
+      {
+         configuration_path = PGAGROAL_DEFAULT_CONF_FILE;
+
+         if (logfile)
+         {
+            config = (struct configuration*)shmem;
+
+            config->log_type = PGAGROAL_LOGGING_TYPE_FILE;
+            memset(&config->log_path[0], 0, MISC_LENGTH);
+            memcpy(&config->log_path[0], logfile, MIN(MISC_LENGTH - 1, strlen(logfile)));
+         }
+
+         if (pgagroal_start_logging())
+         {
+            errx(1, "Cannot start the logging subsystem");
+         }
+
+         config = (struct configuration*)shmem;
+      }
+   }
 
    if (!parse_command(argc, argv, optind, &parsed, command_table, command_count))
    {
@@ -283,21 +358,21 @@ main(int argc, char** argv)
 
    if (parsed.cmd->action == ACTION_MASTER_KEY)
    {
-      if (master_key(password, generate_pwd, pwd_length, parsed.args[0]))
+      if (master_key(password, generate_pwd, pwd_length, config->master_key_file_location))
       {
          errx(1, "Cannot generate master key");
       }
    }
    else if (parsed.cmd->action == ACTION_ADD_USER)
    {
-      if (add_user(file_path, username, password, generate_pwd, pwd_length))
+      if (add_user(file_path, username, password, generate_pwd, pwd_length, config->master_key_file_location))
       {
          errx(1, "Error for <user add>");
       }
    }
    else if (parsed.cmd->action == ACTION_UPDATE_USER)
    {
-      if (update_user(file_path, username, password, generate_pwd, pwd_length))
+      if (update_user(file_path, username, password, generate_pwd, pwd_length, config->master_key_file_location))
       {
          errx(1, "Error for <user edit>");
       }
@@ -328,8 +403,13 @@ error:
 }
 
 static int
+<<<<<<< HEAD
 master_key(char* password, bool generate_pwd, int pwd_length, char* filename)
 {
+=======
+master_key(char* password, bool generate_pwd, int pwd_length, char* foldername)
+{  
+>>>>>>> a9dc5ea (Added master key file location in pgagroal.conf)
    FILE* file = NULL;
    char buf[MISC_LENGTH];
    char* encoded = NULL;
@@ -352,6 +432,7 @@ master_key(char* password, bool generate_pwd, int pwd_length, char* filename)
 
          goto error;
       }
+<<<<<<< HEAD
 
       memset(&buf, 0, sizeof(buf));
       snprintf(&buf[0], sizeof(buf), "%s/.pgagroal", pgagroal_get_home_directory());
@@ -375,6 +456,23 @@ master_key(char* password, bool generate_pwd, int pwd_length, char* filename)
 
       memset(&buf, 0, sizeof(buf));
       snprintf(&buf[0], sizeof(buf), "%s/.pgagroal/master.key", pgagroal_get_home_directory());
+=======
+   }
+   if(foldername==NULL){
+      memset(&buf, 0, sizeof(buf));
+      snprintf(&buf[0], sizeof(buf), "%s/.pgagroal/master.key", pgagroal_get_home_directory());
+   }
+   else{
+      memset(&buf, 0, sizeof(buf));
+      snprintf(&buf[0], sizeof(buf), "%s", foldername);
+   }
+   
+   if (pgagroal_exists(&buf[0]))
+   {
+      warnx("The file ~/.pgexporter/master.key already exists");
+      goto error;
+   }
+>>>>>>> a9dc5ea (Added master key file location in pgagroal.conf)
 
       if (pgagroal_exists(&buf[0]))
       {
@@ -503,7 +601,7 @@ error:
 }
 
 static int
-add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length)
+add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length, char* foldername)
 {
    FILE* users_file = NULL;
    char line[MISC_LENGTH];
@@ -519,7 +617,7 @@ add_user(char* users_path, char* username, char* password, bool generate_pwd, in
    char* verify = NULL;
    bool do_free = true;
 
-   if (pgagroal_get_master_key(&master_key))
+   if (pgagroal_get_master_key(&master_key, foldername))
    {
       warnx("Invalid master key");
       goto error;
@@ -674,7 +772,7 @@ error:
 }
 
 static int
-update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length)
+update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length, char* foldername)
 {
    FILE* users_file = NULL;
    FILE* users_file_tmp = NULL;
@@ -695,7 +793,7 @@ update_user(char* users_path, char* username, char* password, bool generate_pwd,
 
    memset(&tmpfilename, 0, sizeof(tmpfilename));
 
-   if (pgagroal_get_master_key(&master_key))
+   if (pgagroal_get_master_key(&master_key, foldername))
    {
       warnx("Invalid master key");
       goto error;
