@@ -129,16 +129,16 @@ failover_script
   The failover script
 
 tls
-  Enable Transport Layer Security (TLS). Default is false
+  Enable Transport Layer Security (TLS). Default is false. Changes require restart in the server section.
 
 tls_cert_file
-  Certificate file for TLS
+  Certificate file for TLS. Changes require restart in the server section.
 
 tls_key_file
-  Private key file for TLS
+  Private key file for TLS. Changes require restart in the server section.
 
 tls_ca_file
-  Certificate Authority (CA) file for TLS
+  Certificate Authority (CA) file for TLS. Changes require restart in the server section.
 
 libev
   The libev backend to use. Valid options: auto, select, poll, epoll, iouring, devpoll and port. Default is auto

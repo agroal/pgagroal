@@ -686,6 +686,7 @@ main(int argc, char** argv)
    if (!parse_command(argc, argv, optind, &parsed, command_table, command_count))
    {
       usage();
+      exit_code = 1;
       goto done;
    }
    pgagroal_log_trace((char*)parsed.cmd->log_message, parsed.args[0], parsed.args[1]);

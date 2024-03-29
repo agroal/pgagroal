@@ -453,7 +453,7 @@ master_key(char* password, bool generate_pwd, int pwd_length, char* foldername)
    
    if (pgagroal_exists(&buf[0]))
    {
-      warnx("The file ~/.pgexporter/master.key already exists");
+      warnx("The file %s already exists, cannot continue", &buf[0]);
       goto error;
    }
 
