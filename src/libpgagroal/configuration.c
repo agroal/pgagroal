@@ -1031,14 +1031,16 @@ pgagroal_read_users_configuration(void* shm, char* filename)
       goto error;
    }
 
-   if (pgagroal_get_master_key(&master_key))
+   config = (struct configuration*)shm;
+
+
+   if (pgagroal_get_master_key(&master_key, config->master_key_file_location))
    {
       status = PGAGROAL_CONFIGURATION_STATUS_KO;
       goto error;
    }
 
    index = 0;
-   config = (struct configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1152,15 +1154,15 @@ pgagroal_read_frontend_users_configuration(void* shm, char* filename)
       status = PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND;
       goto error;
    }
+   config = (struct configuration*)shm;
 
-   if (pgagroal_get_master_key(&master_key))
+   if (pgagroal_get_master_key(&master_key, config->master_key_file_location))
    {
       status = PGAGROAL_CONFIGURATION_STATUS_KO;
       goto error;
    }
 
    index = 0;
-   config = (struct configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1299,15 +1301,15 @@ pgagroal_read_admins_configuration(void* shm, char* filename)
       status = PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND;
       goto error;
    }
+   config = (struct configuration*)shm;
 
-   if (pgagroal_get_master_key(&master_key))
+   if (pgagroal_get_master_key(&master_key, config->master_key_file_location))
    {
       status = PGAGROAL_CONFIGURATION_STATUS_KO;
       goto error;
    }
 
    index = 0;
-   config = (struct configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -1427,15 +1429,15 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
       status = PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND;
       goto error;
    }
+   config = (struct configuration*)shm;
 
-   if (pgagroal_get_master_key(&master_key))
+   if (pgagroal_get_master_key(&master_key, config->master_key_file_location))
    {
       status = PGAGROAL_CONFIGURATION_STATUS_KO;
       goto error;
    }
 
    index = 0;
-   config = (struct configuration*)shm;
 
    while (fgets(line, sizeof(line), file))
    {
@@ -4189,6 +4191,15 @@ pgagroal_apply_main_configuration(struct configuration* config,
          max = MISC_LENGTH - 1;
       }
       memcpy(config->unix_socket_dir, value, max);
+   }
+   else if (key_in_section("master_key_file_location", section, key, true, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(config->master_key_file_location, value, max);
    }
    else if (key_in_section("libev", section, key, true, &unknown))
    {

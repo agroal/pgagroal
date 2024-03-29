@@ -3170,40 +3170,8 @@ get_salt(void* data, char** salt)
 }
 
 int
-pgagroal_get_master_key(char** masterkey)
-{
-   /*
-   Read the master key location from the master_key.txt
-   */
-   char *buffer;
-   int fileLength;
-
-   FILE *filePointer;
-   filePointer = fopen("master_key.txt", "r");
-   if (filePointer == NULL) 
-   {
-      printf("Error opening file for reading!\n");
-      return 1;
-   }
-
-   fseek(filePointer, 0, SEEK_END);
-   fileLength = ftell(filePointer);
-   fseek(filePointer, 0, SEEK_SET);
-
-   buffer = (char *)malloc(fileLength + 1);
-   if (buffer == NULL) 
-   {
-      printf("Memory allocation failed!\n");
-      fclose(filePointer);
-      return 1;
-   }
-
-   fread(buffer, 1, fileLength, filePointer);
-
-   buffer[fileLength] = '\0';
-
-   fclose(filePointer);
-   
+pgagroal_get_master_key(char** masterkey, char* foldername)
+{   
    FILE* master_key_file = NULL;
    char buf[MISC_LENGTH];
    char line[MISC_LENGTH];
@@ -3211,7 +3179,7 @@ pgagroal_get_master_key(char** masterkey)
    int mk_length = 0;
    struct stat st = {0};
 
-   if(fileLength == 0){
+   if(foldername == NULL){
       if (pgagroal_get_home_directory() == NULL)
       {
          goto error;
@@ -3261,9 +3229,7 @@ pgagroal_get_master_key(char** masterkey)
 
    else
    {
-      master_key_file = fopen(&buffer[0], "r");
-      free(buffer);
-
+      master_key_file = fopen(foldername, "r");
    }
 
    
