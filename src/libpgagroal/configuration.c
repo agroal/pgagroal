@@ -2400,7 +2400,7 @@ is_same_server(struct server* s1, struct server* s2)
 /**
  * Checks if TLS configurations are same.
  * @return true if the TLS configurations are same
-*/
+ */
 static bool
 is_same_tls(struct server* src, struct server* dst)
 {
@@ -2471,7 +2471,7 @@ restart_int(char* name, int e, int n)
 /**
  * Utility function prints a line in the log when a restart is required.
  * @return 0 when parameter values are same, 1 when a restart required.
-*/
+ */
 static int
 restart_bool(char* name, bool e, bool n)
 {
@@ -2563,7 +2563,7 @@ restart_server(struct server* src, struct server* dst)
       snprintf(restart_message, sizeof(restart_message), "Server <%s>, parameter <port>", src->name);
       restart_int(restart_message, dst->port, src->port);
       return 1;
-   } 
+   }
    else if (!is_same_tls(src, dst))
    {
       snprintf(restart_message, sizeof(restart_message), "Server <%s>, parameter <tls>", src->name);
