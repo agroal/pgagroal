@@ -3170,7 +3170,7 @@ get_salt(void* data, char** salt)
 }
 
 int
-pgagroal_get_master_key(char** masterkey)
+pgagroal_get_master_key(char** masterkey, char* filename)
 {
    FILE* master_key_file = NULL;
    char buf[MISC_LENGTH];
@@ -3179,53 +3179,62 @@ pgagroal_get_master_key(char** masterkey)
    int mk_length = 0;
    struct stat st = {0};
 
-   if (pgagroal_get_home_directory() == NULL)
+   if (filename == NULL)
    {
-      goto error;
-   }
-
-   memset(&buf, 0, sizeof(buf));
-   snprintf(&buf[0], sizeof(buf), "%s/.pgagroal", pgagroal_get_home_directory());
-
-   if (stat(&buf[0], &st) == -1)
-   {
-      goto error;
-   }
-   else
-   {
-      if (S_ISDIR(st.st_mode) && st.st_mode & S_IRWXU && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
+      if (pgagroal_get_home_directory() == NULL)
       {
-         /* Ok */
+         goto home_directory_error;
+      }
+
+      memset(&buf, 0, sizeof(buf));
+      snprintf(&buf[0], sizeof(buf), "%s/.pgagroal", pgagroal_get_home_directory());
+
+      if (stat(&buf[0], &st) == -1)
+      {
+         goto pgagroal_directory_error;
       }
       else
       {
-         goto error;
+         if (S_ISDIR(st.st_mode) && st.st_mode & S_IRWXU && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
+         {
+            /* Ok */
+         }
+         else
+         {
+            goto file_not_found;
+         }
       }
-   }
 
-   memset(&buf, 0, sizeof(buf));
-   snprintf(&buf[0], sizeof(buf), "%s/.pgagroal/master.key", pgagroal_get_home_directory());
+      memset(&buf, 0, sizeof(buf));
+      snprintf(&buf[0], sizeof(buf), "%s/.pgagroal/master.key", pgagroal_get_home_directory());
 
-   if (stat(&buf[0], &st) == -1)
-   {
-      goto error;
-   }
-   else
-   {
-      if (S_ISREG(st.st_mode) && st.st_mode & (S_IRUSR | S_IWUSR) && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
+      if (stat(&buf[0], &st) == -1)
       {
-         /* Ok */
+         goto file_not_found;
       }
       else
       {
-         goto error;
+         if (S_ISREG(st.st_mode) && st.st_mode & (S_IRUSR | S_IWUSR) && !(st.st_mode & S_IRWXG) && !(st.st_mode & S_IRWXO))
+         {
+            /* Ok */
+         }
+         else
+         {
+            goto error;
+         }
       }
+
+      master_key_file = fopen(&buf[0], "r");
    }
 
-   master_key_file = fopen(&buf[0], "r");
+   else
+   {
+      master_key_file = fopen(filename, "r");
+   }
+
    if (master_key_file == NULL)
    {
-      goto error;
+      goto file_not_found;
    }
 
    memset(&line, 0, sizeof(line));
@@ -3251,7 +3260,35 @@ error:
       fclose(master_key_file);
    }
 
-   return 1;
+   return INVALID_MASTERKEY_ERROR;
+
+file_not_found:
+
+   free(mk);
+   if (master_key_file)
+   {
+      fclose(master_key_file);
+   }
+
+   return FILE_NOT_FOUND_ERROR;
+
+pgagroal_directory_error:
+   free(mk);
+   if (master_key_file)
+   {
+      fclose(master_key_file);
+   }
+
+   return PGAGROAL_DIRECTORY_ERROR;
+
+home_directory_error:
+   free(mk);
+   if (master_key_file)
+   {
+      fclose(master_key_file);
+   }
+
+   return HOME_DIRECTORY_ERROR;
 }
 
 int
