@@ -120,10 +120,17 @@ pgagroal_bind(const char* hostname, int port, int** fds, int* length)
          }
       }
 
+      freeifaddrs(ifaddr);
+
+      if (star_length == 0)
+      {
+         // cannot bind to anything!
+         return 1;
+      }
+
       *fds = star_fds;
       *length = star_length;
 
-      freeifaddrs(ifaddr);
       return 0;
    }
 
