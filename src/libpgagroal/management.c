@@ -522,10 +522,12 @@ pgagroal_management_get_password(SSL* ssl, int fd, char* username, char* pass)
 
    memcpy(pass, password, *password_length);
 
+   free(password_length);
    return 0;
 
 error:
 
+   free(password_length);
    return 1;
 }
 

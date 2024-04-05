@@ -63,8 +63,9 @@ static void accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int rev
 static void shutdown_cb(struct ev_loop* loop, ev_signal* w, int revents);
 static bool accept_fatal(int error);
 static int connect_pgagroal(struct vault_configuration* config, char* username, char* password, SSL* s_ssl, int* client_socket);
-static void route_users(int client_fd, char* username, char* response, size_t response_size);
-static void route_not_found(char* response, size_t response_size);
+static void route_users(int client_fd, char* username, char** response);
+static void route_not_found(char** response);
+static void route_found(char** response, char* password);
 static int router(int client_fd, SSL* ssl);
 
 static volatile int keep_running = 1;
@@ -82,13 +83,14 @@ router(int client_fd, SSL* ssl)
    ssize_t bytes_read;
    ssize_t bytes_write;
    char* body = NULL;
+   char* response = NULL;
    char method[8];
    char path[128];
    char buffer[HTTP_BUFFER_SIZE];
    char contents[HTTP_BUFFER_SIZE];
-   char response[HTTP_BUFFER_SIZE];
-   char format_string[HTTP_BUFFER_SIZE];
    char username[MAX_USERNAME_LENGTH + 1]; // Assuming username is less than 128 characters
+
+   memset(&response, 0, sizeof(response));
 
    // Read the request
    bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
@@ -110,19 +112,18 @@ router(int client_fd, SSL* ssl)
       if (strncmp(path, "/users/", 7) == 0 && strcmp(method, "GET") == 0) // Only one '/'
       {
          // Extract the username from the path
-         snprintf(format_string, sizeof(format_string), "/users/%%%ds", MAX_USERNAME_LENGTH);
          sscanf(path, "/users/%128s", username);
          // Call the appropriate handler function with the username
-         route_users(client_fd, username, response, sizeof(response));
+         route_users(client_fd, username, &response);
       }
       else
       {
-         route_not_found(response, sizeof(response));
+         route_not_found(&response);
       }
    }
    else
    {
-      route_not_found(response, sizeof(response));
+      route_not_found(&response);
    }
 
    // Send the response
@@ -133,11 +134,13 @@ router(int client_fd, SSL* ssl)
       exit_code = 1;
    }
 
+   free(response);
+
    return exit_code;
 }
 
 static void
-route_users(int client_fd, char* username, char* response, size_t response_size)
+route_users(int client_fd, char* username, char** response)
 {
    struct vault_configuration* config = (struct vault_configuration*)shmem;
    int client_pgagroal_fd = -1;
@@ -148,7 +151,7 @@ route_users(int client_fd, char* username, char* response, size_t response_size)
    {
       pgagroal_log_error("pgagroal-vault: Couldn't connect to %s:%d", config->vault_server.server.host, config->vault_server.server.port);
       // Send Error Response
-      route_not_found(response, response_size);
+      route_not_found(response);
       return;
    }
 
@@ -159,30 +162,42 @@ route_users(int client_fd, char* username, char* response, size_t response_size)
    {
       pgagroal_log_error("pgagroal-vault: Couldn't get password from the management");
       // Send Error Response
-      route_not_found(response, response_size);
+      route_not_found(response);
       return;
    }
 
    if (strlen(password) == 0) // user not found
    {
       pgagroal_log_warn("pgagroal-vault: Couldn't find the user: %s", username);
-      route_not_found(response, response_size);
+      route_not_found(response);
    }
 
    else
    {
-      snprintf(response, response_size, "HTTP/1.1 200 OK\r\n"
-               "Content-Type: text/plain\r\n"
-               "\r\n\r\n"
-               "%s\r\n",
-               password);
+      route_found(response, password);
    }
 }
 
 static void
-route_not_found(char* response, size_t response_size)
+route_not_found(char** response)
 {
-   snprintf(response, response_size, "HTTP/1.1 404 Not Found\r\n\r\n");
+   char* tmp_response = NULL;
+   memset(&tmp_response, 0, sizeof(tmp_response));
+   tmp_response = pgagroal_append(tmp_response, "HTTP/1.1 404 Not Found\r\n\r\n");
+   *response = tmp_response;
+}
+
+static void
+route_found(char** response, char* password)
+{
+   char* tmp_response = NULL;
+   memset(&tmp_response, 0, sizeof(tmp_response));
+   tmp_response = pgagroal_append(tmp_response, "HTTP/1.1 200 OK\r\n");
+   tmp_response = pgagroal_append(tmp_response, "Content-Type: text/plain\r\n");
+   tmp_response = pgagroal_append(tmp_response, "\r\n\r\n");
+   tmp_response = pgagroal_append(tmp_response, password);
+   tmp_response = pgagroal_append(tmp_response, "\r\n");
+   *response = tmp_response;
 }
 
 static int
