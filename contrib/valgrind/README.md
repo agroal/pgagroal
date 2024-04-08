@@ -8,9 +8,15 @@ The [Valgrind](https://valgrind.org/) tool suite provides a number of debugging 
 valgrind --leak-check=full --show-leak-kinds=all --log-file=%p.log --trace-children=yes --track-origins=yes --read-var-info=yes ./pgagroal -c pgagroal.conf -a pgagroal_hba.conf
 ```
 
-# Generate valgrind report with suppressed rules
+# Use suppressions rules
 
 ``` bash
 valgrind --suppressions=../../contrib/valgrind/pgagroal.supp --leak-check=full --show-leak-kinds=all --log-file=%p.log --trace-children=yes --track-origins=yes --read-var-info=yes ./pgagroal -c pgagroal.conf -a pgagroal_hba.conf
+```
+
+# Generate suppressions rules
+
+``` bash
+valgrind --gen-suppressions=all --leak-check=full --show-leak-kinds=all --log-file=%p.log --trace-children=yes --track-origins=yes --read-var-info=yes ./pgagroal -c pgagroal.conf -a pgagroal_hba.conf
 ```
 
