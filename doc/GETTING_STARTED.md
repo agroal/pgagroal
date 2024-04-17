@@ -223,6 +223,7 @@ Options:
   -P, --password PASSWORD Set the password for the user
   -g, --generate          Generate a password
   -l, --length            Password length
+  -F, --format  text|json Set the output format
   -V, --version           Display version information
   -?, --help              Display help
 
