@@ -1,6 +1,6 @@
 # pgagroal
 
-`pgagroal` is a high-performance protocol-native connection pool for [PostgreSQL](https://www.postgresql.org).
+[**pgagroal**](https://github.com/agroal/pgagroal) is a high-performance protocol-native connection pool for [PostgreSQL](https://www.postgresql.org).
 
 Pronounced: p-g-a-gro-al, named after [A](https://www.visitportugal.com/en/content/praia-fluvial-do-agroal)[gro](https://www.google.com/maps/place/Agroal,+Portugal/@39.6775431,-8.4486056,14z/)[al](https://www.infatima.pt/en/nearby/sun-sea/fluvial-beaches/agroal/) in Portugal.
 
@@ -23,15 +23,15 @@ Pronounced: p-g-a-gro-al, named after [A](https://www.visitportugal.com/en/conte
 * Daemon mode
 * User vault
 
-See [Getting Started](./doc/GETTING_STARTED.md) on how to get started with `pgagroal`.
+See [Getting Started](./doc/GETTING_STARTED.md) on how to get started with [**pgagroal**](https://github.com/agroal/pgagroal).
 
-See [Configuration](./doc/CONFIGURATION.md) on how to configure `pgagroal`.
+See [Configuration](./doc/CONFIGURATION.md) on how to configure [**pgagroal**](https://github.com/agroal/pgagroal).
 
 See [Performance](./doc/PERFORMANCE.md) for a performance run.
 
 ## Overview
 
-`pgagroal` makes use of
+[**pgagroal**](https://github.com/agroal/pgagroal) makes use of
 
 * Process model
 * Shared memory model across processes
@@ -40,10 +40,10 @@ See [Performance](./doc/PERFORMANCE.md) for a performance run.
 * The [PostgreSQL](https://www.postgresql.org) native protocol
   [v3](https://www.postgresql.org/docs/11/protocol-message-formats.html) for its communication
 
-`pgagroal` will work with any [PostgreSQL](https://www.postgresql.org) compliant driver, for example
+[**pgagroal**](https://github.com/agroal/pgagroal) will work with any [PostgreSQL](https://www.postgresql.org) compliant driver, for example
 [pgjdbc](https://jdbc.postgresql.org/), [Npgsql](https://www.npgsql.org/) and [pq](https://github.com/lib/pq).
 
-See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
+See [Architecture](./doc/ARCHITECTURE.md) for the architecture of [**pgagroal**](https://github.com/agroal/pgagroal).
 
 ## Tested platforms
 
@@ -59,7 +59,7 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of `pgagroal`.
 
 ## Compiling the source
 
-`pgagroal` requires
+[**pgagroal**](https://github.com/agroal/pgagroal) requires
 
 * [gcc 8+](https://gcc.gnu.org) (C17)
 * [cmake](https://cmake.org)
@@ -78,10 +78,10 @@ can be installed via `dnf(8)` as follows:
 dnf install git gcc cmake make    \
             libev libev-devel     \
             openssl openssl-devel \
-	    systemd systemd-devel \
-	    python3-docutils      \
-	    libatomic             \
-	    cjson cjson-devel
+            systemd systemd-devel \
+            python3-docutils      \
+            libatomic             \
+            cjson cjson-devel
 ```
 
 Please note that, on Rocky Linux, in order to install the `python3-docutils`
@@ -96,7 +96,7 @@ Alternatively to GCC, [clang 8+](https://clang.llvm.org/) can be used.
 
 ### Release build
 
-The following commands will install `pgagroal` in the `/usr/local` hierarchy
+The following commands will install [**pgagroal**](https://github.com/agroal/pgagroal) in the `/usr/local` hierarchy
 and run the default configuration.
 
 ```sh
@@ -110,11 +110,11 @@ sudo make install
 /usr/local/bin/pgagroal -c /usr/local/etc/pgagroal/pgagroal.conf -a /usr/local/etc/pgagroal/pgagroal_hba.conf
 ```
 
-See [RPM](./doc/RPM.md) for how to build a RPM of `pgagroal`.
+See [RPM](./doc/RPM.md) for how to build a RPM of [**pgagroal**](https://github.com/agroal/pgagroal).
 
 ### Debug build
 
-The following commands will create a `DEBUG` version of `pgagroal`.
+The following commands will create a `DEBUG` version of [**pgagroal**](https://github.com/agroal/pgagroal).
 
 ```sh
 git clone https://github.com/agroal/pgagroal.git
@@ -132,7 +132,7 @@ Remember to set the `log_level` configuration option to `debug5`.
 
 ## Contributing
 
-Contributions to `pgagroal` are managed on [GitHub.com](https://github.com/agroal/pgagroal/)
+Contributions to [**pgagroal**](https://github.com/agroal/pgagroal) are managed on [GitHub.com](https://github.com/agroal/pgagroal/)
 
 * [Ask a question](https://github.com/agroal/pgagroal/discussions)
 * [Raise an issue](https://github.com/agroal/pgagroal/issues)

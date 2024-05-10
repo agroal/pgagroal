@@ -1,40 +1,22 @@
-# pgagroal configuration
+\newpage
+
+# Configuration
 
 The configuration is loaded from either the path specified by the `-c` flag or `/etc/pgagroal/pgagroal.conf`.
 
-The configuration of [**pgagroal**](https://github.com/agroal/pgagroal) is split into sections using the `[` and `]` characters.
+The configuration of [**pgagroal**][pgagroal] is split into sections using the `[` and `]` characters.
 
-The main section, called `[pgagroal]`, is where you configure the overall properties
-of the connection pool.
+The main section, called `[pgagroal]`, is where you configure the overall properties of [**pgagroal**][pgagroal].
 
-The other sections configure each one server. There can be no more than `64` server sections, therefore
-no more than `64` servers configured as backends.
-Server sections don't have any requirements to their naming so you can give them
-meaningful names like `[primary]` for the primary [PostgreSQL](https://www.postgresql.org)
-instance.
+Other sections doesn't have any requirements to their naming so you can give them meaningful names like `[primary]` for the primary [PostgreSQL][postgresql] instance.
 
-In any case, it is not possible to have duplicated sections, that means section names must be unique within
-the configuration file.
+All properties are in the format `key = value`.
 
-All properties within a section are in the format `key = value`.
+The characters `#` and `;` can be used for comments; must be the first character on the line.
 
-The characters `#` and `;` can be used for comments. A line is totally ignored if the
-very first non-space character is a comment one, but it is possible to put a comment at the end of a line.
 The `Bool` data type supports the following values: `on`, `yes`, `1`, `true`, `off`, `no`, `0` and `false`.
 
-Each value can be quoted by means of `"` or `'`. Quoted strings must begin and end with the very same quoting character. It is possible to nest quotes.
-As an example of configuration snippet including quoting and comments:
-
-```
-# This line is ignored since it starts with '#'
-# and so is this one
-log_line_prefix = "PGAGROAL #%Y-%m-%d-%H:%M:%S" # quoted because it contains spaces
-log_type= console#log to stdout
-pipeline = 'performance' # no need to quote since it does not contain any spaces
-
-```
-
-See a more complete [sample](./etc/pgagroal.conf) configuration for running [**pgagroal**](https://github.com/agroal/pgagroal) on `localhost`.
+See a [sample][sample] configuration for running [**pgagroal**][pgagroal] on `localhost`.
 
 ## [pgagroal]
 
@@ -97,7 +79,8 @@ __Danger zone__
 | disconnect_client | 0 | Int | No | Disconnect clients that have been idle for more than the specified seconds. This setting __DOES NOT__ take long running transactions into account  |
 | disconnect_client_force | off | Bool | No | Disconnect clients that have been active for more than the specified seconds. This setting __DOES NOT__ take long running transactions into account  |
 
-## Server section
+
+### Server section
 
 Each section with a name different from [**pgagroal**](https://github.com/agroal/pgagroal) will be treated as an host section.
 There can be up to `64` host sections, each with an unique name and different combination of `host` and `port` settings, otherwise the pooler will complain about duplicated server configuration.
@@ -114,7 +97,7 @@ There can be up to `64` host sections, each with an unique name and different co
 
 Note, that if `host` starts with a `/` it represents a path and [**pgagroal**](https://github.com/agroal/pgagroal) will connect using a Unix Domain Socket.
 
-# pgagroal_hba configuration
+## pgagroal_hba configuration
 
 The `pgagroal_hba` configuration controls access to [**pgagroal**](https://github.com/agroal/pgagroal) through host-based authentication.
 
@@ -141,7 +124,7 @@ Remote management users needs to have their database set to `admin` in order for
 
 There could be up to `64` HBA entries in the configuration file.
 
-# pgagroal_databases configuration
+## pgagroal_databases configuration
 
 The `pgagroal_databases` configuration defines limits for a database or a user or both. The limits are the number
 of connections from [**pgagroal**](https://github.com/agroal/pgagroal) to PostgreSQL for each entry.
@@ -177,16 +160,13 @@ The system will find the best match limit entry for a given `DATABASE`-`USER` pa
 2. If there is no exact match, use the entry with a `USER` match and `DATABASE` set to `all`.
 3. If Rule 2 does not apply, use the entry with a `DATABASE` match and `USER` set to `all`.
 
-# pgagroal_users configuration
+## pgagroal_users configuration
 
-The `pgagroal_users` configuration defines the users known to the system. This file is created and managed through
-the `pgagroal-admin` tool.
+The `pgagroal_users` configuration defines the users known to the system. This file is created and managed through the `pgagroal-admin` tool.
 
 The configuration is loaded from either the path specified by the `-u` flag or `/etc/pgagroal/pgagroal_users.conf`.
 
-There can be up to `64` users known to [**pgagroal**](https://github.com/agroal/pgagroal).
-
-# pgagroal_frontend_users configuration
+## pgagroal_frontend_users configuration
 
 The `pgagroal_frontend_users` configuration defines the passwords for the users connecting to pgagroal.
 This allows the setup to use different passwords for the [**pgagroal**](https://github.com/agroal/pgagroal) to PostgreSQL authentication.
@@ -198,18 +178,15 @@ Frontend users (`-F`) requires a user vault (`-u`) to be defined.
 
 The configuration is loaded from either the path specified by the `-F` flag or `/etc/pgagroal/pgagroal_frontend_users.conf`.
 
-# pgagroal_admins configuration
+## pgagroal_admins configuration
 
-The `pgagroal_admins` configuration defines the administrators known to the system. This file is created and managed through
-the `pgagroal-admin` tool.
+The `pgagroal_admins` configuration defines the administrators known to the system. This file is created and managed through the `pgagroal-admin` tool.
 
 The configuration is loaded from either the path specified by the `-A` flag or `/etc/pgagroal/pgagroal_admins.conf`.
 
-If pgagroal has both Transport Layer Security (TLS) and `management` enabled then `pgagroal-cli` can
-connect with TLS using the files `~/.pgagroal/pgagroal.key` (must be 0600 permission),
-`~/.pgagroal/pgagroal.crt` and `~/.pgagroal/root.crt`.
+If pgagroal has both Transport Layer Security (TLS) and `management` enabled then `pgagroal-cli` can connect with TLS using the files `~/.pgagroal/pgagroal.key` (must be 0600 permission), `~/.pgagroal/pgagroal.crt` and `~/.pgagroal/root.crt`.
 
-# pgagroal_superuser configuration
+## pgagroal_superuser configuration
 
 The `pgagroal_superuser` configuration defines the superuser known to the system. This file is created and managed through
 the `pgagroal-admin` tool. It may only have one user defined.

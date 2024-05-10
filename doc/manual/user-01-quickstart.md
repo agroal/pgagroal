@@ -1,9 +1,10 @@
-# Getting started with pgagroal
+\newpage
 
-First of all, make sure that [**pgagroal**](https://github.com/agroal/pgagroal) is installed and in your path by
-using `pgagroal -?`. You should see
+# Quick start
 
-```
+Make sure that [**pgagroal**][pgagroal] is installed and in your path by using `pgagroal -?`. You should see
+
+``` console
 pgagroal 1.7.0
   High-performance connection pool for PostgreSQL
 
@@ -23,14 +24,13 @@ Options:
   -?, --help                         Display help
 ```
 
-If you don't have [**pgagroal**](https://github.com/agroal/pgagroal) in your path see [README](../README.md) on how to
-compile and install [**pgagroal**](https://github.com/agroal/pgagroal) in your system.
+If you encounter any issues following the above steps, you can refer to the **Installation** chapter to see how to install or compile pgagroal on your system.
 
 ## Configuration
 
 Lets create a simple configuration file called `pgagroal.conf` with the content
 
-```
+``` ini
 [pgagroal]
 host = *
 port = 2345
@@ -49,16 +49,10 @@ host = localhost
 port = 5432
 ```
 
-In our main section called `[pgagroal]` we setup [**pgagroal**](https://github.com/agroal/pgagroal) to listen on all
-network addresses on port 2345. Logging will be performed at `info` level and
-put in a file called `/tmp/pgagroal.log`. We want a maximum of 100 connections
-that are being closed if they have been idle for 10 minutes, and we also specify that
-we don't want any connection validation to be performed. Last we specify the
-location of the `unix_socket_dir` used for management operations.
+In our main section called `[pgagroal]` we setup [**pgagroal**][pgagroal] to listen on all network addresses. Logging will be performed at `info` level and put in a file called `/tmp/pgagroal.log`.
+We will use 100 connections in the pool with a idle timeout of 10 minutes. Validation is off. Last we specify the location of the `unix_socket_dir` used for management operations and the path for the PostgreSQL command line tools.
 
-Next we create a section called `[primary]` which has the information about our
-[PostgreSQL](https://www.postgresql.org) instance. In this case it is running
-on `localhost` on port `5432`.
+Next we create a section called `[primary]` which has the information about our [PostgreSQL][postgresql] instance. In this case it is running on `localhost` on port `5432`.
 
 Now we need a host based authentication (HBA) file. Create one called `pgagroal_hba.conf`
 with the content
@@ -75,55 +69,27 @@ for all databases and all user names.
 
 We are now ready to run [**pgagroal**](https://github.com/agroal/pgagroal).
 
-See [Configuration](./CONFIGURATION.md) for all configuration options.
+See the **Configuration** charpter for all configuration options.
 
 ## Running
 
-We will run [**pgagroal**](https://github.com/agroal/pgagroal) using the command
+We will run [**pgagroal**][pgagroal] using the command
 
-```
+``` sh
 pgagroal -c pgagroal.conf -a pgagroal_hba.conf
 ```
 
-If this doesn't give an error, then we are ready to connect.
+If this doesn't give an error, then we are ready to do backups.
 
-We will assume that we have a user called `test` with the password `test` in our
-[PostgreSQL](https://www.postgresql.org) instance. See their
-[documentation](https://www.postgresql.org/docs/current/index.html) on how to setup
-[PostgreSQL](https://www.postgresql.org), [add a user](https://www.postgresql.org/docs/current/app-createuser.html)
-and [add a database](https://www.postgresql.org/docs/current/app-createdb.html).
-
-We will connect to [**pgagroal**](https://github.com/agroal/pgagroal) using the [psql](https://www.postgresql.org/docs/current/app-psql.html)
-application.
-
-```
-psql -h localhost -p 2345 -U test test
-```
-
-That should give you a password prompt where `test` should be typed in. You are now connected
-to [PostgreSQL](https://www.postgresql.org) through [**pgagroal**](https://github.com/agroal/pgagroal).
-
-Type `\q` to quit [psql](https://www.postgresql.org/docs/current/app-psql.html) and [**pgagroal**](https://github.com/agroal/pgagroal)
-will now put the connection that you used into its pool.
-
-If you type the above `psql` command again [**pgagroal**](https://github.com/agroal/pgagroal) will reuse the existing connection and
-thereby lower the overhead of getting a connection to [PostgreSQL](https://www.postgresql.org).
-
-Now you are ready to point your applications to use [**pgagroal**](https://github.com/agroal/pgagroal) instead of going directly to
-[PostgreSQL](https://www.postgresql.org). [**pgagroal**](https://github.com/agroal/pgagroal) will work with any
-[PostgreSQL](https://www.postgresql.org) compliant driver, for example [pgjdbc](https://jdbc.postgresql.org/),
-[Npgsql](https://www.npgsql.org/) and [pq](https://github.com/lib/pq).
-
-[**pgagroal**](https://github.com/agroal/pgagroal) is stopped by pressing Ctrl-C (`^C`) in the console where you started it, or by sending
-the `SIGTERM` signal to the process using `kill <pid>`.
+[**pgagroal**][pgagroal] is stopped by pressing Ctrl-C (`^C`) in the console where you started it, or by sending the `SIGTERM` signal to the process using `kill <pid>`.
 
 ## Run-time administration
 
-[**pgagroal**](https://github.com/agroal/pgagroal) has a run-time administration tool called `pgagroal-cli`.
+[**pgagroal**][pgagroal] has a run-time administration tool called `pgagroal-cli`.
 
 You can see the commands it supports by using `pgagroal-cli -?` which will give
 
-```
+``` console
 pgagroal-cli 1.7.0
   Command line utility for pgagroal
 
@@ -205,12 +171,11 @@ connect with TLS using the files `~/.pgagroal/pgagroal.key` (must be 0600 permis
 
 ## Administration
 
-[**pgagroal**](https://github.com/agroal/pgagroal) has an administration tool called `pgagroal-admin`, which is used to control user
-registration with [**pgagroal**](https://github.com/agroal/pgagroal).
+[**pgagroal**][pgagroal] has an administration tool called `pgagroal-admin`, which is used to control user registration with [**pgagroal**][pgagroal].
 
 You can see the commands it supports by using `pgagroal-admin -?` which will give
 
-```
+``` console
 pgagroal-admin 1.7.0
  Administration utility for pgagroal
 
@@ -241,7 +206,7 @@ Report bugs: https://github.com/agroal/pgagroal/issues
 
 In order to set the master key for all users you can use
 
-```
+``` sh
 pgagroal-admin -g master-key
 ```
 
@@ -249,7 +214,7 @@ The master key must be at least 8 characters.
 
 Then use the other commands to add, update, remove or list the current user names, f.ex.
 
-```
+``` sh
 pgagroal-admin -f pgagroal_users.conf user add
 ```
 
@@ -265,34 +230,4 @@ Next steps in improving pgagroal's configuration could be
 * Enable Transport Layer Security v1.2+ (TLS)
 * Deploy Grafana dashboard
 
-See [Configuration](./CONFIGURATION.md) for more information on these subjects.
-
-## Tutorials
-
-There are a few short tutorials available to help you better understand and configure [**pgagroal**](https://github.com/agroal/pgagroal):
-- [Installing pgagroal](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/01_install.md)
-- [Enabling prefill](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/02_prefill.md)
-- [Enabling remote management](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/03_remote_management.md)
-- [Enabling Prometheus metrics](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/04_prometheus.md)
-- [Enabling split security](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/05_split_security.md)
-
-## Closing
-
-The [pgagroal](https://github.com/agroal/pgagroal) community hopes that you find
-the project interesting.
-
-Feel free to
-
-* [Ask a question](https://github.com/agroal/pgagroal/discussions)
-* [Raise an issue](https://github.com/agroal/pgagroal/issues)
-* [Submit a feature request](https://github.com/agroal/pgagroal/issues)
-* [Write a code submission](https://github.com/agroal/pgagroal/pulls)
-
-All contributions are most welcome !
-
-Please, consult our [Code of Conduct](../CODE_OF_CONDUCT.md) policies for interacting in our
-community.
-
-Consider giving the project a [star](https://github.com/agroal/pgagroal/stargazers) on
-[GitHub](https://github.com/agroal/pgagroal/) if you find it useful. And, feel free to follow
-the project on [Twitter](https://twitter.com/pgagroal/) as well.
+See [Configuration][configuration] for more information on these subjects.

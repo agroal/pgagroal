@@ -1,4 +1,6 @@
-# `pgagroal-cli` user guide
+\newpage
+
+# Command line interface
 
 `pgagroal-cli` is a command line interface to interact with [**pgagroal**](https://github.com/agroal/pgagroal).
 The executable accepts a set of options, as well as a command to execute.
@@ -6,27 +8,58 @@ If no command is provided, the program will show the help screen.
 
 The `pgagroal-cli` utility has the following synopsis:
 
-```
-pgagroal-cli [ OPTIONS ] [ COMMAND ]
-```
+``` sh
+pgagroal-cli 1.7.0
+  Command line utility for pgagroal
 
+Usage:
+  pgagroal-cli [ OPTIONS ] [ COMMAND ] 
 
-## Options
+Options:
+  -c, --config CONFIG_FILE Set the path to the pgagroal.conf file
+                           Default: /etc/pgagroal/pgagroal.conf
+  -h, --host HOST          Set the host name
+  -p, --port PORT          Set the port number
+  -U, --user USERNAME      Set the user name
+  -P, --password PASSWORD  Set the password
+  -L, --logfile FILE       Set the log file
+  -F, --format text|json   Set the output format
+  -v, --verbose            Output text string of result
+  -V, --version            Display version information
+  -?, --help               Display help
 
-Available options are the following ones:
+Commands:
+  flush [mode] [database]  Flush connections according to <mode>.
+                           Allowed modes are:
+                           - 'gracefully' (default) to flush all connections gracefully
+                           - 'idle' to flush only idle connections
+                           - 'all' to flush all connections. USE WITH CAUTION!
+                           If no <database> name is specified, applies to all databases.
+  ping                     Verifies if pgagroal is up and running
+  enable   [database]      Enables the specified databases (or all databases)
+  disable  [database]      Disables the specified databases (or all databases)
+  shutdown [mode]          Stops pgagroal pooler. The <mode> can be:
+                           - 'gracefully' (default) waits for active connections to quit
+                           - 'immediate' forces connections to close and terminate
+                           - 'cancel' avoid a previously issued 'shutdown gracefully'
+  status [details]         Status of pgagroal, with optional details
+  switch-to <server>       Switches to the specified primary server
+  conf <action>            Manages the configuration (e.g., reloads the configuration
+                           The subcommand <action> can be:
+                           - 'reload' to issue a configuration reload;
+                           - 'get' to obtain information about a runtime configuration value;
+                                   conf get <parameter_name>
+                           - 'set' to modify a configuration value;
+                                   conf set <parameter_name> <parameter_value>;
+                           - 'ls'  lists the configuration files used.
+  clear <what>             Resets either the Prometheus statistics or the specified server.
+                           <what> can be
+                           - 'server' (default) followed by a server name
+                           - a server name on its own
+                           - 'prometheus' to reset the Prometheus metrics
 
-```
--c, --config CONFIG_FILE Set the path to the pgagroal.conf file
--h, --host HOST          Set the host name
--p, --port PORT          Set the port number
--U, --user USERNAME      Set the user name
--P, --password PASSWORD  Set the password
--L, --logfile FILE       Set the log file
--F, --format  text|json  Set the output format
--v, --verbose            Output text string of result
--V, --version            Display version information
--?, --help               Display help
-
+pgagroal: <https://agroal.github.io/pgagroal/>
+Report bugs: <https://github.com/agroal/pgagroal/issues>
 ```
 
 Options can be specified either in short or long form, in any position of the command line.
@@ -379,9 +412,6 @@ can redirect the `stderr` to `/dev/null` or any other location with:
 pgagroal-cli reset-server 2>/dev/null
 ```
 
-
-
-
 ## Shell completions
 
 There is a minimal shell completion support for `pgagroal-cli`.
@@ -425,12 +455,12 @@ As an example, when `pgagroal-cli` launches a command, the output includes an `a
 
 ```
  "application":  {
-                "name": "pgagroal-cli",
-                "major":        1,
-                "minor":        6,
-                "patch":        0,
-                "version":      "1.6.0"
-        }
+     "name": "pgagroal-cli",
+     "major":        1,
+     "minor":        6,
+     "patch":        0,
+     "version":      "1.7.0"
+  }
 ```
 
 
@@ -455,60 +485,60 @@ The following are a few examples of commands that provide output in JSON:
 ```
 pgagroal-cli ping --format json
 {
-        "command":      {
-                "name": "ping",
-                "status":       "OK",
-                "error":        0,
-                "exit-status":  0,
-                "output":       {
-                        "status":       1,
-                        "message":      "running"
-                }
-        },
-        "application":  {
-                "name": "pgagroal-cli",
-                "major":        1,
-                "minor":        6,
-                "patch":        0,
-                "version":      "1.6.0"
-        }
+  "command":      {
+     "name": "ping",
+     "status":       "OK",
+     "error":        0,
+     "exit-status":  0,
+     "output":       {
+        "status":       1,
+        "message":      "running"
+     }
+  },
+  "application":  {
+     "name": "pgagroal-cli",
+     "major":        1,
+     "minor":        6,
+     "patch":        0,
+     "version":      "1.7.0"
+  }
 }
 
 
 
 pgagroal-cli status --format json
 {
-        "command":      {
-                "name": "status",
-                "status":       "OK",
-                "error":        0,
-                "exit-status":  0,
-                "output":       {
-                        "status":       {
-                                "message":      "Running",
-                                "status":       1
-                        },
-                        "connections":  {
-                                "active":       0,
-                                "total":        2,
-                                "max":  15
-                        },
-                        "databases":    {
-                                "disabled":     {
-                                        "count":        0,
-                                        "state":        "disabled",
-                                        "list": []
-                                }
-                        }
-                }
-        },
-        "application":  {
-                "name": "pgagroal-cli",
-                "major":        1,
-                "minor":        6,
-                "patch":        0,
-                "version":      "1.6.0"
+  "command":      {
+    "name": "status",
+    "status":       "OK",
+    "error":        0,
+    "exit-status":  0,
+    "output":       {
+      "status":       {
+        "message":      "Running",
+        "status":       1
+      },
+      "connections":  {
+        "active":       0,
+        "total":        2,
+        "max":  15
+      },
+      "databases":    {
+        "disabled":     {
+           "count":        0,
+           "state":        "disabled",
+           "list": []
         }
+      }
+    }
+  },
+  "application":  {
+          "name": "pgagroal-cli",
+          "major":        1,
+          "minor":        6,
+          "patch":        0,
+          "version":      "1.7.0"
+  }
 }
 ```
 
@@ -517,24 +547,24 @@ As an example, the following is the output of a faulty `conf set` command (note 
 ```
 pgagroal-cli conf set max_connections 1000  --format json
 {
-        "command":      {
-                "name": "conf set",
-                "status":       "Current and expected values are different",
-                "error":        true,
-                "exit-status":  2,
-                "output":       {
-                        "key":  "max_connections",
-                        "value":        "15",
-                        "expected":     "1000"
-                }
-        },
-        "application":  {
-                "name": "pgagroal-cli",
-                "major":        1,
-                "minor":        6,
-                "patch":        0,
-                "version":      "1.6.0"
-        }
+  "command":      {
+    "name": "conf set",
+    "status":       "Current and expected values are different",
+    "error":        true,
+    "exit-status":  2,
+    "output":       {
+      "key":  "max_connections",
+      "value":        "15",
+      "expected":     "1000"
+    }
+  },
+  "application":  {
+    "name": "pgagroal-cli",
+    "major":        1,
+    "minor":        6,
+    "patch":        0,
+    "version":      "1.7.0"
+  }
 }
 ```
 
@@ -545,44 +575,44 @@ is the mnemonic name of the configuration file, and the latter is the value of t
 ```
 $ pgagroal-cli conf ls --format json
 {
-        "command":      {
-                "name": "conf ls",
-                "status":       "OK",
-                "error":        0,
-                "exit-status":  0,
-                "output":       {
-                        "files":        {
-                                "list": [{
-                                                "description":  "Main Configuration file",
-                                                "path": "/etc/pgagroal/pgagroal.conf"
-                                        }, {
-                                                "description":  "HBA File",
-                                                "path": "/etc/pgagroal/pgagroal_hba.conf"
-                                        }, {
-                                                "description":  "Limit file",
-                                                "path": "/etc/pgagroal/pgagroal_databases.conf"
-                                        }, {
-                                                "description":  "Frontend users file",
-                                                "path": "/etc/pgagroal/pgagroal_frontend_users.conf"
-                                        }, {
-                                                "description":  "Admins file",
-                                                "path": "/etc/pgagroal/pgagroal_admins.conf"
-                                        }, {
-                                                "description":  "Superuser file",
-                                                "path": ""
-                                        }, {
-                                                "description":  "Users file",
-                                                "path": "/etc/pgagroal/pgagroal_users.conf"
-                                        }]
-                        }
-                }
-        },
-        "application":  {
-                "name": "pgagroal-cli",
-                "major":        1,
-                "minor":        6,
-                "patch":        0,
-                "version":      "1.6.0"
-        }
+  "command":      {
+    "name": "conf ls",
+    "status":       "OK",
+    "error":        0,
+    "exit-status":  0,
+    "output":       {
+      "files":        {
+        "list": [{
+            "description":  "Main Configuration file",
+            "path": "/etc/pgagroal/pgagroal.conf"
+          }, {
+            "description":  "HBA File",
+            "path": "/etc/pgagroal/pgagroal_hba.conf"
+          }, {
+            "description":  "Limit file",
+            "path": "/etc/pgagroal/pgagroal_databases.conf"
+          }, {
+            "description":  "Frontend users file",
+            "path": "/etc/pgagroal/pgagroal_frontend_users.conf"
+          }, {
+            "description":  "Admins file",
+            "path": "/etc/pgagroal/pgagroal_admins.conf"
+          }, {
+            "description":  "Superuser file",
+            "path": ""
+          }, {
+            "description":  "Users file",
+            "path": "/etc/pgagroal/pgagroal_users.conf"
+          }]
+      }
+    }
+  },
+  "application":  {
+    "name": "pgagroal-cli",
+    "major":        1,
+    "minor":        6,
+    "patch":        0,
+    "version":      "1.7.0"
+  }
 }
 ```

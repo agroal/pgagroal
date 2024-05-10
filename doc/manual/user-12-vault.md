@@ -1,3 +1,5 @@
+\newpage
+
 # pgagroal-vault configuration
 
 The configuration which is mandatory is loaded from either the path specified by the `-c` flag or `/etc/pgagroal/pgagroal_vault.conf`.

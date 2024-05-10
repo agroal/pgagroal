@@ -1,7 +1,7 @@
 # `pgagroal-admin` user guide
 
 `pgagroal-admin` is a command line interface to manage users known
-to the `pgagroal` connection pooler.
+to the [**pgagroal**](https://github.com/agroal/pgagroal) connection pooler.
 The executable accepts a set of options, as well as a command to execute.
 If no command is provided, the program will show the help screen.
 
@@ -63,7 +63,7 @@ that is the "container" for users' credentials.
 ## Deprecated commands
 
 The following commands have been deprecated and will be removed
-in later releases of `pgagroal`.
+in later releases of [**pgagroal**](https://github.com/agroal/pgagroal).
 For each command, this is the corresponding current mapping
 to the working command:
 

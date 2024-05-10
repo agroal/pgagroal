@@ -1,9 +1,9 @@
 # pgagroal performance
 
-Performance is an important goal for `pgagroal` and effort have been made
-to make `pgagroal` scale and use a limited number of resources.
+Performance is an important goal for [**pgagroal**](https://github.com/agroal/pgagroal) and effort have been made
+to make [**pgagroal**](https://github.com/agroal/pgagroal) scale and use a limited number of resources.
 
-This report describe `pgagroal` in relationship to 3 other [PostgreSQL](https://www.postgresql.org)
+This report describe [**pgagroal**](https://github.com/agroal/pgagroal) in relationship to 3 other [PostgreSQL](https://www.postgresql.org)
 connection pool implementations, which we will call `a`, `b` and `c`.
 
 The [pgbench](https://www.postgresql.org/docs/11/pgbench.html) program was used in the runs. All pool
@@ -14,7 +14,7 @@ diagrams and so on.
 
 The runs were performed on [RHEL](https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux) 7.7 /
 [EPEL](https://access.redhat.com/solutions/3358) / [DevTools](https://developers.redhat.com/products/developertoolset/overview) 8
-based machines on 10G network. All connection pools were the latest versions as of January 14, 2020. `pgagroal` was
+based machines on 10G network. All connection pools were the latest versions as of January 14, 2020. [**pgagroal**](https://github.com/agroal/pgagroal) was
 using the `epoll` mode of [libev](http://software.schmorp.de/pkg/libev.html).
 
 ## Simple
@@ -59,5 +59,5 @@ pgbench -S -M prepared
 
 ## Closing
 
-**Please**, run your own benchmarks to see how `pgagroal` compare to your existing connection pool
+**Please**, run your own benchmarks to see how [**pgagroal**](https://github.com/agroal/pgagroal) compare to your existing connection pool
 deployment.

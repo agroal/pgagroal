@@ -1,4 +1,6 @@
-# pgagroal architecture
+\newpage
+
+# Architecture
 
 ## Overview
 

@@ -1,6 +1,8 @@
-# pgagroal rpm
+\newpage
 
-[**pgagroal**](https://github.com/agroal/pgagroal) can be built into a RPM for [Fedora](https://getfedora.org/) systems.
+# RPM
+
+[**pgagroal**][pgagroal] can be built into a RPM for [Fedora][fedora] systems.
 
 ## Requirements
 

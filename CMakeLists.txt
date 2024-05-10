@@ -32,6 +32,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 message(STATUS "pgagroal ${VERSION_STRING}")
 
+set(generation TRUE)
+
 include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
 include(CheckLinkerFlag)
@@ -87,6 +89,21 @@ else ()
   message(FATAL_ERROR "cJSON needed")
 endif()
 
+find_package(Pandoc)
+if (PANDOC_FOUND)
+  message(STATUS "pandoc found")
+else ()
+  set(generation FALSE)
+  message(STATUS "pandoc needed. The generation process will be skipped.")
+endif()
+
+find_package(Pdflatex)
+if (PDFLATEX_FOUND)
+  message(STATUS "pdflatex found")
+else ()
+  set(generation FALSE)
+  message(STATUS "pdflatex needed. The generation process will be skipped.")
+endif()
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   find_package(Libatomic)
