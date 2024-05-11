@@ -16,6 +16,9 @@ and do the install via
 dnf install -y pgagroal
 ```
 
+* [PostgreSQL YUM](https://yum.postgresql.org/howto/)
+* [Linux downloads](https://www.postgresql.org/download/linux/redhat/)
+
 ## RHEL 8 / RockyLinux 8
 
 ```
