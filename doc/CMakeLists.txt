@@ -69,7 +69,7 @@ add_custom_command(
 install(FILES etc/pgagroal.conf DESTINATION share/doc/pgagroal/etc)
 install(FILES etc/pgagroal_hba.conf DESTINATION share/doc/pgagroal/etc)
 
-install(DIRECTORY . DESTINATION share/doc/pgagroal FILES_MATCHING PATTERN "*.md" PATTERN "etc" EXCLUDE PATTERN "images" EXCLUDE PATTERN "man" EXCLUDE)
+install(DIRECTORY . DESTINATION share/doc/pgagroal FILES_MATCHING PATTERN "*.md" PATTERN "etc" EXCLUDE PATTERN "images" EXCLUDE PATTERN "man" EXCLUDE PATTERN "manual" EXCLUDE)
 install(DIRECTORY images/ DESTINATION share/doc/pgagroal/images FILES_MATCHING PATTERN "*.png")
 
 install(FILES ${PGAGROAL_DST_FILE} DESTINATION share/man/man1)
@@ -132,4 +132,10 @@ if(generation)
     all_docs ALL
     DEPENDS copy_images ${MANUAL_OUTPUT_DIR}/pgagroal-user-guide.pdf ${MANUAL_OUTPUT_DIR}/pgagroal-user-guide.html ${MANUAL_OUTPUT_DIR}/pgagroal-dev-guide.pdf ${MANUAL_OUTPUT_DIR}/pgagroal-dev-guide.html
   )
+
+  install(FILES ${MANUAL_OUTPUT_DIR}/pgagroal-user-guide.pdf DESTINATION share/doc/pgagroal/manual)
+  install(FILES ${MANUAL_OUTPUT_DIR}/pgagroal-user-guide.html DESTINATION share/doc/pgagroal/manual)
+  install(FILES ${MANUAL_OUTPUT_DIR}/pgagroal-dev-guide.pdf DESTINATION share/doc/pgagroal/manual)
+  install(FILES ${MANUAL_OUTPUT_DIR}/pgagroal-dev-guide.html DESTINATION share/doc/pgagroal/manual)
+
 endif()
