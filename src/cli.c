@@ -679,7 +679,6 @@ main(int argc, char** argv)
             errx(1, "Cannot start the logging subsystem");
          }
 
-         config = (struct main_configuration*)shmem;
       }
    }
 
@@ -690,6 +689,8 @@ main(int argc, char** argv)
       goto done;
    }
    pgagroal_log_trace((char*)parsed.cmd->log_message, parsed.args[0], parsed.args[1]);
+
+   config = (struct main_configuration*)shmem;
 
    if (!remote_connection)
    {
