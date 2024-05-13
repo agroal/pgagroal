@@ -113,7 +113,7 @@ pgagroal_management_get_password(SSL* ssl, int socket, char* username, char* pas
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_write_get_password(int socket, char* password);
+pgagroal_management_write_get_password(SSL* ssl, int socket, char* password);
 
 /**
  * Read the management header

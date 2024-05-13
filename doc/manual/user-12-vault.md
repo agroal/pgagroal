@@ -50,3 +50,35 @@ The section with a name different from `pgagroal-vault` will be treated as a mai
 | user | | String | Yes | The admin user of the pgagroal remote management service | 
 
 Note: For `pgagroal-vault` to function and connect properly to pgagroal, the remote server for management of the [**pgagroal**](https://github.com/agroal/pgagroal) should be enabled i.e. `management` should be greater than 0.
+
+# Enable SSL connection with management port
+
+The SSL handshake has to be initiated between `vault` and `remote` of `pgagroal` to enable secured SSL connection between the both. 
+
+The `vault` serves as the client, while the `remote` functions as the server. The `vault` initiates the SSL/TLS handshake with the `remote`, and concurrently, the `remote` accepts the SSL/TLS request from the `vault`.
+
+## SSL configuration at the server side
+
+Update the `[pgagroal]` section in main configuration file by including the following:-
+
+- Enable management port
+- Enable `tls` to `on`
+- Add `tls_cert_file`, `tls_key_file` and `tls_ca_file` fields
+
+```
+management = 2347
+tls = on
+tls_cert_file = /path/to/server_cert_file
+tls_key_file = /path/to/server_key_file
+tls_ca_file = /path/to/CA_root_cert_file
+```
+
+## SSL configuration at the client side
+
+For client side authentication, add the required certificates like the certificate of `vault` in `pgagroal.crt`, private key of `vault` in `pgagroal.key` and the root certificate of CA in `root.crt` in the `.pgagroal` directory.
+
+Some permissions requirements:-
+
+- The certificate file `pgagroal.crt` must be owned by either the user running pgagroal or root.
+- The key file `pgagroal.key` must be owned by either the user running pgagroal or root. Additionally permissions must be at least `0640` when owned by root or `0600` otherwise.
+- The Certificate Authority (CA) file `root.crt` must be owned by either the user running pgagroal or root.

@@ -489,6 +489,7 @@ pgagroal_management_get_password(SSL* ssl, int fd, char* username, char* pass)
    char buf[4];
    int* password_length = NULL;
    char password[MAX_PASSWORD_LENGTH];
+   char buffer[strlen(username) + 4];
 
    password_length = (int*)malloc(sizeof(int));
    if (!password_length)
@@ -503,15 +504,13 @@ pgagroal_management_get_password(SSL* ssl, int fd, char* username, char* pass)
       goto error;
    }
 
-   pgagroal_write_int32(&buf, strlen(username));
-   if (write_complete(ssl, fd, &buf, sizeof(buf)))
-   {
-      pgagroal_log_warn("pgagroal_management_get_password: write: %d %s", fd, strerror(errno));
-      errno = 0;
-      goto error;
-   }
+   pgagroal_write_int32(&buf, (int32_t)strlen(username));
+   memset(buffer, 0, sizeof(buffer));
+   memcpy(buffer, buf, 4);
+   memcpy(buffer + 4, username, strlen(username));
 
-   if (write_complete(ssl, fd, username, strlen(username)))
+   // write username to the management port
+   if (write_complete(ssl, fd, buffer, strlen(username) + 4))
    {
       pgagroal_log_warn("pgagroal_management_get_password: write: %d %s", fd, strerror(errno));
       errno = 0;
@@ -1284,7 +1283,7 @@ error:
 }
 
 int
-pgagroal_management_write_get_password(int socket, char* password)
+pgagroal_management_write_get_password(SSL* ssl, int socket, char* password)
 {
    char buffer[MAX_PASSWORD_LENGTH + 4]; // first 4 bytes contains the length of the password
    memset(buffer, 0, sizeof(buffer));
@@ -1292,7 +1291,7 @@ pgagroal_management_write_get_password(int socket, char* password)
    pgagroal_write_int32(&buffer, strlen(password));
    memcpy(buffer + 4, password, strlen(password));
 
-   if (write_complete(NULL, socket, buffer, strlen(password) + 4))
+   if (write_complete(ssl, socket, buffer, strlen(password) + 4))
    {
       pgagroal_log_warn("pgagroal_management_write_get_password: write: %d %s\n", socket, strerror(errno));
       errno = 0;

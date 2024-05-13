@@ -1570,7 +1570,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          }
 
          // Send password to the vault
-         pgagroal_management_write_get_password(client_fd, frontend_password);
+         pgagroal_management_write_get_password(NULL, client_fd, frontend_password);
          pgagroal_disconnect(client_fd);
          return;
       }

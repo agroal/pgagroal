@@ -62,11 +62,11 @@
 static void accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
 static void shutdown_cb(struct ev_loop* loop, ev_signal* w, int revents);
 static bool accept_fatal(int error);
-static int connect_pgagroal(struct vault_configuration* config, char* username, char* password, SSL* s_ssl, int* client_socket);
-static void route_users(int client_fd, char* username, char** response);
+static int connect_pgagroal(struct vault_configuration* config, char* username, char* password, SSL** s_ssl, int* client_socket);
+static void route_users(char* username, char** response, SSL* s_ssl, int client_fd);
 static void route_not_found(char** response);
 static void route_found(char** response, char* password);
-static int router(int client_fd, SSL* ssl);
+static int router(SSL* ssl, int client_fd);
 
 static volatile int keep_running = 1;
 static char** argv_ptr;
@@ -77,7 +77,7 @@ static int server_fds_length = -1;
 static int default_buffer_size = DEFAULT_BUFFER_SIZE;
 
 static int
-router(int client_fd, SSL* ssl)
+router(SSL* s_ssl, int client_fd)
 {
    int exit_code = 0;
    ssize_t bytes_read;
@@ -114,7 +114,7 @@ router(int client_fd, SSL* ssl)
          // Extract the username from the path
          sscanf(path, "/users/%128s", username);
          // Call the appropriate handler function with the username
-         route_users(client_fd, username, &response);
+         route_users(username, &response, s_ssl, client_fd);
       }
       else
       {
@@ -140,14 +140,14 @@ router(int client_fd, SSL* ssl)
 }
 
 static void
-route_users(int client_fd, char* username, char** response)
+route_users(char* username, char** response, SSL* s_ssl, int client_fd)
 {
    struct vault_configuration* config = (struct vault_configuration*)shmem;
    int client_pgagroal_fd = -1;
    char password[MAX_PASSWORD_LENGTH + 1];
 
    // Connect to pgagroal management port
-   if (connect_pgagroal(config, config->vault_server.user.username, config->vault_server.user.password, NULL, &client_pgagroal_fd)) // Change NULL to ssl
+   if (connect_pgagroal(config, config->vault_server.user.username, config->vault_server.user.password, &s_ssl, &client_pgagroal_fd)) // Change NULL to ssl
    {
       pgagroal_log_error("pgagroal-vault: Couldn't connect to %s:%d", config->vault_server.server.host, config->vault_server.server.port);
       // Send Error Response
@@ -158,7 +158,7 @@ route_users(int client_fd, char* username, char** response)
    memset(password, 0, MAX_PASSWORD_LENGTH);
 
    // Call GET_PASSWORD at management port
-   if (pgagroal_management_get_password(NULL, client_pgagroal_fd, username, password))
+   if (pgagroal_management_get_password(s_ssl, client_pgagroal_fd, username, password))
    {
       pgagroal_log_error("pgagroal-vault: Couldn't get password from the management");
       // Send Error Response
@@ -201,8 +201,10 @@ route_found(char** response, char* password)
 }
 
 static int
-connect_pgagroal(struct vault_configuration* config, char* username, char* password, SSL* s_ssl, int* client_socket)
+connect_pgagroal(struct vault_configuration* config, char* username, char* password, SSL** s_ssl, int* client_socket)
 {
+   SSL* s = NULL;
+   
    if (pgagroal_connect(config->vault_server.server.host, config->vault_server.server.port, client_socket, false, false, &default_buffer_size, false))
    {
       pgagroal_disconnect(*client_socket);
@@ -223,12 +225,14 @@ connect_pgagroal(struct vault_configuration* config, char* username, char* passw
    }
 
    /* Authenticate */
-   if (pgagroal_remote_management_scram_sha256(username, password, *client_socket, &s_ssl) != AUTH_SUCCESS)
+   if (pgagroal_remote_management_scram_sha256(username, password, *client_socket, &s) != AUTH_SUCCESS)
    {
       pgagroal_log_debug("pgagroal-vault: Bad credentials for %s", username);
       pgagroal_disconnect(*client_socket);
       return 1;
    }
+
+   *s_ssl = s;
 
    return 0;
 }
@@ -476,6 +480,7 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    int client_fd;
    char address[INET6_ADDRSTRLEN];
    pid_t pid;
+   SSL* s_ssl = NULL;
    struct vault_configuration* config;
 
    if (EV_ERROR & revents)
@@ -547,7 +552,7 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       ev_loop_fork(loop);
       shutdown_vault_io();
 
-      if (router(client_fd, NULL))
+      if (router(s_ssl, client_fd))
       {
          pgagroal_log_error("Couldn't write to client");
          exit(1);
