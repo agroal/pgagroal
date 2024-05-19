@@ -82,6 +82,7 @@ static void max_connection_age_cb(struct ev_loop* loop, ev_periodic* w, int reve
 static void rotate_frontend_password_cb(struct ev_loop* loop, ev_periodic* w, int revents);
 static void validation_cb(struct ev_loop* loop, ev_periodic* w, int revents);
 static void disconnect_client_cb(struct ev_loop* loop, ev_periodic* w, int revents);
+static void pgagroal_frontend_user_password_startup(struct main_configuration* config);
 static bool accept_fatal(int error);
 static void add_client(pid_t pid);
 static void remove_client(pid_t pid);
@@ -732,7 +733,7 @@ read_superuser_path:
 #endif
       exit(1);
    }
-
+   
    if (pgagroal_start_logging())
    {
 #ifdef HAVE_LINUX
@@ -740,7 +741,7 @@ read_superuser_path:
 #endif
       errx(1, "Failed to start logging");
    }
-
+   
    if (pgagroal_validate_configuration(shmem, has_unix_socket, has_main_sockets))
    {
 #ifdef HAVE_LINUX
@@ -748,6 +749,9 @@ read_superuser_path:
 #endif
       errx(1, "Invalid configuration");
    }
+
+   pgagroal_frontend_user_password_startup(config);
+
    if (pgagroal_validate_hba_configuration(shmem))
    {
 #ifdef HAVE_LINUX
@@ -1914,6 +1918,30 @@ accept_fatal(int error)
    }
 
    return true;
+}
+
+static void
+pgagroal_frontend_user_password_startup(struct main_configuration* config)
+{
+   char* pwd = NULL;
+
+   if (config->number_of_frontend_users == 0 && config->rotate_frontend_password_timeout > 0)
+   {
+      for (int i = 0; i < config->number_of_users; i++)
+      {
+         memcpy(&config->frontend_users[i].username, config->users[i].username, strlen(config->users[i].username));
+         if (pgagroal_generate_password(config->rotate_frontend_password_length, &pwd))
+         {
+            pgagroal_log_debug("pgagroal_frontend_user_password_startup: unable to generate random password at startup");
+            return;
+         }
+         memcpy(&config->frontend_users[i].password, pwd, strlen(pwd) + 1);
+         pgagroal_log_trace("pgagroal_frontend_user_password_startup: frontend user with username=%s initiated", config->frontend_users[i].username);
+         free(pwd);
+      }
+      config->number_of_frontend_users = config->number_of_users;
+   }
+
 }
 
 static void
