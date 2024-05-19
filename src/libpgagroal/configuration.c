@@ -481,6 +481,12 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       pgagroal_log_warn("pgagroal: Frontend users should not be used with allow_unknown_users");
    }
 
+   if (config->number_of_frontend_users == 0 && config->number_of_users == 0 && config->rotate_frontend_password_timeout > 0)
+   {
+      pgagroal_log_fatal("pgagroal: Users must be defined for rotation frontend password to be enabled");
+      return 1;
+   }
+
    if (config->failover)
    {
       if (strlen(config->failover_script) == 0)
