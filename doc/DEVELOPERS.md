@@ -291,6 +291,16 @@ git checkout -b mywork main
 
 Remember to verify the compile and execution of the code
 
+### AUTHORS
+
+Remember to add your name to
+
+```
+AUTHORS
+```
+
+in your first pull request
+
 ### Multiple commits
 
 If you have multiple commits on your branch then squash them
