@@ -22,6 +22,7 @@ Available options are the following ones:
   -P, --password PASSWORD Set the password for the user
   -g, --generate          Generate a password
   -l, --length            Password length
+  -F, --format  text|json Set the output format
   -V, --version           Display version information
   -?, --help              Display help
 
@@ -58,6 +59,16 @@ pgagroal-admin user del -U simon
 
 The `master-key` command allows the definition of a password to protect the vault of the users,
 that is the "container" for users' credentials.
+
+
+## JSON Output Format
+
+It is possible to obtain the output of a command in a JSON format by specyfing the `-F` (`--format`) option on the command line.
+Supported output formats are:
+- `text` (the default)
+- `json`
+
+For more details, see the corresponding section in the CLI documentation.
 
 
 ## Deprecated commands

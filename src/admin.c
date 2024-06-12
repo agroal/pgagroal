@@ -31,6 +31,8 @@
 #include <logging.h>
 #include <security.h>
 #include <utils.h>
+#include <json.h>
+#include <management.h>
 
 /* system */
 #include <ctype.h>
@@ -56,7 +58,7 @@ static int master_key(char* password, bool generate_pwd, int pwd_length);
 static int add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length);
 static int remove_user(char* users_path, char* username);
-static int list_users(char* users_path);
+static int list_users(char* users_path, char output_format);
 
 const struct pgagroal_command command_table[] =
 {
@@ -170,6 +172,7 @@ usage(void)
    printf("  -P, --password PASSWORD Set the password for the user\n");
    printf("  -g, --generate          Generate a password\n");
    printf("  -l, --length            Password length\n");
+   printf("  -F, --format text|json  Set the output format\n");
    printf("  -V, --version           Display version information\n");
    printf("  -?, --help              Display help\n");
    printf("\n");
@@ -193,6 +196,7 @@ main(int argc, char** argv)
    char* password = NULL;
    char* file_path = NULL;
    bool generate_pwd = false;
+   char output_format = COMMAND_OUTPUT_FORMAT_TEXT;
    int pwd_length = DEFAULT_PASSWORD_LENGTH;
    int option_index = 0;
    size_t command_count = sizeof(command_table) / sizeof(struct pgagroal_command);
@@ -207,11 +211,12 @@ main(int argc, char** argv)
          {"file", required_argument, 0, 'f'},
          {"generate", no_argument, 0, 'g'},
          {"length", required_argument, 0, 'l'},
+         {"format", required_argument, 0, 'F' },
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
 
-      c = getopt_long(argc, argv, "gV?f:U:P:l:",
+      c = getopt_long(argc, argv, "gV?f:U:P:l:F:",
                       long_options, &option_index);
 
       if (c == -1)
@@ -235,6 +240,16 @@ main(int argc, char** argv)
             break;
          case 'l':
             pwd_length = atoi(optarg);
+            break;
+         case 'F':
+            if (!strncmp(optarg, "json", MISC_LENGTH))
+            {
+               output_format = COMMAND_OUTPUT_FORMAT_JSON;
+            }
+            else
+            {
+               output_format = COMMAND_OUTPUT_FORMAT_TEXT;
+            }
             break;
          case 'V':
             version();
@@ -303,7 +318,7 @@ main(int argc, char** argv)
    else if (parsed.cmd->action == ACTION_LIST_USERS)
    {
 
-      if (list_users(file_path))
+      if (list_users(file_path, output_format))
       {
          errx(1, "Error for <user ls>");
       }
@@ -938,11 +953,13 @@ error:
 }
 
 static int
-list_users(char* users_path)
+list_users(char* users_path, char output_format)
 {
    FILE* users_file = NULL;
    char line[MISC_LENGTH];
    char* ptr = NULL;
+   cJSON *json = NULL;
+   cJSON *user_list = NULL;
 
    users_file = fopen(users_path, "r");
    if (!users_file)
@@ -950,11 +967,56 @@ list_users(char* users_path)
       goto error;
    }
 
-   /* List */
-   while (fgets(line, sizeof(line), users_file))
+   if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      ptr = strtok(line, ":");
-      printf("%s\n", ptr);
+      /* JSON format output */
+      int user_count = 0;
+      json = pgagroal_json_create_new_command_object("user ls", true, "pgagroal-admin");
+      user_list = cJSON_CreateArray();
+
+      if (user_list == NULL)
+      {
+         goto error;
+      }
+
+      while (fgets(line, sizeof(line), users_file))
+      {
+         ptr = strtok(line, ":");
+         cJSON *user_name = cJSON_CreateString(ptr);
+         if (user_name == NULL)
+         {
+            goto error;
+         }
+
+         user_count++;
+         cJSON_AddItemToArray(user_list, user_name);
+      }
+
+      cJSON *command = cJSON_GetObjectItemCaseSensitive(json, "command");
+      if (command == NULL)
+      {
+         goto error;
+      }
+
+      cJSON *output = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_OUTPUT);
+      if (output == NULL)
+      {
+         goto error;
+      }
+
+      cJSON_AddNumberToObject(output, "count", user_count);
+      cJSON_AddItemToObject(output, "list", user_list);
+
+      pgagroal_json_print_and_free_json_object(json);
+   }
+   else
+   {
+      /* Text format output */
+      while (fgets(line, sizeof(line), users_file))
+      {
+         ptr = strtok(line, ":");
+         printf("%s\n", ptr);
+      }
    }
 
    fclose(users_file);
@@ -966,6 +1028,28 @@ error:
    if (users_file)
    {
       fclose(users_file);
+   }
+
+   if (json)
+   {
+      do
+      {
+         cJSON *command = cJSON_GetObjectItemCaseSensitive(json, "command");
+         if (command == NULL)
+         {
+            break;
+         }
+
+         cJSON *error = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND_ERROR);
+         if (error == NULL)
+         {
+            break;
+         }
+
+         cJSON_SetIntValue(error, 1);
+      } while(0);
+
+      pgagroal_json_print_and_free_json_object(json);
    }
 
    return 1;
