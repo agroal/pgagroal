@@ -188,6 +188,11 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
    atomic_init(&prometheus->connection_flush, 0);
    atomic_init(&prometheus->connection_success, 0);
 
+   atomic_init(&prometheus->logging_info, 0);
+   atomic_init(&prometheus->logging_warn, 0);
+   atomic_init(&prometheus->logging_error, 0);
+   atomic_init(&prometheus->logging_fatal, 0);
+
    // awating connections are those on hold due to
    // the `blocking_timeout` setting
    atomic_init(&prometheus->connections_awaiting_total, 0);
@@ -665,6 +670,11 @@ pgagroal_prometheus_reset(void)
    atomic_store(&prometheus->connection_flush, 0);
    atomic_store(&prometheus->connection_success, 0);
 
+   atomic_store(&prometheus->logging_info, 0);
+   atomic_store(&prometheus->logging_warn, 0);
+   atomic_store(&prometheus->logging_error, 0);
+   atomic_store(&prometheus->logging_fatal, 0);
+
    // awaiting connections are on hold due to `blocking_timeout`
    atomic_store(&prometheus->connections_awaiting_total, 0);
    for (int i = 0; i < NUMBER_OF_LIMITS; i++)
@@ -746,6 +756,32 @@ pgagroal_prometheus_failed_servers(void)
    }
 
    atomic_store(&prometheus->failed_servers, count);
+}
+
+void
+pgagroal_prometheus_logging(int type)
+{
+   struct prometheus* prometheus;
+
+   prometheus = (struct prometheus*)prometheus_shmem;
+
+   switch (type)
+   {
+      case PGAGROAL_LOGGING_LEVEL_INFO:
+         atomic_fetch_add(&prometheus->logging_info, 1);
+         break;
+      case PGAGROAL_LOGGING_LEVEL_WARN:
+         atomic_fetch_add(&prometheus->logging_warn, 1);
+         break;
+      case PGAGROAL_LOGGING_LEVEL_ERROR:
+         atomic_fetch_add(&prometheus->logging_error, 1);
+         break;
+      case PGAGROAL_LOGGING_LEVEL_FATAL:
+         atomic_fetch_add(&prometheus->logging_fatal, 1);
+         break;
+      default:
+         break;
+   }
 }
 
 static int
@@ -917,6 +953,18 @@ home_page(int client_fd)
    data = pgagroal_append(data, "      </tr>\n");
    data = pgagroal_append(data, "    </tbody>\n");
    data = pgagroal_append(data, "  </table>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_logging_info</h2>\n");
+   data = pgagroal_append(data, "  The number of INFO logging statements\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_logging_warn</h2>\n");
+   data = pgagroal_append(data, "  The number of WARN logging statements\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_logging_error</h2>\n");
+   data = pgagroal_append(data, "  The number of ERROR logging statements\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_logging_fatal</h2>\n");
+   data = pgagroal_append(data, "  The number of FATAL logging statements\n");
+   data = pgagroal_append(data, "  <p>\n");
    data = pgagroal_append(data, "  <h2>pgagroal_server_error</h2>\n");
    data = pgagroal_append(data, "  <p>\n");
    data = pgagroal_append(data, "   Errors for servers\n");
@@ -1416,6 +1464,27 @@ general_information(int client_fd)
       data = pgagroal_append(data, "\n");
    }
    data = pgagroal_append(data, "\n");
+
+   data = pgagroal_append(data, "#HELP pgagroal_logging_info The number of INFO logging statements\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_logging_info gauge\n");
+   data = pgagroal_append(data, "pgagroal_logging_info ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->logging_info));
+   data = pgagroal_append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_logging_warn The number of WARN logging statements\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_logging_warn gauge\n");
+   data = pgagroal_append(data, "pgagroal_logging_warn ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->logging_warn));
+   data = pgagroal_append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_logging_error The number of ERROR logging statements\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_logging_error gauge\n");
+   data = pgagroal_append(data, "pgagroal_logging_error ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->logging_error));
+   data = pgagroal_append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_logging_fatal The number of FATAL logging statements\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_logging_fatal gauge\n");
+   data = pgagroal_append(data, "pgagroal_logging_fatal ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->logging_fatal));
+   data = pgagroal_append(data, "\n\n");
 
    data = pgagroal_append(data, "#HELP pgagroal_failed_servers The number of failed servers\n");
    data = pgagroal_append(data, "#TYPE pgagroal_failed_servers gauge\n");

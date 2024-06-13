@@ -25,6 +25,22 @@ The mode of pipeline
 |           | * Session                          |
 |           | * Transaction                      |
 
+## pgagroal_logging_info
+
+The number of INFO statements
+
+## pgagroal_logging_warn
+
+The number of WARN statements
+
+## pgagroal_logging_error
+
+The number of ERROR statements
+
+## pgagroal_logging_fatal
+
+The number of FATAL statements
+
 ## pgagroal_server_error
 
 Errors for servers

@@ -29,6 +29,7 @@
 /* pgagroal */
 #include <pgagroal.h>
 #include <logging.h>
+#include <prometheus.h>
 
 /* system */
 #include <errno.h>
@@ -314,6 +315,24 @@ pgagroal_log_line(int level, char* file, int line, char* fmt, ...)
 
    if (level >= config->log_level)
    {
+      switch (level)
+      {
+         case PGAGROAL_LOGGING_LEVEL_INFO:
+            pgagroal_prometheus_logging(PGAGROAL_LOGGING_LEVEL_INFO);
+            break;
+         case PGAGROAL_LOGGING_LEVEL_WARN:
+            pgagroal_prometheus_logging(PGAGROAL_LOGGING_LEVEL_WARN);
+            break;
+         case PGAGROAL_LOGGING_LEVEL_ERROR:
+            pgagroal_prometheus_logging(PGAGROAL_LOGGING_LEVEL_ERROR);
+            break;
+         case PGAGROAL_LOGGING_LEVEL_FATAL:
+            pgagroal_prometheus_logging(PGAGROAL_LOGGING_LEVEL_FATAL);
+            break;
+         default:
+            break;
+      }
+
 retry:
       isfree = STATE_FREE;
 

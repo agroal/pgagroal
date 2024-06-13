@@ -390,6 +390,11 @@ struct prometheus
    atomic_ulong connection_flush;              /**< The number of flush calls */
    atomic_ulong connection_success;            /**< The number of success calls */
 
+   atomic_ulong logging_info;  /**< Logging: INFO */
+   atomic_ulong logging_warn;  /**< Logging: WARN */
+   atomic_ulong logging_error; /**< Logging: ERROR */
+   atomic_ulong logging_fatal; /**< Logging: FATAL */
+
    /**< The number of connection awaiting due to `blocking_timeout` */
    atomic_ulong connections_awaiting[NUMBER_OF_LIMITS];
    atomic_ulong connections_awaiting_total;

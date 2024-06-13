@@ -307,6 +307,13 @@ void
 pgagroal_prometheus_failed_servers(void);
 
 /**
+ * Add a logging count
+ * @param logging The logging type
+ */
+void
+pgagroal_prometheus_logging(int logging);
+
+/**
  * Allocates, for the first time, the Prometheus cache.
  *
  * The cache structure, as well as its dynamically sized payload,
