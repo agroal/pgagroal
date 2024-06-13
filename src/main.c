@@ -742,6 +742,22 @@ read_superuser_path:
       errx(1, "Failed to start logging");
    }
 
+   if (pgagroal_init_prometheus(&prometheus_shmem_size, &prometheus_shmem))
+   {
+#ifdef HAVE_LINUX
+      sd_notifyf(0, "STATUS=Error in creating and initializing prometheus shared memory");
+#endif
+      errx(1, "Error in creating and initializing prometheus shared memory");
+   }
+
+   if (pgagroal_init_prometheus_cache(&prometheus_cache_shmem_size, &prometheus_cache_shmem))
+   {
+#ifdef HAVE_LINUX
+      sd_notifyf(0, "STATUS=Error in creating and initializing prometheus cache shared memory");
+#endif
+      errx(1, "Error in creating and initializing prometheus cache shared memory");
+   }
+
    if (pgagroal_validate_configuration(shmem, has_unix_socket, has_main_sockets))
    {
 #ifdef HAVE_LINUX
@@ -805,22 +821,6 @@ read_superuser_path:
    shmem_size = tmp_size;
    shmem = tmp_shmem;
    config = (struct main_configuration*)shmem;
-
-   if (pgagroal_init_prometheus(&prometheus_shmem_size, &prometheus_shmem))
-   {
-#ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=Error in creating and initializing prometheus shared memory");
-#endif
-      errx(1, "Error in creating and initializing prometheus shared memory");
-   }
-
-   if (pgagroal_init_prometheus_cache(&prometheus_cache_shmem_size, &prometheus_cache_shmem))
-   {
-#ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=Error in creating and initializing prometheus cache shared memory");
-#endif
-      errx(1, "Error in creating and initializing prometheus cache shared memory");
-   }
 
    if (getrlimit(RLIMIT_NOFILE, &flimit) == -1)
    {
