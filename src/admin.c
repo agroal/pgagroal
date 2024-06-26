@@ -276,6 +276,11 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    struct stat st = {0};
    bool do_free = true;
 
+   if (password != NULL)
+   {
+      do_free = false;
+   }
+
    if (pgagroal_get_home_directory() == NULL)
    {
       char* username = pgagroal_get_user_name();
