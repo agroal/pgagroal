@@ -254,6 +254,8 @@ over the local interface, and hence doesn't work remotely.
 
 pgagroal has support for [Prometheus](https://prometheus.io/) when the `metrics` port is specified.
 
+**Note:** It is crucial to carefully initialize Prometheus memory in any program files for example functions like `pgagroal_init_prometheus()` and `pgagroal_init_prometheus_cache()` should only be invoked if `metrics` is greater than 0.
+
 The module serves two endpoints
 
 * `/` - Overview of the functionality (`text/html`)

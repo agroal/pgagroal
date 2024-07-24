@@ -68,7 +68,7 @@ pgagroal_remote_management(int client_fd, char* address)
    auth_status = pgagroal_remote_management_auth(client_fd, address, &client_ssl);
    if (auth_status == AUTH_SUCCESS)
    {
-      status = pgagroal_read_timeout_message(client_ssl, client_fd, config->authentication_timeout, &msg);
+      status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
       if (status != MESSAGE_STATUS_OK)
       {
          goto done;
@@ -113,7 +113,7 @@ pgagroal_remote_management(int client_fd, char* address)
          case MANAGEMENT_FLUSH:
          case MANAGEMENT_RESET_SERVER:
          case MANAGEMENT_SWITCH_TO:
-            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->authentication_timeout, &msg);
+            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
             if (status != MESSAGE_STATUS_OK)
             {
                goto done;
@@ -126,7 +126,7 @@ pgagroal_remote_management(int client_fd, char* address)
             }
          case MANAGEMENT_ENABLEDB:
          case MANAGEMENT_DISABLEDB:
-            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->authentication_timeout, &msg);
+            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
             if (status != MESSAGE_STATUS_OK)
             {
                goto done;
@@ -138,7 +138,7 @@ pgagroal_remote_management(int client_fd, char* address)
                goto done;
             }
 
-            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->authentication_timeout, &msg);
+            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
             if (status != MESSAGE_STATUS_OK)
             {
                goto done;
@@ -154,7 +154,7 @@ pgagroal_remote_management(int client_fd, char* address)
 
          case MANAGEMENT_GET_PASSWORD:
             // Read username size from local
-            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->authentication_timeout, &msg);
+            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
             if (status != MESSAGE_STATUS_OK)
             {
                goto done;
@@ -166,7 +166,7 @@ pgagroal_remote_management(int client_fd, char* address)
                goto done;
             }
 
-            status = pgagroal_read_timeout_message(NULL, server_fd, config->authentication_timeout, &msg);
+            status = pgagroal_read_timeout_message(NULL, server_fd, config->common.authentication_timeout, &msg);
             if (status != MESSAGE_STATUS_OK)
             {
                goto done;

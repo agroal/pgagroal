@@ -37,6 +37,7 @@
 #include <security.h>
 #include <shmem.h>
 #include <utils.h>
+#include <prometheus.h>
 
 /* system */
 #include <arpa/inet.h>
@@ -60,6 +61,7 @@
 #define MAX_FDS 64
 
 static void accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
+static void accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
 static void shutdown_cb(struct ev_loop* loop, ev_signal* w, int revents);
 static bool accept_fatal(int error);
 static int connect_pgagroal(struct vault_configuration* config, char* username, char* password, SSL** s_ssl, int* client_socket);
@@ -67,12 +69,16 @@ static void route_users(char* username, char** response, SSL* s_ssl, int client_
 static void route_not_found(char** response);
 static void route_found(char** response, char* password);
 static int router(SSL* ssl, int client_fd);
+static void shutdown_ports(void);
 
 static volatile int keep_running = 1;
 static char** argv_ptr;
 static struct ev_loop* main_loop = NULL;
-static struct accept_io io_main;
-static int* server_fd = NULL;
+static struct accept_io io_main[MAX_FDS];
+static struct accept_io io_metrics[MAX_FDS];
+static int* metrics_fds = NULL;
+static int metrics_fds_length = -1;
+static int* server_fds = NULL;
 static int server_fds_length = -1;
 static int default_buffer_size = DEFAULT_BUFFER_SIZE;
 
@@ -134,6 +140,7 @@ router(SSL* s_ssl, int client_fd)
       exit_code = 1;
    }
 
+   pgagroal_prometheus_client_sockets_sub();
    free(response);
 
    return exit_code;
@@ -240,21 +247,68 @@ connect_pgagroal(struct vault_configuration* config, char* username, char* passw
 static void
 start_vault_io(void)
 {
-   int sockfd = *server_fd;
+   for (int i = 0; i < server_fds_length; i++)
+   {
+      int sockfd = *(server_fds + i);
 
-   memset(&io_main, 0, sizeof(struct accept_io));
-   ev_io_init((struct ev_io*)&io_main, accept_vault_cb, sockfd, EV_READ);
-   io_main.socket = sockfd;
-   io_main.argv = argv_ptr;
-   ev_io_start(main_loop, (struct ev_io*)&io_main);
+      memset(&io_main[i], 0, sizeof(struct accept_io));
+      ev_io_init((struct ev_io*)&io_main, accept_vault_cb, sockfd, EV_READ);
+      io_main[i].socket = sockfd;
+      io_main[i].argv = argv_ptr;
+      ev_io_start(main_loop, (struct ev_io*)&io_main[i]);
+   }
 }
 
 static void
 shutdown_vault_io(void)
 {
-   ev_io_stop(main_loop, (struct ev_io*)&io_main);
-   pgagroal_disconnect(io_main.socket);
-   errno = 0;
+   for (int i = 0; i < server_fds_length; i++)
+   {
+      ev_io_stop(main_loop, (struct ev_io*)&io_main[i]);
+      pgagroal_disconnect(io_main[i].socket);
+      errno = 0;
+   }
+}
+
+static void
+start_metrics(void)
+{
+   for (int i = 0; i < metrics_fds_length; i++)
+   {
+      int sockfd = *(metrics_fds + i);
+
+      memset(&io_metrics[i], 0, sizeof(struct accept_io));
+      ev_io_init((struct ev_io*)&io_metrics[i], accept_metrics_cb, sockfd, EV_READ);
+      io_metrics[i].socket = sockfd;
+      io_metrics[i].argv = argv_ptr;
+      ev_io_start(main_loop, (struct ev_io*)&io_metrics[i]);
+   }
+}
+
+static void
+shutdown_metrics(void)
+{
+   for (int i = 0; i < metrics_fds_length; i++)
+   {
+      ev_io_stop(main_loop, (struct ev_io*)&io_metrics[i]);
+      pgagroal_disconnect(io_metrics[i].socket);
+      errno = 0;
+   }
+}
+
+static void
+shutdown_ports(void)
+{
+   struct vault_configuration* config;
+
+   config = (struct vault_configuration*)shmem;
+
+   shutdown_vault_io();
+
+   if (config->common.metrics > 0)
+   {
+      shutdown_metrics();
+   }
 }
 
 static void
@@ -287,6 +341,8 @@ main(int argc, char** argv)
    struct signal_info signal_watcher[1]; // Can add more
    int c;
    int option_index = 0;
+   size_t prometheus_shmem_size = 0;
+   size_t prometheus_cache_shmem_size = 0;
    size_t size;
    struct vault_configuration* config = NULL;
    char message[MISC_LENGTH]; // a generic message used for errors
@@ -379,6 +435,25 @@ main(int argc, char** argv)
       errx(1, "Failed to start logging");
    }
 
+   if (config->common.metrics > 0)
+   {
+      if (pgagroal_vault_init_prometheus(&prometheus_shmem_size, &prometheus_shmem))
+      {
+   #ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=Error in creating and initializing prometheus shared memory");
+   #endif
+         errx(1, "Error in creating and initializing prometheus shared memory");
+      }
+
+      if (pgagroal_init_prometheus_cache(&prometheus_cache_shmem_size, &prometheus_cache_shmem))
+      {
+   #ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=Error in creating and initializing prometheus cache shared memory");
+   #endif
+         errx(1, "Error in creating and initializing prometheus cache shared memory");
+      }
+   }
+
    if (pgagroal_vault_validate_configuration(shmem))
    {
       errx(1, "pgagroal-vault: Invalid VAULT configuration");
@@ -422,9 +497,18 @@ read_users_path:
 
    // -- Bind & Listen at the given hostname and port --
 
-   if (pgagroal_bind(config->common.host, config->common.port, &server_fd, &server_fds_length, false, &default_buffer_size, false, -1))
+   if (pgagroal_bind(config->common.host, config->common.port, &server_fds, &server_fds_length, false, &default_buffer_size, false, -1))
    {
       errx(1, "pgagroal-vault: Could not bind to %s:%d", config->common.host, config->common.port);
+   }
+
+   if (server_fds_length > MAX_FDS)
+   {
+      pgagroal_log_fatal("pgagroal: Too many descriptors %d", server_fds_length);
+#ifdef HAVE_LINUX
+      sd_notifyf(0, "STATUS=Too many descriptors %d", server_fds_length);
+#endif
+      exit(1);
    }
 
    // -- Initialize the watcher and start loop --
@@ -445,10 +529,42 @@ read_users_path:
 
    start_vault_io();
 
+   if (config->common.metrics > 0)
+   {
+      /* Bind metrics socket */
+      if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, false, &default_buffer_size, false, -1))
+      {
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->common.host, config->common.metrics);
+#endif
+         exit(1);
+      }
+
+      if (metrics_fds_length > MAX_FDS)
+      {
+         pgagroal_log_fatal("pgagroal: Too many descriptors %d", metrics_fds_length);
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=Too many descriptors %d", metrics_fds_length);
+#endif
+         exit(1);
+      }
+
+      start_metrics();
+   }
+
    pgagroal_log_info("pgagroal-vault %s: Started on %s:%d",
                      PGAGROAL_VERSION,
                      config->common.host,
                      config->common.port);
+   for (int i = 0; i < server_fds_length; i++)
+   {
+      pgagroal_log_debug("Socket: %d", *(server_fds + i));
+   }
+   for (int i = 0; i < metrics_fds_length; i++)
+   {
+      pgagroal_log_debug("Metrics: %d", *(metrics_fds + i));
+   }
 
    while (keep_running)
    {
@@ -456,10 +572,21 @@ read_users_path:
    }
 
    pgagroal_log_info("pgagroal-vault: shutdown");
+
+   shutdown_ports();
+
+   for (int i = 0; i < 1; i++)
+   {
+      ev_signal_stop(main_loop, (struct ev_signal*)&signal_watcher[i]);
+   }
+
+   ev_loop_destroy(main_loop);
+
    // -- Free all memory --
+   free(metrics_fds);
+   free(server_fds);
    pgagroal_stop_logging();
    pgagroal_destroy_shared_memory(shmem, size);
-   free(server_fd);
 
    return exit_code;
 }
@@ -505,10 +632,10 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
          shutdown_vault_io();
 
-         free(server_fd);
-         server_fd = NULL;
+         free(server_fds);
+         server_fds = NULL;
 
-         if (pgagroal_bind(config->common.host, config->common.port, &server_fd, &server_fds_length, false, &default_buffer_size, false, -1))
+         if (pgagroal_bind(config->common.host, config->common.port, &server_fds, &server_fds_length, false, &default_buffer_size, false, -1))
          {
             pgagroal_log_fatal("pgagroal-vault: Could not bind to %s:%d", config->common.host, config->common.port);
             exit(1);
@@ -516,11 +643,11 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
          if (!fork())
          {
-            shutdown_vault_io();
+            shutdown_ports();
          }
 
          start_vault_io();
-         pgagroal_log_debug("Socket: %d", *server_fd);
+         pgagroal_log_debug("Socket: %d", *server_fds);
       }
       else
       {
@@ -529,6 +656,8 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       errno = 0;
       return;
    }
+
+   pgagroal_prometheus_client_sockets_add();
    pgagroal_get_address((struct sockaddr*)&client_addr, (char*)&address, sizeof(address));
 
    pgagroal_log_trace("accept_vault_cb: client address: %s", address);
@@ -550,7 +679,7 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       memcpy(addr, address, strlen(address));
 
       ev_loop_fork(loop);
-      shutdown_vault_io();
+      shutdown_ports();
 
       if (router(s_ssl, client_fd))
       {
@@ -562,6 +691,79 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    }
 
    pgagroal_disconnect(client_fd);
+}
+
+static void
+accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
+{
+   struct sockaddr_in6 client_addr;
+   socklen_t client_addr_length;
+   int client_fd;
+   struct vault_configuration* config;
+
+   if (EV_ERROR & revents)
+   {
+      pgagroal_log_debug("accept_metrics_cb: invalid event: %s", strerror(errno));
+      errno = 0;
+      return;
+   }
+
+   config = (struct vault_configuration*)shmem;
+
+   client_addr_length = sizeof(client_addr);
+   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
+
+   pgagroal_prometheus_self_sockets_add();
+
+   if (client_fd == -1)
+   {
+      if (accept_fatal(errno) && keep_running)
+      {
+         pgagroal_log_warn("Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
+
+         shutdown_metrics();
+
+         free(metrics_fds);
+         metrics_fds = NULL;
+         metrics_fds_length = 0;
+
+         if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, false, &default_buffer_size, false, -1))
+         {
+            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
+            exit(1);
+         }
+
+         if (metrics_fds_length > MAX_FDS)
+         {
+            pgagroal_log_fatal("pgagroal: Too many descriptors %d", metrics_fds_length);
+            exit(1);
+         }
+
+         start_metrics();
+
+         for (int i = 0; i < metrics_fds_length; i++)
+         {
+            pgagroal_log_debug("Metrics: %d", *(metrics_fds + i));
+         }
+      }
+      else
+      {
+         pgagroal_log_debug("accept: %s (%d)", strerror(errno), watcher->fd);
+      }
+      errno = 0;
+      return;
+   }
+
+   if (!fork())
+   {
+      ev_loop_fork(loop);
+      shutdown_ports();
+      /* We are leaving the socket descriptor valid such that the client won't reuse it */
+      pgagroal_vault_prometheus(client_fd);
+   }
+
+   pgagroal_disconnect(client_fd);
+   pgagroal_prometheus_self_sockets_sub();
 }
 
 static bool

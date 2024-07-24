@@ -742,20 +742,23 @@ read_superuser_path:
       errx(1, "Failed to start logging");
    }
 
-   if (pgagroal_init_prometheus(&prometheus_shmem_size, &prometheus_shmem))
+   if (config->common.metrics > 0)
    {
-#ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=Error in creating and initializing prometheus shared memory");
-#endif
-      errx(1, "Error in creating and initializing prometheus shared memory");
-   }
+      if (pgagroal_init_prometheus(&prometheus_shmem_size, &prometheus_shmem))
+      {
+   #ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=Error in creating and initializing prometheus shared memory");
+   #endif
+         errx(1, "Error in creating and initializing prometheus shared memory");
+      }
 
-   if (pgagroal_init_prometheus_cache(&prometheus_cache_shmem_size, &prometheus_cache_shmem))
-   {
-#ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=Error in creating and initializing prometheus cache shared memory");
-#endif
-      errx(1, "Error in creating and initializing prometheus cache shared memory");
+      if (pgagroal_init_prometheus_cache(&prometheus_cache_shmem_size, &prometheus_cache_shmem))
+      {
+   #ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=Error in creating and initializing prometheus cache shared memory");
+   #endif
+         errx(1, "Error in creating and initializing prometheus cache shared memory");
+      }
    }
 
    if (pgagroal_validate_configuration(shmem, has_unix_socket, has_main_sockets))
@@ -1044,14 +1047,14 @@ read_superuser_path:
       ev_periodic_start (main_loop, &rotate_frontend_password);
    }
 
-   if (config->metrics > 0)
+   if (config->common.metrics > 0)
    {
       /* Bind metrics socket */
-      if (pgagroal_bind(config->common.host, config->metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
+      if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
       {
-         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->metrics);
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
 #ifdef HAVE_LINUX
-         sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->common.host, config->metrics);
+         sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->common.host, config->common.metrics);
 #endif
          goto error;
       }
@@ -1632,9 +1635,9 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          metrics_fds = NULL;
          metrics_fds_length = 0;
 
-         if (pgagroal_bind(config->common.host, config->metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
+         if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
          {
-            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->metrics);
+            pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
             exit(1);
          }
 
@@ -2050,16 +2053,16 @@ reload_configuration(void)
    start_io();
    start_uds();
 
-   if (config->metrics > 0)
+   if (config->common.metrics > 0)
    {
       free(metrics_fds);
       metrics_fds = NULL;
       metrics_fds_length = 0;
 
       /* Bind metrics socket */
-      if (pgagroal_bind(config->common.host, config->metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
+      if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, &config->buffer_size, config->nodelay, config->backlog))
       {
-         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->metrics);
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
          goto error;
       }
 
@@ -2187,7 +2190,7 @@ shutdown_ports(void)
 
    shutdown_io();
 
-   if (config->metrics > 0)
+   if (config->common.metrics > 0)
    {
       shutdown_metrics();
    }

@@ -59,3 +59,44 @@ It is also possible to get an explaination of what is the meaning of each metric
 ```
 http://localhost:2346/
 ```
+
+## Prometheus metrics for pgagroal-vault
+This tutorial will show you how to do basic  [Prometheus](https://prometheus.io/){:target="_blank"} setup  for [**pgagroal-vault**](https://github.com/agroal/pgagroal).
+
+**pgagroal-vault** is able to provide a set of metrics about what it is happening within the vault, so that a Prometheus instance can collect them and help you monitor the vault activities.
+
+### Change the pgagroal-vault configuration
+
+In order to enable to export of the metrics, you need to add the `metrics` option in the main `pgagroal_vault.conf` configuration. The value of this setting is the TCP/IP port number that Prometheus will use to grab the exported metrics.
+
+Add a line like the following to `/etc/pgagroal/pgagroal_vault.conf` by editing such file with your editor of choice:
+
+```
+metrics = 2501
+```
+
+Place it within the `[pgagroal-vault]` section, like
+
+```
+[pgagroal-vault]
+...
+metrics = 2501
+```
+
+This will bind the TCP/IP port number `2501` to the metrics export.
+
+See [the pgagroal-vault configuration settings](https://github.com/agroal/pgagroal/blob/master/doc/VAULT.md#pgagroal-vault) with particular regard to `metrics`, `metrics_cache_max_age` and `metrics_cache_max_size` for more details.
+
+### Get Prometheus metrics
+
+Once **pgagroal-vault** is running you can access the metrics with a browser at the pgagroal-vault address, specifying the `metrics` port number and routing to the `/metrics` page. For example, point your web browser at:
+
+```
+http://localhost:2501/metrics
+```
+
+It is also possible to get an explaination of what is the meaning of each metric by pointing your web browser at:
+
+```
+http://localhost:2501/
+```

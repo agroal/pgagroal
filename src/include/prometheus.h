@@ -65,10 +65,23 @@ void
 pgagroal_prometheus(int fd);
 
 /**
+ * Create a prometheus instance for vault
+ * @param fd The client descriptor
+ */
+void
+pgagroal_vault_prometheus(int fd);
+
+/**
  * Initialize prometheus shmem
  */
 int
 pgagroal_init_prometheus(size_t* p_size, void** p_shmem);
+
+/**
+ * Initialize prometheus shmem for vault
+ */
+int
+pgagroal_vault_init_prometheus(size_t* p_size, void** p_shmem);
 
 /**
  * Add session time information

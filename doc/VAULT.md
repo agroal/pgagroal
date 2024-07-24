@@ -27,6 +27,10 @@ The available keys and their accepted values are reported in the table below.
 |----------|---------|------|----------|-------------|
 | host | | String | Yes | The bind address for pgagroal-vault |
 | port | | Int | Yes | The bind port for pgagroal-vault |
+| metrics | 0 | Int | No | The metrics port (disable = 0) |
+| metrics_cache_max_age | 0 | String | No | The number of seconds to keep in cache a Prometheus (metrics) response. If set to zero, the caching will be disabled. Can be a string with a suffix, like `2m` to indicate 2 minutes |
+| metrics_cache_max_size | 256k | String | No | The maximum amount of data to keep in cache when serving Prometheus responses. Changes require restart. This parameter determines the size of memory allocated for the cache even if `metrics_cache_max_age` or `metrics` are disabled. Its value, however, is taken into account only if `metrics_cache_max_age` is set to a non-zero value. Supports suffixes: 'B' (bytes), the default if omitted, 'K' or 'KB' (kilobytes), 'M' or 'MB' (megabytes), 'G' or 'GB' (gigabytes).|
+| authentication_timeout | 5 | Int | No | The number of seconds the process will wait for valid credentials |
 | log_type | console | String | No | The logging type (console, file, syslog) |
 | log_level | info | String | No | The logging level, any of the (case insensitive) strings `FATAL`, `ERROR`, `WARN`, `INFO` and `DEBUG` (that can be more specific as `DEBUG1` thru `DEBUG5`). Debug level greater than 5 will be set to `DEBUG5`. Not recognized values will make the log_level be `INFO` |
 | log_path | pgagroal.log | String | No | The log file location. Can be a strftime(3) compatible string. |
@@ -36,6 +40,7 @@ The available keys and their accepted values are reported in the table below.
 | log_mode | append | String | No | Append to or create the log file (append, create) |
 | log_connections | `off` | Bool | No | Log connects |
 | log_disconnections | `off` | Bool | No | Log disconnects |
+| hugepage | `try` | String | No | Huge page support (`off`, `try`, `on`) |
 
 ## [main]
 

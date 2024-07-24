@@ -139,7 +139,7 @@ pgagroal_init_configuration(void* shm)
    config->validation = VALIDATION_OFF;
    config->background_interval = 300;
    config->max_retries = 5;
-   config->authentication_timeout = 5;
+   config->common.authentication_timeout = 5;
    config->disconnect_client = 0;
    config->disconnect_client_force = false;
 
@@ -148,7 +148,7 @@ pgagroal_init_configuration(void* shm)
    config->nodelay = true;
    config->non_blocking = false;
    config->backlog = -1;
-   config->hugepage = HUGEPAGE_TRY;
+   config->common.hugepage = HUGEPAGE_TRY;
    config->tracker = false;
    config->track_prepared_statements = false;
 
@@ -417,9 +417,9 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       config->backlog = MAX(config->max_connections / 4, 16);
    }
 
-   if (config->authentication_timeout <= 0)
+   if (config->common.authentication_timeout <= 0)
    {
-      config->authentication_timeout = 5;
+      config->common.authentication_timeout = 5;
    }
 
    if (config->disconnect_client <= 0)
@@ -726,7 +726,8 @@ pgagroal_vault_init_configuration(void* shm)
    config->vault_server.server.port = 0;
    config->vault_server.server.tls = false;
    config->number_of_users = 0;
-
+   config->common.authentication_timeout = 5;
+   config->common.hugepage = HUGEPAGE_TRY;
    config->common.log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->common.log_level = PGAGROAL_LOGGING_LEVEL_INFO;
    config->common.log_connections = false;
@@ -907,6 +908,11 @@ pgagroal_vault_validate_configuration (void* shm)
    {
       pgagroal_log_fatal("pgagroal-vault: No port defined");
       return 1;
+   }
+
+   if (config->common.authentication_timeout < 0)
+   {
+      config->common.authentication_timeout = 5;
    }
 
    if (strlen(config->vault_server.server.host) == 0)
@@ -2564,9 +2570,9 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
 
    memcpy(config->common.host, reload->common.host, MISC_LENGTH);
    config->common.port = reload->common.port;
-   config->metrics = reload->metrics;
-   config->metrics_cache_max_age = reload->metrics_cache_max_age;
-   unchanged -= restart_int("metrics_cache_max_size", config->metrics_cache_max_size, reload->metrics_cache_max_size);
+   config->common.metrics = reload->common.metrics;
+   config->common.metrics_cache_max_age = reload->common.metrics_cache_max_age;
+   unchanged -= restart_int("metrics_cache_max_size", config->common.metrics_cache_max_size, reload->common.metrics_cache_max_size);
    config->management = reload->management;
 
    config->update_process_title = reload->update_process_title;
@@ -2637,7 +2643,7 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    config->validation = reload->validation;
    config->background_interval = reload->background_interval;
    config->max_retries = reload->max_retries;
-   config->authentication_timeout = reload->authentication_timeout;
+   config->common.authentication_timeout = reload->common.authentication_timeout;
    config->disconnect_client = reload->disconnect_client;
    config->disconnect_client_force = reload->disconnect_client_force;
    /* pidfile */
@@ -2651,7 +2657,7 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    config->non_blocking = reload->non_blocking;
    config->backlog = reload->backlog;
    /* hugepage */
-   unchanged -= restart_int("hugepage", config->hugepage, reload->hugepage);
+   unchanged -= restart_int("hugepage", config->common.hugepage, reload->common.hugepage);
    config->tracker = reload->tracker;
    config->track_prepared_statements = reload->track_prepared_statements;
 
@@ -3559,15 +3565,15 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       }
       else if (!strncmp(key, "metrics", MISC_LENGTH))
       {
-         return to_int(buffer, config->metrics);
+         return to_int(buffer, config->common.metrics);
       }
       else if (!strncmp(key, "metrics_cache_max_age", MISC_LENGTH))
       {
-         return to_int(buffer, config->metrics_cache_max_age);
+         return to_int(buffer, config->common.metrics_cache_max_age);
       }
       else if (!strncmp(key, "metrics_cache_max_size", MISC_LENGTH))
       {
-         return to_int(buffer, config->metrics_cache_max_size);
+         return to_int(buffer, config->common.metrics_cache_max_size);
       }
       else if (!strncmp(key, "management", MISC_LENGTH))
       {
@@ -3639,7 +3645,7 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       }
       else if (!strncmp(key, "authentication_timeout", MISC_LENGTH))
       {
-         return to_int(buffer, config->authentication_timeout);
+         return to_int(buffer, config->common.authentication_timeout);
       }
       else if (!strncmp(key, "disconnect_client", MISC_LENGTH))
       {
@@ -3683,7 +3689,7 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       }
       else if (!strncmp(key, "hugepage", MISC_LENGTH))
       {
-         return to_bool(buffer, config->hugepage);
+         return to_bool(buffer, config->common.hugepage);
       }
       else if (!strncmp(key, "track_prepared_statements", MISC_LENGTH))
       {
@@ -4335,21 +4341,21 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    }
    else if (key_in_section("metrics", section, key, true, &unknown))
    {
-      if (as_int(value, &config->metrics))
+      if (as_int(value, &config->common.metrics))
       {
          unknown = true;
       }
    }
    else if (key_in_section("metrics_cache_max_age", section, key, true, &unknown))
    {
-      if (as_seconds(value, &config->metrics_cache_max_age, PGAGROAL_PROMETHEUS_CACHE_DISABLED))
+      if (as_seconds(value, &config->common.metrics_cache_max_age, PGAGROAL_PROMETHEUS_CACHE_DISABLED))
       {
          unknown = true;
       }
    }
    else if (key_in_section("metrics_cache_max_size", section, key, true, &unknown))
    {
-      if (as_bytes(value, &config->metrics_cache_max_size, PROMETHEUS_DEFAULT_CACHE_SIZE))
+      if (as_bytes(value, &config->common.metrics_cache_max_size, PROMETHEUS_DEFAULT_CACHE_SIZE))
       {
          unknown = true;
       }
@@ -4513,7 +4519,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    }
    else if (key_in_section("authentication_timeout", section, key, true, &unknown))
    {
-      if (as_int(value, &config->authentication_timeout))
+      if (as_int(value, &config->common.authentication_timeout))
       {
          unknown = true;
       }
@@ -4675,7 +4681,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    }
    else if (key_in_section("hugepage", section, key, true, &unknown))
    {
-      config->hugepage = as_hugepage(value);
+      config->common.hugepage = as_hugepage(value);
    }
    else if (key_in_section("tracker", section, key, true, &unknown))
    {
@@ -4773,6 +4779,27 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
       }
       memcpy(&srv->user.username, value, max);
    }
+   else if (key_in_section("metrics", section, key, true, &unknown))
+   {
+      if (as_int(value, &config->common.metrics))
+      {
+         unknown = true;
+      }
+   }
+   else if (key_in_section("metrics_cache_max_age", section, key, true, &unknown))
+   {
+      if (as_seconds(value, &config->common.metrics_cache_max_age, PGAGROAL_PROMETHEUS_CACHE_DISABLED))
+      {
+         unknown = true;
+      }
+   }
+   else if (key_in_section("metrics_cache_max_size", section, key, true, &unknown))
+   {
+      if (as_bytes(value, &config->common.metrics_cache_max_size, PROMETHEUS_DEFAULT_CACHE_SIZE))
+      {
+         unknown = true;
+      }
+   }
    else if (key_in_section("tls", section, key, false, &unknown))
    {
       if (as_bool(value, &srv->server.tls))
@@ -4806,6 +4833,13 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
          max = MISC_LENGTH - 1;
       }
       memcpy(&srv->server.tls_key_file, value, max);
+   }
+   else if (key_in_section("authentication_timeout", section, key, true, &unknown))
+   {
+      if (as_int(value, &config->common.authentication_timeout))
+      {
+         unknown = true;
+      }
    }
    else if (key_in_section("log_type", section, key, true, &unknown))
    {
@@ -4866,6 +4900,10 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
    else if (key_in_section("log_mode", section, key, true, &unknown))
    {
       config->common.log_mode = as_logging_mode(value);
+   }
+   else if (key_in_section("hugepage", section, key, true, &unknown))
+   {
+      config->common.hugepage = as_hugepage(value);
    }
    return 0;
 }

@@ -108,7 +108,7 @@ session_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_si
    if (config->disconnect_client > 0)
    {
       session_shmem_size = config->max_connections * sizeof(struct client_session);
-      if (pgagroal_create_shared_memory(session_shmem_size, config->hugepage, &session_shmem))
+      if (pgagroal_create_shared_memory(session_shmem_size, config->common.hugepage, &session_shmem))
       {
          return 1;
       }

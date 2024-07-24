@@ -33,6 +33,22 @@ host
 port
   The bind port for pgagroal-vault. Mandatory
 
+metrics
+  The metrics port. Default is 0 (disabled)
+
+metrics_cache_max_age
+  The number of seconds to keep in cache a Prometheus (metrics) response.
+  If set to zero, the caching will be disabled. Can be a string with a suffix, like ``2m`` to indicate 2 minutes.
+  Default is 0 (disabled)
+
+metrics_cache_max_size
+  The maximum amount of data to keep in cache when serving Prometheus responses. Changes require restart.
+  This parameter determines the size of memory allocated for the cache even if ``metrics_cache_max_age`` or
+  ``metrics`` are disabled. Its value, however, is taken into account only if ``metrics_cache_max_age`` is set
+  to a non-zero value. Supports suffixes: ``B`` (bytes), the default if omitted, ``K`` or ``KB`` (kilobytes),
+  ``M`` or ``MB`` (megabytes), ``G`` or ``GB`` (gigabytes).
+  Default is 256k
+
 log_type
   The logging type (console, file, syslog). Default is console
 
@@ -66,6 +82,12 @@ log_connections
 
 log_disconnections
   Log disconnects. Default is off
+
+authentication_timeout
+  The number of seconds the process will wait for valid credentials. Default is 5
+
+hugepage
+  Huge page support. Default is try
 
 The options for the main section are
 

@@ -233,3 +233,29 @@ Number of sockets the client used
 ## pgagroal_self_sockets
 
 Number of sockets used by pgagroal itself
+
+[**pgagroal-vault**][pgagroal-vault] has the following [Prometheus][prometheus] metrics.
+
+## pgagroal_vault_logging_info
+
+The number of INFO statements
+
+## pgagroal_vault_logging_warn
+
+The number of WARN statements
+
+## pgagroal_vault_logging_error
+
+The number of ERROR statements
+
+## pgagroal_vault_logging_fatal
+
+The number of FATAL statements
+
+## pgagroal_vault_client_sockets
+
+Number of sockets the client used
+
+## pgagroal_vault_self_sockets
+
+Number of sockets used by pgagroal-vault itself

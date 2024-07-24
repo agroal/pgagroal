@@ -371,10 +371,28 @@ struct prometheus_cache
 } __attribute__ ((aligned (64)));
 
 /** @struct
- * Defines the Prometheus metrics
+ * Defines the common Prometheus metrics
  */
 struct prometheus
 {
+   // logging
+   atomic_ulong logging_info;          /**< Logging: INFO */
+   atomic_ulong logging_warn;          /**< Logging: WARN */
+   atomic_ulong logging_error;         /**< Logging: ERROR */
+   atomic_ulong logging_fatal;         /**< Logging: FATAL */
+
+   // internal connections
+   atomic_int client_sockets;          /**< The number of sockets the client used */
+   atomic_int self_sockets;            /**< The number of sockets used by pgagroal itself */
+
+} __attribute__ ((aligned (64)));
+
+/** @struct
+ * Defines the Main Prometheus metrics
+ */
+struct main_prometheus
+{
+   struct prometheus prometheus_base;            /**< Common base class */
    atomic_ulong session_time[HISTOGRAM_BUCKETS]; /**< The histogram buckets */
    atomic_ulong session_time_sum;                /**< Total session time */
 
@@ -389,11 +407,6 @@ struct prometheus
    atomic_ulong connection_max_connection_age; /**< The number of max connection age calls */
    atomic_ulong connection_flush;              /**< The number of flush calls */
    atomic_ulong connection_success;            /**< The number of success calls */
-
-   atomic_ulong logging_info;  /**< Logging: INFO */
-   atomic_ulong logging_warn;  /**< Logging: WARN */
-   atomic_ulong logging_error; /**< Logging: ERROR */
-   atomic_ulong logging_fatal; /**< Logging: FATAL */
 
    /**< The number of connection awaiting due to `blocking_timeout` */
    atomic_ulong connections_awaiting[NUMBER_OF_LIMITS];
@@ -413,13 +426,18 @@ struct prometheus
    atomic_ullong network_sent;          /**< The bytes sent by clients */
    atomic_ullong network_received;      /**< The bytes received from servers */
 
-   atomic_int client_sockets;          /**< The number of sockets the client used */
-   atomic_int self_sockets;            /**< The number of sockets used by pgagroal itself */
-
    atomic_ulong server_error[NUMBER_OF_SERVERS]; /**< The number of errors for a server */
    atomic_ulong failed_servers;                  /**< The number of failed servers */
    struct prometheus_connection prometheus_connections[];  /**< The number of prometheus connections (FMA) */
 
+} __attribute__ ((aligned (64)));
+
+/** @struct
+ * Defines the Vault Prometheus metrics
+ */
+struct vault_prometheus
+{
+   struct prometheus prometheus_base;
 } __attribute__ ((aligned (64)));
 
 /** @struct
@@ -430,6 +448,7 @@ struct configuration
    char configuration_path[MAX_PATH]; /**< The configuration path */
    char host[MISC_LENGTH];            /**< The host */
    int port;                          /**< The port */
+   int authentication_timeout;        /**< The authentication timeout in seconds */
 
    // Logging
    int log_type;                       /**< The logging type */
@@ -443,6 +462,12 @@ struct configuration
    char log_line_prefix[MISC_LENGTH];  /**< The logging prefix */
    atomic_schar log_lock;              /**< The logging lock */
    char default_log_path[MISC_LENGTH]; /**< The default logging path */
+
+   // Prometheus
+   unsigned char hugepage;              /**< Huge page support */
+   int metrics;                         /**< The metrics port */
+   unsigned int metrics_cache_max_age;  /**< Number of seconds to cache the Prometheus response */
+   unsigned int metrics_cache_max_size; /**< Number of bytes max to cache the Prometheus response */
 };
 
 /** @struct
@@ -469,9 +494,6 @@ struct main_configuration
    char admins_path[MAX_PATH];        /**< The admins path */
    char superuser_path[MAX_PATH];     /**< The superuser path */
 
-   int metrics;            /**< The metrics port */
-   unsigned int metrics_cache_max_age;      /**< Number of seconds to cache the Prometheus response */
-   unsigned int metrics_cache_max_size;     /**< Number of bytes max to cache the Prometheus response */
    int management;         /**< The management port */
    bool gracefully;        /**< Is pgagroal in gracefully mode */
 
@@ -503,7 +525,6 @@ struct main_configuration
    int validation;               /**< Validation mode */
    int background_interval;      /**< Background validation timer in seconds */
    int max_retries;              /**< The maximum number of retries */
-   int authentication_timeout;   /**< The authentication timeout in seconds */
    int disconnect_client;        /**< Disconnect client if idle for more than the specified seconds */
    bool disconnect_client_force; /**< Force a disconnect client if active for more than the specified seconds */
    char pidfile[MAX_PATH];       /**< File containing the PID */
@@ -514,7 +535,6 @@ struct main_configuration
    bool nodelay;            /**< Use NODELAY */
    bool non_blocking;       /**< Use non blocking */
    int backlog;             /**< The backlog for listen */
-   unsigned char hugepage;  /**< Huge page support */
    bool tracker;            /**< Tracker support */
    bool track_prepared_statements; /**< Track prepared statements (transaction pooling) */
 

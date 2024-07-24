@@ -71,10 +71,13 @@
 static int resolve_page(struct message* msg);
 static int unknown_page(int client_fd);
 static int home_page(int client_fd);
+static int home_vault_page(int client_fd);
 static int metrics_page(int client_fd);
+static int metrics_vault_page(int client_fd);
 static int bad_request(int client_fd);
 
 static void general_information(int client_fd);
+static void general_vault_information(int client_fd);
 static void connection_information(int client_fd);
 static void limit_information(int client_fd);
 static void session_information(int client_fd);
@@ -82,6 +85,7 @@ static void pool_information(int client_fd);
 static void auth_information(int client_fd);
 static void client_information(int client_fd);
 static void internal_information(int client_fd);
+static void internal_vault_information(int client_fd);
 static void connection_awaiting_information(int client_fd);
 
 static int send_chunk(int client_fd, char* data);
@@ -92,6 +96,7 @@ static bool metrics_cache_append(char* data);
 static bool metrics_cache_finalize(void);
 static size_t metrics_cache_size_to_alloc(void);
 static void metrics_cache_invalidate(void);
+static bool is_prometheus_enabled(void);
 
 void
 pgagroal_prometheus(int client_fd)
@@ -101,12 +106,17 @@ pgagroal_prometheus(int client_fd)
    struct message* msg = NULL;
    struct main_configuration* config;
 
+   if (!is_prometheus_enabled())
+   {
+      exit(1);
+   }
+
    pgagroal_start_logging();
    pgagroal_memory_init();
 
    config = (struct main_configuration*)shmem;
 
-   status = pgagroal_read_timeout_message(NULL, client_fd, config->authentication_timeout, &msg);
+   status = pgagroal_read_timeout_message(NULL, client_fd, config->common.authentication_timeout, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -149,26 +159,87 @@ error:
    exit(1);
 }
 
+void
+pgagroal_vault_prometheus(int client_fd)
+{
+   int status;
+   int page;
+   struct message* msg = NULL;
+   struct vault_configuration* config;
+
+   if (!is_prometheus_enabled())
+   {
+      exit(1);
+   }
+
+   pgagroal_start_logging();
+   pgagroal_memory_init();
+
+   config = (struct vault_configuration*)shmem;
+
+   status = pgagroal_read_timeout_message(NULL, client_fd, config->common.authentication_timeout, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   page = resolve_page(msg);
+
+   if (page == PAGE_HOME)
+   {
+      home_vault_page(client_fd);
+   }
+   else if (page == PAGE_METRICS)
+   {
+      metrics_vault_page(client_fd);
+   }
+   else if (page == PAGE_UNKNOWN)
+   {
+      unknown_page(client_fd);
+   }
+   else
+   {
+      bad_request(client_fd);
+   }
+
+   pgagroal_disconnect(client_fd);
+
+   pgagroal_memory_destroy();
+   pgagroal_stop_logging();
+
+   exit(0);
+
+error:
+
+   pgagroal_log_debug("pgagroal_prometheus: disconnect %d", client_fd);
+   pgagroal_disconnect(client_fd);
+
+   pgagroal_memory_destroy();
+   pgagroal_stop_logging();
+
+   exit(1);
+}
+
 int
 pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
 {
    size_t tmp_p_size = 0;
    void* tmp_p_shmem = NULL;
+   struct main_prometheus* prometheus;
    struct main_configuration* config;
-   struct prometheus* prometheus;
 
    config = (struct main_configuration*) shmem;
 
    *p_size = 0;
    *p_shmem = NULL;
 
-   tmp_p_size = sizeof(struct prometheus) + (config->max_connections * sizeof(struct prometheus_connection));
-   if (pgagroal_create_shared_memory(tmp_p_size, config->hugepage, &tmp_p_shmem))
+   tmp_p_size = sizeof(struct main_prometheus) + (config->max_connections * sizeof(struct prometheus_connection));
+   if (pgagroal_create_shared_memory(tmp_p_size, config->common.hugepage, &tmp_p_shmem))
    {
       goto error;
    }
 
-   prometheus = (struct prometheus*)tmp_p_shmem;
+   prometheus = (struct main_prometheus*)tmp_p_shmem;
 
    for (int i = 0; i < HISTOGRAM_BUCKETS; i++)
    {
@@ -188,10 +259,10 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
    atomic_init(&prometheus->connection_flush, 0);
    atomic_init(&prometheus->connection_success, 0);
 
-   atomic_init(&prometheus->logging_info, 0);
-   atomic_init(&prometheus->logging_warn, 0);
-   atomic_init(&prometheus->logging_error, 0);
-   atomic_init(&prometheus->logging_fatal, 0);
+   atomic_init(&prometheus->prometheus_base.logging_info, 0);
+   atomic_init(&prometheus->prometheus_base.logging_warn, 0);
+   atomic_init(&prometheus->prometheus_base.logging_error, 0);
+   atomic_init(&prometheus->prometheus_base.logging_fatal, 0);
 
    // awating connections are those on hold due to
    // the `blocking_timeout` setting
@@ -216,8 +287,8 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
    atomic_init(&prometheus->network_sent, 0);
    atomic_init(&prometheus->network_received, 0);
 
-   atomic_init(&prometheus->client_sockets, 0);
-   atomic_init(&prometheus->self_sockets, 0);
+   atomic_init(&prometheus->prometheus_base.client_sockets, 0);
+   atomic_init(&prometheus->prometheus_base.self_sockets, 0);
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -241,14 +312,57 @@ error:
    return 1;
 }
 
+int
+pgagroal_vault_init_prometheus(size_t* p_size, void** p_shmem)
+{
+   size_t tmp_p_size = 0;
+   void* tmp_p_shmem = NULL;
+   struct vault_prometheus* prometheus;
+   struct vault_configuration* config;
+
+   config = (struct vault_configuration*) shmem;
+
+   *p_size = 0;
+   *p_shmem = NULL;
+
+   tmp_p_size = sizeof(struct vault_prometheus);
+   if (pgagroal_create_shared_memory(tmp_p_size, config->common.hugepage, &tmp_p_shmem))
+   {
+      goto error;
+   }
+
+   prometheus = (struct vault_prometheus*)tmp_p_shmem;
+
+   atomic_init(&prometheus->prometheus_base.logging_info, 0);
+   atomic_init(&prometheus->prometheus_base.logging_warn, 0);
+   atomic_init(&prometheus->prometheus_base.logging_error, 0);
+   atomic_init(&prometheus->prometheus_base.logging_fatal, 0);
+
+   atomic_init(&prometheus->prometheus_base.client_sockets, 0);
+   atomic_init(&prometheus->prometheus_base.self_sockets, 0);
+
+   *p_size = tmp_p_size;
+   *p_shmem = tmp_p_shmem;
+
+   return 0;
+
+error:
+
+   return 1; 
+}
+
 void
 pgagroal_prometheus_session_time(double time)
 {
    unsigned long t;
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
 
+   prometheus = (struct main_prometheus*)prometheus_shmem;
    t = (unsigned long)time;
 
    atomic_fetch_add(&prometheus->session_time_sum, t);
@@ -330,9 +444,14 @@ pgagroal_prometheus_session_time(double time)
 void
 pgagroal_prometheus_connection_error(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_error, 1);
 }
@@ -340,9 +459,14 @@ pgagroal_prometheus_connection_error(void)
 void
 pgagroal_prometheus_connection_kill(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_kill, 1);
 }
@@ -350,9 +474,14 @@ pgagroal_prometheus_connection_kill(void)
 void
 pgagroal_prometheus_connection_remove(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_remove, 1);
 }
@@ -360,9 +489,14 @@ pgagroal_prometheus_connection_remove(void)
 void
 pgagroal_prometheus_connection_timeout(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_timeout, 1);
 }
@@ -370,9 +504,14 @@ pgagroal_prometheus_connection_timeout(void)
 void
 pgagroal_prometheus_connection_return(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_return, 1);
 }
@@ -380,9 +519,14 @@ pgagroal_prometheus_connection_return(void)
 void
 pgagroal_prometheus_connection_invalid(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_invalid, 1);
 }
@@ -390,9 +534,14 @@ pgagroal_prometheus_connection_invalid(void)
 void
 pgagroal_prometheus_connection_get(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_get, 1);
 }
@@ -400,9 +549,14 @@ pgagroal_prometheus_connection_get(void)
 void
 pgagroal_prometheus_connection_idletimeout(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_idletimeout, 1);
 }
@@ -410,9 +564,14 @@ pgagroal_prometheus_connection_idletimeout(void)
 void
 pgagroal_prometheus_connection_max_connection_age(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_max_connection_age, 1);
 }
@@ -420,9 +579,14 @@ pgagroal_prometheus_connection_max_connection_age(void)
 void
 pgagroal_prometheus_connection_awaiting(int limit_index)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    if (limit_index >= 0)
    {
@@ -435,9 +599,14 @@ pgagroal_prometheus_connection_awaiting(int limit_index)
 void
 pgagroal_prometheus_connection_unawaiting(int limit_index)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    if (limit_index >= 0 && atomic_load(&prometheus->connections_awaiting[limit_index]) > 0)
    {
@@ -453,9 +622,14 @@ pgagroal_prometheus_connection_unawaiting(int limit_index)
 void
 pgagroal_prometheus_connection_flush(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_flush, 1);
 }
@@ -463,9 +637,14 @@ pgagroal_prometheus_connection_flush(void)
 void
 pgagroal_prometheus_connection_success(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->connection_success, 1);
 }
@@ -473,9 +652,14 @@ pgagroal_prometheus_connection_success(void)
 void
 pgagroal_prometheus_auth_user_success(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->auth_user_success, 1);
 }
@@ -483,9 +667,14 @@ pgagroal_prometheus_auth_user_success(void)
 void
 pgagroal_prometheus_auth_user_bad_password(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->auth_user_bad_password, 1);
 }
@@ -493,9 +682,14 @@ pgagroal_prometheus_auth_user_bad_password(void)
 void
 pgagroal_prometheus_auth_user_error(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->auth_user_error, 1);
 }
@@ -503,9 +697,14 @@ pgagroal_prometheus_auth_user_error(void)
 void
 pgagroal_prometheus_client_wait_add(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->client_wait, 1);
 }
@@ -513,9 +712,14 @@ pgagroal_prometheus_client_wait_add(void)
 void
 pgagroal_prometheus_client_wait_sub(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_sub(&prometheus->client_wait, 1);
 }
@@ -523,9 +727,14 @@ pgagroal_prometheus_client_wait_sub(void)
 void
 pgagroal_prometheus_client_active_add(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->client_active, 1);
 }
@@ -533,9 +742,14 @@ pgagroal_prometheus_client_active_add(void)
 void
 pgagroal_prometheus_client_active_sub(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_sub(&prometheus->client_active, 1);
 }
@@ -543,9 +757,14 @@ pgagroal_prometheus_client_active_sub(void)
 void
 pgagroal_prometheus_query_count_add(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->query_count, 1);
 }
@@ -553,9 +772,14 @@ pgagroal_prometheus_query_count_add(void)
 void
 pgagroal_prometheus_query_count_specified_add(int slot)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->prometheus_connections[slot].query_count, 1);
 }
@@ -563,9 +787,14 @@ pgagroal_prometheus_query_count_specified_add(int slot)
 void
 pgagroal_prometheus_query_count_specified_reset(int slot)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_store(&prometheus->prometheus_connections[slot].query_count, 0);
 }
@@ -573,9 +802,14 @@ pgagroal_prometheus_query_count_specified_reset(int slot)
 void
 pgagroal_prometheus_tx_count_add(void)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->tx_count, 1);
 }
@@ -583,9 +817,14 @@ pgagroal_prometheus_tx_count_add(void)
 void
 pgagroal_prometheus_network_sent_add(ssize_t s)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->network_sent, s);
 }
@@ -593,9 +832,14 @@ pgagroal_prometheus_network_sent_add(ssize_t s)
 void
 pgagroal_prometheus_network_received_add(ssize_t s)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->network_received, s);
 }
@@ -604,6 +848,11 @@ void
 pgagroal_prometheus_client_sockets_add(void)
 {
    struct prometheus* prometheus;
+
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
 
    prometheus = (struct prometheus*)prometheus_shmem;
 
@@ -615,6 +864,11 @@ pgagroal_prometheus_client_sockets_sub(void)
 {
    struct prometheus* prometheus;
 
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
    prometheus = (struct prometheus*)prometheus_shmem;
 
    atomic_fetch_sub(&prometheus->client_sockets, 1);
@@ -624,6 +878,11 @@ void
 pgagroal_prometheus_self_sockets_add(void)
 {
    struct prometheus* prometheus;
+
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
 
    prometheus = (struct prometheus*)prometheus_shmem;
 
@@ -635,6 +894,11 @@ pgagroal_prometheus_self_sockets_sub(void)
 {
    struct prometheus* prometheus;
 
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
    prometheus = (struct prometheus*)prometheus_shmem;
 
    atomic_fetch_sub(&prometheus->self_sockets, 1);
@@ -645,11 +909,16 @@ pgagroal_prometheus_reset(void)
 {
    signed char cache_is_free;
    struct main_configuration* config;
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
    struct prometheus_cache* cache;
 
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
    config = (struct main_configuration*) shmem;
-   prometheus = (struct prometheus*)prometheus_shmem;
+   prometheus = (struct main_prometheus*)prometheus_shmem;
    cache = (struct prometheus_cache*)prometheus_cache_shmem;
 
    for (int i = 0; i < HISTOGRAM_BUCKETS; i++)
@@ -670,10 +939,10 @@ pgagroal_prometheus_reset(void)
    atomic_store(&prometheus->connection_flush, 0);
    atomic_store(&prometheus->connection_success, 0);
 
-   atomic_store(&prometheus->logging_info, 0);
-   atomic_store(&prometheus->logging_warn, 0);
-   atomic_store(&prometheus->logging_error, 0);
-   atomic_store(&prometheus->logging_fatal, 0);
+   atomic_store(&prometheus->prometheus_base.logging_info, 0);
+   atomic_store(&prometheus->prometheus_base.logging_warn, 0);
+   atomic_store(&prometheus->prometheus_base.logging_error, 0);
+   atomic_store(&prometheus->prometheus_base.logging_fatal, 0);
 
    // awaiting connections are on hold due to `blocking_timeout`
    atomic_store(&prometheus->connections_awaiting_total, 0);
@@ -696,8 +965,8 @@ pgagroal_prometheus_reset(void)
    atomic_store(&prometheus->network_sent, 0);
    atomic_store(&prometheus->network_received, 0);
 
-   atomic_store(&prometheus->client_sockets, 0);
-   atomic_store(&prometheus->self_sockets, 0);
+   atomic_store(&prometheus->prometheus_base.client_sockets, 0);
+   atomic_store(&prometheus->prometheus_base.self_sockets, 0);
 
    for (int i = 0; i < NUMBER_OF_SERVERS; i++)
    {
@@ -727,9 +996,14 @@ retry_cache_locking:
 void
 pgagroal_prometheus_server_error(int server)
 {
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    atomic_fetch_add(&prometheus->server_error[server], 1);
 }
@@ -738,10 +1012,15 @@ void
 pgagroal_prometheus_failed_servers(void)
 {
    int count;
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
    struct main_configuration* config;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
    config = (struct main_configuration*) shmem;
 
    count = 0;
@@ -762,6 +1041,11 @@ void
 pgagroal_prometheus_logging(int type)
 {
    struct prometheus* prometheus;
+
+   if (!is_prometheus_enabled())
+   {
+      return;
+   }
 
    prometheus = (struct prometheus*)prometheus_shmem;
 
@@ -1242,6 +1526,108 @@ done:
 }
 
 static int
+home_vault_page(int client_fd)
+{
+   char* data = NULL;
+   time_t now;
+   char time_buf[32];
+   int status;
+   struct message msg;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&data, 0, sizeof(data));
+
+   now = time(NULL);
+
+   memset(&time_buf, 0, sizeof(time_buf));
+   ctime_r(&now, &time_buf[0]);
+   time_buf[strlen(time_buf) - 1] = 0;
+
+   data = pgagroal_append(data, "HTTP/1.1 200 OK\r\n");
+   data = pgagroal_append(data, "Content-Type: text/html; charset=utf-8\r\n");
+   data = pgagroal_append(data, "Date: ");
+   data = pgagroal_append(data, &time_buf[0]);
+   data = pgagroal_append(data, "\r\n");
+   data = pgagroal_append(data, "Transfer-Encoding: chunked\r\n");
+   data = pgagroal_append(data, "\r\n");
+
+   msg.kind = 0;
+   msg.length = strlen(data);
+   msg.data = data;
+
+   status = pgagroal_write_message(NULL, client_fd, &msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto done;
+   }
+
+   free(data);
+   data = NULL;
+
+   data = pgagroal_append(data, "<!DOCTYPE html>\n");
+   data = pgagroal_append(data, "<html xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en\">\n");
+   data = pgagroal_append(data, "<head>\n");
+   data = pgagroal_append(data, "  <title>pgagroal-vault exporter</title>\n");
+   data = pgagroal_append(data, "  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"/>");
+   data = pgagroal_append(data, "</head>\n");
+   data = pgagroal_append(data, "<body>\n");
+   data = pgagroal_append(data, "  <h1>pgagroal-vault exporter</h1>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   <a href=\"/metrics\">Metrics</a>\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_vault_logging_info</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "  The number of INFO logging statements\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_vault_logging_warn</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "  The number of WARN logging statements\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_vault_logging_error</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "  The number of ERROR logging statements\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_vault_logging_fatal</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "  The number of FATAL logging statements\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_vault_client_sockets</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of sockets the client used\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_vault_self_sockets</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of sockets used by pgagroal-vault itself\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   <a href=\"https://agroal.github.io/pgagroal/\">agroal.github.io/pgagroal/</a>\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "</body>\n");
+   data = pgagroal_append(data, "</html>\n");
+
+   send_chunk(client_fd, data);
+   free(data);
+   data = NULL;
+
+   /* Footer */
+   data = pgagroal_append(data, "0\r\n\r\n");
+
+   msg.kind = 0;
+   msg.length = strlen(data);
+   msg.data = data;
+
+   status = pgagroal_write_message(NULL, client_fd, &msg);
+
+done:
+   if (data != NULL)
+   {
+      free(data);
+   }
+
+   return status;
+}
+
+static int
 metrics_page(int client_fd)
 {
    char* data = NULL;
@@ -1359,6 +1745,116 @@ error:
 }
 
 static int
+metrics_vault_page(int client_fd)
+{
+   char* data = NULL;
+   time_t now;
+   char time_buf[32];
+   int status;
+   struct message msg;
+   struct prometheus_cache* cache;
+   signed char cache_is_free;
+
+   cache = (struct prometheus_cache*)prometheus_cache_shmem;
+
+   memset(&msg, 0, sizeof(struct message));
+
+retry_cache_locking:
+   cache_is_free = STATE_FREE;
+   if (atomic_compare_exchange_strong(&cache->lock, &cache_is_free, STATE_IN_USE))
+   {
+      // can serve the message out of cache?
+      if (is_metrics_cache_configured() && is_metrics_cache_valid())
+      {
+         // serve the message directly out of the cache
+         pgagroal_log_debug("Serving metrics out of cache (%d/%d bytes valid until %lld)",
+                            strlen(cache->data),
+                            cache->size,
+                            cache->valid_until);
+
+         msg.kind = 0;
+         msg.length = strlen(cache->data);
+         msg.data = cache->data;
+      }
+      else
+      {
+         // build the message without the cache
+         metrics_cache_invalidate();
+
+         now = time(NULL);
+
+         memset(&time_buf, 0, sizeof(time_buf));
+         ctime_r(&now, &time_buf[0]);
+         time_buf[strlen(time_buf) - 1] = 0;
+
+         data = pgagroal_append(data, "HTTP/1.1 200 OK\r\n");
+         data = pgagroal_append(data, "Content-Type: text/plain; version=0.0.3; charset=utf-8\r\n");
+         data = pgagroal_append(data, "Date: ");
+         data = pgagroal_append(data, &time_buf[0]);
+         data = pgagroal_append(data, "\r\n");
+         metrics_cache_append(data);  // cache here to avoid the chunking for the cache
+         data = pgagroal_append(data, "Transfer-Encoding: chunked\r\n");
+         data = pgagroal_append(data, "\r\n");
+
+         msg.kind = 0;
+         msg.length = strlen(data);
+         msg.data = data;
+
+         status = pgagroal_write_message(NULL, client_fd, &msg);
+         if (status != MESSAGE_STATUS_OK)
+         {
+            metrics_cache_invalidate();
+            atomic_store(&cache->lock, STATE_FREE);
+
+            goto error;
+         }
+
+         free(data);
+         data = NULL;
+
+         general_vault_information(client_fd);
+         internal_vault_information(client_fd);
+
+         /* Footer */
+         data = pgagroal_append(data, "0\r\n\r\n");
+
+         msg.kind = 0;
+         msg.length = strlen(data);
+         msg.data = data;
+
+         metrics_cache_finalize();
+
+      }
+
+      // free the cache
+      atomic_store(&cache->lock, STATE_FREE);
+
+   } // end of cache locking
+   else
+   {
+      /* Sleep for 1ms */
+      SLEEP_AND_GOTO(1000000L, retry_cache_locking)
+   }
+
+   status = pgagroal_write_message(NULL, client_fd, &msg);
+
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   free(data);
+
+   return 0;
+
+error:
+
+   free(data);
+
+   return 1;
+}
+
+static int
 bad_request(int client_fd)
 {
    char* data = NULL;
@@ -1397,11 +1893,11 @@ general_information(int client_fd)
 {
    char* data = NULL;
    struct main_configuration* config;
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
    config = (struct main_configuration*)shmem;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    data = pgagroal_append(data, "#HELP pgagroal_state The state of pgagroal\n");
    data = pgagroal_append(data, "#TYPE pgagroal_state gauge\n");
@@ -1468,22 +1964,22 @@ general_information(int client_fd)
    data = pgagroal_append(data, "#HELP pgagroal_logging_info The number of INFO logging statements\n");
    data = pgagroal_append(data, "#TYPE pgagroal_logging_info gauge\n");
    data = pgagroal_append(data, "pgagroal_logging_info ");
-   data = pgagroal_append_ulong(data, atomic_load(&prometheus->logging_info));
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->prometheus_base.logging_info));
    data = pgagroal_append(data, "\n\n");
    data = pgagroal_append(data, "#HELP pgagroal_logging_warn The number of WARN logging statements\n");
    data = pgagroal_append(data, "#TYPE pgagroal_logging_warn gauge\n");
    data = pgagroal_append(data, "pgagroal_logging_warn ");
-   data = pgagroal_append_ulong(data, atomic_load(&prometheus->logging_warn));
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->prometheus_base.logging_warn));
    data = pgagroal_append(data, "\n\n");
    data = pgagroal_append(data, "#HELP pgagroal_logging_error The number of ERROR logging statements\n");
    data = pgagroal_append(data, "#TYPE pgagroal_logging_error gauge\n");
    data = pgagroal_append(data, "pgagroal_logging_error ");
-   data = pgagroal_append_ulong(data, atomic_load(&prometheus->logging_error));
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->prometheus_base.logging_error));
    data = pgagroal_append(data, "\n\n");
    data = pgagroal_append(data, "#HELP pgagroal_logging_fatal The number of FATAL logging statements\n");
    data = pgagroal_append(data, "#TYPE pgagroal_logging_fatal gauge\n");
    data = pgagroal_append(data, "pgagroal_logging_fatal ");
-   data = pgagroal_append_ulong(data, atomic_load(&prometheus->logging_fatal));
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->prometheus_base.logging_fatal));
    data = pgagroal_append(data, "\n\n");
 
    data = pgagroal_append(data, "#HELP pgagroal_failed_servers The number of failed servers\n");
@@ -1535,6 +2031,44 @@ general_information(int client_fd)
    data = pgagroal_append(data, "#TYPE pgagroal_tx_count counter\n");
    data = pgagroal_append(data, "pgagroal_tx_count ");
    data = pgagroal_append_ullong(data, atomic_load(&prometheus->tx_count));
+   data = pgagroal_append(data, "\n\n");
+
+   if (data != NULL)
+   {
+      send_chunk(client_fd, data);
+      metrics_cache_append(data);
+      free(data);
+      data = NULL;
+   }
+}
+
+static void
+general_vault_information(int client_fd)
+{
+   char* data = NULL;
+   struct vault_prometheus* prometheus;
+
+   prometheus = (struct vault_prometheus*)prometheus_shmem;
+
+   data = pgagroal_append(data, "#HELP pgagroal_vault_logging_info The number of INFO logging statements\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_vault_logging_info gauge\n");
+   data = pgagroal_append(data, "pgagroal_vault_logging_info ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->prometheus_base.logging_info));
+   data = pgagroal_append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_vault_logging_warn The number of WARN logging statements\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_vault_logging_warn gauge\n");
+   data = pgagroal_append(data, "pgagroal_vault_logging_warn ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->prometheus_base.logging_warn));
+   data = pgagroal_append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_vault_logging_error The number of ERROR logging statements\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_vault_logging_error gauge\n");
+   data = pgagroal_append(data, "pgagroal_vault_logging_error ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->prometheus_base.logging_error));
+   data = pgagroal_append(data, "\n\n");
+   data = pgagroal_append(data, "#HELP pgagroal_vault_logging_fatal The number of FATAL logging statements\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_vault_logging_fatal gauge\n");
+   data = pgagroal_append(data, "pgagroal_vault_logging_fatal ");
+   data = pgagroal_append_ulong(data, atomic_load(&prometheus->prometheus_base.logging_fatal));
    data = pgagroal_append(data, "\n\n");
 
    if (data != NULL)
@@ -1801,9 +2335,9 @@ session_information(int client_fd)
 {
    char* data = NULL;
    unsigned long counter;
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    counter = 0;
 
@@ -1918,9 +2452,9 @@ static void
 pool_information(int client_fd)
 {
    char* data = NULL;
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    data = pgagroal_append(data, "#HELP pgagroal_connection_error Number of connection errors\n");
    data = pgagroal_append(data, "#TYPE pgagroal_connection_error counter\n");
@@ -1998,9 +2532,9 @@ static void
 auth_information(int client_fd)
 {
    char* data = NULL;
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    data = pgagroal_append(data, "#HELP pgagroal_auth_user_success Number of successful user authentications\n");
    data = pgagroal_append(data, "#TYPE pgagroal_auth_user_success counter\n");
@@ -2030,9 +2564,9 @@ static void
 client_information(int client_fd)
 {
    char* data = NULL;
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    data = pgagroal_append(data, "#HELP pgagroal_client_wait Number of waiting clients\n");
    data = pgagroal_append(data, "#TYPE pgagroal_client_wait gauge\n");
@@ -2056,9 +2590,9 @@ static void
 internal_information(int client_fd)
 {
    char* data = NULL;
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    data = pgagroal_append(data, "#HELP pgagroal_network_sent Bytes sent by clients\n");
    data = pgagroal_append(data, "#TYPE pgagroal_network_sent gauge\n");
@@ -2075,13 +2609,13 @@ internal_information(int client_fd)
    data = pgagroal_append(data, "#HELP pgagroal_client_sockets Number of sockets the client used\n");
    data = pgagroal_append(data, "#TYPE pgagroal_client_sockets gauge\n");
    data = pgagroal_append(data, "pgagroal_client_sockets ");
-   data = pgagroal_append_int(data, atomic_load(&prometheus->client_sockets));
+   data = pgagroal_append_int(data, atomic_load(&prometheus->prometheus_base.client_sockets));
    data = pgagroal_append(data, "\n\n");
 
    data = pgagroal_append(data, "#HELP pgagroal_self_sockets Number of sockets used by pgagroal itself\n");
    data = pgagroal_append(data, "#TYPE pgagroal_self_sockets gauge\n");
    data = pgagroal_append(data, "pgagroal_self_sockets ");
-   data = pgagroal_append_int(data, atomic_load(&prometheus->self_sockets));
+   data = pgagroal_append_int(data, atomic_load(&prometheus->prometheus_base.self_sockets));
    data = pgagroal_append(data, "\n\n");
 
    send_chunk(client_fd, data);
@@ -2090,6 +2624,31 @@ internal_information(int client_fd)
    data = NULL;
 }
 
+static void
+internal_vault_information(int client_fd)
+{
+   char* data = NULL;
+   struct vault_prometheus* prometheus;
+
+   prometheus = (struct vault_prometheus*)prometheus_shmem;
+
+   data = pgagroal_append(data, "#HELP pgagroal_vault_client_sockets Number of sockets the client used\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_vault_client_sockets gauge\n");
+   data = pgagroal_append(data, "pgagroal_client_sockets ");
+   data = pgagroal_append_int(data, atomic_load(&prometheus->prometheus_base.client_sockets));
+   data = pgagroal_append(data, "\n\n");
+
+   data = pgagroal_append(data, "#HELP pgagroal_vault_self_sockets Number of sockets used by pgagroal-vault itself\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_vault_self_sockets gauge\n");
+   data = pgagroal_append(data, "pgagroal_vault_self_sockets ");
+   data = pgagroal_append_int(data, atomic_load(&prometheus->prometheus_base.self_sockets));
+   data = pgagroal_append(data, "\n\n");
+
+   send_chunk(client_fd, data);
+   metrics_cache_append(data);
+   free(data);
+   data = NULL;
+}
 /**
  * Provides information about the connection awaiting.
  *
@@ -2101,11 +2660,11 @@ connection_awaiting_information(int client_fd)
 {
    char* data = NULL;
    struct main_configuration* config;
-   struct prometheus* prometheus;
+   struct main_prometheus* prometheus;
 
    config = (struct main_configuration*)shmem;
 
-   prometheus = (struct prometheus*)prometheus_shmem;
+   prometheus = (struct main_prometheus*)prometheus_shmem;
 
    data = pgagroal_append(data, "#HELP pgagroal_connection_awaiting Number of connection on-hold (awaiting)\n");
    data = pgagroal_append(data, "#TYPE pgagroal_connection_awaiting gauge\n");
@@ -2202,12 +2761,12 @@ is_metrics_cache_configured(void)
    config = (struct main_configuration*)shmem;
 
    // cannot have caching if not set metrics!
-   if (config->metrics == 0)
+   if (config->common.metrics == 0)
    {
       return false;
    }
 
-   return config->metrics_cache_max_age != PGAGROAL_PROMETHEUS_CACHE_DISABLED;
+   return config->common.metrics_cache_max_age != PGAGROAL_PROMETHEUS_CACHE_DISABLED;
 }
 
 /**
@@ -2240,11 +2799,9 @@ int
 pgagroal_init_prometheus_cache(size_t* p_size, void** p_shmem)
 {
    struct prometheus_cache* cache;
-   struct main_configuration* config;
+   struct configuration* config = (struct configuration*) shmem;
    size_t cache_size = 0;
    size_t struct_size = 0;
-
-   config = (struct main_configuration*)shmem;
 
    // first of all, allocate the overall cache structure
    cache_size = metrics_cache_size_to_alloc();
@@ -2298,8 +2855,8 @@ metrics_cache_size_to_alloc(void)
    // or the default value
    if (is_metrics_cache_configured())
    {
-      cache_size = config->metrics_cache_max_size > 0
-                   ? MIN(config->metrics_cache_max_size, PROMETHEUS_MAX_CACHE_SIZE)
+      cache_size = config->common.metrics_cache_max_size > 0
+                   ? MIN(config->common.metrics_cache_max_size, PROMETHEUS_MAX_CACHE_SIZE)
                    : PROMETHEUS_DEFAULT_CACHE_SIZE;
    }
 
@@ -2402,6 +2959,14 @@ metrics_cache_finalize(void)
    }
 
    now = time(NULL);
-   cache->valid_until = now + config->metrics_cache_max_age;
+   cache->valid_until = now + config->common.metrics_cache_max_age;
    return cache->valid_until > now;
+}
+
+static bool
+is_prometheus_enabled(void)
+{
+   struct prometheus* prometheus = (struct prometheus*) prometheus_shmem;
+   struct configuration* config = (struct configuration*)shmem;
+   return (config->metrics > 0 && prometheus != NULL);
 }

@@ -96,7 +96,7 @@ pgagroal_resize_shared_memory(size_t size, void* shmem, size_t* new_size, void**
    config = (struct main_configuration*)shmem;
 
    *new_size = size + (config->max_connections * sizeof(struct connection));
-   if (pgagroal_create_shared_memory(*new_size, config->hugepage, new_shmem))
+   if (pgagroal_create_shared_memory(*new_size, config->common.hugepage, new_shmem))
    {
       return 1;
    }
