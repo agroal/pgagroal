@@ -519,11 +519,19 @@ read_users_path:
 #endif
          errx(1, "%s  (file <%s>)", message, users_path);
       }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_KO
-               || ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_KO)
+      {
+         snprintf(message, MISC_LENGTH, "Invalid USERS configuration file");
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=%s: %s", message, users_path);
+#endif
+         errx(1, "%s (file <%s>)", message, users_path);
+      }
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT)
       {
 
-         snprintf(message, MISC_LENGTH, "Invalid master key file");
+         snprintf(message, MISC_LENGTH, "USERS configuration file cannot decrypt");
+
 #ifdef HAVE_LINUX
          sd_notifyf(0, "STATUS=%s: %s", message, users_path);
 #endif
@@ -563,13 +571,21 @@ read_frontend_users_path:
 #endif
          errx(1, "%s (file <%s>)", message, frontend_users_path);
       }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT
-               || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
+         snprintf(message, MISC_LENGTH, "Invalid master key file");
 #ifdef HAVE_LINUX
-         sd_notify(0, "STATUS=Invalid master key file");
+         sd_notifyf(0, "STATUS=%s: %s", message, users_path);
 #endif
-         errx(1, "Invalid master key file");
+         errx(1, "%s (file <%s>)", message, users_path);
+      }
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT)
+      {
+         snprintf(message, MISC_LENGTH, "Master key file cannot decrypt");
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=%s: %s", message, users_path);
+#endif
+         errx(1, "%s (file <%s>)", message, users_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
@@ -610,13 +626,21 @@ read_admins_path:
 #endif
          errx(1, "%s (file <%s>)", message, admins_path);
       }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT
-               || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
+         snprintf(message, MISC_LENGTH, "Invalid master key file");
 #ifdef HAVE_LINUX
-         sd_notify(0, "STATUS=Invalid master key file");
+         sd_notifyf(0, "STATUS=%s: %s", message, users_path);
 #endif
-         errx(1, "Invalid master key file");
+         errx(1, "%s (file <%s>)", message, users_path);
+      }
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT)
+      {
+         snprintf(message, MISC_LENGTH, "Master key file cannot decrypt");
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=%s: %s", message, users_path);
+#endif
+         errx(1, "%s (file <%s>)", message, users_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
@@ -654,12 +678,21 @@ read_superuser_path:
 #endif
          errx(1, "%s (file <%s>)", message, superuser_path);
       }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
+         snprintf(message, MISC_LENGTH, "Invalid master key file");
 #ifdef HAVE_LINUX
-         sd_notify(0, "STATUS=Invalid master key file");
+         sd_notifyf(0, "STATUS=%s: %s", message, users_path);
 #endif
-         errx(1, "Invalid master key file");
+         errx(1, "%s (file <%s>)", message, users_path);
+      }
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT)
+      {
+         snprintf(message, MISC_LENGTH, "Master key file cannot decrypt");
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=%s: %s", message, users_path);
+#endif
+         errx(1, "%s (file <%s>)", message, users_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
