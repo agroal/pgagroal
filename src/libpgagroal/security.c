@@ -238,7 +238,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
    {
       pgagroal_log_debug("SSL request from client: %d", client_fd);
 
-      if (config->tls)
+      if (config->common.tls)
       {
          SSL_CTX* ctx = NULL;
 
@@ -470,6 +470,56 @@ error:
 }
 
 int
+accept_ssl_vault(struct vault_configuration* config, int client_fd, SSL** client_ssl)
+{
+
+   pgagroal_log_debug("SSL request from client: %d", client_fd);
+   int status = MESSAGE_STATUS_ERROR;
+   SSL_CTX* ctx = NULL;
+   SSL* c_ssl = NULL;
+
+   /* We are acting as a server against the client */
+   if (create_ssl_ctx(false, &ctx))
+   {
+      goto error;
+   }
+
+   if (create_ssl_server(ctx, client_fd, &c_ssl))
+   {
+      goto error;
+   }
+
+   *client_ssl = c_ssl;
+
+   /* Switch to TLS mode */
+   status = SSL_accept(c_ssl);
+   if (status != 1)
+   {
+      unsigned long err;
+
+      err = ERR_get_error();
+      pgagroal_log_error("SSL failed: %s", ERR_reason_error_string(err));
+      goto error;
+   }
+
+   return 0;
+error:
+
+   if (ctx != NULL)
+   {
+      SSL_CTX_free(ctx);
+   }
+
+   if (c_ssl != NULL)
+   {
+      SSL_free(c_ssl);
+   }
+
+   pgagroal_log_debug("accept_ssl_vault: ERROR");
+   return 1;
+}
+
+int
 pgagroal_prefill_auth(char* username, char* password, char* database, int* slot, SSL** server_ssl)
 {
    int server_fd = -1;
@@ -603,7 +653,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
    {
       pgagroal_log_debug("SSL request from client: %d", client_fd);
 
-      if (config->tls)
+      if (config->common.tls)
       {
          SSL_CTX* ctx = NULL;
 
@@ -3337,49 +3387,49 @@ pgagroal_tls_valid(void)
 
    config = (struct main_configuration*)shmem;
 
-   if (config->tls)
+   if (config->common.tls)
    {
-      if (strlen(config->tls_cert_file) == 0)
+      if (strlen(config->common.tls_cert_file) == 0)
       {
          pgagroal_log_error("No TLS certificate defined");
          goto error;
       }
 
-      if (strlen(config->tls_key_file) == 0)
+      if (strlen(config->common.tls_key_file) == 0)
       {
          pgagroal_log_error("No TLS private key defined");
          goto error;
       }
 
-      if (stat(config->tls_cert_file, &st) == -1)
+      if (stat(config->common.tls_cert_file, &st) == -1)
       {
-         pgagroal_log_error("Can't locate TLS certificate file: %s", config->tls_cert_file);
+         pgagroal_log_error("Can't locate TLS certificate file: %s", config->common.tls_cert_file);
          goto error;
       }
 
       if (!S_ISREG(st.st_mode))
       {
-         pgagroal_log_error("TLS certificate file is not a regular file: %s", config->tls_cert_file);
+         pgagroal_log_error("TLS certificate file is not a regular file: %s", config->common.tls_cert_file);
          goto error;
       }
 
       if (st.st_uid && st.st_uid != geteuid())
       {
-         pgagroal_log_error("TLS certificate file not owned by user or root: %s", config->tls_cert_file);
+         pgagroal_log_error("TLS certificate file not owned by user or root: %s", config->common.tls_cert_file);
          goto error;
       }
 
       memset(&st, 0, sizeof(struct stat));
 
-      if (stat(config->tls_key_file, &st) == -1)
+      if (stat(config->common.tls_key_file, &st) == -1)
       {
-         pgagroal_log_error("Can't locate TLS private key file: %s", config->tls_key_file);
+         pgagroal_log_error("Can't locate TLS private key file: %s", config->common.tls_key_file);
          goto error;
       }
 
       if (!S_ISREG(st.st_mode))
       {
-         pgagroal_log_error("TLS private key file is not a regular file: %s", config->tls_key_file);
+         pgagroal_log_error("TLS private key file is not a regular file: %s", config->common.tls_key_file);
          goto error;
       }
 
@@ -3387,7 +3437,7 @@ pgagroal_tls_valid(void)
       {
          if (st.st_mode & (S_IRWXG | S_IRWXO))
          {
-            pgagroal_log_error("TLS private key file must have 0600 permissions when owned by a non-root user: %s", config->tls_key_file);
+            pgagroal_log_error("TLS private key file must have 0600 permissions when owned by a non-root user: %s", config->common.tls_key_file);
             goto error;
          }
       }
@@ -3395,36 +3445,36 @@ pgagroal_tls_valid(void)
       {
          if (st.st_mode & (S_IWGRP | S_IXGRP | S_IRWXO))
          {
-            pgagroal_log_error("TLS private key file must have at least 0640 permissions when owned by root: %s", config->tls_key_file);
+            pgagroal_log_error("TLS private key file must have at least 0640 permissions when owned by root: %s", config->common.tls_key_file);
             goto error;
          }
 
       }
       else
       {
-         pgagroal_log_error("TLS private key file not owned by user or root: %s", config->tls_key_file);
+         pgagroal_log_error("TLS private key file not owned by user or root: %s", config->common.tls_key_file);
          goto error;
       }
 
-      if (strlen(config->tls_ca_file) > 0)
+      if (strlen(config->common.tls_ca_file) > 0)
       {
          memset(&st, 0, sizeof(struct stat));
 
-         if (stat(config->tls_ca_file, &st) == -1)
+         if (stat(config->common.tls_ca_file, &st) == -1)
          {
-            pgagroal_log_error("Can't locate TLS CA file: %s", config->tls_ca_file);
+            pgagroal_log_error("Can't locate TLS CA file: %s", config->common.tls_ca_file);
             goto error;
          }
 
          if (!S_ISREG(st.st_mode))
          {
-            pgagroal_log_error("TLS CA file is not a regular file: %s", config->tls_ca_file);
+            pgagroal_log_error("TLS CA file is not a regular file: %s", config->common.tls_ca_file);
             goto error;
          }
 
          if (st.st_uid && st.st_uid != geteuid())
          {
-            pgagroal_log_error("TLS CA file not owned by user or root: %s", config->tls_ca_file);
+            pgagroal_log_error("TLS CA file not owned by user or root: %s", config->common.tls_ca_file);
             goto error;
          }
       }
@@ -4533,9 +4583,9 @@ create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl)
 {
    SSL* s = NULL;
    STACK_OF(X509_NAME) * root_cert_list = NULL;
-   struct main_configuration* config;
+   struct configuration* config;
 
-   config = (struct main_configuration*)shmem;
+   config = (struct configuration*)shmem;
 
    if (strlen(config->tls_cert_file) == 0)
    {

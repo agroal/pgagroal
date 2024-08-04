@@ -169,6 +169,28 @@ pgagroal_socket_is_nonblocking(int fd);
 int
 pgagroal_socket_has_error(int fd);
 
+/**
+ * Read bytes from a socket to buffer
+ * @param ssl The ssl
+ * @param fd The descriptor
+ * @param buffer The buffer to write to
+ * @param buffer_size Size of buffer
+ * @return The number of bytes read
+ */
+int
+pgagroal_read_socket(SSL* ssl, int fd, char* buffer, size_t buffer_size);
+
+/**
+ * Write bytes from a buffer to socket
+ * @param ssl The ssl
+ * @param fd The descriptor
+ * @param buffer The buffer to write to
+ * @param buffer_size Size of buffer
+ * @return The number of bytes written
+ */
+int
+pgagroal_write_socket(SSL* ssl, int fd, char* buffer, size_t buffer_size);
+
 #ifdef __cplusplus
 }
 #endif

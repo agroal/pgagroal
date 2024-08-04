@@ -348,7 +348,7 @@ pgagroal_vault_init_prometheus(size_t* p_size, void** p_shmem)
 
 error:
 
-   return 1; 
+   return 1;
 }
 
 void

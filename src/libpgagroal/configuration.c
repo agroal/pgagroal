@@ -127,7 +127,7 @@ pgagroal_init_configuration(void* shm)
    }
 
    config->failover = false;
-   config->tls = false;
+   config->common.tls = false;
    config->gracefully = false;
    config->pipeline = PIPELINE_AUTO;
    config->authquery = false;
@@ -575,7 +575,7 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
 
    if (config->pipeline == PIPELINE_AUTO)
    {
-      if (config->tls && (strlen(config->tls_cert_file) > 0 || strlen(config->tls_key_file) > 0))
+      if (config->common.tls && (strlen(config->common.tls_cert_file) > 0 || strlen(config->common.tls_key_file) > 0))
       {
          tls = true;
       }
@@ -680,7 +680,7 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
    }
    else if (config->pipeline == PIPELINE_PERFORMANCE)
    {
-      if (config->tls && (strlen(config->tls_cert_file) > 0 || strlen(config->tls_key_file) > 0))
+      if (config->common.tls && (strlen(config->common.tls_cert_file) > 0 || strlen(config->common.tls_key_file) > 0))
       {
          tls = true;
       }
@@ -722,6 +722,7 @@ pgagroal_vault_init_configuration(void* shm)
    config = (struct vault_configuration*)shm;
 
    config->common.port = 0;
+   config->common.tls = false;
 
    config->vault_server.server.port = 0;
    config->vault_server.server.tls = false;
@@ -2616,12 +2617,12 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
 
    config->authquery = reload->authquery;
 
-   config->tls = reload->tls;
-   memcpy(config->tls_cert_file, reload->tls_cert_file, MISC_LENGTH);
-   memcpy(config->tls_key_file, reload->tls_key_file, MISC_LENGTH);
-   memcpy(config->tls_ca_file, reload->tls_ca_file, MISC_LENGTH);
+   config->common.tls = reload->common.tls;
+   memcpy(config->common.tls_cert_file, reload->common.tls_cert_file, MISC_LENGTH);
+   memcpy(config->common.tls_key_file, reload->common.tls_key_file, MISC_LENGTH);
+   memcpy(config->common.tls_ca_file, reload->common.tls_ca_file, MISC_LENGTH);
 
-   if (config->tls && (config->pipeline == PIPELINE_SESSION || config->pipeline == PIPELINE_TRANSACTION))
+   if (config->common.tls && (config->pipeline == PIPELINE_SESSION || config->pipeline == PIPELINE_TRANSACTION))
    {
       if (pgagroal_tls_valid())
       {
@@ -3589,7 +3590,7 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       }
       else if (!strncmp(key, "tls", MISC_LENGTH))
       {
-         return to_bool(buffer, config->tls);
+         return to_bool(buffer, config->common.tls);
       }
       else if (!strncmp(key, "auth_query", MISC_LENGTH))
       {
@@ -3597,15 +3598,15 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       }
       else if (!strncmp(key, "tls_ca_file", MISC_LENGTH))
       {
-         return to_string(buffer, config->tls_ca_file, buffer_size);
+         return to_string(buffer, config->common.tls_ca_file, buffer_size);
       }
       else if (!strncmp(key, "tls_cert_file", MISC_LENGTH))
       {
-         return to_string(buffer, config->tls_cert_file, buffer_size);
+         return to_string(buffer, config->common.tls_cert_file, buffer_size);
       }
       else if (!strncmp(key, "tls_key_file", MISC_LENGTH))
       {
-         return to_string(buffer, config->tls_key_file, buffer_size);
+         return to_string(buffer, config->common.tls_key_file, buffer_size);
       }
       else if (!strncmp(key, "blocking_timeout", MISC_LENGTH))
       {
@@ -4397,7 +4398,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    }
    else if (key_in_section("tls", section, key, true, &unknown))
    {
-      if (as_bool(value, &config->tls))
+      if (as_bool(value, &config->common.tls))
       {
          unknown = true;
       }
@@ -4416,7 +4417,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
       {
          max = MISC_LENGTH - 1;
       }
-      memcpy(config->tls_ca_file, value, max);
+      memcpy(config->common.tls_ca_file, value, max);
    }
    else if (key_in_section("tls_ca_file", section, key, false, &unknown))
    {
@@ -4434,7 +4435,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
       {
          max = MISC_LENGTH - 1;
       }
-      memcpy(config->tls_cert_file, value, max);
+      memcpy(config->common.tls_cert_file, value, max);
    }
    else if (key_in_section("tls_cert_file", section, key, false, &unknown))
    {
@@ -4452,7 +4453,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
       {
          max = MISC_LENGTH - 1;
       }
-      memcpy(config->tls_key_file, value, max);
+      memcpy(config->common.tls_key_file, value, max);
    }
    else if (key_in_section("tls_key_file", section, key, false, &unknown))
    {
@@ -4779,6 +4780,40 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
       }
       memcpy(&srv->user.username, value, max);
    }
+   else if (key_in_section("tls", section, key, true, &unknown))
+   {
+      if (as_bool(value, &config->common.tls))
+      {
+         unknown = true;
+      }
+   }
+   else if (key_in_section("tls_ca_file", section, key, true, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(config->common.tls_ca_file, value, max);
+   }
+   else if (key_in_section("tls_cert_file", section, key, true, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(config->common.tls_cert_file, value, max);
+   }
+   else if (key_in_section("tls_key_file", section, key, true, &unknown))
+   {
+      max = strlen(value);
+      if (max > MISC_LENGTH - 1)
+      {
+         max = MISC_LENGTH - 1;
+      }
+      memcpy(config->common.tls_key_file, value, max);
+   }
    else if (key_in_section("metrics", section, key, true, &unknown))
    {
       if (as_int(value, &config->common.metrics))
@@ -4799,40 +4834,6 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
       {
          unknown = true;
       }
-   }
-   else if (key_in_section("tls", section, key, false, &unknown))
-   {
-      if (as_bool(value, &srv->server.tls))
-      {
-         unknown = true;
-      }
-   }
-   else if (key_in_section("tls_ca_file", section, key, false, &unknown))
-   {
-      max = strlen(value);
-      if (max > MISC_LENGTH - 1)
-      {
-         max = MISC_LENGTH - 1;
-      }
-      memcpy(&srv->server.tls_ca_file, value, max);
-   }
-   else if (key_in_section("tls_cert_file", section, key, false, &unknown))
-   {
-      max = strlen(value);
-      if (max > MISC_LENGTH - 1)
-      {
-         max = MISC_LENGTH - 1;
-      }
-      memcpy(&srv->server.tls_cert_file, value, max);
-   }
-   else if (key_in_section("tls_key_file", section, key, false, &unknown))
-   {
-      max = strlen(value);
-      if (max > MISC_LENGTH - 1)
-      {
-         max = MISC_LENGTH - 1;
-      }
-      memcpy(&srv->server.tls_key_file, value, max);
    }
    else if (key_in_section("authentication_timeout", section, key, true, &unknown))
    {

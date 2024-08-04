@@ -148,6 +148,16 @@ int
 pgagroal_generate_password(int password_length, char** password);
 
 /**
+ * @brief Accept the SSL connection for the vault from client (curl)
+ * @param config the vault configuration
+ * @param client_fd the descriptor
+ * @param c_ssl the client SSL context
+ * @return 0 if success, otherwise 1
+ */
+int
+accept_ssl_vault(struct vault_configuration* config, int client_fd, SSL** c_ssl);
+
+/**
  * @brief Initialize RNG
  *
  */

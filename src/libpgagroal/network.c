@@ -543,6 +543,38 @@ pgagroal_socket_buffers(int fd, int* buffer_size)
    return 0;
 }
 
+int
+pgagroal_read_socket(SSL* ssl, int fd, char* buffer, size_t buffer_size)
+{
+   int byte_read;
+   if (ssl)
+   {
+      byte_read = SSL_read(ssl, buffer, buffer_size);
+   }
+   else
+   {
+      byte_read = read(fd, buffer, buffer_size);
+   }
+
+   return byte_read;
+}
+
+int
+pgagroal_write_socket(SSL* ssl, int fd, char* buffer, size_t buffer_size)
+{
+   int byte_write;
+   if (ssl)
+   {
+      byte_write = SSL_write(ssl, buffer, buffer_size);
+   }
+   else
+   {
+      byte_write = write(fd, buffer, buffer_size);
+   }
+
+   return byte_write;
+}
+
 /**
  *
  */

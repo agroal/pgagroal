@@ -463,6 +463,11 @@ struct configuration
    atomic_schar log_lock;              /**< The logging lock */
    char default_log_path[MISC_LENGTH]; /**< The default logging path */
 
+   // TLS support
+   bool tls;                        /**< Is TLS enabled */
+   char tls_cert_file[MISC_LENGTH]; /**< TLS certificate path */
+   char tls_key_file[MISC_LENGTH];  /**< TLS key path */
+   char tls_ca_file[MISC_LENGTH];   /**< TLS CA certificate path */
    // Prometheus
    unsigned char hugepage;              /**< Huge page support */
    int metrics;                         /**< The metrics port */
@@ -507,11 +512,6 @@ struct main_configuration
    unsigned int update_process_title;  /**< Behaviour for updating the process title */
 
    bool authquery; /**< Is authentication query enabled */
-
-   bool tls;                        /**< Is TLS enabled */
-   char tls_cert_file[MISC_LENGTH]; /**< TLS certificate path */
-   char tls_key_file[MISC_LENGTH];  /**< TLS key path */
-   char tls_ca_file[MISC_LENGTH];   /**< TLS CA certificate path */
 
    atomic_ushort active_connections; /**< The active number of connections */
    int max_connections;              /**< The maximum number of connections */

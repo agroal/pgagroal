@@ -41,6 +41,10 @@ The available keys and their accepted values are reported in the table below.
 | log_connections | `off` | Bool | No | Log connects |
 | log_disconnections | `off` | Bool | No | Log disconnects |
 | hugepage | `try` | String | No | Huge page support (`off`, `try`, `on`) |
+| tls | `off` | Bool | No | Enable Transport Layer Security (TLS) |
+| tls_cert_file | | String | No | Certificate file for TLS. This file must be owned by either the user running pgagroal or root. |
+| tls_key_file | | String | No | Private key file for TLS. This file must be owned by either the user running pgagroal or root. Additionally permissions must be at least `0640` when owned by root or `0600` otherwise. |
+| tls_ca_file | | String | No | Certificate Authority (CA) file for TLS. This file must be owned by either the user running pgagroal or root.  |
 
 ## [main]
 

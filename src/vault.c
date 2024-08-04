@@ -58,6 +58,11 @@
 #include <systemd/sd-daemon.h>
 #endif
 
+#define CLIENTSSL_ON_SERVERSSL_ON   0
+#define CLIENTSSL_ON_SERVERSSL_OFF  1
+#define CLIENTSSL_OFF_SERVERSSL_ON  2
+#define CLIENTSSL_OFF_SERVERSSL_OFF 3
+
 #define MAX_FDS 64
 
 static void accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
@@ -68,8 +73,10 @@ static int connect_pgagroal(struct vault_configuration* config, char* username, 
 static void route_users(char* username, char** response, SSL* s_ssl, int client_fd);
 static void route_not_found(char** response);
 static void route_found(char** response, char* password);
-static int router(SSL* ssl, int client_fd);
-static void shutdown_ports(void);
+static void route_redirect(char** response, char* redirect_link);
+static int router(SSL* ccl, SSL* ssl, int client_fd);
+static bool is_ssl_request(int client_fd);
+static int get_connection_state(struct vault_configuration* config, int client_fd);
 
 static volatile int keep_running = 1;
 static char** argv_ptr;
@@ -83,32 +90,55 @@ static int server_fds_length = -1;
 static int default_buffer_size = DEFAULT_BUFFER_SIZE;
 
 static int
-router(SSL* s_ssl, int client_fd)
+router(SSL* c_ssl, SSL* s_ssl, int client_fd)
 {
    int exit_code = 0;
-   ssize_t bytes_read;
+   int connection_state;
    ssize_t bytes_write;
-   char* body = NULL;
+   struct vault_configuration* config;
    char* response = NULL;
    char method[8];
    char path[128];
    char buffer[HTTP_BUFFER_SIZE];
-   char contents[HTTP_BUFFER_SIZE];
    char username[MAX_USERNAME_LENGTH + 1]; // Assuming username is less than 128 characters
+   char* redirect_link = NULL;
 
+   config = (struct vault_configuration*)shmem;
    memset(&response, 0, sizeof(response));
+   memset(&buffer, 0, sizeof(buffer));
 
-   // Read the request
-   bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
-   buffer[bytes_read] = '\0';
-
-   sscanf(buffer, "%7s %127s", method, path);
-
-   // Extract the POST data
-   body = strstr(buffer, "\r\n\r\n");
-   if (body)
+   connection_state = get_connection_state(config, client_fd);
+   switch (connection_state)
    {
-      strcpy(contents, body + 4);
+      case CLIENTSSL_ON_SERVERSSL_ON:
+         if (accept_ssl_vault(config, client_fd, &c_ssl))
+         {
+            pgagroal_log_error("accept_ssl_vault: SSL connection failed");
+            exit_code = 1;
+            goto exit;
+         }
+         pgagroal_read_socket(c_ssl, client_fd, buffer, sizeof(buffer));
+         sscanf(buffer, "%7s %127s", method, path);
+         break;
+      case CLIENTSSL_OFF_SERVERSSL_ON:
+         pgagroal_read_socket(c_ssl, client_fd, buffer, sizeof(buffer));
+         sscanf(buffer, "%7s %127s", method, path);
+         redirect_link = pgagroal_append(redirect_link, "https://");
+         redirect_link = pgagroal_append(redirect_link, config->common.host);
+         redirect_link = pgagroal_append(redirect_link, ":");
+         redirect_link = pgagroal_append_int(redirect_link, config->common.port);
+         redirect_link = pgagroal_append(redirect_link, path);
+         route_redirect(&response, redirect_link);
+         pgagroal_log_error("client must initiate tls handshake");
+         goto send;
+      case CLIENTSSL_OFF_SERVERSSL_OFF:
+         pgagroal_read_socket(c_ssl, client_fd, buffer, sizeof(buffer));
+         sscanf(buffer, "%7s %127s", method, path);
+         break;
+      case CLIENTSSL_ON_SERVERSSL_OFF:
+         pgagroal_log_error("client requests tls connection to http server");
+      default:
+         return 1;
    }
 
    // Parse URL parameters for GET requests only
@@ -132,17 +162,16 @@ router(SSL* s_ssl, int client_fd)
       route_not_found(&response);
    }
 
+send:
    // Send the response
-   bytes_write = write(client_fd, response, strlen(response));
-
+   bytes_write = pgagroal_write_socket(c_ssl, client_fd, response, strlen(response));
    if (bytes_write <= 0)
    {
       exit_code = 1;
    }
-
    pgagroal_prometheus_client_sockets_sub();
    free(response);
-
+exit:
    return exit_code;
 }
 
@@ -207,6 +236,18 @@ route_found(char** response, char* password)
    *response = tmp_response;
 }
 
+static void
+route_redirect(char** response, char* redirect_link)
+{
+   char* tmp_response = NULL;
+   tmp_response = pgagroal_append(tmp_response, "HTTP/1.1 301 Moved Permanently\r\n");
+   tmp_response = pgagroal_append(tmp_response, "Content-Length: 0\r\n");
+   tmp_response = pgagroal_append(tmp_response, "Location: ");
+   tmp_response = pgagroal_append(tmp_response, redirect_link);
+   tmp_response = pgagroal_append(tmp_response, "\r\n");
+   *response = tmp_response;
+}
+
 static int
 connect_pgagroal(struct vault_configuration* config, char* username, char* password, SSL** s_ssl, int* client_socket)
 {
@@ -242,6 +283,56 @@ connect_pgagroal(struct vault_configuration* config, char* username, char* passw
    *s_ssl = s;
 
    return 0;
+}
+
+static bool
+is_ssl_request(int client_fd)
+{
+   ssize_t peek_bytes;
+   char peek_buffer[HTTP_BUFFER_SIZE];
+   bool ssl_req = false;
+
+   // MSG_Peek
+   peek_bytes = recv(client_fd, peek_buffer, sizeof(peek_buffer), MSG_PEEK);
+   if (peek_bytes <= 0)
+   {
+      pgagroal_log_error("unable to peek network data from client");
+      close(client_fd);
+      exit(1);
+   }
+
+   // Check for SSL request by matching `Client Hello` bytes
+   if (
+      ((unsigned char)peek_buffer[0] == 0x16) &&
+      ((unsigned char)peek_buffer[1] == 0x03) &&
+      ((unsigned char)peek_buffer[2] == 0x01 || (unsigned char)peek_buffer[2] == 0x02 || (unsigned char)peek_buffer[2] == 0x03 || (unsigned char)peek_buffer[2] == 0x04)
+      )
+   {
+      ssl_req = true;
+   }
+
+   return ssl_req;
+}
+
+static int
+get_connection_state(struct vault_configuration* config, int client_fd)
+{  
+   if (config->common.tls)
+   {
+      if (is_ssl_request(client_fd))
+      {
+         return CLIENTSSL_ON_SERVERSSL_ON;
+      }
+      else
+      {
+         return CLIENTSSL_OFF_SERVERSSL_ON;
+      }
+   }
+   else if (is_ssl_request(client_fd))
+   {
+      return CLIENTSSL_ON_SERVERSSL_OFF;
+   }
+   return CLIENTSSL_OFF_SERVERSSL_OFF;
 }
 
 static void
@@ -607,6 +698,7 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    int client_fd;
    char address[INET6_ADDRSTRLEN];
    pid_t pid;
+   SSL* c_ssl = NULL;
    SSL* s_ssl = NULL;
    struct vault_configuration* config;
 
@@ -681,9 +773,11 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       ev_loop_fork(loop);
       shutdown_ports();
 
-      if (router(s_ssl, client_fd))
+      // Handle http request
+      if (router(c_ssl, s_ssl, client_fd))
       {
          pgagroal_log_error("Couldn't write to client");
+         pgagroal_disconnect(client_fd);
          exit(1);
       }
 

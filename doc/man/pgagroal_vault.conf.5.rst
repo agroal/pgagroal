@@ -89,6 +89,18 @@ authentication_timeout
 hugepage
   Huge page support. Default is try
 
+tls
+  Enable Transport Layer Security (TLS). Default is false. Changes require restart in the server section.
+
+tls_cert_file
+  Certificate file for TLS. Changes require restart in the server section.
+
+tls_key_file
+  Private key file for TLS. Changes require restart in the server section.
+
+tls_ca_file
+  Certificate Authority (CA) file for TLS. Changes require restart in the server section.
+
 The options for the main section are
 
 host
