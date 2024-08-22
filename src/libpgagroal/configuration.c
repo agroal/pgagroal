@@ -2246,6 +2246,12 @@ as_logging_level(char* str)
          free(debug_value);
       }
 
+      if (debug_level < 1 || debug_level > 5)
+      {
+         warnx("Log level debug configuration %d not understood: %s - resetting to none", debug_level, str);
+         debug_level = 1;
+      }
+
       if (debug_level <= 1)
       {
          return PGAGROAL_LOGGING_LEVEL_DEBUG1;
@@ -2286,6 +2292,12 @@ as_logging_level(char* str)
    if (!strcasecmp(str, "fatal"))
    {
       return PGAGROAL_LOGGING_LEVEL_FATAL;
+   }
+
+   // "trace" is a synonim for "debug5"
+   if (!strcasecmp(str, "trace"))
+   {
+      return PGAGROAL_LOGGING_LEVEL_DEBUG5;
    }
 
    return PGAGROAL_LOGGING_LEVEL_INFO;
