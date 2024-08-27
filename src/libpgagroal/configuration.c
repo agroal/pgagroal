@@ -4408,7 +4408,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
          unknown = true;
       }
    }
-   else if (key_in_section("tls", section, key, true, &unknown))
+   else if (key_in_section("tls", section, key, true, NULL))
    {
       if (as_bool(value, &config->common.tls))
       {
@@ -4422,7 +4422,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
          unknown = true;
       }
    }
-   else if (key_in_section("tls_ca_file", section, key, true, &unknown))
+   else if (key_in_section("tls_ca_file", section, key, true, NULL))
    {
       max = strlen(value);
       if (max > MISC_LENGTH - 1)
@@ -4440,7 +4440,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
       }
       memcpy(srv->tls_ca_file, value, max);
    }
-   else if (key_in_section("tls_cert_file", section, key, true, &unknown))
+   else if (key_in_section("tls_cert_file", section, key, true, NULL))
    {
       max = strlen(value);
       if (max > MISC_LENGTH - 1)
@@ -4458,7 +4458,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
       }
       memcpy(srv->tls_cert_file, value, max);
    }
-   else if (key_in_section("tls_key_file", section, key, true, &unknown))
+   else if (key_in_section("tls_key_file", section, key, true, NULL))
    {
       max = strlen(value);
       if (max > MISC_LENGTH - 1)
