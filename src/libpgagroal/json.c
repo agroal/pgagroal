@@ -28,255 +28,560 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <art.h>
+#include <logging.h>
 #include <json.h>
+#include <message.h>
+#include <utils.h>
+/* System */
+#include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
 
-cJSON*
-pgagroal_json_create_new_command_object(char* command_name, bool success, char* executable_name, char* executable_version)
-{
-   // root of the JSON structure
-   cJSON* json = cJSON_CreateObject();
-
-   if (!json)
-   {
-      goto error;
-   }
-
-   // the command structure
-   cJSON* command = cJSON_CreateObject();
-   if (!command)
-   {
-      goto error;
-   }
-
-   // insert meta-data about the command
-   cJSON_AddStringToObject(command, JSON_TAG_COMMAND_NAME, command_name);
-   cJSON_AddStringToObject(command, JSON_TAG_COMMAND_STATUS, success ? JSON_STRING_SUCCESS : JSON_STRING_ERROR);
-   cJSON_AddNumberToObject(command, JSON_TAG_COMMAND_ERROR, success ? JSON_BOOL_SUCCESS : JSON_BOOL_ERROR);
-   cJSON_AddNumberToObject(command, JSON_TAG_COMMAND_EXIT_STATUS, success ? 0 : EXIT_STATUS_DATA_ERROR);
-
-   // the output of the command, this has to be filled by the caller
-   cJSON* output = cJSON_CreateObject();
-   if (!output)
-   {
-      goto error;
-   }
-
-   cJSON_AddItemToObject(command, JSON_TAG_COMMAND_OUTPUT, output);
-
-   // who has launched the command ?
-   cJSON* application = cJSON_CreateObject();
-   if (!application)
-   {
-      goto error;
-   }
-
-   long minor = strtol(&executable_version[2], NULL, 10);
-   if (errno == ERANGE || minor <= LONG_MIN || minor >= LONG_MAX)
-   {
-      goto error;
-   }
-   long patch = strtol(&executable_version[5], NULL, 10);
-   if (errno == ERANGE || patch <= LONG_MIN || patch >= LONG_MAX)
-   {
-      goto error;
-   }
-
-   cJSON_AddStringToObject(application, JSON_TAG_APPLICATION_NAME, executable_name);
-   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_MAJOR, executable_version[0] - '0');
-   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_MINOR, (int)minor);
-   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_PATCH, (int)patch);
-   cJSON_AddStringToObject(application, JSON_TAG_APPLICATION_VERSION, executable_version);
-
-   // add objects to the whole json thing
-   cJSON_AddItemToObject(json, "command", command);
-   cJSON_AddItemToObject(json, "application", application);
-
-   return json;
-
-error:
-   if (json)
-   {
-      cJSON_Delete(json);
-   }
-
-   return NULL;
-
-}
-
-cJSON*
-pgagroal_json_extract_command_output_object(cJSON* json)
-{
-   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
-   if (!command)
-   {
-      goto error;
-   }
-
-   return cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_OUTPUT);
-
-error:
-   return NULL;
-
-}
-
-bool
-pgagroal_json_is_command_name_equals_to(cJSON* json, char* command_name)
-{
-   if (!json || !command_name || strlen(command_name) <= 0)
-   {
-      goto error;
-   }
-
-   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
-   if (!command)
-   {
-      goto error;
-   }
-
-   cJSON* cName = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_NAME);
-   if (!cName || !cJSON_IsString(cName) || !cName->valuestring)
-   {
-      goto error;
-   }
-
-   return !strncmp(command_name,
-                   cName->valuestring,
-                   MISC_LENGTH);
-
-error:
-   return false;
-}
+static bool type_allowed(enum value_type type);
+static char* item_to_string(struct json* item, int32_t format, char* tag, int indent);
+static char* array_to_string(struct json* array, int32_t format, char* tag, int indent);
+static int parse_string(char* str, uint64_t* index, struct json** obj);
+static int json_add(struct json* obj, char* key, uintptr_t val, enum value_type type);
+static int fill_value(char* str, char* key, uint64_t* index, struct json* o);
+static bool value_start(char ch);
 
 int
-pgagroal_json_set_command_object_faulty(cJSON* json, char* message, int exit_status)
+pgagroal_json_append(struct json* array, uintptr_t entry, enum value_type type)
 {
-   if (!json)
+   if (array != NULL && array->type == JSONUnknown)
+   {
+      array->type = JSONArray;
+      pgagroal_deque_create(false, (struct deque**)&array->elements);
+   }
+   if (array == NULL || array->type != JSONArray || !type_allowed(type))
    {
       goto error;
    }
-
-   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
-   if (!command)
-   {
-      goto error;
-   }
-
-   cJSON* current = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_STATUS);
-   if (!current)
-   {
-      goto error;
-   }
-
-   cJSON_SetValuestring(current, message);
-
-   current = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_ERROR);
-   if (!current)
-   {
-      goto error;
-   }
-
-   cJSON_SetIntValue(current, JSON_BOOL_ERROR);   // cannot use cJSON_SetBoolValue unless cJSON >= 1.7.16
-
-   current = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_EXIT_STATUS);
-   if (!current)
-   {
-      goto error;
-   }
-
-   cJSON_SetIntValue(current, exit_status);
-
-   return 0;
-
+   return pgagroal_deque_add(array->elements, NULL, entry, type);
 error:
    return 1;
+}
 
+int
+pgagroal_json_put(struct json* item, char* key, uintptr_t val, enum value_type type)
+{
+   if (item != NULL && item->type == JSONUnknown)
+   {
+      item->type = JSONItem;
+      pgagroal_art_create((struct art**)&item->elements);
+   }
+   if (item == NULL || item->type != JSONItem || !type_allowed(type) || key == NULL || strlen(key) == 0)
+   {
+      goto error;
+   }
+   return pgagroal_art_insert((struct art*)item->elements, (unsigned char*)key, strlen(key) + 1, val, type);
+error:
+   return 1;
+}
+
+int
+pgagroal_json_create(struct json** object)
+{
+   struct json* o = malloc(sizeof(struct json));
+   memset(o, 0, sizeof(struct json));
+   o->type = JSONUnknown;
+   *object = o;
+   return 0;
+}
+
+int
+pgagroal_json_destroy(struct json* object)
+{
+   if (object == NULL)
+   {
+      return 0;
+   }
+   if (object->type == JSONArray)
+   {
+      pgagroal_deque_destroy(object->elements);
+   }
+   else if (object->type == JSONItem)
+   {
+      pgagroal_art_destroy(object->elements);
+   }
+   free(object);
+   return 0;
+}
+
+char*
+pgagroal_json_to_string(struct json* object, int32_t format, char* tag, int indent)
+{
+   char* str = NULL;
+   if (object == NULL || (object->type == JSONUnknown || object->elements == NULL))
+   {
+      str = pgagroal_indent(str, tag, indent);
+      if (format == FORMAT_JSON)
+      {
+         str = pgagroal_append(str, "{}");
+      }
+      return str;
+   }
+   if (object->type != JSONArray)
+   {
+      return item_to_string(object, format, tag, indent);
+   }
+   else
+   {
+      return array_to_string(object, format, tag, indent);
+   }
+}
+
+void
+pgagroal_json_print(struct json* object, int32_t format)
+{
+   char* str = pgagroal_json_to_string(object, format, NULL, 0);
+   printf("%s\n", str);
+   free(str);
+}
+
+uint32_t
+pgagroal_json_array_length(struct json* array)
+{
+   if (array == NULL || array->type != JSONArray)
+   {
+      goto error;
+   }
+   return pgagroal_deque_size(array->elements);
+error:
+   return 0;
+}
+
+uintptr_t
+pgagroal_json_get(struct json* item, char* tag)
+{
+   if (item == NULL || item->type != JSONItem || tag == NULL || strlen(tag) == 0)
+   {
+      return 0;
+   }
+   return pgagroal_art_search(item->elements, (unsigned char*)tag, strlen(tag) + 1);
+}
+
+int
+pgagroal_json_iterator_create(struct json* object, struct json_iterator** iter)
+{
+   struct json_iterator* i = NULL;
+   if (object == NULL || object->type == JSONUnknown)
+   {
+      return 1;
+   }
+   i = malloc(sizeof (struct json_iterator));
+   memset(i, 0, sizeof (struct json_iterator));
+   i->obj = object;
+   if (object->type == JSONItem)
+   {
+      pgagroal_art_iterator_create(object->elements, (struct art_iterator**)(&i->iter));
+   }
+   else
+   {
+      pgagroal_deque_iterator_create(object->elements, (struct deque_iterator**)(&i->iter));
+   }
+   *iter = i;
+   return 0;
+}
+
+void
+pgagroal_json_iterator_destroy(struct json_iterator* iter)
+{
+   if (iter == NULL)
+   {
+      return;
+   }
+   if (iter->obj->type == JSONArray)
+   {
+      pgagroal_deque_iterator_destroy((struct deque_iterator*)iter->iter);
+   }
+   else
+   {
+      pgagroal_art_iterator_destroy((struct art_iterator*)iter->iter);
+   }
+   free(iter);
 }
 
 bool
-pgagroal_json_is_command_object_faulty(cJSON* json)
+pgagroal_json_iterator_next(struct json_iterator* iter)
 {
-   if (!json)
+   bool has_next = false;
+   if (iter == NULL || iter->iter == NULL)
    {
-      goto error;
+      return false;
    }
-
-   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
-   if (!command)
+   if (iter->obj->type == JSONArray)
    {
-      goto error;
+      has_next = pgagroal_deque_iterator_next((struct deque_iterator*)iter->iter);
+      if (has_next)
+      {
+         iter->value = ((struct deque_iterator*)iter->iter)->value;
+      }
    }
-
-   cJSON* status = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_ERROR);
-   if (!status || !cJSON_IsNumber(status))
+   else
    {
-      goto error;
+      has_next = pgagroal_art_iterator_next((struct art_iterator*)iter->iter);
+      if (has_next)
+      {
+         iter->value = ((struct art_iterator*)iter->iter)->value;
+         iter->key = (char*)((struct art_iterator*)iter->iter)->key;
+      }
    }
-
-   return status->valueint == JSON_BOOL_SUCCESS ? false : true;
-
-error:
-   return false;
-
+   return has_next;
 }
 
 int
-pgagroal_json_command_object_exit_status(cJSON* json)
+pgagroal_json_parse_string(char* str, struct json** obj)
 {
-   if (!json)
+   uint64_t idx = 0;
+   if (str == NULL || strlen(str) < 2)
    {
-      goto error;
+      return 1;
    }
 
-   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
-   if (!command)
-   {
-      goto error;
-   }
-
-   cJSON* status = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_EXIT_STATUS);
-   if (!status || !cJSON_IsNumber(status))
-   {
-      goto error;
-   }
-
-   return status->valueint;
-
-error:
-   return EXIT_STATUS_DATA_ERROR;
-}
-
-const char*
-pgagroal_json_get_command_object_status(cJSON* json)
-{
-   if (!json)
-   {
-      goto error;
-   }
-
-   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
-   if (!command)
-   {
-      goto error;
-   }
-
-   cJSON* status = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_STATUS);
-   if (!cJSON_IsString(status) || (status->valuestring == NULL))
-   {
-      goto error;
-   }
-
-   return status->valuestring;
-error:
-   return NULL;
-
+   return parse_string(str, &idx, obj);
 }
 
 int
-pgagroal_json_print_and_free_json_object(cJSON* json)
+pgagroal_json_clone(struct json* from, struct json** to)
 {
-   int status = pgagroal_json_command_object_exit_status(json);
-   printf("%s\n", cJSON_Print(json));
-   cJSON_Delete(json);
-   return status;
+   struct json* o = NULL;
+   char* str = NULL;
+   str = pgagroal_json_to_string(from, FORMAT_JSON, NULL, 0);
+   if (pgagroal_json_parse_string(str, &o))
+   {
+      goto error;
+   }
+   *to = o;
+   free(str);
+   return 0;
+error:
+   free(str);
+   return 1;
 }
+
+static int
+parse_string(char* str, uint64_t* index, struct json** obj)
+{
+   enum json_type type;
+   struct json* o = NULL;
+   uint64_t idx = *index;
+   char ch = str[idx];
+   char* key = NULL;
+   uint64_t len = strlen(str);
+
+   if (ch == '{')
+   {
+      type = JSONItem;
+   }
+   else if (ch == '[')
+   {
+      type = JSONArray;
+   }
+   else
+   {
+      goto error;
+   }
+   idx++;
+   pgagroal_json_create(&o);
+   if (type == JSONItem)
+   {
+      while (idx < len)
+      {
+         // pre key
+         while (idx < len && isspace(str[idx]))
+         {
+            idx++;
+         }
+         if (idx == len)
+         {
+            goto error;
+         }
+         if (str[idx] == ',')
+         {
+            idx++;
+         }
+         else if (str[idx] == '}')
+         {
+            idx++;
+            break;
+         }
+         else if (!(str[idx] == '"' && o->type == JSONUnknown))
+         {
+            // if it's first key we won't see comma, otherwise we must see comma
+            goto error;
+         }
+         while (idx < len && str[idx] != '"')
+         {
+            idx++;
+         }
+         if (idx == len)
+         {
+            goto error;
+         }
+         idx++;
+         // The key
+         while (idx < len && str[idx] != '"')
+         {
+            key = pgagroal_append_char(key, str[idx++]);
+         }
+         if (idx == len || key == NULL)
+         {
+            goto error;
+         }
+         // The lands between
+         while (idx < len && (str[idx] == '"' || isspace(str[idx])))
+         {
+            idx++;
+         }
+         if (idx == len || str[idx] != ':')
+         {
+            goto error;
+         }
+         while (idx < len && (str[idx] == ':' || isspace(str[idx])))
+         {
+            idx++;
+         }
+         if (idx == len)
+         {
+            goto error;
+         }
+         // The value
+         if (fill_value(str, key, &idx, o))
+         {
+            goto error;
+         }
+         free(key);
+         key = NULL;
+      }
+   }
+   else
+   {
+      while (idx < len)
+      {
+         while (idx < len && isspace(str[idx]))
+         {
+            idx++;
+         }
+         if (idx == len)
+         {
+            goto error;
+         }
+         if (str[idx] == ',')
+         {
+            idx++;
+         }
+         else if (str[idx] == ']')
+         {
+            idx++;
+            break;
+         }
+         else if (!(value_start(str[idx]) && o->type == JSONUnknown))
+         {
+            // if it's first key we won't see comma, otherwise we must see comma
+            goto error;
+         }
+         while (idx < len && !value_start(str[idx]))
+         {
+            idx++;
+         }
+         if (idx == len)
+         {
+            goto error;
+         }
+
+         if (fill_value(str, key, &idx, o))
+         {
+            goto error;
+         }
+      }
+   }
+
+   *index = idx;
+   *obj = o;
+   return 0;
+error:
+   pgagroal_json_destroy(o);
+   free(key);
+   return 1;
+}
+
+static int
+json_add(struct json* obj, char* key, uintptr_t val, enum value_type type)
+{
+   if (obj == NULL)
+   {
+      return 1;
+   }
+   if (key == NULL)
+   {
+      return pgagroal_json_append(obj, val, type);
+   }
+   return pgagroal_json_put(obj, key, val, type);
+}
+
+static bool
+value_start(char ch)
+{
+   return (isdigit(ch) || ch == '-' || ch == '+') || // number
+          (ch == '[') || // array
+          (ch == '{') || // item
+          (ch == '"' || ch == 'n') || // string or null string
+          (ch == 't' || ch == 'f'); // potential boolean value
+}
+
+static int
+fill_value(char* str, char* key, uint64_t* index, struct json* o)
+{
+   uint64_t idx = *index;
+   uint64_t len = strlen(str);
+   if (str[idx] == '"')
+   {
+      char* val = NULL;
+      idx++;
+      while (idx < len && str[idx] != '"')
+      {
+         val = pgagroal_append_char(val, str[idx++]);
+      }
+      if (idx == len)
+      {
+         goto error;
+      }
+      if (val == NULL)
+      {
+         json_add(o, key, (uintptr_t)"", ValueString);
+      }
+      else
+      {
+         json_add(o, key, (uintptr_t)val, ValueString);
+      }
+      idx++;
+      free(val);
+   }
+   else if (str[idx] == '-' || str[idx] == '+' || isdigit(str[idx]))
+   {
+      bool has_digit = false;
+      char* val_str = NULL;
+      while (idx < len && (isdigit(str[idx]) || str[idx] == '.' || str[idx] == '-' || str[idx] == '+'))
+      {
+         if (str[idx] == '.')
+         {
+            has_digit = true;
+         }
+         val_str = pgagroal_append_char(val_str, str[idx++]);
+      }
+      if (has_digit)
+      {
+         double val = 0.;
+         if (sscanf(val_str, "%lf", &val) != 1)
+         {
+            free(val_str);
+            goto error;
+         }
+         json_add(o, key, pgagroal_value_from_double(val), ValueDouble);
+         free(val_str);
+      }
+      else
+      {
+         int64_t val = 0;
+         if (sscanf(val_str, "%" PRId64, &val) != 1)
+         {
+            free(val_str);
+            goto error;
+         }
+         json_add(o, key, (uintptr_t)val, ValueInt64);
+         free(val_str);
+      }
+   }
+   else if (str[idx] == '{')
+   {
+      struct json* val = NULL;
+      if (parse_string(str, &idx, &val))
+      {
+         goto error;
+      }
+      json_add(o, key, (uintptr_t)val, ValueJSON);
+   }
+   else if (str[idx] == '[')
+   {
+      struct json* val = NULL;
+      if (parse_string(str, &idx, &val))
+      {
+         goto error;
+      }
+      json_add(o, key, (uintptr_t)val, ValueJSON);
+   }
+   else if (str[idx] == 'n' || str[idx] == 't' || str[idx] == 'f')
+   {
+      char* val = NULL;
+      while (idx < len && str[idx] >= 'a' && str[idx] <= 'z')
+      {
+         val = pgagroal_append_char(val, str[idx++]);
+      }
+      if (pgagroal_compare_string(val, "null"))
+      {
+         json_add(o, key, 0, ValueString);
+      }
+      else if (pgagroal_compare_string(val, "true"))
+      {
+         json_add(o, key, true, ValueBool);
+      }
+      else if (pgagroal_compare_string(val, "false"))
+      {
+         json_add(o, key, false, ValueBool);
+      }
+      else
+      {
+         free(val);
+         goto error;
+      }
+      free(val);
+   }
+   else
+   {
+      goto error;
+   }
+   *index = idx;
+   return 0;
+error:
+   return 1;
+}
+
+static bool
+type_allowed(enum value_type type)
+{
+   switch (type)
+   {
+      case ValueInt8:
+      case ValueUInt8:
+      case ValueInt16:
+      case ValueUInt16:
+      case ValueInt32:
+      case ValueUInt32:
+      case ValueInt64:
+      case ValueUInt64:
+      case ValueBool:
+      case ValueString:
+      case ValueFloat:
+      case ValueDouble:
+      case ValueJSON:
+         return true;
+      default:
+         return false;
+   }
+}
+
+static char*
+item_to_string(struct json* item, int32_t format, char* tag, int indent)
+{
+   return pgagroal_art_to_string(item->elements, format, tag, indent);
+}
+
+static char*
+array_to_string(struct json* array, int32_t format, char* tag, int indent)
+{
+   return pgagroal_deque_to_string(array->elements, format, tag, indent);
+}
+

@@ -38,6 +38,7 @@
 #include <json.h>
 
 /* system */
+#include <cjson/cJSON.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdatomic.h>
@@ -54,6 +55,33 @@
 
 #define MANAGEMENT_HEADER_SIZE 5
 #define MANAGEMENT_INFO_SIZE 13
+
+/**
+ * JSON related command tags, used to build and retrieve
+ * a JSON piece of information related to a single command
+ */
+#define JSON_TAG_COMMAND "command"
+#define JSON_TAG_COMMAND_NAME "name"
+#define JSON_TAG_COMMAND_STATUS "status"
+#define JSON_TAG_COMMAND_ERROR "error"
+#define JSON_TAG_COMMAND_OUTPUT "output"
+#define JSON_TAG_COMMAND_EXIT_STATUS "exit-status"
+
+#define JSON_TAG_APPLICATION_NAME "name"
+#define JSON_TAG_APPLICATION_VERSION_MAJOR "major"
+#define JSON_TAG_APPLICATION_VERSION_MINOR "minor"
+#define JSON_TAG_APPLICATION_VERSION_PATCH "patch"
+#define JSON_TAG_APPLICATION_VERSION "version"
+
+#define JSON_TAG_ARRAY_NAME "list"
+
+/**
+ * JSON pre-defined values
+ */
+#define JSON_STRING_SUCCESS "OK"
+#define JSON_STRING_ERROR   "KO"
+#define JSON_BOOL_SUCCESS   0
+#define JSON_BOOL_ERROR     1
 
 #define S "S:"
 #define V ",V:"
@@ -79,6 +107,14 @@ static int pgagroal_management_json_print_conf_ls(cJSON* json);
 static int pgagroal_executable_version_number(char* version, size_t version_size);
 static int pgagroal_executable_version_string(char** version_string, int version_number);
 static char* pgagroal_executable_name(int command);
+
+static cJSON* pgagroal_json_create_new_command_object(char* command_name, bool success, char* executable_name, char* executable_version);
+static cJSON* pgagroal_json_extract_command_output_object(cJSON* json);
+static int pgagroal_json_set_command_object_faulty(cJSON* json, char* message, int exit_status);
+static const char* pgagroal_json_get_command_object_status(cJSON* json);
+static bool pgagroal_json_is_command_name_equals_to(cJSON* json, char* command_name);
+static int pgagroal_json_print_and_free_json_object(cJSON* json);
+static int pgagroal_json_command_object_exit_status(cJSON* json);
 
 int
 pgagroal_management_read_header(int socket, signed char* id, int32_t* slot)
@@ -2879,5 +2915,228 @@ end:
       cJSON_Delete(json);
    }
 
+   return status;
+}
+
+static cJSON*
+pgagroal_json_create_new_command_object(char* command_name, bool success, char* executable_name, char* executable_version)
+{
+   // root of the JSON structure
+   cJSON* json = cJSON_CreateObject();
+
+   if (!json)
+   {
+      goto error;
+   }
+
+   // the command structure
+   cJSON* command = cJSON_CreateObject();
+   if (!command)
+   {
+      goto error;
+   }
+
+   // insert meta-data about the command
+   cJSON_AddStringToObject(command, JSON_TAG_COMMAND_NAME, command_name);
+   cJSON_AddStringToObject(command, JSON_TAG_COMMAND_STATUS, success ? JSON_STRING_SUCCESS : JSON_STRING_ERROR);
+   cJSON_AddNumberToObject(command, JSON_TAG_COMMAND_ERROR, success ? JSON_BOOL_SUCCESS : JSON_BOOL_ERROR);
+   cJSON_AddNumberToObject(command, JSON_TAG_COMMAND_EXIT_STATUS, success ? 0 : EXIT_STATUS_DATA_ERROR);
+
+   // the output of the command, this has to be filled by the caller
+   cJSON* output = cJSON_CreateObject();
+   if (!output)
+   {
+      goto error;
+   }
+
+   cJSON_AddItemToObject(command, JSON_TAG_COMMAND_OUTPUT, output);
+
+   // who has launched the command ?
+   cJSON* application = cJSON_CreateObject();
+   if (!application)
+   {
+      goto error;
+   }
+
+   long minor = strtol(&executable_version[2], NULL, 10);
+   if (errno == ERANGE || minor <= LONG_MIN || minor >= LONG_MAX)
+   {
+      goto error;
+   }
+   long patch = strtol(&executable_version[5], NULL, 10);
+   if (errno == ERANGE || patch <= LONG_MIN || patch >= LONG_MAX)
+   {
+      goto error;
+   }
+
+   cJSON_AddStringToObject(application, JSON_TAG_APPLICATION_NAME, executable_name);
+   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_MAJOR, executable_version[0] - '0');
+   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_MINOR, (int)minor);
+   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_PATCH, (int)patch);
+   cJSON_AddStringToObject(application, JSON_TAG_APPLICATION_VERSION, executable_version);
+
+   // add objects to the whole json thing
+   cJSON_AddItemToObject(json, "command", command);
+   cJSON_AddItemToObject(json, "application", application);
+
+   return json;
+
+error:
+   if (json)
+   {
+      cJSON_Delete(json);
+   }
+
+   return NULL;
+
+}
+
+static cJSON*
+pgagroal_json_extract_command_output_object(cJSON* json)
+{
+   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
+   if (!command)
+   {
+      goto error;
+   }
+
+   return cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_OUTPUT);
+
+error:
+   return NULL;
+
+}
+
+static bool
+pgagroal_json_is_command_name_equals_to(cJSON* json, char* command_name)
+{
+   if (!json || !command_name || strlen(command_name) <= 0)
+   {
+      goto error;
+   }
+
+   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
+   if (!command)
+   {
+      goto error;
+   }
+
+   cJSON* cName = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_NAME);
+   if (!cName || !cJSON_IsString(cName) || !cName->valuestring)
+   {
+      goto error;
+   }
+
+   return !strncmp(command_name,
+                   cName->valuestring,
+                   MISC_LENGTH);
+
+error:
+   return false;
+}
+
+static int
+pgagroal_json_set_command_object_faulty(cJSON* json, char* message, int exit_status)
+{
+   if (!json)
+   {
+      goto error;
+   }
+
+   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
+   if (!command)
+   {
+      goto error;
+   }
+
+   cJSON* current = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_STATUS);
+   if (!current)
+   {
+      goto error;
+   }
+
+   cJSON_SetValuestring(current, message);
+
+   current = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_ERROR);
+   if (!current)
+   {
+      goto error;
+   }
+
+   cJSON_SetIntValue(current, JSON_BOOL_ERROR);   // cannot use cJSON_SetBoolValue unless cJSON >= 1.7.16
+
+   current = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_EXIT_STATUS);
+   if (!current)
+   {
+      goto error;
+   }
+
+   cJSON_SetIntValue(current, exit_status);
+
+   return 0;
+
+error:
+   return 1;
+
+}
+
+static int
+pgagroal_json_command_object_exit_status(cJSON* json)
+{
+   if (!json)
+   {
+      goto error;
+   }
+
+   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
+   if (!command)
+   {
+      goto error;
+   }
+
+   cJSON* status = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_EXIT_STATUS);
+   if (!status || !cJSON_IsNumber(status))
+   {
+      goto error;
+   }
+
+   return status->valueint;
+
+error:
+   return EXIT_STATUS_DATA_ERROR;
+}
+
+static const char*
+pgagroal_json_get_command_object_status(cJSON* json)
+{
+   if (!json)
+   {
+      goto error;
+   }
+
+   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
+   if (!command)
+   {
+      goto error;
+   }
+
+   cJSON* status = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_STATUS);
+   if (!cJSON_IsString(status) || (status->valuestring == NULL))
+   {
+      goto error;
+   }
+
+   return status->valuestring;
+error:
+   return NULL;
+
+}
+
+static int
+pgagroal_json_print_and_free_json_object(cJSON* json)
+{
+   int status = pgagroal_json_command_object_exit_status(json);
+   printf("%s\n", cJSON_Print(json));
+   cJSON_Delete(json);
    return status;
 }

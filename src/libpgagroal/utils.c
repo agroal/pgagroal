@@ -1121,3 +1121,43 @@ pgagroal_server_state_as_string(signed char state)
          return buf;
    }
 }
+
+char*
+pgagroal_append_char(char* orig, char c)
+{
+   char str[2];
+
+   memset(&str[0], 0, sizeof(str));
+   snprintf(&str[0], 2, "%c", c);
+   orig = pgagroal_append(orig, str);
+
+   return orig;
+}
+
+char*
+pgagroal_indent(char* str, char* tag, int indent)
+{
+   for (int i = 0; i < indent; i++)
+   {
+      str = pgagroal_append(str, " ");
+   }
+   if (tag != NULL)
+   {
+      str = pgagroal_append(str, tag);
+   }
+   return str;
+}
+
+bool
+pgagroal_compare_string(const char* str1, const char* str2)
+{
+   if (str1 == NULL && str2 == NULL)
+   {
+      return true;
+   }
+   if ((str1 == NULL && str2 != NULL) || (str1 != NULL && str2 == NULL))
+   {
+      return false;
+   }
+   return strcmp(str1, str2) == 0;
+}

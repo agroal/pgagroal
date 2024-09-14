@@ -26,150 +26,170 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef PGAGROAL_JSON_H
+#define PGAGROAL_JSON_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* pgagroal */
 #include <pgagroal.h>
+#include <deque.h>
+#include <value.h>
 
-#include <cjson/cJSON.h>
+enum json_type {
+   JSONUnknown,
+   JSONItem,
+   JSONArray
+};
 
-/**
- * JSON related command tags, used to build and retrieve
- * a JSON piece of information related to a single command
+/** @struct json
+ * Defines a JSON structure
  */
-#define JSON_TAG_COMMAND "command"
-#define JSON_TAG_COMMAND_NAME "name"
-#define JSON_TAG_COMMAND_STATUS "status"
-#define JSON_TAG_COMMAND_ERROR "error"
-#define JSON_TAG_COMMAND_OUTPUT "output"
-#define JSON_TAG_COMMAND_EXIT_STATUS "exit-status"
+struct json
+{
+   // a json object can only be item or array
+   enum json_type type;            /**< The json object type */
+   // if the object is an array, it can have at most one json element
+   void* elements;                /**< The json elements, could be an array or some kv pairs */
+};
 
-#define JSON_TAG_APPLICATION_NAME "name"
-#define JSON_TAG_APPLICATION_VERSION_MAJOR "major"
-#define JSON_TAG_APPLICATION_VERSION_MINOR "minor"
-#define JSON_TAG_APPLICATION_VERSION_PATCH "patch"
-#define JSON_TAG_APPLICATION_VERSION "version"
-
-#define JSON_TAG_ARRAY_NAME "list"
-
-/**
- * JSON pre-defined values
+/** @struct json_iterator
+ * Defines a JSON iterator
  */
-#define JSON_STRING_SUCCESS "OK"
-#define JSON_STRING_ERROR   "KO"
-#define JSON_BOOL_SUCCESS   0
-#define JSON_BOOL_ERROR     1
+struct json_iterator
+{
+   void* iter;            /**< The internal iterator */
+   struct json* obj;      /**< The json object */
+   char* key;             /**< The current key, if it's json item */
+   struct value* value;   /**< The current value or entry */
+};
 
 /**
- * Utility method to create a new JSON object that wraps a
- * single command. This method should be called to initialize the
- * object and then the other specific methods that read the
- * answer from pgagroal should populate the object accordingly.
- *
- * Moreover, an 'application' object is placed to indicate from
- * where the command has been launched (i.e., which executable)
- * and at which version.
- *
- * @param command_name the name of the command this object wraps
- * an answer for
- * @param success true if the command is supposed to be succesfull
- * @returns the new JSON object to use and populate
- * @param executable_name the name of the executable that is creating this
- * response object
- */
-cJSON*
-pgagroal_json_create_new_command_object(char* command_name, bool success, char* executable_name, char* executable_version);
-
-/**
- * Utility method to "jump" to the output JSON object wrapped into
- * a command object.
- *
- * The "output" object is the one that every single method that reads
- * back an answer from pgagroal has to populate in a specific
- * way according to the data received from pgagroal.
- *
- * @param json the command object that wraps the command
- * @returns the pointer to the output object of NULL in case of an error
- */
-cJSON*
-pgagroal_json_extract_command_output_object(cJSON* json);
-
-/**
- * Utility function to set a command JSON object as faulty, that
- * means setting the 'error' and 'status' message accordingly.
- *
- * @param json the whole json object that must include the 'command'
- * tag
- * @param message the message to use to set the faulty diagnostic
- * indication
- *
- * @param exit status
- *
- * @returns 0 on success
- *
- * Example:
- * json_set_command_object_faulty( json, strerror( errno ) );
+ * Create a json object
+ * @param item [out] The json item
+ * @return 0 if success, 1 if otherwise
  */
 int
-pgagroal_json_set_command_object_faulty(cJSON* json, char* message, int exit_status);
+pgagroal_json_create(struct json** object);
 
 /**
- * Utility method to inspect if a JSON object that wraps a command
- * is faulty, that means if it has the error flag set to true.
+ * Put a key value pair into the json item,
+ * if the key exists, value will be overwritten,
  *
- * @param json the json object to analyzer
- * @returns the value of the error flag in the object, or false if
- * the object is not valid
+ * If the kv pair is put into an empty json object, it will be treated as json item,
+ * otherwise if the json object is an array, it will reject the kv pair
+ * @param item The json item
+ * @param key The json key
+ * @param val The value data
+ * @param type The value type
+ * @return 0 on success, otherwise 1
+ */
+int
+pgagroal_json_put(struct json* item, char* key, uintptr_t val, enum value_type type);
+
+/**
+ * Get the value data from json item
+ * @param item The item
+ * @param tag The tag
+ * @return The value data, 0 if not found
+ */
+uintptr_t
+pgagroal_json_get(struct json* item, char* tag);
+
+/**
+ * Append an entry into the json array
+ * If the entry is put into an empty json object, it will be treated as json array,
+ * otherwise if the json object is an item, it will reject the entry
+ * @param array The json array
+ * @param entry The entry data
+ * @param type The entry value type
+ * @return 0 is successful,
+ * otherwise when the json object is an array, value is null, or value type conflicts with old value, 1 will be returned
+ */
+int
+pgagroal_json_append(struct json* array, uintptr_t entry, enum value_type type);
+
+/**
+ * Get json array length
+ * @param array The json array
+ * @return The length
+ */
+uint32_t
+pgagroal_json_array_length(struct json* array);
+
+/**
+ * Create a json iterator
+ * @param object The JSON object
+ * @param iter [out] The iterator
+ * @return 0 on success, 1 if otherwise
+ */
+int
+pgagroal_json_iterator_create(struct json* object, struct json_iterator** iter);
+/**
+ * Get the next kv pair/entry from JSON object
+ * @param iter The iterator
+ * @return true if has next, false if otherwise
  */
 bool
-pgagroal_json_is_command_object_faulty(cJSON* json);
+pgagroal_json_iterator_next(struct json_iterator* iter);
 
 /**
- * Utility method to extract the message related to the status
- * of the command wrapped in the JSON object.
- *
- * @param json the JSON object to analyze
- * #returns the status message or NULL in case the JSON object is not valid
+ * Destroy a iterator
+ * @param iter The iterator
  */
-const char*
-pgagroal_json_get_command_object_status(cJSON* json);
+void
+pgagroal_json_iterator_destroy(struct json_iterator* iter);
 
 /**
- * Utility method to check if a JSON object wraps a specific command name.
- *
- * @param json the JSON object to analyze
- * @param command_name the name to search for
- * @returns true if the command name matches, false otherwise and in case
- * the JSON object is not valid or the command name is not valid
- */
-bool
-pgagroal_json_is_command_name_equals_to(cJSON* json, char* command_name);
-
-/**
- * Utility method to print out the JSON object
- * on standard output.
- *
- * After the object has been printed, it is destroyed, so
- * calling this method will make the pointer invalid
- * and the jeon object cannot be used anymore.
- *
- * This should be the last method to be called
- * when there is the need to print out the information
- * contained in a json object.
- *
- * Since the JSON object will be invalidated, the method
- * returns the status of the JSON command within it
- * to be used.
- *
- * @param json the json object to print
- * @return the command status within the JSON object
+ * Parse a string into json item
+ * @param str The string
+ * @param obj [out] The json object
+ * @return 0 if success, 1 if otherwise
  */
 int
-pgagroal_json_print_and_free_json_object(cJSON* json);
+pgagroal_json_parse_string(char* str, struct json** obj);
 
 /**
- * Utility function to get the exit status of a given command wrapped in a JSON object.
- *
- * @param json the json object
- * @returns the exit status of the command
+ * Clone a json object
+ * @param from The from object
+ * @param to [out] The to object
+ * @return 0 if success, 1 if otherwise
  */
 int
-pgagroal_json_command_object_exit_status(cJSON* json);
+pgagroal_json_clone(struct json* from, struct json** to);
+
+/**
+ * Convert a json to string
+ * @param object The json object
+ * @param format The format
+ * @param tag The optional tag
+ * @param indent The indent
+ * @return The json formatted string
+ */
+char*
+pgagroal_json_to_string(struct json* object, int32_t format, char* tag, int indent);
+
+/**
+ * Print a json object
+ * @param object The object
+ * @param format The format
+ * @param indent_per_level The indent per level
+ */
+void
+pgagroal_json_print(struct json* object, int32_t format);
+
+/**
+ * Destroy the json object
+ * @param item The json object
+ * @return 0 if success, 1 if otherwise
+ */
+int
+pgagroal_json_destroy(struct json* object);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

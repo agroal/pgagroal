@@ -443,6 +443,34 @@ pgagroal_append_ulong(char* orig, unsigned long l);
 char*
 pgagroal_append_ullong(char* orig, unsigned long long l);
 
+/**
+ * Append a char
+ * @param orig The original string
+ * @param s The string
+ * @return The resulting string
+ */
+char*
+pgagroal_append_char(char* orig, char c);
+
+/**
+ * Indent a string
+ * @param str The string
+ * @param tag [Optional] The tag, which will be applied after indentation if not NULL
+ * @param indent The indent
+ * @return The indented string
+ */
+char*
+pgagroal_indent(char* str, char* tag, int indent);
+
+/**
+ * Compare two strings
+ * @param str1 The first string
+ * @param str2 The second string
+ * @return true if the strings are the same, otherwise false
+ */
+bool
+pgagroal_compare_string(const char* str1, const char* str2);
+
 #ifdef DEBUG
 
 /**
