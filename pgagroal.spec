@@ -1,5 +1,5 @@
 Name:          pgagroal
-Version:       1.7.0
+Version:       2.0.0
 Release:       1%{dist}
 Summary:       High-performance connection pool for PostgreSQL
 License:       BSD
@@ -91,8 +91,8 @@ chrpath -r %{_libdir} %{buildroot}%{_bindir}/pgagroal-admin
 chrpath -r %{_libdir} %{buildroot}%{_bindir}/pgagroal-vault
 
 cd %{buildroot}%{_libdir}/
-%{__ln_s} -f libpgagroal.so.%{version} libpgagroal.so.1
-%{__ln_s} -f libpgagroal.so.1 libpgagroal.so
+%{__ln_s} -f libpgagroal.so.%{version} libpgagroal.so.2
+%{__ln_s} -f libpgagroal.so.2 libpgagroal.so
 
 %files
 %license %{_docdir}/%{name}/LICENSE
@@ -139,7 +139,7 @@ cd %{buildroot}%{_libdir}/
 %{_bindir}/pgagroal-admin
 %{_bindir}/pgagroal-vault
 %{_libdir}/libpgagroal.so
-%{_libdir}/libpgagroal.so.1
+%{_libdir}/libpgagroal.so.2
 %{_libdir}/libpgagroal.so.%{version}
 
 %changelog
