@@ -257,7 +257,7 @@ extern void* prometheus_shmem;
  */
 extern void* prometheus_cache_shmem;
 
-/** @struct
+/** @struct server
  * Defines a server
  */
 struct server
@@ -273,7 +273,7 @@ struct server
    int lineno;                      /**< The line number within the configuration file */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct connection
  * Defines a connection
  */
 struct connection
@@ -300,7 +300,7 @@ struct connection
    int fd;                 /**< The descriptor */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct hba
  * Defines a HBA entry
  */
 struct hba
@@ -313,7 +313,7 @@ struct hba
    int lineno;                        /**< The line number within the configuration file */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct limit
  * Defines a limit entry
  */
 struct limit
@@ -327,7 +327,7 @@ struct limit
    int lineno;                         /**< The line number within the configuration file */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct user
  * Defines a user
  */
 struct user
@@ -336,16 +336,16 @@ struct user
    char password[MAX_PASSWORD_LENGTH]; /**< The password */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct vault_server
  * Defines a vault server
  */
 struct vault_server
 {
-   struct server server;
-   struct user user;
+   struct server server; /**< The server */
+   struct user user;     /**< The user */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct prometheus_connection
  * Defines the Prometheus connection metric
  */
 struct prometheus_connection
@@ -353,7 +353,7 @@ struct prometheus_connection
    atomic_ullong query_count;           /**< The number of queries per connection */
 } __attribute__ ((aligned (64)));
 
-/**
+/** @struct prometheus_cache
  * A structure to handle the Prometheus response
  * so that it is possible to serve the very same
  * response over and over depending on the cache
@@ -375,7 +375,7 @@ struct prometheus_cache
    char data[];          /**< the payload */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct prometheus
  * Defines the common Prometheus metrics
  */
 struct prometheus
@@ -392,7 +392,7 @@ struct prometheus
 
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct main_prometheus
  * Defines the Main Prometheus metrics
  */
 struct main_prometheus
@@ -414,8 +414,8 @@ struct main_prometheus
    atomic_ulong connection_success;            /**< The number of success calls */
 
    /**< The number of connection awaiting due to `blocking_timeout` */
-   atomic_ulong connections_awaiting[NUMBER_OF_LIMITS];
-   atomic_ulong connections_awaiting_total;
+   atomic_ulong connections_awaiting[NUMBER_OF_LIMITS]; /**< The number of connection waiting per limit */
+   atomic_ulong connections_awaiting_total;             /**< The number of connection waiting in total */
 
    atomic_ulong auth_user_success;      /**< The number of AUTH_SUCCESS calls */
    atomic_ulong auth_user_bad_password; /**< The number of AUTH_BAD_PASSWORD calls */
@@ -437,15 +437,15 @@ struct main_prometheus
 
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct vault_prometheus
  * Defines the Vault Prometheus metrics
  */
 struct vault_prometheus
 {
-   struct prometheus prometheus_base;
+   struct prometheus prometheus_base; /**< The Prometheus base */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct configuration
  * Defines the common configurations between pgagroal and vault
  */
 struct configuration
@@ -480,7 +480,7 @@ struct configuration
    unsigned int metrics_cache_max_size; /**< Number of bytes max to cache the Prometheus response */
 };
 
-/** @struct
+/** @struct vault_configuration
  * Defines the configuration of pgagroal-vault
  */
 struct vault_configuration
@@ -491,7 +491,7 @@ struct vault_configuration
    struct vault_server vault_server; /**< The vault servers */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct main_configuration
  * Defines the configuration and state of pgagroal
  */
 struct main_configuration

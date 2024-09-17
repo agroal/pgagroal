@@ -105,6 +105,13 @@ else ()
   message(STATUS "pdflatex needed. The generation process will be skipped.")
 endif()
 
+find_package(Doxygen
+             REQUIRED dot)
+
+if (DOXYGEN_FOUND)
+  message(status "Doxygen found: ${DOXYGEN_EXECUTABLE}")
+endif()
+
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   find_package(Libatomic)
   if (LIBATOMIC_FOUND)

@@ -44,7 +44,7 @@ extern "C" {
 #define MESSAGE_STATUS_OK    1
 #define MESSAGE_STATUS_ERROR 2
 
-/** @struct
+/** @struct message
  * Defines a message
  */
 struct message

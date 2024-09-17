@@ -38,7 +38,7 @@ extern "C" {
 
 #include <stdlib.h>
 
-/** @struct
+/** @struct signal_info
  * Defines the signal structure
  */
 struct signal_info
@@ -47,26 +47,26 @@ struct signal_info
    int slot;                /**< The slot */
 };
 
-/** @struct
+/** @struct accept_io
  * Defines the accept io structure
  */
 struct accept_io
 {
-   struct ev_io io;
-   int socket;
-   char** argv;
+   struct ev_io io; /**< The I/O */
+   int socket;      /**< The socket */
+   char** argv;     /**< The argv */
 };
 
-/** @struct
+/** @struct client
  * Defines the client structure
  */
 struct client
 {
-   pid_t pid;
-   struct client* next;
+   pid_t pid;           /**< The process id */
+   struct client* next; /**< The next client */
 };
 
-/** @struct
+/** @struct pgagroal_command
  * Defines pgagroal commands.
  * The necessary fields are marked with an ">".
  *
@@ -89,23 +89,23 @@ struct client
  */
 struct pgagroal_command
 {
-   const char* command;
-   const char* subcommand;
-   const int accepted_argument_count[MISC_LENGTH];
+   const char* command;                            /**< The command */
+   const char* subcommand;                         /**< The sub-command */
+   const int accepted_argument_count[MISC_LENGTH]; /**< The array of accepted arguments */
 
-   const int action;
-   const int mode;
-   const char* default_argument;
-   const char* log_message;
+   const int action;                               /**< The action */
+   const int mode;                                 /**< The mode of the action */
+   const char* default_argument;                   /**< The default argument */
+   const char* log_message;                        /**< The log message */
 
    /* Deprecation information */
-   bool deprecated;
-   unsigned int deprecated_since_major;
-   unsigned int deprecated_since_minor;
-   const char* deprecated_by;
+   bool deprecated;                                /**< Is the command deprecated */
+   unsigned int deprecated_since_major;            /**< Deprecated since major */
+   unsigned int deprecated_since_minor;            /**< Deprecated since minor */
+   const char* deprecated_by;                      /**< Deprecated by */
 };
 
-/** @struct
+/** @struct pgagroal_parsed_command
  * Holds parsed command data.
  *
  * Fields:
@@ -114,8 +114,8 @@ struct pgagroal_command
  */
 struct pgagroal_parsed_command
 {
-   const struct pgagroal_command* cmd;
-   char* args[MISC_LENGTH];
+   const struct pgagroal_command* cmd; /**< The command */
+   char* args[MISC_LENGTH];            /**< The command arguments */
 };
 
 /**

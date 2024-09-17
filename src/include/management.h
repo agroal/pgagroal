@@ -83,16 +83,16 @@ extern "C" {
 #define PGAGROAL_EXECUTABLE_CLI 2
 #define PGAGROAL_EXECUTABLE_VAULT 3
 
-/*
+/** @struct pgagroal_version_info
  * stores the application name and its version
  * which are sent through the socket
  */
 struct pgagroal_version_info
 {
-   char s[2];
-   int command;
-   char v[3];
-   int version;
+   char s[2];   /**< The command encoded */
+   int command; /**< The command */
+   char v[3];   /**< The version encoded */
+   int version; /**< The version */
 };
 
 /**

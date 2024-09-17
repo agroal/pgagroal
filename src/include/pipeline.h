@@ -50,7 +50,7 @@ typedef void (* stop)(struct ev_loop*, struct worker_io*);
 typedef void (* destroy)(void*, size_t);
 typedef void (* periodic)(void);
 
-/** @struct
+/** @struct pipeline
  * Define the structure for a pipeline
  */
 struct pipeline

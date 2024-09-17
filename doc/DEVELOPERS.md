@@ -51,6 +51,16 @@ This process is optional. If you choose not to generate the PDF and HTML files, 
     dnf install 'tex(footnote.sty)' 'tex(footnotebackref.sty)' 'tex(pagecolor.sty)' 'tex(hardwrap.sty)' 'tex(mdframed.sty)' 'tex(sourcesanspro.sty)' 'tex(ly1enc.def)' 'tex(sourcecodepro.sty)' 'tex(titling.sty)' 'tex(csquotes.sty)' 'tex(zref-abspage.sty)' 'tex(needspace.sty)'
     ```
 
+#### Generate API guide
+
+This process is optional. If you choose not to generate the API HTML files, you can opt out of downloading these dependencies, and the process will automatically skip the generation.
+
+Download dependencies
+
+    ``` sh
+    dnf install graphviz doxygen
+    ```
+
 ### Build
 
 ``` sh
