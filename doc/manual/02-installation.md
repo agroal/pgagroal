@@ -183,6 +183,16 @@ mv eisvogel.latex $HOME/.local/share/pandoc/templates
 
 where `$HOME` is your home directory.
 
+#### Generate API guide
+
+This process is optional. If you choose not to generate the API HTML files, you can opt out of downloading these dependencies, and the process will automatically skip the generation.
+
+Download dependencies
+
+``` sh
+dnf install graphviz doxygen
+```
+
 ### Build
 
 These packages will be detected during `cmake` and built as part of the main build.
