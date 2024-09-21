@@ -323,6 +323,7 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    FILE* file = NULL;
    char buf[MISC_LENGTH];
    char* encoded = NULL;
+   size_t encoded_length;
    struct stat st = {0};
    bool do_free = true;
 
@@ -432,7 +433,7 @@ master_key(char* password, bool generate_pwd, int pwd_length)
       do_free = false;
    }
 
-   pgagroal_base64_encode(password, strlen(password), &encoded);
+   pgagroal_base64_encode(password, strlen(password), &encoded, &encoded_length);
    fputs(encoded, file);
    free(encoded);
 
@@ -475,6 +476,7 @@ add_user(char* users_path, char* username, char* password, bool generate_pwd, in
    char* encrypted = NULL;
    int encrypted_length = 0;
    char* encoded = NULL;
+   size_t encoded_length;
    char un[MAX_USERNAME_LENGTH];
    int number_of_users = 0;
    bool do_verify = true;
@@ -596,7 +598,7 @@ password:
    }
 
    pgagroal_encrypt(password, master_key, &encrypted, &encrypted_length);
-   pgagroal_base64_encode(encrypted, encrypted_length, &encoded);
+   pgagroal_base64_encode(encrypted, encrypted_length, &encoded, &encoded_length);
 
    entry = pgagroal_append(entry, username);
    entry = pgagroal_append(entry, ":");
@@ -653,6 +655,7 @@ update_user(char* users_path, char* username, char* password, bool generate_pwd,
    char* encrypted = NULL;
    int encrypted_length = 0;
    char* encoded = NULL;
+   size_t encoded_length;
    char un[MAX_USERNAME_LENGTH];
    bool found = false;
    bool do_verify = true;
@@ -774,7 +777,7 @@ password:
          }
 
          pgagroal_encrypt(password, master_key, &encrypted, &encrypted_length);
-         pgagroal_base64_encode(encrypted, encrypted_length, &encoded);
+         pgagroal_base64_encode(encrypted, encrypted_length, &encoded, &encoded_length);
 
          entry = NULL;
          entry = pgagroal_append(entry, username);

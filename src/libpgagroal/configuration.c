@@ -1275,7 +1275,7 @@ pgagroal_read_users_configuration(void* shm, char* filename)
    char* username = NULL;
    char* password = NULL;
    char* decoded = NULL;
-   int decoded_length = 0;
+   size_t decoded_length = 0;
    char* ptr = NULL;
    struct main_configuration* config;
    int status;
@@ -1397,7 +1397,7 @@ pgagroal_read_frontend_users_configuration(void* shm, char* filename)
    char* username = NULL;
    char* password = NULL;
    char* decoded = NULL;
-   int decoded_length = 0;
+   size_t decoded_length = 0;
    char* ptr = NULL;
    struct main_configuration* config;
    int status = PGAGROAL_CONFIGURATION_STATUS_OK;
@@ -1544,7 +1544,7 @@ pgagroal_read_admins_configuration(void* shm, char* filename)
    char* username = NULL;
    char* password = NULL;
    char* decoded = NULL;
-   int decoded_length = 0;
+   size_t decoded_length = 0;
    char* ptr = NULL;
    struct main_configuration* config;
    int status = PGAGROAL_CONFIGURATION_STATUS_OK;
@@ -1657,7 +1657,7 @@ pgagroal_vault_read_users_configuration(void* shm, char* filename)
    char* username = NULL;
    char* password = NULL;
    char* decoded = NULL;
-   int decoded_length = 0;
+   size_t decoded_length = 0;
    char* ptr = NULL;
    struct vault_configuration* config;
    int status = PGAGROAL_CONFIGURATION_STATUS_OK;
@@ -1785,7 +1785,7 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
    char* username = NULL;
    char* password = NULL;
    char* decoded = NULL;
-   int decoded_length = 0;
+   size_t decoded_length = 0;
    char* ptr = NULL;
    struct main_configuration* config;
    int status = PGAGROAL_CONFIGURATION_STATUS_OK;
