@@ -29,6 +29,10 @@ jobs:
       run: sudo apt install -y libsystemd-dev
     - name: Install rst2man
       run: sudo apt install -y python3-docutils
+    - name: Install graphviz
+      run: sudo apt install graphviz
+    - name: Install doxygen
+      run: sudo apt install doxygen
     - name: Install clang
       run: sudo apt install -y clang
     - name: Install PostgreSQL
