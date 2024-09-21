@@ -54,6 +54,7 @@ enum value_type {
    ValueString,
    ValueFloat,
    ValueDouble,
+   ValueBASE64,
    ValueJSON,
    ValueDeque,
    ValueART,

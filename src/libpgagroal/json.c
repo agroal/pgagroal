@@ -564,6 +564,7 @@ type_allowed(enum value_type type)
       case ValueUInt64:
       case ValueBool:
       case ValueString:
+      case ValueBASE64:
       case ValueFloat:
       case ValueDouble:
       case ValueJSON:
@@ -584,4 +585,3 @@ array_to_string(struct json* array, int32_t format, char* tag, int indent)
 {
    return pgagroal_deque_to_string(array->elements, format, tag, indent);
 }
-
