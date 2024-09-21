@@ -118,9 +118,9 @@ jobs:
     - name: Install rst2man
       run: brew install docutils
     - name: Install graphviz
-      run: sudo apt install graphviz
+      run: brew install graphviz
     - name: Install doxygen
-      run: sudo apt install doxygen
+      run: brew install doxygen
     - name: Install clang
       run: brew install llvm
     - name: Install PostgreSQL
