@@ -125,10 +125,18 @@ AuthenticationSASLFinal and AuthenticationOk. The SSLRequest message is supporte
 
 The remote management interface is defined in [remote.h](../src/include/remote.h) ([remote.c](../src/libpgagroal/remote.c)).
 
-## libev usage
+## I/O layer
 
-[libev](http://software.schmorp.de/pkg/libev.html) is used to handle network interactions, which is "activated"
-upon an `EV_READ` event.
+The I/O layer interface is primarily defined in [ev.h](../src/include/ev.h) (and implemented in [ev.c](../src/libpgagroal/ev.c)).
+
+These files contain the definition and implementation of the event loop for the three supported backends:
+io_uring, epoll, and kqueue.
+
+The backend is defined during runtime and can be set with the configuration option `ev_backend`. 
+Default is `auto`, which will select the first supported backend, considering the following order: 
+io_uring, epoll, kqueue.
+
+[liburing](https://github.com/axboe/liburing) was used for setup and usage io_uring instances.
 
 Each process has its own event loop, such that the process only gets notified when data related only to that process
 is ready. The main loop handles the system wide "services" such as idle timeout checks and so on.
@@ -172,7 +180,7 @@ The functions `start`, `client`, `server` and `stop` has access to the following
 ```C
 struct worker_io
 {
-   struct ev_io io;      /* The libev base type */
+   struct ev_io io;      /* The base type for io operations */
    int client_fd;        /* The client descriptor */
    int server_fd;        /* The server descriptor */
    int slot;             /* The slot */
@@ -260,7 +268,7 @@ The `SIGHUP` signal will trigger a reload of the configuration.
 However, some configuration settings requires a full restart of [**pgagroal**](https://github.com/agroal/pgagroal) in order to take effect. These are
 
 * `hugepage`
-* `libev`
+* `ev_backend`
 * `log_path`
 * `log_type`
 * `max_connections`

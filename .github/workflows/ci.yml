@@ -11,14 +11,14 @@ on:
 jobs:
   build-linux:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v3
     - name: Update system
       run: sudo apt update
-    - name: Install libev
-      run: sudo apt install -y libev4 libev-dev
+    - name: Install liburing
+      run: sudo apt install -y liburing-dev
     - name: Install systemd
       run: sudo apt install -y libsystemd-dev
     - name: Install rst2man
@@ -33,6 +33,8 @@ jobs:
       run: sudo apt install graphviz
     - name: Install doxygen
       run: sudo apt install doxygen
+    - name: Install crudini
+      run: sudo apt install -y crudini
     - name: Install clang
       run: sudo apt install -y clang
     - name: Install PostgreSQL
@@ -49,6 +51,7 @@ jobs:
         echo "PATH=$PATH:/usr/lib/postgresql/17/bin" >> $GITHUB_ENV
         echo $PATH
     - name: Start postgres
+    - name: Start postgres & setup test table
       run: |
         sudo systemctl start postgresql || exit 1
         pg_isready -h 127.0.0.1 | grep '5432' || (echo "Nothing is listening on 127.0.0.1:5432"; exit 1)
@@ -77,59 +80,101 @@ jobs:
           echo "rm -f /tmp/pgagroal.2345.pid"
           rm -f /tmp/pgagroal.2345.pid
         }' > /tmp/functions.sh
-    - name: Setup pgagroal
+    - name: Setup pgagroal & create build directory
       run: |
         sudo mkdir -p /etc/pgagroal
         sed -i 's/max_connections = 100/max_connections = 8/g' ./doc/etc/pgagroal.conf
         sed -i 's/log_type = console/log_type = file/g' ./doc/etc/pgagroal.conf
         sed -i 's/log_path = /log_path = \/dev\/null/g' ./doc/etc/pgagroal.conf
         sudo cp ./doc/etc/*.conf /etc/pgagroal
-      working-directory: /home/runner/work/pgagroal/pgagroal/
-    - name: GCC/mkdir
       run: mkdir build
       working-directory: /home/runner/work/pgagroal/pgagroal/
     - name: GCC/cmake
-      run: sudo apt install cmake && export CC=/usr/bin/gcc && cmake -DCMAKE_BUILD_TYPE=Debug ..
+      run: cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER_ID=GNU
       working-directory: /home/runner/work/pgagroal/pgagroal/build/
     - name: GCC/make
       run: make
       working-directory: /home/runner/work/pgagroal/pgagroal/build/
-    - name: GCC/Run pgagroal & confirm pgagroal is running
+    - name: GCC/Run pgagroal as daemon with 'io_uring' backend
       run: |
-        ./pgagroal -d
+        sed -i '' 's/^ev_backend =.*$/ev_backend = io_uring/' ../../doc/etc/pgagroal.conf
+        echo "host all all all trust" > ../../doc/etc/pgagroal_hba.conf
+        sudo cp ../../doc/etc/*.conf /etc/pgagroal
+        sudo sysctl kernel.io_uring_disabled=0
+        ./pgagroal -d || exit 1
+        sleep 2
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
-    - name: GCC/Run verify_running & verify_shutdown
+    - name: GCC/Run verify_running for 'io_uring' backend
       run: |
         source /tmp/functions.sh
         verify_running
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+    - name: GCC/Run verify_shutdown for 'io_uring' backend
+      run: |
+        source /tmp/functions.sh
         verify_shutdown
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
-    - name: rm -Rf
-      run: rm -Rf build/
-      working-directory: /home/runner/work/pgagroal/pgagroal/
-    - name: CLANG/mkdir
-      run: mkdir build
+    - name: GCC/Run pgagroal as daemon with 'epoll' backend
+      run: |
+        sed -i '' 's/^ev_backend =.*$/ev_backend = epoll/' ../../doc/etc/pgagroal.conf
+        echo "host all all all trust" > ../../doc/etc/pgagroal_hba.conf
+        ./pgagroal -d || exit 1
+        sleep 1
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+    - name: GCC/Run verify_running for 'epoll' backend
+      run: |
+        source /tmp/functions.sh
+        verify_running
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+    - name: GCC/Run verify_shutdown for 'epoll' backend
+      run: |
+        source /tmp/functions.sh
+        verify_shutdown
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+    - name: Clean previous build
+      run: rm -Rf build/*
       working-directory: /home/runner/work/pgagroal/pgagroal/
     - name: CLANG/cmake
-      run: export CC=/usr/bin/clang && cmake -DCMAKE_BUILD_TYPE=Debug ..
+      run: cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER_ID=Clang
       working-directory: /home/runner/work/pgagroal/pgagroal/build/
     - name: CLANG/make
       run: make
       working-directory: /home/runner/work/pgagroal/pgagroal/build/
-    - name: CLANG/Run pgagroal & confirm pgagroal is running
+    - name: CLANG/Run pgagroal as daemon with 'io_uring' backend
       run: |
-        sudo mkdir -p /etc/pgagroal
+        sed -i '' 's/^ev_backend =.*$/ev_backend = io_uring/' ../../doc/etc/pgagroal.conf
+        echo "host all all all trust" > ../../doc/etc/pgagroal_hba.conf
         sudo cp ../../doc/etc/*.conf /etc/pgagroal
-        ./pgagroal -d
+        sudo sysctl kernel.io_uring_disabled=0
+        ./pgagroal -d || exit 1
+        sleep 2
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
-    - name: CLANG/Run verify_running & verify_shutdown
+    - name: CLANG/Run verify_running for 'io_uring' backend
       run: |
         source /tmp/functions.sh
         verify_running
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+    - name: CLANG/Run verify_shutdown for 'io_uring' backend
+      run: |
+        source /tmp/functions.sh
         verify_shutdown
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
-
-
+    - name: CLANG/Run pgagroal as daemon with 'epoll' backend
+      run: |
+        sed -i '' 's/^ev_backend =.*$/ev_backend = epoll/' ../../doc/etc/pgagroal.conf
+        echo "host all all all trust" > ../../doc/etc/pgagroal_hba.conf
+        ./pgagroal -d || exit 1
+        sleep 1
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+    - name: CLANG/Run verify_running for 'epoll' backend
+      run: |
+        source /tmp/functions.sh
+        verify_running
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+    - name: CLANG/Run verify_shutdown for 'epoll' backend
+      run: |
+        source /tmp/functions.sh
+        verify_shutdown
 
       #  build-macos:
       #
