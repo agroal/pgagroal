@@ -162,8 +162,8 @@ tls_key_file
 tls_ca_file
   Certificate Authority (CA) file for TLS. Changes require restart in the server section.
 
-libev
-  The libev backend to use. Valid options: auto, select, poll, epoll, iouring, devpoll and port. Default is auto
+ev_backend
+  The event handling backend to use. Valid options are auto, io_uring, epoll, and kqueue. Default is auto
 
 keep_alive
   Have SO_KEEPALIVE on sockets. Default is on
