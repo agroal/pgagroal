@@ -28,11 +28,14 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <ev.h>
 #include <logging.h>
 #include <memory.h>
 #include <message.h>
 #include <network.h>
+#include <shmem.h>
 #include <utils.h>
+#include <worker.h>
 
 #include <assert.h>
 #include <errno.h>
@@ -91,6 +94,91 @@ int
 pgagroal_write_socket_message(int socket, struct message* msg)
 {
    return write_message(socket, msg);
+}
+
+static int
+read_message_from_buffer(struct io_watcher* watcher __attribute__((unused)), struct message** msg_p)
+{
+   struct message* msg = pgagroal_memory_message();
+
+   if (msg->length == 0)
+   {
+      return MESSAGE_STATUS_ZERO;
+   }
+
+   if (msg->length < 0)
+   {
+      return MESSAGE_STATUS_ERROR;
+   }
+
+   msg->kind = (signed char)(*((char*)msg->data));
+   *msg_p = msg;
+   return MESSAGE_STATUS_OK;
+}
+
+static int
+write_message_from_buffer(struct io_watcher* watcher, struct message* msg)
+{
+   int sent_bytes = pgagroal_event_prep_submit_send(watcher, msg);
+
+   if (msg->length == 0)
+   {
+      return MESSAGE_STATUS_ZERO;
+   }
+   if (sent_bytes < msg->length)
+   {
+      return MESSAGE_STATUS_ERROR;
+   }
+   return MESSAGE_STATUS_OK;
+}
+
+static int __attribute__((unused))
+read_from_buffer(struct io_watcher* watcher __attribute__((unused)), struct message* msg)
+{
+   int read_bytes = pgagroal_wait_recv();
+
+   ((struct message*)msg)->length = read_bytes;
+   msg->kind = (signed char)(*((char*)msg->data));
+
+   if (msg->length == 0)
+   {
+      return MESSAGE_STATUS_ZERO;
+   }
+   return MESSAGE_STATUS_OK;
+}
+
+int
+pgagroal_recv_message(struct io_watcher* watcher, struct message** msg)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+   struct worker_io* wi = (struct worker_io*)watcher;
+
+   if (wi->server_ssl)
+   {
+      return ssl_read_message(wi->server_ssl, 0, msg);
+   }
+   if (config->ev_backend != PGAGROAL_EVENT_BACKEND_IO_URING)
+   {
+      return read_message(watcher->fds.worker.rcv_fd, false, 0, msg);
+   }
+   return read_message_from_buffer(watcher, msg);
+}
+
+int
+pgagroal_send_message(struct io_watcher* watcher, struct message* msg)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+   struct worker_io* wi = (struct worker_io*)watcher;
+
+   if (wi->server_ssl)
+   {
+      return ssl_write_message(wi->server_ssl, msg);
+   }
+   if (config->ev_backend != PGAGROAL_EVENT_BACKEND_IO_URING)
+   {
+      return write_message(watcher->fds.worker.snd_fd, msg);
+   }
+   return write_message_from_buffer(watcher, msg);
 }
 
 int
@@ -558,6 +646,10 @@ pgagroal_write_discard_all(SSL* ssl, int socket)
    {
       goto error;
    }
+
+   /* XXX: someone is destroying the memory before reaching here in the worker.
+    * Allocate another buffer for now, but this needs fixing. */
+   pgagroal_memory_init();
 
    if (ssl == NULL)
    {
@@ -1174,6 +1266,11 @@ pgagroal_connection_isvalid(int socket)
    {
       goto error;
    }
+   if (reply->kind == 'e')
+   {
+      pgagroal_log_error("Unexpected message kind");
+      goto error;
+   }
 
    pgagroal_clear_message(reply);
 
@@ -1268,6 +1365,10 @@ read_message(int socket, bool block, int timeout, struct message** msg)
          {
             keep_read = true;
             errno = 0;
+         }
+         else
+         {
+            pgagroal_log_error("read error: fd=%d errno=%d", socket, errno);
          }
       }
    }

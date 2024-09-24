@@ -11,8 +11,7 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         compiler: [gcc, clang]
@@ -29,7 +28,7 @@ jobs:
         run: |
           sudo apt install -y \
             cmake \
-            libev4 libev-dev \
+            liburing-dev \
             libsystemd-dev \
             python3-docutils \
             libzstd-dev \
