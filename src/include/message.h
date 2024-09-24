@@ -395,6 +395,15 @@ int
 pgagroal_read_socket_message(int socket, struct message** msg);
 
 /**
+ * Read a message from a buffer
+ * @param buffer The buffer to "copy" from
+ * @param msg The resulting message
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
+ */
+int
+pgagroal_buffer_to_message(void* data, ssize_t size, struct message** msg);
+
+/**
  * Write a message using a socket
  * @param socket The socket descriptor
  * @param msg The message
