@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #include <pgagroal.h>
+#include <ev.h>
 #include <message.h>
 
 /** @struct signal_info
@@ -41,8 +42,8 @@ extern "C" {
  */
 struct signal_info
 {
-   struct ev_signal signal; /**< The libev base type */
-   int slot;                /**< The slot */
+   struct signal_watcher sig_w; /**< The signal watcher (always first) */
+   int slot;                    /**< The slot */
 };
 
 /** @struct accept_io
@@ -50,9 +51,9 @@ struct signal_info
  */
 struct accept_io
 {
-   struct ev_io io; /**< The I/O */
-   int socket;      /**< The socket */
-   char** argv;     /**< The argv */
+   struct io_watcher watcher; /**< The I/O (always first) */
+   int socket;                /**< The socket */
+   char** argv;               /**< The argv */
 };
 
 /** @struct client
@@ -282,28 +283,6 @@ pgagroal_bigendian(void);
  */
 unsigned int
 pgagroal_swap(unsigned int i);
-
-/**
- * Print the available libev engines
- */
-void
-pgagroal_libev_engines(void);
-
-/**
- * Get the constant for a libev engine
- * @param engine The name of the engine
- * @return The constant
- */
-unsigned int
-pgagroal_libev(char* engine);
-
-/**
- * Get the name for a libev engine
- * @param val The constant
- * @return The name
- */
-char*
-pgagroal_libev_engine(unsigned int val);
 
 /**
  * Get the home directory

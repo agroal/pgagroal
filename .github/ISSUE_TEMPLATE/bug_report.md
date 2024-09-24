@@ -23,9 +23,9 @@ What is the version of pgagroal ?
 
 What is the version of PostgreSQL ?
 
-**libev**
+**liburing**
 
-What is the version of libev ?
+What is the version of liburing ?
 
 **OpenSSL**
 

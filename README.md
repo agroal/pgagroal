@@ -35,7 +35,7 @@ See [Performance](./doc/PERFORMANCE.md) for a performance run.
 
 * Process model
 * Shared memory model across processes
-* [libev](http://software.schmorp.de/pkg/libev.html) for fast network interactions
+* [liburing](https://github.com/axboe/liburing) for fast network interactions
 * [Atomic operations](https://en.cppreference.com/w/c/atomic) are used to keep track of state
 * The [PostgreSQL](https://www.postgresql.org) native protocol
   [v3](https://www.postgresql.org/docs/11/protocol-message-formats.html) for its communication
@@ -63,7 +63,7 @@ after having installed all the required dependencies:
 * [gcc 8+](https://gcc.gnu.org) (C17) or [clang 8+](https://clang.llvm.org/)
 * [cmake](https://cmake.org)
 * [GNU make](https://www.gnu.org/software/make/) or BSD `make`
-* [libev](http://software.schmorp.de/pkg/libev.html)
+* [liburing](https://github.com/axboe/liburing)
 * [OpenSSL](http://www.openssl.org/)
 * [rst2man](https://docutils.sourceforge.io/)
 * [libatomic](https://gcc.gnu.org/wiki/Atomic)
@@ -78,6 +78,18 @@ after having installed all the required dependencies:
 
 
 See the [documentation about installing the required dependencies](doc/DISTRIBUTIONS.md).
+```sh
+dnf install git gcc cmake make      \
+            liburing liburing-devel \
+            openssl openssl-devel   \
+            systemd systemd-devel   \
+            python3-docutils        \
+            libatomic               \
+            zlib zlib-devel         \
+            libzstd libzstd-devel   \
+            lz4 lz4-devel           \
+            bzip2 bzip2-devel
+```
 
 
 ### Release build

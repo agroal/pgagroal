@@ -33,6 +33,7 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 

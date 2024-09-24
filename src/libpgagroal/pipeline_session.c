@@ -28,6 +28,7 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <ev.h>
 #include <logging.h>
 #include <management.h>
 #include <message.h>
@@ -41,7 +42,7 @@
 
 /* system */
 #include <errno.h>
-#include <ev.h>
+#include <signal.h>
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -50,10 +51,10 @@
 #include <sys/socket.h>
 
 static int  session_initialize(void*, void**, size_t*);
-static void session_start(struct ev_loop* loop, struct worker_io*);
-static void session_client(struct ev_loop* loop, struct ev_io* watcher, int revents);
-static void session_server(struct ev_loop* loop, struct ev_io* watcher, int revents);
-static void session_stop(struct ev_loop* loop, struct worker_io*);
+static void session_start(struct event_loop* loop, struct worker_io*);
+static void session_client(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void session_server(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void session_stop(struct event_loop* loop, struct worker_io*);
 static void session_destroy(void*, size_t);
 static void session_periodic(void);
 
@@ -130,7 +131,7 @@ session_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_si
 }
 
 static void
-session_start(struct ev_loop* loop __attribute__((unused)), struct worker_io* w)
+session_start(struct event_loop* loop __attribute__((unused)), struct worker_io* w)
 {
    struct client_session* client;
    struct main_configuration* config;
@@ -161,7 +162,7 @@ session_start(struct ev_loop* loop __attribute__((unused)), struct worker_io* w)
 }
 
 static void
-session_stop(struct ev_loop* loop __attribute__((unused)), struct worker_io* w)
+session_stop(struct event_loop* loop __attribute__((unused)), struct worker_io* w)
 {
    struct client_session* client;
 
@@ -281,7 +282,7 @@ session_periodic(void)
 }
 
 static void
-session_client(struct ev_loop* loop, struct ev_io* watcher, int revents __attribute__((unused)))
+session_client(struct event_loop* loop __attribute__((unused)), struct io_watcher* watcher, int revents __attribute__((unused)))
 {
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
@@ -293,14 +294,8 @@ session_client(struct ev_loop* loop, struct ev_io* watcher, int revents __attrib
 
    client_active(wi->slot);
 
-   if (wi->client_ssl == NULL)
-   {
-      status = pgagroal_read_socket_message(wi->client_fd, &msg);
-   }
-   else
-   {
-      status = pgagroal_read_ssl_message(wi->client_ssl, &msg);
-   }
+   status = pgagroal_recv_message(watcher, &msg);
+
    if (likely(status == MESSAGE_STATUS_OK))
    {
       pgagroal_prometheus_network_sent_add(msg->length);
@@ -342,14 +337,8 @@ session_client(struct ev_loop* loop, struct ev_io* watcher, int revents __attrib
             }
          }
 
-         if (wi->server_ssl == NULL)
-         {
-            status = pgagroal_write_socket_message(wi->server_fd, msg);
-         }
-         else
-         {
-            status = pgagroal_write_ssl_message(wi->server_ssl, msg);
-         }
+         status = pgagroal_send_message(watcher, msg);
+
          if (unlikely(status == MESSAGE_STATUS_ERROR))
          {
             if (config->failover)
@@ -369,7 +358,7 @@ session_client(struct ev_loop* loop, struct ev_io* watcher, int revents __attrib
       else if (msg->kind == 'X')
       {
          saw_x = true;
-         running = 0;
+         pgagroal_event_loop_break();
       }
    }
    else if (status == MESSAGE_STATUS_ZERO)
@@ -383,7 +372,6 @@ session_client(struct ev_loop* loop, struct ev_io* watcher, int revents __attrib
 
    client_inactive(wi->slot);
 
-   ev_break(loop, EVBREAK_ONE);
    return;
 
 client_done:
@@ -403,8 +391,7 @@ client_done:
       exit_code = WORKER_SERVER_FAILURE;
    }
 
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+   pgagroal_event_loop_break();
    return;
 
 client_error:
@@ -417,8 +404,8 @@ client_error:
    client_inactive(wi->slot);
 
    exit_code = WORKER_CLIENT_FAILURE;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+
+   pgagroal_event_loop_break();
    return;
 
 server_error:
@@ -431,8 +418,8 @@ server_error:
    client_inactive(wi->slot);
 
    exit_code = WORKER_SERVER_FAILURE;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+
+   pgagroal_event_loop_break();
    return;
 
 failover:
@@ -440,32 +427,26 @@ failover:
    client_inactive(wi->slot);
 
    exit_code = WORKER_FAILOVER;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+
+   pgagroal_event_loop_break();
    return;
 }
 
 static void
-session_server(struct ev_loop* loop, struct ev_io* watcher, int revents __attribute__((unused)))
+session_server(struct event_loop* loop __attribute__((unused)), struct io_watcher* watcher, int revents __attribute__((unused)))
 {
    int status = MESSAGE_STATUS_ERROR;
    bool fatal = false;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
-   struct main_configuration* config = NULL;
+   struct main_configuration* config = (struct main_configuration*)shmem;
 
    wi = (struct worker_io*)watcher;
 
    client_active(wi->slot);
 
-   if (wi->server_ssl == NULL)
-   {
-      status = pgagroal_read_socket_message(wi->server_fd, &msg);
-   }
-   else
-   {
-      status = pgagroal_read_ssl_message(wi->server_ssl, &msg);
-   }
+   status = pgagroal_recv_message(watcher, &msg);
+
    if (likely(status == MESSAGE_STATUS_OK))
    {
       pgagroal_prometheus_network_received_add(msg->length);
@@ -510,14 +491,9 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents __attrib
             next_server_message -= offset;
          }
       }
-      if (wi->client_ssl == NULL)
-      {
-         status = pgagroal_write_socket_message(wi->client_fd, msg);
-      }
-      else
-      {
-         status = pgagroal_write_ssl_message(wi->client_ssl, msg);
-      }
+
+      status = pgagroal_send_message(watcher, msg);
+
       if (unlikely(status != MESSAGE_STATUS_OK))
       {
          goto client_error;
@@ -535,7 +511,7 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents __attrib
          if (fatal)
          {
             exit_code = WORKER_SERVER_FATAL;
-            running = 0;
+            pgagroal_event_loop_break();
          }
       }
    }
@@ -550,11 +526,9 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents __attrib
 
    client_inactive(wi->slot);
 
-   ev_break(loop, EVBREAK_ONE);
    return;
 
 client_error:
-   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[S] Client error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->client_fd, status);
@@ -564,12 +538,11 @@ client_error:
    client_inactive(wi->slot);
 
    exit_code = WORKER_CLIENT_FAILURE;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+
+   pgagroal_event_loop_break();
    return;
 
 server_done:
-   config = (struct main_configuration*)shmem;
    pgagroal_log_debug("[S] Server done (slot %d database %s user %s): %s (socket %d status %d)",
                       wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                       strerror(errno), wi->server_fd, status);
@@ -577,12 +550,10 @@ server_done:
 
    client_inactive(wi->slot);
 
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+   pgagroal_event_loop_break();
    return;
 
 server_error:
-   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[S] Server error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->server_fd, status);
@@ -592,8 +563,8 @@ server_error:
    client_inactive(wi->slot);
 
    exit_code = WORKER_SERVER_FAILURE;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+
+   pgagroal_event_loop_break();
    return;
 }
 

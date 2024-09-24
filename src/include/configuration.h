@@ -114,7 +114,7 @@ extern "C" {
 #define CONFIGURATION_ARGUMENT_METRICS_CERT_FILE                "metrics_cert_file"
 #define CONFIGURATION_ARGUMENT_METRICS_KEY_FILE                 "metrics_key_file"
 #define CONFIGURATION_ARGUMENT_METRICS_CA_FILE                  "metrics_ca_file"
-#define CONFIGURATION_ARGUMENT_LIBEV                            "libev"
+#define CONFIGURATION_ARGUMENT_EV_BACKEND                       "ev_backend"
 #define CONFIGURATION_ARGUMENT_KEEP_ALIVE                       "keep_alive"
 #define CONFIGURATION_ARGUMENT_NODELAY                          "nodelay"
 #define CONFIGURATION_ARGUMENT_NON_BLOCKING                     "non_blocking"

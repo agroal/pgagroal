@@ -125,13 +125,31 @@ AuthenticationSASLFinal and AuthenticationOk. The SSLRequest message is supporte
 
 The remote management interface is defined in [remote.h](../src/include/remote.h) ([remote.c](../src/libpgagroal/remote.c)).
 
-## libev usage
+## I/O layer
 
-[libev](http://software.schmorp.de/pkg/libev.html) is used to handle network interactions, which is "activated"
-upon an `EV_READ` event.
+The I/O layer interface is primarily defined in [ev.h](../src/include/ev.h) (and implemented in [ev.c](../src/libpgagroal/ev.c)).
+
+These files contain the definition and implementation of the event loop for the three supported backends:
+io_uring, epoll, and kqueue.
+
+The backend is defined during runtime and can be set with the configuration option `ev_backend`. 
+Default is `auto`, which will select the first supported backend, considering the following order: 
+io_uring, epoll, kqueue.
+
+[liburing](https://github.com/axboe/liburing) was used for setup and usage io_uring instances.
 
 Each process has its own event loop, such that the process only gets notified when data related only to that process
 is ready. The main loop handles the system wide "services" such as idle timeout checks and so on.
+
+The I/O Layer works with a registered event watchers. Those can either be a watcher for I/O events (`io_watcher`), Timer events (`periodic_watcher`) and Signal events (`signal_watcher`).
+
+The event interface provides ways to register and cancel watching events through the above watchers.
+
+The events watched by the main loop is different from the events watched by the workers.
+
+The main loop registers timers, signals and accept watchers. 
+
+The worker registers the client watcher (responsible for receiving the message from the client and bouncing it to the server), the server watcher (responsible for watching for a message from the server and bouncing it to the client) and one signal watcher.
 
 ## Pipeline
 
@@ -172,7 +190,7 @@ The functions `start`, `client`, `server` and `stop` has access to the following
 ```C
 struct worker_io
 {
-   struct ev_io io;      /* The libev base type */
+   struct io_watcher io; /* The base type for io operations */
    int client_fd;        /* The client descriptor */
    int server_fd;        /* The server descriptor */
    int slot;             /* The slot */
@@ -260,7 +278,7 @@ The `SIGHUP` signal will trigger a reload of the configuration.
 However, some configuration settings requires a full restart of [**pgagroal**](https://github.com/agroal/pgagroal) in order to take effect. These are
 
 * `hugepage`
-* `libev`
+* `ev_backend`
 * `log_path`
 * `log_type`
 * `max_connections`

@@ -33,9 +33,9 @@
 extern "C" {
 #endif
 
+#include <ev.h>
 #include <worker.h>
 
-#include <ev.h>
 #include <stdlib.h>
 
 #define PIPELINE_AUTO        -1
@@ -44,9 +44,9 @@ extern "C" {
 #define PIPELINE_TRANSACTION  2
 
 typedef int (* initialize)(void*, void**, size_t*);
-typedef void (* start)(struct ev_loop*, struct worker_io*);
-typedef void (* callback)(struct ev_loop*, struct ev_io*, int);
-typedef void (* stop)(struct ev_loop*, struct worker_io*);
+typedef void (* start)(struct event_loop*, struct worker_io*);
+typedef void (* callback)(struct event_loop*, struct io_watcher*, int);
+typedef void (* stop)(struct event_loop*, struct worker_io*);
 typedef void (* destroy)(void*, size_t);
 typedef void (* periodic)(void);
 

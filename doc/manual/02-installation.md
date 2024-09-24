@@ -41,7 +41,7 @@ We recommend using Fedora to test and run [**pgagroal**][pgagroal], but other Li
 * [gcc 8+](https://gcc.gnu.org) (C17)
 * [cmake](https://cmake.org)
 * [make](https://www.gnu.org/software/make/)
-* [libev](http://software.schmorp.de/pkg/libev.html)
+* [liburing](https://github.com/axboe/liburing)
 * [OpenSSL](http://www.openssl.org/)
 * [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
 * [rst2man](https://docutils.sourceforge.io/)
@@ -53,7 +53,7 @@ We recommend using Fedora to test and run [**pgagroal**][pgagroal], but other Li
 * [binutils](https://www.gnu.org/software/binutils/)
 
 ```sh
-dnf install git gcc cmake make libev libev-devel \
+dnf install git gcc cmake make liburing liburing-devel \
             openssl openssl-devel \
             systemd systemd-devel \
             python3-docutils libatomic \
@@ -109,7 +109,7 @@ On FreeBSD, `pkg` is used instead of `dnf` or `yum`.
 Use `pkg install <package name>` to install the following packages
 
 ``` sh
-git gcc cmake libev openssl libssh py39-docutils
+git gcc cmake openssl libssh py39-docutils
 ```
 
 ### Build
