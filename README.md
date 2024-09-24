@@ -35,7 +35,7 @@ See [Performance](./doc/PERFORMANCE.md) for a performance run.
 
 * Process model
 * Shared memory model across processes
-* [libev](http://software.schmorp.de/pkg/libev.html) for fast network interactions
+* [liburing](https://github.com/axboe/liburing) for fast network interactions
 * [Atomic operations](https://en.cppreference.com/w/c/atomic) are used to keep track of state
 * The [PostgreSQL](https://www.postgresql.org) native protocol
   [v3](https://www.postgresql.org/docs/11/protocol-message-formats.html) for its communication
@@ -64,7 +64,7 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of [**pgagroal**]
 * [gcc 8+](https://gcc.gnu.org) (C17)
 * [cmake](https://cmake.org)
 * [make](https://www.gnu.org/software/make/)
-* [libev](http://software.schmorp.de/pkg/libev.html)
+* [liburing](https://github.com/axboe/liburing)
 * [OpenSSL](http://www.openssl.org/)
 * [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
 * [rst2man](https://docutils.sourceforge.io/)
@@ -75,13 +75,13 @@ On Rocky Linux (and similar) operating systems, the dependencies
 can be installed via `dnf(8)` as follows:
 
 ```sh
-dnf install git gcc cmake make    \
-            libev libev-devel     \
-            openssl openssl-devel \
-            systemd systemd-devel \
-            python3-docutils      \
-            libatomic             \
-            cjson cjson-devel
+dnf install git gcc cmake make      \
+            openssl openssl-devel   \
+            systemd systemd-devel   \
+            python3-docutils        \
+            libatomic               \
+            cjson cjson-devel       \
+            liburing liburing-devel
 ```
 
 Please note that, on Rocky Linux, in order to install the `python3-docutils`

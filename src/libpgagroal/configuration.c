@@ -2662,13 +2662,20 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    /* pidfile */
    restart_string("pidfile", config->pidfile, reload->pidfile, true);
 
-   /* libev */
-   restart_string("libev", config->libev, reload->libev, true);
-   config->buffer_size = reload->buffer_size;
-   config->keep_alive = reload->keep_alive;
-   config->nodelay = reload->nodelay;
-   config->non_blocking = reload->non_blocking;
-   config->backlog = reload->backlog;
+   /* ev backend */
+   /*
+    * TODO: implementation of ev_backend for transfer configuration.
+    *       previous implementation for libev is commented here for
+    *       reference.
+    *
+    * restart_string("ev_backend", config->ev_backend, reload->ev_backend, true);
+    * config->buffer_size = reload->buffer_size;
+    * config->keep_alive = reload->keep_alive;
+    * config->nodelay = reload->nodelay;
+    * config->non_blocking = reload->non_blocking;
+    * config->backlog = reload->backlog;
+    */
+
    /* hugepage */
    unchanged -= restart_int("hugepage", config->common.hugepage, reload->common.hugepage);
    config->tracker = reload->tracker;
@@ -4643,7 +4650,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
       }
       memcpy(config->unix_socket_dir, value, max);
    }
-   else if (key_in_section("libev", section, key, true, &unknown))
+   else if (key_in_section("ev_backend", section, key, true, &unknown))
    {
 
       max = strlen(value);
@@ -4651,7 +4658,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
       {
          max = MISC_LENGTH - 1;
       }
-      memcpy(config->libev, value, max);
+      memcpy(config->common.ev_backend, value, max);
    }
    else if (key_in_section("buffer_size", section, key, true, &unknown))
    {

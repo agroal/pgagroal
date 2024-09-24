@@ -54,7 +54,7 @@ We recommend using Fedora to test and run [**pgagroal**][pgagroal], but other Li
 * [gcc 8+](https://gcc.gnu.org) (C17)
 * [cmake](https://cmake.org)
 * [make](https://www.gnu.org/software/make/)
-* [libev](http://software.schmorp.de/pkg/libev.html)
+* [liburing](https://github.com/axboe/liburing)
 * [OpenSSL](http://www.openssl.org/)
 * [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
 * [rst2man](https://docutils.sourceforge.io/)
@@ -62,11 +62,12 @@ We recommend using Fedora to test and run [**pgagroal**][pgagroal], but other Li
 * [cJSON](https://github.com/DaveGamble/cJSON)
 
 ```sh
-dnf install git gcc cmake make libev libev-devel \
-            openssl openssl-devel \
-            systemd systemd-devel \
-            python3-docutils libatomic \
-            cjson cjson-devel
+dnf install git gcc cmake make          \
+            openssl openssl-devel       \
+            systemd systemd-devel       \
+            python3-docutils libatomic  \
+            cjson cjson-devel           \
+            liburing liburing-devel
 ```
 
 Alternative [clang 8+](https://clang.llvm.org/) can be used.
@@ -120,7 +121,7 @@ On FreeBSD, `pkg` is used instead of `dnf` or `yum`.
 Use `pkg install <package name>` to install the following packages
 
 ``` sh
-git gcc cmake libev openssl libssh py39-docutils libcjson
+git gcc cmake openssl libssh py39-docutils libcjson
 ```
 
 ### Build
