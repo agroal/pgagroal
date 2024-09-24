@@ -58,6 +58,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 static int get_auth_type(struct message* msg, int* auth_type);
 static int compare_auth_response(struct message* orig, struct message* response, int auth_type);
