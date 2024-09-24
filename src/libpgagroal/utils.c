@@ -316,10 +316,10 @@ pgagroal_read_int32(void* data)
                             *((unsigned char*)(data + 2)),
                             *((unsigned char*)(data + 3))};
 
-   int32_t res = (int32_t)((bytes[0] << 24)) |
-                 ((bytes[1] << 16)) |
-                 ((bytes[2] << 8)) |
-                 ((bytes[3]));
+   int32_t res = (int32_t)(((uint32_t)bytes[0] << 24)) |
+                 (((uint32_t)bytes[1] << 16)) |
+                 (((uint32_t)bytes[2] << 8)) |
+                 (((uint32_t)bytes[3]));
 
    return res;
 }
@@ -453,161 +453,6 @@ pgagroal_swap(unsigned int i)
           ((i << 8) & 0x00ff0000) |
           ((i >> 8) & 0x0000ff00) |
           ((i >> 24) & 0x000000ff);
-}
-
-void
-pgagroal_libev_engines(void)
-{
-   unsigned int engines = ev_supported_backends();
-
-   if (engines & EVBACKEND_SELECT)
-   {
-      pgagroal_log_debug("libev available: select");
-   }
-   if (engines & EVBACKEND_POLL)
-   {
-      pgagroal_log_debug("libev available: poll");
-   }
-   if (engines & EVBACKEND_EPOLL)
-   {
-      pgagroal_log_debug("libev available: epoll");
-   }
-   if (engines & EVBACKEND_LINUXAIO)
-   {
-      pgagroal_log_debug("libev available: linuxaio");
-   }
-   if (engines & EVBACKEND_IOURING)
-   {
-      pgagroal_log_debug("libev available: iouring");
-   }
-   if (engines & EVBACKEND_KQUEUE)
-   {
-      pgagroal_log_debug("libev available: kqueue");
-   }
-   if (engines & EVBACKEND_DEVPOLL)
-   {
-      pgagroal_log_debug("libev available: devpoll");
-   }
-   if (engines & EVBACKEND_PORT)
-   {
-      pgagroal_log_debug("libev available: port");
-   }
-}
-
-unsigned int
-pgagroal_libev(char* engine)
-{
-   unsigned int engines = ev_supported_backends();
-
-   if (engine)
-   {
-      if (!strcmp("select", engine))
-      {
-         if (engines & EVBACKEND_SELECT)
-         {
-            return EVBACKEND_SELECT;
-         }
-         else
-         {
-            pgagroal_log_warn("libev not available: select");
-         }
-      }
-      else if (!strcmp("poll", engine))
-      {
-         if (engines & EVBACKEND_POLL)
-         {
-            return EVBACKEND_POLL;
-         }
-         else
-         {
-            pgagroal_log_warn("libev not available: poll");
-         }
-      }
-      else if (!strcmp("epoll", engine))
-      {
-         if (engines & EVBACKEND_EPOLL)
-         {
-            return EVBACKEND_EPOLL;
-         }
-         else
-         {
-            pgagroal_log_warn("libev not available: epoll");
-         }
-      }
-      else if (!strcmp("linuxaio", engine))
-      {
-         return EVFLAG_AUTO;
-      }
-      else if (!strcmp("iouring", engine))
-      {
-         if (engines & EVBACKEND_IOURING)
-         {
-            return EVBACKEND_IOURING;
-         }
-         else
-         {
-            pgagroal_log_warn("libev not available: iouring");
-         }
-      }
-      else if (!strcmp("devpoll", engine))
-      {
-         if (engines & EVBACKEND_DEVPOLL)
-         {
-            return EVBACKEND_DEVPOLL;
-         }
-         else
-         {
-            pgagroal_log_warn("libev not available: devpoll");
-         }
-      }
-      else if (!strcmp("port", engine))
-      {
-         if (engines & EVBACKEND_PORT)
-         {
-            return EVBACKEND_PORT;
-         }
-         else
-         {
-            pgagroal_log_warn("libev not available: port");
-         }
-      }
-      else if (!strcmp("auto", engine) || !strcmp("", engine))
-      {
-         return EVFLAG_AUTO;
-      }
-      else
-      {
-         pgagroal_log_warn("libev unknown option: %s", engine);
-      }
-   }
-
-   return EVFLAG_AUTO;
-}
-
-char*
-pgagroal_libev_engine(unsigned int val)
-{
-   switch (val)
-   {
-      case EVBACKEND_SELECT:
-         return "select";
-      case EVBACKEND_POLL:
-         return "poll";
-      case EVBACKEND_EPOLL:
-         return "epoll";
-      case EVBACKEND_LINUXAIO:
-         return "linuxaio";
-      case EVBACKEND_IOURING:
-         return "iouring";
-      case EVBACKEND_KQUEUE:
-         return "kqueue";
-      case EVBACKEND_DEVPOLL:
-         return "devpoll";
-      case EVBACKEND_PORT:
-         return "port";
-   }
-
-   return "Unknown";
 }
 
 char*
