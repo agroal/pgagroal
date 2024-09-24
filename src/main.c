@@ -31,6 +31,7 @@
 #include <configuration.h>
 #include <connection.h>
 #include <json.h>
+#include <ev.h>
 #include <logging.h>
 #include <management.h>
 #include <memory.h>
@@ -50,7 +51,6 @@
 #include <arpa/inet.h>
 #include <err.h>
 #include <errno.h>
-#include <ev.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <netinet/in.h>
@@ -121,10 +121,10 @@ static void
 start_mgt(void)
 {
    memset(&io_mgt, 0, sizeof(struct accept_io));
-   ev_io_init((struct ev_io*)&io_mgt, accept_mgt_cb, unix_management_socket, EV_READ);
+   pgagroal_ev_io_accept_init((struct ev_io*)&io_mgt, unix_management_socket, accept_mgt_cb);
    io_mgt.socket = unix_management_socket;
    io_mgt.argv = argv_ptr;
-   ev_io_start(main_loop, (struct ev_io*)&io_mgt);
+   pgagroal_ev_io_start(main_loop, (struct ev_io*)&io_mgt);
 }
 
 static void
@@ -134,7 +134,7 @@ shutdown_mgt(void)
 
    config = (struct main_configuration*)shmem;
 
-   ev_io_stop(main_loop, (struct ev_io*)&io_mgt);
+   pgagroal_ev_io_stop(main_loop, (struct ev_io*)&io_mgt);
    pgagroal_disconnect(unix_management_socket);
    errno = 0;
    pgagroal_remove_unix_socket(config->unix_socket_dir, MAIN_UDS);
@@ -145,10 +145,10 @@ static void
 start_transfer(void)
 {
    memset(&io_transfer, 0, sizeof(struct accept_io));
-   ev_io_init((struct ev_io*)&io_transfer, accept_transfer_cb, unix_transfer_socket, EV_READ);
+   pgagroal_ev_io_accept_init((struct ev_io*)&io_transfer, unix_transfer_socket, accept_transfer_cb);
    io_transfer.socket = unix_transfer_socket;
    io_transfer.argv = argv_ptr;
-   ev_io_start(main_loop, (struct ev_io*)&io_transfer);
+   pgagroal_ev_io_start(main_loop, (struct ev_io*)&io_transfer);
 }
 
 static void
@@ -158,7 +158,7 @@ shutdown_transfer(void)
 
    config = (struct main_configuration*)shmem;
 
-   ev_io_stop(main_loop, (struct ev_io*)&io_transfer);
+   pgagroal_ev_io_stop(main_loop, (struct ev_io*)&io_transfer);
    pgagroal_disconnect(unix_transfer_socket);
    errno = 0;
    pgagroal_remove_unix_socket(config->unix_socket_dir, TRANSFER_UDS);
@@ -169,10 +169,10 @@ static void
 start_uds(void)
 {
    memset(&io_uds, 0, sizeof(struct accept_io));
-   ev_io_init((struct ev_io*)&io_uds, accept_main_cb, unix_pgsql_socket, EV_READ);
+   pgagroal_ev_io_accept_init((struct ev_io*)&io_uds, unix_pgsql_socket, accept_main_cb);
    io_uds.socket = unix_pgsql_socket;
    io_uds.argv = argv_ptr;
-   ev_io_start(main_loop, (struct ev_io*)&io_uds);
+   pgagroal_ev_io_start(main_loop, (struct ev_io*)&io_uds);
 }
 
 static void
@@ -186,7 +186,7 @@ shutdown_uds(void)
    memset(&pgsql, 0, sizeof(pgsql));
    snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->common.port);
 
-   ev_io_stop(main_loop, (struct ev_io*)&io_uds);
+   pgagroal_ev_io_stop(main_loop, (struct ev_io*)&io_uds);
    pgagroal_disconnect(unix_pgsql_socket);
    errno = 0;
    pgagroal_remove_unix_socket(config->unix_socket_dir, &pgsql[0]);
@@ -201,10 +201,10 @@ start_io(void)
       int sockfd = *(main_fds + i);
 
       memset(&io_main[i], 0, sizeof(struct accept_io));
-      ev_io_init((struct ev_io*)&io_main[i], accept_main_cb, sockfd, EV_READ);
+      pgagroal_ev_io_accept_init((struct ev_io*)&io_main[i], sockfd, accept_main_cb);
       io_main[i].socket = sockfd;
       io_main[i].argv = argv_ptr;
-      ev_io_start(main_loop, (struct ev_io*)&io_main[i]);
+      pgagroal_ev_io_start(main_loop, (struct ev_io*)&io_main[i]);
    }
 }
 
@@ -213,7 +213,6 @@ shutdown_io(void)
 {
    for (int i = 0; i < main_fds_length; i++)
    {
-      ev_io_stop(main_loop, (struct ev_io*)&io_main[i]);
       pgagroal_disconnect(io_main[i].socket);
       errno = 0;
    }
@@ -227,10 +226,10 @@ start_metrics(void)
       int sockfd = *(metrics_fds + i);
 
       memset(&io_metrics[i], 0, sizeof(struct accept_io));
-      ev_io_init((struct ev_io*)&io_metrics[i], accept_metrics_cb, sockfd, EV_READ);
+      pgagroal_ev_io_accept_init((struct ev_io*)&io_metrics[i], sockfd, accept_metrics_cb);
       io_metrics[i].socket = sockfd;
       io_metrics[i].argv = argv_ptr;
-      ev_io_start(main_loop, (struct ev_io*)&io_metrics[i]);
+      pgagroal_ev_io_start(main_loop, (struct ev_io*)&io_metrics[i]);
    }
 }
 
@@ -239,7 +238,7 @@ shutdown_metrics(void)
 {
    for (int i = 0; i < metrics_fds_length; i++)
    {
-      ev_io_stop(main_loop, (struct ev_io*)&io_metrics[i]);
+      pgagroal_ev_io_stop(main_loop, (struct ev_io*)&io_metrics[i]);
       pgagroal_disconnect(io_metrics[i].socket);
       errno = 0;
    }
@@ -253,10 +252,10 @@ start_management(void)
       int sockfd = *(management_fds + i);
 
       memset(&io_management[i], 0, sizeof(struct accept_io));
-      ev_io_init((struct ev_io*)&io_management[i], accept_management_cb, sockfd, EV_READ);
+      pgagroal_ev_io_accept_init((struct ev_io*)&io_management[i], sockfd, accept_management_cb);
       io_management[i].socket = sockfd;
       io_management[i].argv = argv_ptr;
-      ev_io_start(main_loop, (struct ev_io*)&io_management[i]);
+      pgagroal_ev_io_start(main_loop, (struct ev_io*)&io_management[i]);
    }
 }
 
@@ -265,7 +264,7 @@ shutdown_management(void)
 {
    for (int i = 0; i < management_fds_length; i++)
    {
-      ev_io_stop(main_loop, (struct ev_io*)&io_management[i]);
+      pgagroal_ev_io_stop(main_loop, (struct ev_io*)&io_management[i]);
       pgagroal_disconnect(io_management[i].socket);
       errno = 0;
    }
@@ -977,29 +976,23 @@ read_superuser_path:
       goto error;
    }
 
-   /* libev */
-   main_loop = ev_default_loop(pgagroal_libev(config->libev));
+   main_loop = pgagroal_ev_init();
    if (!main_loop)
    {
-      pgagroal_log_fatal("pgagroal: No loop implementation (%x) (%x)",
-                         pgagroal_libev(config->libev), ev_supported_backends());
-#ifdef HAVE_LINUX
-      sd_notifyf(0, "STATUS=No loop implementation (%x) (%x)", pgagroal_libev(config->libev), ev_supported_backends());
-#endif
       goto error;
    }
 
-   ev_signal_init((struct ev_signal*)&signal_watcher[0], shutdown_cb, SIGTERM);
-   ev_signal_init((struct ev_signal*)&signal_watcher[1], reload_cb, SIGHUP);
-   ev_signal_init((struct ev_signal*)&signal_watcher[2], shutdown_cb, SIGINT);
-   ev_signal_init((struct ev_signal*)&signal_watcher[3], graceful_cb, SIGTRAP);
-   ev_signal_init((struct ev_signal*)&signal_watcher[4], coredump_cb, SIGABRT);
-   ev_signal_init((struct ev_signal*)&signal_watcher[5], shutdown_cb, SIGALRM);
+   pgagroal_ev_signal_init((struct ev_signal*)&signal_watcher[0], shutdown_cb, SIGTERM);
+   pgagroal_ev_signal_init((struct ev_signal*)&signal_watcher[1], reload_cb, SIGHUP);
+   pgagroal_ev_signal_init((struct ev_signal*)&signal_watcher[2], shutdown_cb, SIGINT);
+   pgagroal_ev_signal_init((struct ev_signal*)&signal_watcher[3], graceful_cb, SIGTRAP);
+   pgagroal_ev_signal_init((struct ev_signal*)&signal_watcher[4], coredump_cb, SIGABRT);
+   pgagroal_ev_signal_init((struct ev_signal*)&signal_watcher[5], shutdown_cb, SIGALRM);
 
    for (int i = 0; i < 6; i++)
    {
       signal_watcher[i].slot = -1;
-      ev_signal_start(main_loop, (struct ev_signal*)&signal_watcher[i]);
+      pgagroal_ev_signal_start(main_loop, (struct ev_signal*)&signal_watcher[i]);
    }
 
    if (config->pipeline == PIPELINE_PERFORMANCE)
@@ -1057,37 +1050,37 @@ read_superuser_path:
 
    if (config->idle_timeout > 0)
    {
-      ev_periodic_init (&idle_timeout, idle_timeout_cb, 0.,
-                        MAX(1. * config->idle_timeout / 2., 5.), 0);
-      ev_periodic_start (main_loop, &idle_timeout);
+      pgagroal_ev_periodic_init (&idle_timeout, idle_timeout_cb,
+                                 1000 * MAX(1. * config->idle_timeout / 2., 5.));
+      pgagroal_ev_periodic_start (main_loop, &idle_timeout);
    }
 
    if (config->max_connection_age > 0)
    {
-      ev_periodic_init (&max_connection_age, max_connection_age_cb, 0.,
-                        MAX(1. * config->max_connection_age / 2., 5.), 0);
-      ev_periodic_start (main_loop, &max_connection_age);
+      pgagroal_ev_periodic_init (&max_connection_age, max_connection_age_cb,
+                                 1000 * MAX(1. * config->max_connection_age / 2., 5.));
+      pgagroal_ev_periodic_start (main_loop, &max_connection_age);
    }
 
    if (config->validation == VALIDATION_BACKGROUND)
    {
-      ev_periodic_init (&validation, validation_cb, 0.,
-                        MAX(1. * config->background_interval, 5.), 0);
-      ev_periodic_start (main_loop, &validation);
+      pgagroal_ev_periodic_init (&validation, validation_cb,
+                                 1000 * MAX(1. * config->background_interval, 5.));
+      pgagroal_ev_periodic_start (main_loop, &validation);
    }
 
    if (config->disconnect_client > 0)
    {
-      ev_periodic_init (&disconnect_client, disconnect_client_cb, 0.,
-                        MIN(300., MAX(1. * config->disconnect_client / 2., 1.)), 0);
-      ev_periodic_start (main_loop, &disconnect_client);
+      pgagroal_ev_periodic_init (&disconnect_client, disconnect_client_cb,
+                                 1000 * MIN(300., MAX(1. * config->disconnect_client / 2., 1.)));
+      pgagroal_ev_periodic_start (main_loop, &disconnect_client);
    }
 
    if (config->rotate_frontend_password_timeout > 0)
    {
-      ev_periodic_init (&rotate_frontend_password, rotate_frontend_password_cb, 0.,
-                        config->rotate_frontend_password_timeout, 0);
-      ev_periodic_start (main_loop, &rotate_frontend_password);
+      pgagroal_ev_periodic_init (&rotate_frontend_password, rotate_frontend_password_cb,
+                                 1000 * config->rotate_frontend_password_timeout);
+      pgagroal_ev_periodic_start (main_loop, &rotate_frontend_password);
    }
 
    if (config->common.metrics > 0)
@@ -1157,8 +1150,7 @@ read_superuser_path:
    {
       pgagroal_log_debug("Remote management: %d", *(management_fds + i));
    }
-   pgagroal_libev_engines();
-   pgagroal_log_debug("libev engine: %s", pgagroal_libev_engine(ev_backend(main_loop)));
+
    pgagroal_log_debug("Pipeline: %d", config->pipeline);
    pgagroal_log_debug("Pipeline size: %lu", pipeline_shmem_size);
    pgagroal_log_debug("%s", OpenSSL_version(OPENSSL_VERSION));
@@ -1178,6 +1170,7 @@ read_superuser_path:
    {
       if (!fork())
       {
+         pgagroal_ev_fork(main_loop);
          shutdown_ports();
          pgagroal_prefill_if_can(false, true);
       }
@@ -1190,10 +1183,7 @@ read_superuser_path:
               "MAINPID=%lu", (unsigned long)getpid());
 #endif
 
-   while (keep_running)
-   {
-      ev_loop(main_loop, 0);
-   }
+   pgagroal_ev_loop(main_loop);
 
    pgagroal_log_info("pgagroal: shutdown");
 #ifdef HAVE_LINUX
@@ -1220,10 +1210,10 @@ read_superuser_path:
 
    for (int i = 0; i < 6; i++)
    {
-      ev_signal_stop(main_loop, (struct ev_signal*)&signal_watcher[i]);
+      pgagroal_ev_signal_stop(main_loop, (struct ev_signal*)&signal_watcher[i]);
    }
 
-   ev_loop_destroy(main_loop);
+   pgagroal_ev_loop_destroy(main_loop);
 
    free(main_fds);
    free(metrics_fds);
@@ -1251,7 +1241,6 @@ static void
 accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
    struct sockaddr_in6 client_addr;
-   socklen_t client_addr_length;
    int client_fd;
    char address[INET6_ADDRSTRLEN];
    pid_t pid;
@@ -1272,8 +1261,7 @@ accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    memset(&address, 0, sizeof(address));
 
-   client_addr_length = sizeof(client_addr);
-   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
+   client_fd = watcher->client_fd;
    if (client_fd == -1)
    {
       if (accept_fatal(errno) && keep_running)
@@ -1360,20 +1348,16 @@ accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       }
       memcpy(addr, address, strlen(address));
 
-      ev_loop_fork(loop);
       shutdown_ports();
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
       pgagroal_worker(client_fd, addr, ai->argv);
    }
-
    pgagroal_disconnect(client_fd);
 }
 
 static void
 accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
-   struct sockaddr_in6 client_addr;
-   socklen_t client_addr_length;
    int client_fd;
    int32_t id;
    pid_t pid;
@@ -1398,8 +1382,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    errno = 0;
 
-   client_addr_length = sizeof(client_addr);
-   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
+   client_fd = watcher->client_fd;
 
    pgagroal_prometheus_self_sockets_add();
 
@@ -1614,8 +1597,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
       pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
 
-      ev_break(loop, EVBREAK_ALL);
-      keep_running = 0;
+      pgagroal_ev_loop_break(loop);
    }
    else if (id == MANAGEMENT_CANCEL_SHUTDOWN)
    {
@@ -1852,8 +1834,8 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       if (atomic_load(&config->active_connections) == 0)
       {
          pgagroal_pool_status();
-         keep_running = 0;
-         ev_break(loop, EVBREAK_ALL);
+
+         pgagroal_ev_loop_break(loop);
       }
    }
 
@@ -1879,9 +1861,7 @@ error:
 static void
 accept_transfer_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
-   struct sockaddr_in6 client_addr;
-   socklen_t client_addr_length;
-   int client_fd = 0;
+   int client_fd;
    int id = -1;
    pid_t pid = 0;
    int32_t slot = -1;
@@ -1898,8 +1878,7 @@ accept_transfer_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    errno = 0;
 
-   client_addr_length = sizeof(client_addr);
-   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
+   client_fd = watcher->client_fd;
 
    pgagroal_prometheus_self_sockets_add();
 
@@ -2065,8 +2044,6 @@ error:
 static void
 accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
-   struct sockaddr_in6 client_addr;
-   socklen_t client_addr_length;
    int client_fd;
    struct main_configuration* config;
 
@@ -2081,8 +2058,7 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    errno = 0;
 
-   client_addr_length = sizeof(client_addr);
-   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
+   client_fd = watcher->client_fd;
 
    pgagroal_prometheus_self_sockets_add();
 
@@ -2127,7 +2103,7 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    if (!fork())
    {
-      ev_loop_fork(loop);
+      pgagroal_ev_fork(loop);
       shutdown_ports();
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
       pgagroal_prometheus(client_fd);
@@ -2141,7 +2117,6 @@ static void
 accept_management_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
    struct sockaddr_in6 client_addr;
-   socklen_t client_addr_length;
    int client_fd;
    char address[INET6_ADDRSTRLEN];
    struct main_configuration* config;
@@ -2152,15 +2127,13 @@ accept_management_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       errno = 0;
       return;
    }
+   errno = 0;
 
    memset(&address, 0, sizeof(address));
 
    config = (struct main_configuration*)shmem;
 
-   errno = 0;
-
-   client_addr_length = sizeof(client_addr);
-   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
+   client_fd = watcher->client_fd;
 
    pgagroal_prometheus_self_sockets_add();
 
@@ -2215,7 +2188,7 @@ accept_management_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       }
       memcpy(addr, address, strlen(address));
 
-      ev_loop_fork(loop);
+      pgagroal_ev_fork(loop);
       shutdown_ports();
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
       pgagroal_remote_management(client_fd, addr);
@@ -2230,7 +2203,7 @@ shutdown_cb(struct ev_loop* loop, ev_signal* w, int revents)
 {
    pgagroal_log_debug("pgagroal: shutdown requested");
    pgagroal_pool_status();
-   ev_break(loop, EVBREAK_ALL);
+   pgagroal_ev_loop_break(loop);
    keep_running = 0;
 }
 
@@ -2256,8 +2229,8 @@ graceful_cb(struct ev_loop* loop, ev_signal* w, int revents)
    if (atomic_load(&config->active_connections) == 0)
    {
       pgagroal_pool_status();
-      keep_running = 0;
-      ev_break(loop, EVBREAK_ALL);
+
+      pgagroal_ev_loop_break(loop);
    }
 }
 
@@ -2281,6 +2254,7 @@ idle_timeout_cb(struct ev_loop* loop, ev_periodic* w, int revents)
    /* pgagroal_idle_timeout() is always in a fork() */
    if (!fork())
    {
+      pgagroal_ev_fork(loop);
       shutdown_ports();
       pgagroal_idle_timeout();
    }
@@ -2298,6 +2272,7 @@ max_connection_age_cb(struct ev_loop* loop, ev_periodic* w, int revents)
    /* max_connection_age() is always in a fork() */
    if (!fork())
    {
+      pgagroal_ev_fork(loop);
       shutdown_ports();
       pgagroal_max_connection_age();
    }
@@ -2315,6 +2290,7 @@ validation_cb(struct ev_loop* loop, ev_periodic* w, int revents)
    /* pgagroal_validation() is always in a fork() */
    if (!fork())
    {
+      pgagroal_ev_fork(loop);
       shutdown_ports();
       pgagroal_validation();
    }
@@ -2332,6 +2308,7 @@ disconnect_client_cb(struct ev_loop* loop, ev_periodic* w, int revents)
    /* main_pipeline.periodic is always in a fork() */
    if (!fork())
    {
+      pgagroal_ev_fork(loop);
       shutdown_ports();
       main_pipeline.periodic();
    }

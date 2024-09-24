@@ -110,6 +110,10 @@ static int to_log_mode(char* where, int value);
 static int to_log_level(char* where, int value);
 static int to_log_type(char* where, int value);
 
+static ev_backend_t as_ev_backend(char* str);
+static bool is_supported_backend(ev_backend_t backend);
+static char* to_backend(int value);
+
 /**
  *
  */
@@ -153,6 +157,8 @@ pgagroal_init_configuration(void* shm)
    config->common.hugepage = HUGEPAGE_TRY;
    config->tracker = false;
    config->track_prepared_statements = false;
+
+   config->ev_backend = EV_BACKEND_AUTO;
 
    config->common.log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->common.log_level = PGAGROAL_LOGGING_LEVEL_INFO;
@@ -375,6 +381,8 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
    bool tls;
    struct stat st;
    struct main_configuration* config;
+   int fd;
+   char rval;
 
    tls = false;
 
@@ -705,6 +713,48 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
          return 1;
       }
    }
+
+   if (config->ev_backend == EV_BACKEND_AUTO || !is_supported_backend(config->ev_backend))
+   {
+      config->ev_backend = DEFAULT_EV_BACKEND;
+   }
+
+   if (config->ev_backend == EV_BACKEND_IO_URING)
+   {
+      /* check if io_uring is enabled or works for supported configuration, else fallback to next backend */
+      fd = open("/proc/sys/kernel/io_uring_disabled", O_RDONLY);
+      if (fd < 0)
+      {
+         pgagroal_log_debug("Failed to open file /proc/sys/kernel/io_uring_disabled: %s", strerror(errno));
+         goto fallback;
+      }
+      if (read(fd, &rval, 1) <= 0)
+      {
+         pgagroal_log_fatal("Failed to read file /proc/sys/kernel/io_uring_disabled");
+         return 1;
+      }
+      if (close(fd) < 0)
+      {
+         pgagroal_log_fatal("Failed to close file descriptor for /proc/sys/kernel/io_uring_disabled: %s", strerror(errno));
+         return 1;
+      }
+
+      /* see doc: https://docs.kernel.org/admin-guide/sysctl/kernel.html#io-uring-disabled */
+      if (config->common.tls || (rval == '1') || (rval == '2'))
+      {
+         if (config->common.tls)
+         {
+            pgagroal_log_warn("io_uring not supported with tls on");
+         }
+         else
+         {
+            pgagroal_log_warn("io_uring supported but not enabled. Enable io_uring by setting /proc/sys/kernel/io_uring_disabled to '0'");
+         }
+fallback:
+         config->ev_backend = EV_BACKEND_EPOLL;
+      }
+   }
+   pgagroal_log_debug("Selected backend '%s'", to_backend(config->ev_backend));
 
    // do some last initialization here, since the configuration
    // looks good so far
@@ -2676,15 +2726,21 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
       changed = true;
    }
 
-   /* libev */
-   if (restart_string("libev", config->libev, reload->libev, true))
-   {
-      changed = true;
-   }
-   config->keep_alive = reload->keep_alive;
-   config->nodelay = reload->nodelay;
-   config->non_blocking = reload->non_blocking;
-   config->backlog = reload->backlog;
+   /* ev backend */
+   /*
+    * TODO: implementation of ev_backend for transfer configuration.
+    *       previous implementation for libev is commented here for
+    *       reference.
+    *
+    * NOTE: use restart_{}
+    *
+    * restart_string("ev_backend", config->ev_backend, reload->ev_backend, true);
+    * config->buffer_size = reload->buffer_size;
+    * config->keep_alive = reload->keep_alive;
+    * config->nodelay = reload->nodelay;
+    * config->non_blocking = reload->non_blocking;
+    * config->backlog = reload->backlog;
+    */
    /* hugepage */
    if (restart_int("hugepage", config->common.hugepage, reload->common.hugepage))
    {
@@ -2828,6 +2884,36 @@ is_same_tls(struct server* src, struct server* dst)
    {
       return false;
    }
+}
+
+/**
+ * Checks if event backend is supported.
+ * @return true if supported, false otherwise
+ */
+static bool
+is_supported_backend(ev_backend_t backend)
+{
+   int bi, backends;
+   ev_backend_t supported_backends[] = {
+#if HAVE_LINUX
+      EV_BACKEND_IO_URING,
+      EV_BACKEND_EPOLL,
+#else
+      EV_BACKEND_KQUEUE,
+#endif
+   };
+   backends = sizeof(supported_backends) / sizeof(supported_backends[0]);
+
+   for (bi = 0; bi < backends; bi++)
+   {
+      if (backend == supported_backends[bi])
+      {
+         return true;
+      }
+   }
+
+   pgagroal_log_warn("Configured backend is unsupported");
+   return false;
 }
 
 static void
@@ -4310,6 +4396,70 @@ to_log_type(char* where, int value)
    return 0;
 }
 
+static ev_backend_t
+as_ev_backend(char* str)
+{
+   if (is_empty_string(str))
+   {
+      pgagroal_log_warn("ev_backend configuration is empty. Default to 'auto'");
+      return EV_BACKEND_AUTO;
+   }
+   if (!strncmp(str, "auto", MISC_LENGTH))
+   {
+      pgagroal_log_debug("Configured event backend 'auto'");
+      return EV_BACKEND_AUTO;
+   }
+   if (!strncmp(str, "io_uring", MISC_LENGTH))
+   {
+      pgagroal_log_debug("Configured event backend 'io_uring'");
+      return EV_BACKEND_IO_URING;
+   }
+   if (!strncmp(str, "epoll", MISC_LENGTH))
+   {
+      pgagroal_log_debug("Configured event backend 'epoll'");
+      return EV_BACKEND_EPOLL;
+   }
+   if (!strncmp(str, "kqueue", MISC_LENGTH))
+   {
+      pgagroal_log_debug("Configured event backend 'kqueue'");
+      return EV_BACKEND_KQUEUE;
+   }
+
+   pgagroal_log_warn("Configured event backend '%s' not supported. Default to 'auto'", str);
+   return EV_BACKEND_AUTO;
+}
+
+/**
+ * An utility function to convert the ev_backend_t into the string description.
+ * Currently used strictly for logging.
+ *
+ * @param where the buffer used to store the stringy thing
+ * @param value the config->ev_backend setting
+ * @return 0 on success, 1 otherwise
+ */
+static char*
+to_backend(int value)
+{
+   if (value < 0)
+   {
+      return "unknown";
+   }
+
+   switch (value)
+   {
+      case EV_BACKEND_AUTO:
+         return "auto";
+      case EV_BACKEND_IO_URING:
+         return "io_uring";
+      case EV_BACKEND_EPOLL:
+         return "epoll";
+      case EV_BACKEND_KQUEUE:
+         return "kqueue";
+   }
+
+   return 0;
+}
+
 int
 pgagroal_apply_main_configuration(struct main_configuration* config,
                                   struct server* srv,
@@ -4670,15 +4820,9 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
       }
       memcpy(config->unix_socket_dir, value, max);
    }
-   else if (key_in_section("libev", section, key, true, &unknown))
+   else if (key_in_section("ev_backend", section, key, true, &unknown))
    {
-
-      max = strlen(value);
-      if (max > MISC_LENGTH - 1)
-      {
-         max = MISC_LENGTH - 1;
-      }
-      memcpy(config->libev, value, max);
+      config->ev_backend = as_ev_backend(value);
    }
    else if (key_in_section("keep_alive", section, key, true, &unknown))
    {
