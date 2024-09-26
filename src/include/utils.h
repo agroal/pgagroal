@@ -157,14 +157,6 @@ int
 pgagroal_extract_error_message(struct message* msg, char** error);
 
 /**
- * Get a string for the state
- * @param state
- * @return The string
- */
-char*
-pgagroal_get_state_string(signed char state);
-
-/**
  * Read a byte
  * @param data Pointer to the data
  * @return The byte
@@ -523,6 +515,17 @@ parse_command(int argc,
  */
 char*
 pgagroal_server_state_as_string(signed char state);
+
+/**
+ * Utility function to convert the status of a connection
+ * into a descriptive string. Useful to spurt the status
+ * in command line output.
+ *
+ * @param state the actual state of the connection
+ * @returns the (allocated) buffer with the string
+ */
+char*
+pgagroal_connection_state_as_string(signed char state);
 
 #ifdef __cplusplus
 }

@@ -948,7 +948,7 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
       cJSON* current_connection_json = cJSON_CreateObject();
 
       cJSON_AddNumberToObject(current_connection_json, "number", i + 1);
-      cJSON_AddStringToObject(current_connection_json, "state", pgagroal_server_state_as_string(state));
+      cJSON_AddStringToObject(current_connection_json, "state", pgagroal_connection_state_as_string(state));
       cJSON_AddStringToObject(current_connection_json, "time", time > 0 ? ts : "");
       cJSON_AddStringToObject(current_connection_json, "pid", pid > 0 ? p : "");
       cJSON_AddStringToObject(current_connection_json, "fd", fd > 0 ? f : "");

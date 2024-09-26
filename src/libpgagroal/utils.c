@@ -249,8 +249,11 @@ error:
 }
 
 char*
-pgagroal_get_state_string(signed char state)
+pgagroal_connection_state_as_string(signed char state)
 {
+   char* buf;
+   int buf_size = strlen("Unknown") + 1 + 4 + 1;  // 'unknown' + <space> + <number> + \0
+
    switch (state)
    {
       case STATE_NOTINIT:
@@ -273,9 +276,12 @@ pgagroal_get_state_string(signed char state)
          return "Validating";
       case STATE_REMOVE:
          return "Removing";
+      default:
+         buf = malloc(buf_size);
+         memset(buf, 0, buf_size);
+         snprintf(buf, buf_size, "Unknown %02d", state);
+         return buf;
    }
-
-   return "Unknown";
 }
 
 signed char
@@ -1098,16 +1104,6 @@ parse_command(int argc,
 #undef EMPTY_STR
 }
 
-/**
- * Given a server state, it returns a string that
- * described the state in a human-readable form.
- *
- * If the state cannot be determined, the numeric
- * form of the state is returned as a string.
- *
- * @param state the value of the sate for the server
- * @returns the string representing the state
- */
 char*
 pgagroal_server_state_as_string(signed char state)
 {
