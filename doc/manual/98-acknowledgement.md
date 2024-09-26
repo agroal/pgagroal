@@ -21,6 +21,13 @@ Yihe Lu <t1t4m1un@gmail.com>
 Eugenio Gigante <giganteeugenio2@gmail.com>
 ```
 
+## Committers
+
+```
+Jesper Pedersen <jesper.pedersen@comcast.net>
+Luca Ferrari <fluca1978@gmail.com>
+```
+
 ## Contributing
 
 Contributions to [**pgagroal**][pgagroal] are managed on [GitHub][pgagroal]
