@@ -80,6 +80,13 @@ else ()
   message(FATAL_ERROR "rst2man needed")
 endif()
 
+find_package(THREAD)
+if (THREAD_FOUND)
+  message(STATUS "pthread found")
+else ()
+  message(FATAL_ERROR "pthread needed")
+endif()
+
 # search for cJSON library
 # <https://github.com/DaveGamble/cJSON>
 find_package(cJSON)
