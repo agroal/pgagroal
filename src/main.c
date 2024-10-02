@@ -1117,11 +1117,7 @@ read_superuser_path:
    pgagroal_log_debug("libev engine: %s", pgagroal_libev_engine(ev_backend(main_loop)));
    pgagroal_log_debug("Pipeline: %d", config->pipeline);
    pgagroal_log_debug("Pipeline size: %lu", pipeline_shmem_size);
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
-   pgagroal_log_debug("%s", SSLeay_version(SSLEAY_VERSION));
-#else
    pgagroal_log_debug("%s", OpenSSL_version(OPENSSL_VERSION));
-#endif
    pgagroal_log_debug("Configuration size: %lu", shmem_size);
    pgagroal_log_debug("Max connections: %d", config->max_connections);
    pgagroal_log_debug("Known users: %d", config->number_of_users);
