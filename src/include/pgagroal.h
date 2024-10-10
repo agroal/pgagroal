@@ -33,7 +33,6 @@
 extern "C" {
 #endif
 
-#include <ev.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -468,6 +467,8 @@ struct configuration
    atomic_schar log_lock;              /**< The logging lock */
    char default_log_path[MISC_LENGTH]; /**< The default logging path */
 
+   char ev_backend[MISC_LENGTH];       /**< Name of selected ev backend */
+
    // TLS support
    bool tls;                        /**< Is TLS enabled */
    char tls_cert_file[MISC_LENGTH]; /**< TLS certificate path */
@@ -534,7 +535,6 @@ struct main_configuration
    bool disconnect_client_force; /**< Force a disconnect client if active for more than the specified seconds */
    char pidfile[MAX_PATH];       /**< File containing the PID */
 
-   char libev[MISC_LENGTH]; /**< Name of libev mode */
    int buffer_size;         /**< Socket buffer size */
    bool keep_alive;         /**< Use keep alive */
    bool nodelay;            /**< Use NODELAY */

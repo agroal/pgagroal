@@ -33,9 +33,9 @@
 extern "C" {
 #endif
 
+#include <ev.h>
 #include <worker.h>
 
-#include <ev.h>
 #include <stdlib.h>
 
 #define PIPELINE_AUTO        -1

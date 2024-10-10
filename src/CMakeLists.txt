@@ -13,13 +13,13 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 
   add_compile_options(-DHAVE_LINUX)
   add_compile_options(-D_POSIX_C_SOURCE=200809L)
+  add_compile_options(-DHAVE_EPOLL=1)
 
   #
   # Include directories
   #
   include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${LIBEV_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
     ${SYSTEMD_INCLUDE_DIRS}
     ${CJSON_INCLUDE_DIRS}
@@ -30,7 +30,6 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   # Library directories
   #
   link_libraries(
-    ${LIBEV_LIBRARIES}
     ${OPENSSL_CRYPTO_LIBRARY}
     ${OPENSSL_SSL_LIBRARY}
     ${SYSTEMD_LIBRARIES}
@@ -38,6 +37,15 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     ${CJSON_LIBRARIES}
     ${THREAD_LIBRARY}
   )
+
+  #
+  # Event library backend
+  #
+  if (LIBURING_FOUND)
+    add_compile_options(-DHAVE_URING=1)
+    include_directories(${LIBURING_INCLUDE_DIRS})
+    link_libraries(${LIBURING_LIBRARY})
+  endif()
 
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
@@ -65,13 +73,13 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
 
   add_compile_options(-D_DARWIN_C_SOURCE)
   add_compile_options(-DHAVE_OSX)
+  add_compile_options(-DHAVE_KQUEUE=1)
 
   #
   # Include directories
   #
   include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${LIBEV_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIRS}
     ${CJSON_INCLUDE_DIRS}
     ${THREAD_INCLUDE_DIRS}
@@ -81,7 +89,6 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
   # Library directories
   #
   link_libraries(
-    ${LIBEV_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     ${CJSON_LIBRARIES}
     ${THREAD_LIBRARY}
@@ -92,6 +99,7 @@ else()
   add_compile_options(-D_BSD_SOURCE)
   add_compile_options(-D_DEFAULT_SOURCE)
   add_compile_options(-D__BSD_VISIBLE)
+  add_compile_options(-DHAVE_KQUEUE=1)
 
   if (${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
     add_compile_options(-DHAVE_OPENBSD)
@@ -104,7 +112,6 @@ else()
   #
   include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${LIBEV_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIRS}
     ${CJSON_INCLUDE_DIRS}
     ${THREAD_INCLUDE_DIRS}
@@ -114,7 +121,6 @@ else()
   # Library directories
   #
   link_libraries(
-    ${LIBEV_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     ${CJSON_LIBRARIES}
     ${THREAD_LIBRARY}
@@ -216,6 +222,7 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
   if (HAS_NO_OMIT_FRAME_POINTER)
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer")
   endif()
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -g")
 endif()
 
 if (CMAKE_BUILD_TYPE MATCHES Release OR CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
