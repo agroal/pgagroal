@@ -376,42 +376,6 @@ pgagroal-cli clear prometheus
 ```
 
 
-## Deprecated commands
-
-The following commands have been deprecated and will be removed
-in later releases of [**pgagroal**](https://github.com/agroal/pgagroal).
-For each command, this is the corresponding current mapping
-to the working command:
-
-- `flush-idle` is equivalent to `flush idle`;
-- `flush-all` is equivalent to `flush all`;
-- `flush-gracefully` is equivalent to `flush gracefully` or simply `flush`;
-- `stop` is equivalent to `shutdown immediate`;
-- `gracefully` is equivalent to `shutdown gracefully` or simply `shutdown`;
-- `reset` is equivalent to `clear prometheus`;
-- `reset-server` is equivalent to `clear server` or simply `clear`;
-- `config-get` and `config-set` are respectively `conf get` and `conf set`;
-- `reload` is equivalent to `conf reload`;
-- `is-alive` is equivalent to `ping`;
-- `details` is equivalent to `status details`.
-
-
-Whenever you use a deprecated command, the `pgagroal-cli` will print on standard error a warning message.
-For example:
-
-```
-pgagroal-cli reset-server
-
-WARN: command <reset-server> has been deprecated by <clear server> since version 1.6.x
-```
-
-If you don't want to get any warning about deprecated commands, you
-can redirect the `stderr` to `/dev/null` or any other location with:
-
-```
-pgagroal-cli reset-server 2>/dev/null
-```
-
 ## Shell completions
 
 There is a minimal shell completion support for `pgagroal-cli`.
