@@ -17,7 +17,7 @@ dnf install postgresql-server
 #### Basic dependencies
 
 ``` sh
-dnf install git gcc cmake make libev libev-devel openssl openssl-devel systemd systemd-devel python3-docutils libatomic cjson cjson-devel
+dnf install git gcc cmake make libev libev-devel openssl openssl-devel systemd systemd-devel python3-docutils libatomic
 ```
 
 #### Generate user and developer guide

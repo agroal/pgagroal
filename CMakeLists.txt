@@ -87,15 +87,6 @@ else ()
   message(FATAL_ERROR "pthread needed")
 endif()
 
-# search for cJSON library
-# <https://github.com/DaveGamble/cJSON>
-find_package(cJSON)
-if (cJSON_FOUND)
-  message(STATUS "cJSON found version ${CJSON_VERSION}")
-else ()
-  message(FATAL_ERROR "cJSON needed")
-endif()
-
 find_package(Pandoc)
 if (PANDOC_FOUND)
   message(STATUS "pandoc found")

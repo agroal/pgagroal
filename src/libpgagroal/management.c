@@ -38,7 +38,7 @@
 #include <json.h>
 
 /* system */
-#include <cjson/cJSON.h>
+#include <json.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdatomic.h>
@@ -96,25 +96,25 @@ static int write_info(char* buffer, int command, int offset);
 static int pgagroal_management_write_conf_ls_detail(int socket, char* what);
 static int pgagroal_management_read_conf_ls_detail(SSL* ssl, int socket, char* buffer);
 
-static int pgagroal_management_json_print_status_details(cJSON* json);
+static int pgagroal_management_json_print_status_details(struct json* json);
 
-static cJSON* pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_details);
-static cJSON* pgagroal_managment_json_read_config_get(int socket, char* config_key, char* expected_value);
+static struct json* pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_details);
+static struct json* pgagroal_managment_json_read_config_get(int socket, char* config_key, char* expected_value);
 
-static cJSON* pgagroal_management_json_read_conf_ls(SSL* ssl, int socket);
-static int pgagroal_management_json_print_conf_ls(cJSON* json);
+static struct json* pgagroal_management_json_read_conf_ls(SSL* ssl, int socket);
+static int pgagroal_management_json_print_conf_ls(struct json* json);
 
 static int pgagroal_executable_version_number(char* version, size_t version_size);
 static int pgagroal_executable_version_string(char** version_string, int version_number);
 static char* pgagroal_executable_name(int command);
 
-static cJSON* pgagroal_json_create_new_command_object(char* command_name, bool success, char* executable_name, char* executable_version);
-static cJSON* pgagroal_json_extract_command_output_object(cJSON* json);
-static int pgagroal_json_set_command_object_faulty(cJSON* json, char* message, int exit_status);
-static const char* pgagroal_json_get_command_object_status(cJSON* json);
-static bool pgagroal_json_is_command_name_equals_to(cJSON* json, char* command_name);
-static int pgagroal_json_print_and_free_json_object(cJSON* json);
-static int pgagroal_json_command_object_exit_status(cJSON* json);
+static struct json* pgagroal_json_create_new_command_object(char* command_name, bool success, char* executable_name, char* executable_version);
+static struct json* pgagroal_json_extract_command_output_object(struct json* json);
+static int pgagroal_json_set_command_object_faulty(struct json* json, char* message, int exit_status);
+static const char* pgagroal_json_get_command_object_status(struct json* json);
+static bool pgagroal_json_is_command_name_equals_to(struct json* json, char* command_name);
+static int pgagroal_json_print_and_free_json_object(struct json* json);
+static int pgagroal_json_command_object_exit_status(struct json* json);
 
 int
 pgagroal_management_read_header(int socket, signed char* id, int32_t* slot)
@@ -687,7 +687,7 @@ error:
 int
 pgagroal_management_read_status(SSL* ssl, int socket, char output_format)
 {
-   cJSON* json = pgagroal_management_json_read_status_details(ssl, socket, false);
+   struct json* json = pgagroal_management_json_read_status_details(ssl, socket, false);
 
    // check we have an answer, note that a faulty answer is still valid to be printed!
    if (!json)
@@ -725,7 +725,7 @@ error:
  *
  * @returns the json object, faulty if something goes wrong
  */
-static cJSON*
+static struct json*
 pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_details)
 {
    char buf[16];
@@ -764,8 +764,8 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
       return NULL;
    }
 
-   cJSON* json = pgagroal_json_create_new_command_object(include_details ? "status details" :  "status", true, pgagroal_executable_name(application), version_buf);
-   cJSON* output = pgagroal_json_extract_command_output_object(json);
+   struct json* json = pgagroal_json_create_new_command_object(include_details ? "status details" :  "status", true, pgagroal_executable_name(application), version_buf);
+   struct json* output = pgagroal_json_extract_command_output_object(json);
 
    if (read_complete(ssl, socket, &buf[0], sizeof(buf)))
    {
@@ -785,21 +785,28 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
    max = pgagroal_read_int32(&(buf[12]));
 
    // status information
-   cJSON* status_json = cJSON_CreateObject();
-   cJSON_AddStringToObject(status_json, "message", (status == 1 ? "Running" : "Graceful shutdown"));
-   cJSON_AddNumberToObject(status_json, "status", status);
-   cJSON_AddItemToObject(output, "status", status_json);
+   struct json* status_json;
+   pgagroal_json_create(&status_json);
+
+   pgagroal_json_put(status_json, "message", (uintptr_t)  (status == 1 ? "Running" : "Graceful shutdown"), ValueString);
+   pgagroal_json_put(status_json, "status", (uintptr_t)  status, ValueInt32);
+   pgagroal_json_put(output, "status", (uintptr_t)  status_json, ValueJSON);
 
    // define all the information about connections
-   cJSON* connections = cJSON_CreateObject();
-   cJSON_AddNumberToObject(connections, "active", active);
-   cJSON_AddNumberToObject(connections, "total", total);
-   cJSON_AddNumberToObject(connections, "max", max);
-   cJSON_AddItemToObject(output, "connections", connections);
+   struct json* connections;
+   pgagroal_json_create(&connections);
+
+   pgagroal_json_put(connections, "active", (uintptr_t)  active, ValueInt32);
+   pgagroal_json_put(connections, "total", (uintptr_t)  total, ValueInt32);
+   pgagroal_json_put(connections, "max", (uintptr_t)  max, ValueInt32);
+   pgagroal_json_put(output, "connections", (uintptr_t)  connections, ValueJSON);
 
    // define all the information about disabled databases
-   cJSON* databases = cJSON_CreateObject();
-   cJSON* databases_array = cJSON_CreateArray();
+   struct json* databases;
+   pgagroal_json_create(&databases);
+
+   struct json* databases_array;
+   pgagroal_json_create(&databases_array);
 
    int counter = 0;
 
@@ -809,23 +816,25 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
       {
          if (!strcmp(disabled[i], "*"))
          {
-            cJSON_AddItemToArray(databases_array, cJSON_CreateString("ALL"));
+            pgagroal_json_append(databases_array, (uintptr_t) "ALL", ValueString);
             counter = -1;
          }
          else
          {
-            cJSON_AddItemToArray(databases_array, cJSON_CreateString(disabled[i]));
+            pgagroal_json_append(databases_array, (uintptr_t) disabled[i], ValueString);
             counter++;
          }
       }
    }
 
-   cJSON* disabled_databases = cJSON_CreateObject();
-   cJSON_AddNumberToObject(disabled_databases, "count", counter);
-   cJSON_AddStringToObject(disabled_databases, "state", "disabled");
-   cJSON_AddItemToObject(disabled_databases, JSON_TAG_ARRAY_NAME, databases_array);
-   cJSON_AddItemToObject(databases, "disabled", disabled_databases);
-   cJSON_AddItemToObject(output, "databases", databases);
+   struct json* disabled_databases;
+   pgagroal_json_create(&disabled_databases);
+
+   pgagroal_json_put(disabled_databases, "count", (uintptr_t)  counter, ValueInt32);
+   pgagroal_json_put(disabled_databases, "state", (uintptr_t)  "disabled", ValueString);
+   pgagroal_json_put(disabled_databases, JSON_TAG_ARRAY_NAME, (uintptr_t)  databases_array, ValueJSON);
+   pgagroal_json_put(databases, "disabled", (uintptr_t)  disabled_databases, ValueJSON);
+   pgagroal_json_put(output, "databases", (uintptr_t)  databases, ValueJSON);
 
    // the 'status' command ends here
    if (!include_details)
@@ -847,10 +856,14 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
    limits = pgagroal_read_int32(&(header[4]));
    servers = pgagroal_read_int32(&(header[8]));
 
-   cJSON* json_servers = cJSON_CreateObject();
-   cJSON* json_servers_array = cJSON_CreateArray();
-   cJSON_AddItemToObject(output, "servers", json_servers);
-   cJSON_AddNumberToObject(json_servers, "count", servers);
+   struct json* json_servers;
+   pgagroal_json_create(&json_servers);
+
+   struct json* json_servers_array;
+   pgagroal_json_create(&json_servers_array);
+
+   pgagroal_json_put(output, "servers", (uintptr_t)  json_servers, ValueJSON);
+   pgagroal_json_put(json_servers, "count", (uintptr_t)  servers, ValueInt32);
 
    // details about the servers
    for (int i = 0; i < servers; i++)
@@ -864,23 +877,29 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
          goto error;
       }
 
-      cJSON* current_server_json = cJSON_CreateObject();
-      cJSON_AddStringToObject(current_server_json, "server", pgagroal_read_string(&(server[0])));
-      cJSON_AddStringToObject(current_server_json, "host", pgagroal_read_string(&(server[MISC_LENGTH])));
-      cJSON_AddNumberToObject(current_server_json, "port", pgagroal_read_int32(&(server[MISC_LENGTH + MISC_LENGTH])));
-      cJSON_AddStringToObject(current_server_json, "state", pgagroal_server_state_as_string(pgagroal_read_byte(&(server[MISC_LENGTH + MISC_LENGTH + 4]))));
+      struct json* current_server_json;
+      pgagroal_json_create(&current_server_json);
 
-      cJSON_AddItemToArray(json_servers_array, current_server_json);
+      pgagroal_json_put(current_server_json, "server", (uintptr_t)  pgagroal_read_string(&(server[0])), ValueString);
+      pgagroal_json_put(current_server_json, "host", (uintptr_t)  pgagroal_read_string(&(server[MISC_LENGTH])), ValueString);
+      pgagroal_json_put(current_server_json, "port", (uintptr_t)  pgagroal_read_int32(&(server[MISC_LENGTH + MISC_LENGTH])), ValueInt32);
+      pgagroal_json_put(current_server_json, "state", (uintptr_t)  pgagroal_server_state_as_string(pgagroal_read_byte(&(server[MISC_LENGTH + MISC_LENGTH + 4]))), ValueString);
+
+      pgagroal_json_append(json_servers_array, (uintptr_t) current_server_json, ValueJSON);
    }
 
-   cJSON_AddItemToObject(json_servers, JSON_TAG_ARRAY_NAME, json_servers_array);
+   pgagroal_json_put(json_servers, JSON_TAG_ARRAY_NAME, (uintptr_t)  json_servers_array, ValueJSON);
 
    // details about the limits
-   cJSON* json_limits = cJSON_CreateObject();
-   cJSON* json_limits_array = cJSON_CreateArray();
-   cJSON_AddItemToObject(json_limits, JSON_TAG_ARRAY_NAME, json_limits_array);
-   cJSON_AddItemToObject(output, "limits", json_limits);
-   cJSON_AddNumberToObject(json_limits, "count", limits);
+   struct json* json_limits;
+   pgagroal_json_create(&json_limits);
+
+   struct json* json_limits_array;
+   pgagroal_json_create(&json_limits_array);
+
+   pgagroal_json_put(json_limits, JSON_TAG_ARRAY_NAME, (uintptr_t)  json_limits_array, ValueJSON);
+   pgagroal_json_put(output, "limits", (uintptr_t)  json_limits, ValueJSON);
+   pgagroal_json_put(json_limits, "count", (uintptr_t)  limits, ValueInt32);
 
    for (int i = 0; i < limits; i++)
    {
@@ -892,27 +911,31 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
          goto error;
       }
 
-      cJSON* current_limit_json = cJSON_CreateObject();
+      struct json* current_limit_json;
+      pgagroal_json_create(&current_limit_json);
 
-      cJSON_AddStringToObject(current_limit_json, "database", pgagroal_read_string(&(limit[16])));
-      cJSON_AddStringToObject(current_limit_json, "username", pgagroal_read_string(&(limit[16 + MAX_DATABASE_LENGTH])));
+      pgagroal_json_put(current_limit_json, "database", (uintptr_t)  pgagroal_read_string(&(limit[16])), ValueString);
+      pgagroal_json_put(current_limit_json, "username", (uintptr_t)  pgagroal_read_string(&(limit[16 + MAX_DATABASE_LENGTH])), ValueString);
 
-      cJSON* current_connections = cJSON_CreateObject();
+      struct json* current_connections;
+      pgagroal_json_create(&current_connections);
 
-      cJSON_AddNumberToObject(current_connections, "active", pgagroal_read_int32(&(limit)));
-      cJSON_AddNumberToObject(current_connections, "max", pgagroal_read_int32(&(limit[4])));
-      cJSON_AddNumberToObject(current_connections, "initial", pgagroal_read_int32(&(limit[8])));
-      cJSON_AddNumberToObject(current_connections, "min", pgagroal_read_int32(&(limit[12])));
+      pgagroal_json_put(current_connections, "active", (uintptr_t)  pgagroal_read_int32(&(limit)), ValueInt32);
+      pgagroal_json_put(current_connections, "max", (uintptr_t)  pgagroal_read_int32(&(limit[4])), ValueInt32);
+      pgagroal_json_put(current_connections, "initial", (uintptr_t)  pgagroal_read_int32(&(limit[8])), ValueInt32);
+      pgagroal_json_put(current_connections, "min", (uintptr_t)  pgagroal_read_int32(&(limit[12])), ValueInt32);
 
-      cJSON_AddItemToObject(current_limit_json, "connections", current_connections);
-      cJSON_AddItemToArray(json_limits_array, current_limit_json);
+      pgagroal_json_put(current_limit_json, "connections", (uintptr_t)  current_connections, ValueJSON);
+      pgagroal_json_append(json_limits_array, (uintptr_t) current_limit_json, ValueJSON);
 
    }
 
    // max connections details (note that the connections json object has been created
    // as part of the status output)
-   cJSON* connections_array = cJSON_CreateArray();
-   cJSON_AddItemToObject(connections, JSON_TAG_ARRAY_NAME, connections_array);
+   struct json* connections_array;
+   pgagroal_json_create(&connections_array);
+
+   pgagroal_json_put(connections, JSON_TAG_ARRAY_NAME, (uintptr_t)  connections_array, ValueJSON);
 
    for (int i = 0; i < max_connections; i++)
    {
@@ -945,18 +968,19 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
       sprintf(p, "%d", pid);
       sprintf(f, "%d", fd);
 
-      cJSON* current_connection_json = cJSON_CreateObject();
+      struct json* current_connection_json;
+      pgagroal_json_create(&current_connection_json);
 
-      cJSON_AddNumberToObject(current_connection_json, "number", i + 1);
-      cJSON_AddStringToObject(current_connection_json, "state", pgagroal_connection_state_as_string(state));
-      cJSON_AddStringToObject(current_connection_json, "time", time > 0 ? ts : "");
-      cJSON_AddStringToObject(current_connection_json, "pid", pid > 0 ? p : "");
-      cJSON_AddStringToObject(current_connection_json, "fd", fd > 0 ? f : "");
-      cJSON_AddStringToObject(current_connection_json, "database", pgagroal_read_string(&(details[16])));
-      cJSON_AddStringToObject(current_connection_json, "user", pgagroal_read_string(&(details[16 + MAX_DATABASE_LENGTH])));
-      cJSON_AddStringToObject(current_connection_json, "detail", pgagroal_read_string(&(details[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH])));
+      pgagroal_json_put(current_connection_json, "number", (uintptr_t)  i + 1, ValueInt32);
+      pgagroal_json_put(current_connection_json, "state", (uintptr_t)  pgagroal_connection_state_as_string(state), ValueString);
+      pgagroal_json_put(current_connection_json, "time", (uintptr_t)  (time > 0 ? ts : ""), ValueString);
+      pgagroal_json_put(current_connection_json, "pid", (uintptr_t)  (pid > 0 ? p : ""), ValueString);
+      pgagroal_json_put(current_connection_json, "fd", (uintptr_t)  (fd > 0 ? f : ""), ValueString);
+      pgagroal_json_put(current_connection_json, "database", (uintptr_t)  pgagroal_read_string(&(details[16])), ValueString);
+      pgagroal_json_put(current_connection_json, "user", (uintptr_t)  pgagroal_read_string(&(details[16 + MAX_DATABASE_LENGTH])), ValueString);
+      pgagroal_json_put(current_connection_json, "detail", (uintptr_t)  pgagroal_read_string(&(details[16 + MAX_DATABASE_LENGTH + MAX_USERNAME_LENGTH])), ValueString);
 
-      cJSON_AddItemToArray(connections_array, current_connection_json);
+      pgagroal_json_append(connections_array, (uintptr_t) current_connection_json, ValueJSON);
 
    }
 
@@ -1075,7 +1099,7 @@ error:
 int
 pgagroal_management_read_details(SSL* ssl, int socket, char output_format)
 {
-   cJSON* json = pgagroal_management_json_read_status_details(ssl, socket, true);
+   struct json* json = pgagroal_management_json_read_status_details(ssl, socket, true);
 
    // check we have an answer, note that a faulty answer is still worth to be printed
    if (!json)
@@ -1246,28 +1270,26 @@ pgagroal_management_read_isalive(SSL* ssl, int socket, int* status, char output_
          goto error;
       }
 
-      cJSON* json = pgagroal_json_create_new_command_object("ping", true, pgagroal_executable_name(application), version_buf);
-      cJSON* output = pgagroal_json_extract_command_output_object(json);
+      struct json* json = pgagroal_json_create_new_command_object("ping", true, pgagroal_executable_name(application), version_buf);
+      struct json* output = pgagroal_json_extract_command_output_object(json);
 
-      cJSON_AddNumberToObject(output, "status", *status);
+      pgagroal_json_put(output, "status", (uintptr_t)  *status, ValueInt32);
 
       if (*status == PING_STATUS_RUNNING)
       {
-         cJSON_AddStringToObject(output, "message", "running");
+         pgagroal_json_put(output, "message", (uintptr_t)  "running", ValueString);
       }
       else if (*status == PING_STATUS_SHUTDOWN_GRACEFULLY)
       {
-         cJSON_AddStringToObject(output, "message", "shutdown gracefully");
+         pgagroal_json_put(output, "message", (uintptr_t)  "shutdown gracefully", ValueString);
       }
       else
       {
-         cJSON_AddStringToObject(output, "message", "unknown");
+         pgagroal_json_put(output, "message", (uintptr_t)  "unknown", ValueString);
       }
-
       return pgagroal_json_print_and_free_json_object(json);
 
    }
-
    return 0;
 
 error:
@@ -2112,7 +2134,7 @@ error:
  *
  * @return the JSON object
  */
-static cJSON*
+static struct json*
 pgagroal_managment_json_read_config_get(int socket, char* config_key, char* expected_value)
 {
    char buf_info[MANAGEMENT_INFO_SIZE];
@@ -2154,16 +2176,15 @@ pgagroal_managment_json_read_config_get(int socket, char* config_key, char* expe
       goto error;
    }
 
-   cJSON* json = pgagroal_json_create_new_command_object(is_config_set ? "conf set" :  "conf get", true, pgagroal_executable_name(application), version_buf);
-   cJSON* output = pgagroal_json_extract_command_output_object(json);
+   struct json* json = pgagroal_json_create_new_command_object(is_config_set ? "conf set" :  "conf get", true, pgagroal_executable_name(application), version_buf);
+   struct json* output = pgagroal_json_extract_command_output_object(json);
 
-   cJSON_AddStringToObject(output, "key", config_key);
-   cJSON_AddStringToObject(output, "value", buffer);
+   pgagroal_json_put(output, "key", (uintptr_t)  config_key, ValueString);
+   pgagroal_json_put(output, "value", (uintptr_t)  buffer, ValueString);
 
    if (is_config_set)
    {
-      cJSON_AddStringToObject(output, "expected", expected_value);
-
+      pgagroal_json_put(output, "expected", (uintptr_t)  expected_value, ValueString);
       // if the expected value is not what we get, this means there is an error
       // (e.g., cannot apply the config set)
       if (strncmp(buffer, expected_value, size))
@@ -2182,7 +2203,7 @@ error:
 int
 pgagroal_management_read_config_get(int socket, char* config_key, char* expected_value, bool verbose, char output_format)
 {
-   cJSON* json = pgagroal_managment_json_read_config_get(socket, config_key, expected_value);
+   struct json* json = pgagroal_managment_json_read_config_get(socket, config_key, expected_value);
    int status = EXIT_STATUS_OK;
 
    if (!json)
@@ -2201,16 +2222,16 @@ pgagroal_management_read_config_get(int socket, char* config_key, char* expected
    }
 
    // if here, print out in text format
-   cJSON* output = pgagroal_json_extract_command_output_object(json);
-   cJSON* value = cJSON_GetObjectItemCaseSensitive(output, "value");
-   cJSON* key = cJSON_GetObjectItemCaseSensitive(output, "key");
+   struct json* output = pgagroal_json_extract_command_output_object(json);
+   char* value = (char*) pgagroal_json_get(output, "value");
+   char* key = (char*) pgagroal_json_get(output, "key");
    if (verbose)
    {
-      printf("%s = %s\n", key->valuestring, value->valuestring);
+      printf("%s = %s\n", key, value);
    }
    else
    {
-      printf("%s\n", value->valuestring);
+      printf("%s\n", value);
    }
 
    goto end;
@@ -2223,7 +2244,7 @@ error:
 end:
    if (json)
    {
-      cJSON_Delete(json);
+      pgagroal_json_destroy(json);
    }
 
    return status;
@@ -2368,7 +2389,7 @@ pgagroal_management_read_conf_ls(SSL* ssl, int socket, char output_format)
 {
 
    // get the JSON output
-   cJSON* json = pgagroal_management_json_read_conf_ls(ssl, socket);
+   struct json* json = pgagroal_management_json_read_conf_ls(ssl, socket);
 
    // check we have an answer and it is not an error
    if (!json)
@@ -2574,7 +2595,7 @@ error:
  * @returns 0 on success
  */
 int
-pgagroal_management_json_print_status_details(cJSON* json)
+pgagroal_management_json_print_status_details(struct json* json)
 {
    bool is_command_details = false; /* is this command 'status details' ? */
    int status = EXIT_STATUS_OK;
@@ -2601,41 +2622,54 @@ pgagroal_management_json_print_status_details(cJSON* json)
    }
 
    // now get the output and start printing it
-   cJSON* output = pgagroal_json_extract_command_output_object(json);
+   struct json* output = pgagroal_json_extract_command_output_object(json);
 
    // overall status
    printf("Status:              %s\n",
-          cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(output, "status"), "message")->valuestring);
+          (char*) pgagroal_json_get((struct json*) pgagroal_json_get(output, "status"), "message"));
 
    // connections
-   cJSON* connections = cJSON_GetObjectItemCaseSensitive(output, "connections");
+   struct json* connections = (struct json*) pgagroal_json_get(output, "connections");
    if (!connections)
    {
       goto error;
    }
 
-   printf("Active connections:  %d\n", cJSON_GetObjectItemCaseSensitive(connections, "active")->valueint);
-   printf("Total connections:   %d\n", cJSON_GetObjectItemCaseSensitive(connections, "total")->valueint);
-   printf("Max connections:     %d\n", cJSON_GetObjectItemCaseSensitive(connections, "max")->valueint);
+   printf("Active connections:  %d\n", (int) pgagroal_json_get(connections, "active"));
+   printf("Total connections:   %d\n", (int) pgagroal_json_get(connections, "total"));
+   printf("Max connections:     %d\n", (int) pgagroal_json_get(connections, "max"));
 
    // databases
-   cJSON* databases = cJSON_GetObjectItemCaseSensitive(output, "databases");
+   struct json* databases = (struct json*) pgagroal_json_get(output, "databases");
    if (!databases)
    {
       goto error;
    }
 
-   cJSON* disabled_databases = cJSON_GetObjectItemCaseSensitive(databases, "disabled");
+   struct json* disabled_databases = (struct json*) pgagroal_json_get(databases, "disabled");
    if (!disabled_databases)
    {
       goto error;
    }
 
-   cJSON* disabled_databases_list = cJSON_GetObjectItemCaseSensitive(disabled_databases, JSON_TAG_ARRAY_NAME);
-   cJSON* current;
-   cJSON_ArrayForEach(current, disabled_databases_list)
+   struct json* disabled_databases_list = (struct json*) pgagroal_json_get(disabled_databases, JSON_TAG_ARRAY_NAME);
+   struct json_iterator* databases_iter;
+
+   if (!pgagroal_json_iterator_create(disabled_databases_list, &databases_iter))
    {
-      printf("Disabled database:   %s\n", current->valuestring);
+      goto error;
+   }
+
+   int databases_length = pgagroal_json_array_length(disabled_databases_list);
+
+   struct json* current;
+   for (int i = 0; i < databases_length; ++i)
+   {
+      current = (struct json*) databases_iter->value;
+
+      printf("Disabled database:   %s\n", (char*) pgagroal_json_get(current, "database"));
+
+      pgagroal_json_iterator_next(databases_iter);
    }
 
    // the status command ends here
@@ -2645,51 +2679,92 @@ pgagroal_management_json_print_status_details(cJSON* json)
    }
 
    // dump the servers information
-   cJSON* servers = cJSON_GetObjectItemCaseSensitive(output, "servers");
+   struct json* servers = (struct json*) pgagroal_json_get(output, "servers");
    if (!servers)
    {
       goto error;
    }
 
-   cJSON* servers_list = cJSON_GetObjectItemCaseSensitive(servers, JSON_TAG_ARRAY_NAME);
-   cJSON_ArrayForEach(current, servers_list)
+   struct json* servers_list = (struct json*) pgagroal_json_get(servers, JSON_TAG_ARRAY_NAME);
+
+   struct json_iterator* servers_iter;
+
+   if (!pgagroal_json_iterator_create(servers_list, &servers_iter))
    {
+      goto error;
+   }
+
+   int servers_length = pgagroal_json_array_length(servers_list);
+
+   for (int i = 0; i < servers_length; i++)
+   {
+
+      current = (struct json*) servers_iter->value;
+
       if (!previous_section_printed)
       {
          printf("---------------------\n");
          previous_section_printed = true;
       }
-      printf("Server:              %s\n", cJSON_GetObjectItemCaseSensitive(current, "server")->valuestring);
-      printf("Host:                %s\n", cJSON_GetObjectItemCaseSensitive(current, "host")->valuestring);
-      printf("Port:                %d\n", cJSON_GetObjectItemCaseSensitive(current, "port")->valueint);
-      printf("State:               %s\n", cJSON_GetObjectItemCaseSensitive(current, "state")->valuestring);
+      printf("Server:              %s\n", (char*) pgagroal_json_get(current, "server"));
+      printf("Host:                %s\n", (char*) pgagroal_json_get(current, "host"));
+      printf("Port:                %d\n", (int) pgagroal_json_get(current, "port"));
+      printf("State:               %s\n", (char*) pgagroal_json_get(current, "state"));
       printf("---------------------\n");
 
+      pgagroal_json_iterator_next(servers_iter);
    }
 
    // dump the limits information
-   cJSON* limits = cJSON_GetObjectItemCaseSensitive(output, "limits");
-   cJSON* limits_list = cJSON_GetObjectItemCaseSensitive(limits, JSON_TAG_ARRAY_NAME);
-   cJSON_ArrayForEach(current, limits_list)
+   struct json* limits = (struct json*) pgagroal_json_get(output, "limits");
+   struct json* limits_list = (struct json*) pgagroal_json_get(limits, JSON_TAG_ARRAY_NAME);
+
+   struct json_iterator* limits_iter;
+
+   if (!pgagroal_json_iterator_create(limits_list, &limits_iter))
    {
+      goto error;
+   }
+
+   int limits_length = pgagroal_json_array_length(limits_list);
+
+   for (int i = 0; i < limits_length; ++i)
+   {
+
+      current = (struct json*) limits_iter->value;
+
       if (!previous_section_printed)
       {
          printf("---------------------\n");
          previous_section_printed = true;
       }
-      printf("Database:            %s\n", cJSON_GetObjectItemCaseSensitive(current, "database")->valuestring);
-      printf("Username:            %s\n", cJSON_GetObjectItemCaseSensitive(current, "username")->valuestring);
-      cJSON* current_connections = cJSON_GetObjectItemCaseSensitive(current, "connections");
-      printf("Active connections:  %d\n", cJSON_GetObjectItemCaseSensitive(current_connections, "active")->valueint);
-      printf("Max connections:     %d\n", cJSON_GetObjectItemCaseSensitive(current_connections, "max")->valueint);
-      printf("Initial connections: %d\n", cJSON_GetObjectItemCaseSensitive(current_connections, "initial")->valueint);
-      printf("Min connections:     %d\n", cJSON_GetObjectItemCaseSensitive(current_connections, "min")->valueint);
+      printf("Database:            %s\n", (char*) pgagroal_json_get(current, "database"));
+      printf("Username:            %s\n", (char*) pgagroal_json_get(current, "username"));
+      struct json* current_connections = (struct json*) pgagroal_json_get(current, "connections");
+      printf("Active connections:  %d\n", (int) pgagroal_json_get(current_connections, "active"));
+      printf("Max connections:     %d\n", (int) pgagroal_json_get(current_connections, "max"));
+      printf("Initial connections: %d\n", (int) pgagroal_json_get(current_connections, "initial"));
+      printf("Min connections:     %d\n", (int) pgagroal_json_get(current_connections, "min"));
       printf("---------------------\n");
+
+      pgagroal_json_iterator_next(limits_iter);
    }
 
-   // print the connection information
-   cJSON_ArrayForEach(current, cJSON_GetObjectItemCaseSensitive(connections, JSON_TAG_ARRAY_NAME))
+   struct json_iterator* connections_iter;
+
+   if (!pgagroal_json_iterator_create(connections, &connections_iter))
    {
+      goto error;
+   }
+
+   int connections_length = pgagroal_json_array_length(connections);
+
+   // print the connection information
+   for (int i = 0; i < connections_length; ++i)
+   {
+
+      current = (struct json*) connections_iter->value;
+
       if (!previous_section_printed)
       {
          printf("---------------------\n");
@@ -2697,14 +2772,16 @@ pgagroal_management_json_print_status_details(cJSON* json)
       }
 
       printf("Connection %4d:     %-15s %-19s %-6s %-6s %s %s %s\n",
-             cJSON_GetObjectItemCaseSensitive(current, "number")->valueint,
-             cJSON_GetObjectItemCaseSensitive(current, "state")->valuestring,
-             cJSON_GetObjectItemCaseSensitive(current, "time")->valuestring,
-             cJSON_GetObjectItemCaseSensitive(current, "pid")->valuestring,
-             cJSON_GetObjectItemCaseSensitive(current, "fd")->valuestring,
-             cJSON_GetObjectItemCaseSensitive(current, "user")->valuestring,
-             cJSON_GetObjectItemCaseSensitive(current, "database")->valuestring,
-             cJSON_GetObjectItemCaseSensitive(current, "detail")->valuestring);
+             (int) pgagroal_json_get(current, "number"),
+             (char*) pgagroal_json_get(current, "state"),
+             (char*) pgagroal_json_get(current, "time"),
+             (char*) pgagroal_json_get(current, "pid"),
+             (char*) pgagroal_json_get(current, "fd"),
+             (char*) pgagroal_json_get(current, "user"),
+             (char*) pgagroal_json_get(current, "database"),
+             (char*) pgagroal_json_get(current, "detail"));
+
+      pgagroal_json_iterator_next(connections_iter);
 
    }
 
@@ -2716,7 +2793,7 @@ error:
 end:
    if (json)
    {
-      cJSON_Delete(json);
+      pgagroal_json_destroy(json);
    }
 
    return status;
@@ -2725,14 +2802,14 @@ end:
 
 /**
  * Utility method to get the information about the `conf ls` command.
- * This method produces a cJSON object that needs to be printed out in textual format.
+ * This method produces a json object that needs to be printed out in textual format.
  *
  * @param ssl the SSL file descriptor
  * @param socket the file descriptor for the socket
  *
- * @returns the cJSON object, faulty if something went wrong
+ * @returns the json object, faulty if something went wrong
  */
-static cJSON*
+static struct json*
 pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
 {
    char buf[4];
@@ -2758,14 +2835,18 @@ pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
       return NULL;
    }
 
-   cJSON* json = pgagroal_json_create_new_command_object("conf ls", true, pgagroal_executable_name(application), version_buf);
-   cJSON* output = pgagroal_json_extract_command_output_object(json);
+   struct json* json = pgagroal_json_create_new_command_object("conf ls", true, pgagroal_executable_name(application), version_buf);
+   struct json* output = pgagroal_json_extract_command_output_object(json);
 
    // add an array that will contain the files
-   cJSON* files = cJSON_CreateObject();
-   cJSON* files_array = cJSON_CreateArray();
-   cJSON_AddItemToObject(output, "files", files);
-   cJSON_AddItemToObject(files, JSON_TAG_ARRAY_NAME, files_array);
+   struct json* files;
+   pgagroal_json_create(&files);
+
+   struct json* files_array;
+   pgagroal_json_create(&files_array);
+
+   pgagroal_json_put(output, "files", (uintptr_t)  files, ValueJSON);
+   pgagroal_json_put(files, JSON_TAG_ARRAY_NAME, (uintptr_t)  files_array, ValueJSON);
 
    memset(&buf, 0, sizeof(buf));
    buffer = calloc(1, MAX_PATH);
@@ -2776,10 +2857,12 @@ pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
    }
 
    // add the main configuration file entry
-   cJSON* mainConf = cJSON_CreateObject();
-   cJSON_AddStringToObject(mainConf, "description", "Main Configuration file");
-   cJSON_AddStringToObject(mainConf, "path", buffer);
-   cJSON_AddItemToArray(files_array, mainConf);
+   struct json* mainConf;
+   pgagroal_json_create(&mainConf);
+
+   pgagroal_json_put(mainConf, "description", (uintptr_t)  "Main Configuration file", ValueString);
+   pgagroal_json_put(mainConf, "path", (uintptr_t)  buffer, ValueString);
+   pgagroal_json_append(files_array, (uintptr_t) mainConf, ValueJSON);
 
    if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
    {
@@ -2787,10 +2870,12 @@ pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
    }
 
    // add the HBA file
-   cJSON* hbaConf = cJSON_CreateObject();
-   cJSON_AddStringToObject(hbaConf, "description", "HBA File");
-   cJSON_AddStringToObject(hbaConf, "path", buffer);
-   cJSON_AddItemToArray(files_array, hbaConf);
+   struct json* hbaConf;
+   pgagroal_json_create(&hbaConf);
+
+   pgagroal_json_put(hbaConf, "description", (uintptr_t)  "HBA File", ValueString);
+   pgagroal_json_put(hbaConf, "path", (uintptr_t)  buffer, ValueString);
+   pgagroal_json_append(files_array, (uintptr_t) hbaConf, ValueJSON);
 
    if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
    {
@@ -2798,10 +2883,12 @@ pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
    }
 
    // add the limit file
-   cJSON* limitConf = cJSON_CreateObject();
-   cJSON_AddStringToObject(limitConf, "description", "Limit file");
-   cJSON_AddStringToObject(limitConf, "path", buffer);
-   cJSON_AddItemToArray(files_array, limitConf);
+   struct json* limitConf;
+   pgagroal_json_create(&limitConf);
+
+   pgagroal_json_put(limitConf, "description", (uintptr_t)  "Limit file", ValueString);
+   pgagroal_json_put(limitConf, "path", (uintptr_t)  buffer, ValueString);
+   pgagroal_json_append(files_array, (uintptr_t) limitConf, ValueJSON);
 
    if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
    {
@@ -2809,10 +2896,12 @@ pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
    }
 
    // add the frontend file
-   cJSON* frontendConf = cJSON_CreateObject();
-   cJSON_AddStringToObject(frontendConf, "description", "Frontend users file");
-   cJSON_AddStringToObject(frontendConf, "path", buffer);
-   cJSON_AddItemToArray(files_array, frontendConf);
+   struct json* frontendConf;
+   pgagroal_json_create(&frontendConf);
+
+   pgagroal_json_put(frontendConf, "description", (uintptr_t)  "Frontend users file", ValueString);
+   pgagroal_json_put(frontendConf, "path", (uintptr_t)  buffer, ValueString);
+   pgagroal_json_append(files_array, (uintptr_t) frontendConf, ValueJSON);
 
    if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
    {
@@ -2820,10 +2909,12 @@ pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
    }
 
    // add the admins file
-   cJSON* adminsConf = cJSON_CreateObject();
-   cJSON_AddStringToObject(adminsConf, "description", "Admins file");
-   cJSON_AddStringToObject(adminsConf, "path", buffer);
-   cJSON_AddItemToArray(files_array, adminsConf);
+   struct json* adminsConf;
+   pgagroal_json_create(&adminsConf);
+
+   pgagroal_json_put(adminsConf, "description", (uintptr_t)  "Admins file", ValueString);
+   pgagroal_json_put(adminsConf, "path", (uintptr_t)  buffer, ValueString);
+   pgagroal_json_append(files_array, (uintptr_t) adminsConf, ValueJSON);
 
    if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
    {
@@ -2831,10 +2922,12 @@ pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
    }
 
    // add the superuser file
-   cJSON* superuserConf = cJSON_CreateObject();
-   cJSON_AddStringToObject(superuserConf, "description", "Superuser file");
-   cJSON_AddStringToObject(superuserConf, "path", buffer);
-   cJSON_AddItemToArray(files_array, superuserConf);
+   struct json* superuserConf;
+   pgagroal_json_create(&superuserConf);
+
+   pgagroal_json_put(superuserConf, "description", (uintptr_t)  "Superuser file", ValueString);
+   pgagroal_json_put(superuserConf, "path", (uintptr_t)  buffer, ValueString);
+   pgagroal_json_append(files_array, (uintptr_t) superuserConf, ValueJSON);
 
    if (pgagroal_management_read_conf_ls_detail(ssl, socket, buffer))
    {
@@ -2842,10 +2935,12 @@ pgagroal_management_json_read_conf_ls(SSL* ssl, int socket)
    }
 
    // add the users file
-   cJSON* usersConf = cJSON_CreateObject();
-   cJSON_AddStringToObject(usersConf, "description", "Users file");
-   cJSON_AddStringToObject(usersConf, "path", buffer);
-   cJSON_AddItemToArray(files_array, usersConf);
+   struct json* usersConf;
+   pgagroal_json_create(&usersConf);
+
+   pgagroal_json_put(usersConf, "description", (uintptr_t)  "Users file", ValueString);
+   pgagroal_json_put(usersConf, "path", (uintptr_t)  buffer, ValueString);
+   pgagroal_json_append(files_array, (uintptr_t) usersConf, ValueJSON);
 
    // all done
    goto end;
@@ -2870,7 +2965,7 @@ end:
  * @returns 0 on success
  */
 static int
-pgagroal_management_json_print_conf_ls(cJSON* json)
+pgagroal_management_json_print_conf_ls(struct json* json)
 {
    int status = EXIT_STATUS_OK;
 
@@ -2881,23 +2976,36 @@ pgagroal_management_json_print_conf_ls(cJSON* json)
    }
 
    // now get the output and start printing it
-   cJSON* output = pgagroal_json_extract_command_output_object(json);
+   struct json* output = pgagroal_json_extract_command_output_object(json);
 
    // files
-   cJSON* files = cJSON_GetObjectItemCaseSensitive(output, "files");
+   struct json* files = (struct json*) pgagroal_json_get(output, "files");
    if (!files)
    {
       goto error;
    }
 
-   cJSON* files_array = cJSON_GetObjectItemCaseSensitive(files, JSON_TAG_ARRAY_NAME);
-   cJSON* current;
-   cJSON_ArrayForEach(current, files_array)
+   struct json* files_array = (struct json*) pgagroal_json_get(files, JSON_TAG_ARRAY_NAME);
+   struct json_iterator* files_iter;
+
+   if (!pgagroal_json_iterator_create(files_array, &files_iter))
    {
+      goto error;
+   }
+
+   int files_arr_length = pgagroal_json_array_length(files_array);
+
+   struct json* current;
+
+   for (int i = 0; i < files_arr_length ; ++i)
+   {
+      current = (struct json*) files_iter->value;
       // the current JSON object is made by two different values
       printf("%-25s : %s\n",
-             cJSON_GetObjectItemCaseSensitive(current, "description")->valuestring,
-             cJSON_GetObjectItemCaseSensitive(current, "path")->valuestring);
+             (char*) pgagroal_json_get(current, "description"),
+             (char*) pgagroal_json_get(current, "path"));
+
+      pgagroal_json_iterator_next(files_iter);
    }
 
    status = pgagroal_json_command_object_exit_status(json);
@@ -2908,17 +3016,18 @@ error:
 end:
    if (json)
    {
-      cJSON_Delete(json);
+      pgagroal_json_destroy(json);
    }
 
    return status;
 }
 
-static cJSON*
+static struct json*
 pgagroal_json_create_new_command_object(char* command_name, bool success, char* executable_name, char* executable_version)
 {
    // root of the JSON structure
-   cJSON* json = cJSON_CreateObject();
+   struct json* json;
+   pgagroal_json_create(&json);
 
    if (!json)
    {
@@ -2926,29 +3035,35 @@ pgagroal_json_create_new_command_object(char* command_name, bool success, char* 
    }
 
    // the command structure
-   cJSON* command = cJSON_CreateObject();
+   struct json* command;
+   pgagroal_json_create(&command);
+
    if (!command)
    {
       goto error;
    }
 
    // insert meta-data about the command
-   cJSON_AddStringToObject(command, JSON_TAG_COMMAND_NAME, command_name);
-   cJSON_AddStringToObject(command, JSON_TAG_COMMAND_STATUS, success ? JSON_STRING_SUCCESS : JSON_STRING_ERROR);
-   cJSON_AddNumberToObject(command, JSON_TAG_COMMAND_ERROR, success ? JSON_BOOL_SUCCESS : JSON_BOOL_ERROR);
-   cJSON_AddNumberToObject(command, JSON_TAG_COMMAND_EXIT_STATUS, success ? 0 : EXIT_STATUS_DATA_ERROR);
+   pgagroal_json_put(command, JSON_TAG_COMMAND_NAME, (uintptr_t)  command_name, ValueString);
+   pgagroal_json_put(command, JSON_TAG_COMMAND_STATUS, (uintptr_t)  (success ? JSON_STRING_SUCCESS : JSON_STRING_ERROR), ValueString);
+   pgagroal_json_put(command, JSON_TAG_COMMAND_ERROR, (uintptr_t)  success ? JSON_BOOL_SUCCESS : JSON_BOOL_ERROR, ValueInt32);
+   pgagroal_json_put(command, JSON_TAG_COMMAND_EXIT_STATUS, (uintptr_t)  (success ? 0 : EXIT_STATUS_DATA_ERROR), ValueInt32);
 
    // the output of the command, this has to be filled by the caller
-   cJSON* output = cJSON_CreateObject();
+   struct json* output;
+   pgagroal_json_create(&output);
+
    if (!output)
    {
       goto error;
    }
 
-   cJSON_AddItemToObject(command, JSON_TAG_COMMAND_OUTPUT, output);
+   pgagroal_json_put(command, JSON_TAG_COMMAND_OUTPUT, (uintptr_t)  output, ValueJSON);
 
    // who has launched the command ?
-   cJSON* application = cJSON_CreateObject();
+   struct json* application;
+   pgagroal_json_create(&application);
+
    if (!application)
    {
       goto error;
@@ -2965,38 +3080,38 @@ pgagroal_json_create_new_command_object(char* command_name, bool success, char* 
       goto error;
    }
 
-   cJSON_AddStringToObject(application, JSON_TAG_APPLICATION_NAME, executable_name);
-   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_MAJOR, executable_version[0] - '0');
-   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_MINOR, (int)minor);
-   cJSON_AddNumberToObject(application, JSON_TAG_APPLICATION_VERSION_PATCH, (int)patch);
-   cJSON_AddStringToObject(application, JSON_TAG_APPLICATION_VERSION, executable_version);
+   pgagroal_json_put(application, JSON_TAG_APPLICATION_NAME, (uintptr_t)  executable_name, ValueString);
+   pgagroal_json_put(application, JSON_TAG_APPLICATION_VERSION_MAJOR, (uintptr_t)  executable_version[0] - '0', ValueInt32);
+   pgagroal_json_put(application, JSON_TAG_APPLICATION_VERSION_MINOR, (uintptr_t)  (int)minor, ValueInt32);
+   pgagroal_json_put(application, JSON_TAG_APPLICATION_VERSION_PATCH, (uintptr_t)  (int)patch, ValueInt32);
+   pgagroal_json_put(application, JSON_TAG_APPLICATION_VERSION, (uintptr_t)  executable_version, ValueString);
 
    // add objects to the whole json thing
-   cJSON_AddItemToObject(json, "command", command);
-   cJSON_AddItemToObject(json, "application", application);
+   pgagroal_json_put(json, "command", (uintptr_t)  command, ValueJSON);
+   pgagroal_json_put(json, "application", (uintptr_t)  application, ValueJSON);
 
    return json;
 
 error:
    if (json)
    {
-      cJSON_Delete(json);
+      pgagroal_json_destroy(json);
    }
 
    return NULL;
 
 }
 
-static cJSON*
-pgagroal_json_extract_command_output_object(cJSON* json)
+static struct json*
+pgagroal_json_extract_command_output_object(struct json* json)
 {
-   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
+   struct json* command = (struct json*) pgagroal_json_get(json, JSON_TAG_COMMAND);
    if (!command)
    {
       goto error;
    }
 
-   return cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_OUTPUT);
+   return (struct json*) pgagroal_json_get(command, JSON_TAG_COMMAND_OUTPUT);
 
 error:
    return NULL;
@@ -3004,27 +3119,27 @@ error:
 }
 
 static bool
-pgagroal_json_is_command_name_equals_to(cJSON* json, char* command_name)
+pgagroal_json_is_command_name_equals_to(struct json* json, char* command_name)
 {
    if (!json || !command_name || strlen(command_name) <= 0)
    {
       goto error;
    }
 
-   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
+   struct json* command = (struct json*) pgagroal_json_get(json, JSON_TAG_COMMAND);
    if (!command)
    {
       goto error;
    }
 
-   cJSON* cName = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_NAME);
-   if (!cName || !cJSON_IsString(cName) || !cName->valuestring)
+   struct json* cName = (struct json*) pgagroal_json_get(command, JSON_TAG_COMMAND_NAME);
+   if (!cName)
    {
       goto error;
    }
 
    return !strncmp(command_name,
-                   cName->valuestring,
+                   (char*) cName->elements,
                    MISC_LENGTH);
 
 error:
@@ -3032,42 +3147,22 @@ error:
 }
 
 static int
-pgagroal_json_set_command_object_faulty(cJSON* json, char* message, int exit_status)
+pgagroal_json_set_command_object_faulty(struct json* json, char* message, int exit_status)
 {
    if (!json)
    {
       goto error;
    }
 
-   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
+   struct json* command = (struct json*) pgagroal_json_get(json, JSON_TAG_COMMAND);
    if (!command)
    {
       goto error;
    }
 
-   cJSON* current = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_STATUS);
-   if (!current)
-   {
-      goto error;
-   }
-
-   cJSON_SetValuestring(current, message);
-
-   current = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_ERROR);
-   if (!current)
-   {
-      goto error;
-   }
-
-   cJSON_SetIntValue(current, JSON_BOOL_ERROR);   // cannot use cJSON_SetBoolValue unless cJSON >= 1.7.16
-
-   current = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_EXIT_STATUS);
-   if (!current)
-   {
-      goto error;
-   }
-
-   cJSON_SetIntValue(current, exit_status);
+   pgagroal_json_put(command, JSON_TAG_COMMAND_STATUS, (uintptr_t) message, ValueString);
+   pgagroal_json_put(command, JSON_TAG_COMMAND_ERROR, (uintptr_t) JSON_BOOL_ERROR, ValueInt32);
+   pgagroal_json_put(command, JSON_TAG_COMMAND_EXIT_STATUS, (uintptr_t) exit_status, ValueInt32);
 
    return 0;
 
@@ -3077,62 +3172,62 @@ error:
 }
 
 static int
-pgagroal_json_command_object_exit_status(cJSON* json)
+pgagroal_json_command_object_exit_status(struct json* json)
 {
    if (!json)
    {
       goto error;
    }
 
-   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
+   struct json* command = (struct json*) pgagroal_json_get(json, JSON_TAG_COMMAND);
    if (!command)
    {
       goto error;
    }
 
-   cJSON* status = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_EXIT_STATUS);
-   if (!status || !cJSON_IsNumber(status))
+   int status = (int) pgagroal_json_get(command, JSON_TAG_COMMAND_EXIT_STATUS);
+   if (!status)
    {
       goto error;
    }
 
-   return status->valueint;
+   return status;
 
 error:
    return EXIT_STATUS_DATA_ERROR;
 }
 
 static const char*
-pgagroal_json_get_command_object_status(cJSON* json)
+pgagroal_json_get_command_object_status(struct json* json)
 {
    if (!json)
    {
       goto error;
    }
 
-   cJSON* command = cJSON_GetObjectItemCaseSensitive(json, JSON_TAG_COMMAND);
+   struct json* command = (struct json*) pgagroal_json_get(json, JSON_TAG_COMMAND);
    if (!command)
    {
       goto error;
    }
 
-   cJSON* status = cJSON_GetObjectItemCaseSensitive(command, JSON_TAG_COMMAND_STATUS);
-   if (!cJSON_IsString(status) || (status->valuestring == NULL))
+   char* status = (char*) pgagroal_json_get(command, JSON_TAG_COMMAND_STATUS);
+   if (!status)
    {
       goto error;
    }
 
-   return status->valuestring;
+   return status;
 error:
    return NULL;
 
 }
 
 static int
-pgagroal_json_print_and_free_json_object(cJSON* json)
+pgagroal_json_print_and_free_json_object(struct json* json)
 {
    int status = pgagroal_json_command_object_exit_status(json);
-   printf("%s\n", cJSON_Print(json));
-   cJSON_Delete(json);
+   pgagroal_json_print(json, FORMAT_JSON);
+   pgagroal_json_destroy(json);
    return status;
 }
