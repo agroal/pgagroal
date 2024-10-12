@@ -96,13 +96,10 @@ static int write_info(char* buffer, int command, int offset);
 static int pgagroal_management_write_conf_ls_detail(int socket, char* what);
 static int pgagroal_management_read_conf_ls_detail(SSL* ssl, int socket, char* buffer);
 
-static int pgagroal_management_json_print_status_details(struct json* json);
-
 static struct json* pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_details);
 static struct json* pgagroal_managment_json_read_config_get(int socket, char* config_key, char* expected_value);
 
 static struct json* pgagroal_management_json_read_conf_ls(SSL* ssl, int socket);
-static int pgagroal_management_json_print_conf_ls(struct json* json);
 
 static int pgagroal_executable_version_number(char* version, size_t version_size);
 static int pgagroal_executable_version_string(char** version_string, int version_number);
@@ -112,8 +109,7 @@ static struct json* pgagroal_json_create_new_command_object(char* command_name, 
 static struct json* pgagroal_json_extract_command_output_object(struct json* json);
 static int pgagroal_json_set_command_object_faulty(struct json* json, char* message, int exit_status);
 static const char* pgagroal_json_get_command_object_status(struct json* json);
-static bool pgagroal_json_is_command_name_equals_to(struct json* json, char* command_name);
-static int pgagroal_json_print_and_free_json_object(struct json* json);
+static int pgagroal_print_and_free_object(struct json* json,int32_t format);
 static int pgagroal_json_command_object_exit_status(struct json* json);
 
 int
@@ -698,16 +694,17 @@ pgagroal_management_read_status(SSL* ssl, int socket, char output_format)
    // print out the command answer
    if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      return pgagroal_json_print_and_free_json_object(json);
+      return pgagroal_print_and_free_object(json,FORMAT_JSON);
    }
-   else
+   else if(output_format == COMMAND_OUTPUT_FORMAT_TEXT)
    {
-      return pgagroal_management_json_print_status_details(json);
+      return pgagroal_print_and_free_object(json,FORMAT_TEXT);
    }
 
 error:
    pgagroal_log_warn("pgagroal_management_read_status: command error [%s]",
                      (json == NULL ? "<unknown>" : pgagroal_json_get_command_object_status(json)));
+   pgagroal_json_destroy(json);
    return 1;
 }
 
@@ -983,7 +980,6 @@ pgagroal_management_json_read_status_details(SSL* ssl, int socket, bool include_
       pgagroal_json_append(connections_array, (uintptr_t) current_connection_json, ValueJSON);
 
    }
-
 end:
    free(version_buf);
    return json;
@@ -1110,17 +1106,17 @@ pgagroal_management_read_details(SSL* ssl, int socket, char output_format)
    // print out the command answer
    if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      return pgagroal_json_print_and_free_json_object(json);
+      return pgagroal_print_and_free_object(json,FORMAT_JSON);
    }
    else
    {
-      return pgagroal_management_json_print_status_details(json);
+      return pgagroal_print_and_free_object(json,FORMAT_TEXT);
    }
 
 error:
    pgagroal_log_warn("pgagroal_management_read_details: command error [%s]",
                      (json == NULL ? "<unknown>" : pgagroal_json_get_command_object_status(json)));
-
+   pgagroal_json_destroy(json);
    return 1;
 }
 
@@ -1245,6 +1241,8 @@ pgagroal_management_read_isalive(SSL* ssl, int socket, int* status, char output_
    char buf[MANAGEMENT_INFO_SIZE + 4];
    int application;
    int version;
+   struct json* json = NULL;
+   struct json* output = NULL;
 
    memset(&buf, 0, sizeof(buf));
 
@@ -1260,40 +1258,52 @@ pgagroal_management_read_isalive(SSL* ssl, int socket, int* status, char output_
 
    *status = pgagroal_read_int32(&buf[MANAGEMENT_INFO_SIZE]);
 
+
+   char* version_buf = NULL;
+
+   if (pgagroal_executable_version_string(&version_buf, version))
+   {
+      goto error;
+   }
+
+   json = pgagroal_json_create_new_command_object("ping", true, pgagroal_executable_name(application), version_buf);
+   output = pgagroal_json_extract_command_output_object(json);
+
+   pgagroal_json_put(output, "status", (uintptr_t)  *status, ValueInt32);
+
+   if (*status == PING_STATUS_RUNNING)
+   {
+      pgagroal_json_put(output, "message", (uintptr_t)  "running", ValueString);
+   }
+   else if (*status == PING_STATUS_SHUTDOWN_GRACEFULLY)
+   {
+      pgagroal_json_put(output, "message", (uintptr_t)  "shutdown gracefully", ValueString);
+   }
+   else
+   {
+      pgagroal_json_put(output, "message", (uintptr_t)  "unknown", ValueString);
+   }
+
    // do I need to provide JSON output?
    if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      char* version_buf = NULL;
-
-      if (pgagroal_executable_version_string(&version_buf, version))
-      {
-         goto error;
-      }
-
-      struct json* json = pgagroal_json_create_new_command_object("ping", true, pgagroal_executable_name(application), version_buf);
-      struct json* output = pgagroal_json_extract_command_output_object(json);
-
-      pgagroal_json_put(output, "status", (uintptr_t)  *status, ValueInt32);
-
-      if (*status == PING_STATUS_RUNNING)
-      {
-         pgagroal_json_put(output, "message", (uintptr_t)  "running", ValueString);
-      }
-      else if (*status == PING_STATUS_SHUTDOWN_GRACEFULLY)
-      {
-         pgagroal_json_put(output, "message", (uintptr_t)  "shutdown gracefully", ValueString);
-      }
-      else
-      {
-         pgagroal_json_put(output, "message", (uintptr_t)  "unknown", ValueString);
-      }
-      return pgagroal_json_print_and_free_json_object(json);
-
+      return pgagroal_print_and_free_object(json,FORMAT_JSON);
    }
+   else if(output_format == COMMAND_OUTPUT_FORMAT_TEXT)
+   {
+      return pgagroal_print_and_free_object(json,FORMAT_TEXT);
+   }
+   else{
+      goto error;
+   }
+   
    return 0;
 
 error:
-
+   if(json)
+   {
+      pgagroal_json_destroy(json);
+   }
    return 1;
 }
 
@@ -2216,24 +2226,19 @@ pgagroal_management_read_config_get(int socket, char* config_key, char* expected
 
    if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      pgagroal_json_print_and_free_json_object(json);
+      pgagroal_print_and_free_object(json,FORMAT_JSON);
       json = NULL;
       goto end;
    }
-
-   // if here, print out in text format
-   struct json* output = pgagroal_json_extract_command_output_object(json);
-   char* value = (char*) pgagroal_json_get(output, "value");
-   char* key = (char*) pgagroal_json_get(output, "key");
-   if (verbose)
+   else if(output_format == COMMAND_OUTPUT_FORMAT_TEXT)
    {
-      printf("%s = %s\n", key, value);
+      pgagroal_json_print(json,FORMAT_TEXT);
    }
    else
    {
-      printf("%s\n", value);
+      goto error;
    }
-
+   
    goto end;
 
 error:
@@ -2400,17 +2405,17 @@ pgagroal_management_read_conf_ls(SSL* ssl, int socket, char output_format)
    // print out the command answer
    if (output_format == COMMAND_OUTPUT_FORMAT_JSON)
    {
-      return pgagroal_json_print_and_free_json_object(json);
+      return pgagroal_print_and_free_object(json,FORMAT_JSON);
    }
-   else
+   else if(output_format == COMMAND_OUTPUT_FORMAT_TEXT)
    {
-      return pgagroal_management_json_print_conf_ls(json);
+      return pgagroal_print_and_free_object(json,FORMAT_TEXT);
    }
 
 error:
    pgagroal_log_warn("pgagroal_management_read_conf_ls: read: %d %s", socket, strerror(errno));
    errno = 0;
-
+   pgagroal_json_destroy(json);
    return 1;
 }
 
@@ -2579,228 +2584,6 @@ error:
 }
 
 /**
- * Utility function to print out the result of a 'status'
- * or a 'status details' command already wrapped into a
- * JSON object.
- * The function tries to understand from the command name
- * within the JSON object if the output refers to the
- * 'status' or 'status details' command.
- *
- * If the command is faulty, this method does nothing, therefore
- * printing out information about faulty commands has to be done
- * at an higher level.
- *
- * @param json the JSON object
- *
- * @returns 0 on success
- */
-int
-pgagroal_management_json_print_status_details(struct json* json)
-{
-   bool is_command_details = false; /* is this command 'status details' ? */
-   int status = EXIT_STATUS_OK;
-   bool previous_section_printed = false;  /* in 'status details', print an header bar between sections */
-
-   // sanity check
-   if (!json)
-   {
-      goto error;
-   }
-
-   // the command must be 'status' or 'status details'
-   if (pgagroal_json_is_command_name_equals_to(json, "status"))
-   {
-      is_command_details = false;
-   }
-   else if (pgagroal_json_is_command_name_equals_to(json, "status details"))
-   {
-      is_command_details = true;
-   }
-   else
-   {
-      goto error;
-   }
-
-   // now get the output and start printing it
-   struct json* output = pgagroal_json_extract_command_output_object(json);
-
-   // overall status
-   printf("Status:              %s\n",
-          (char*) pgagroal_json_get((struct json*) pgagroal_json_get(output, "status"), "message"));
-
-   // connections
-   struct json* connections = (struct json*) pgagroal_json_get(output, "connections");
-   if (!connections)
-   {
-      goto error;
-   }
-
-   printf("Active connections:  %d\n", (int) pgagroal_json_get(connections, "active"));
-   printf("Total connections:   %d\n", (int) pgagroal_json_get(connections, "total"));
-   printf("Max connections:     %d\n", (int) pgagroal_json_get(connections, "max"));
-
-   // databases
-   struct json* databases = (struct json*) pgagroal_json_get(output, "databases");
-   if (!databases)
-   {
-      goto error;
-   }
-
-   struct json* disabled_databases = (struct json*) pgagroal_json_get(databases, "disabled");
-   if (!disabled_databases)
-   {
-      goto error;
-   }
-
-   struct json* disabled_databases_list = (struct json*) pgagroal_json_get(disabled_databases, JSON_TAG_ARRAY_NAME);
-   struct json_iterator* databases_iter;
-
-   if (!pgagroal_json_iterator_create(disabled_databases_list, &databases_iter))
-   {
-      goto error;
-   }
-
-   int databases_length = pgagroal_json_array_length(disabled_databases_list);
-
-   struct json* current;
-   for (int i = 0; i < databases_length; ++i)
-   {
-      current = (struct json*) databases_iter->value;
-
-      printf("Disabled database:   %s\n", (char*) pgagroal_json_get(current, "database"));
-
-      pgagroal_json_iterator_next(databases_iter);
-   }
-
-   // the status command ends here
-   if (!is_command_details)
-   {
-      goto end;
-   }
-
-   // dump the servers information
-   struct json* servers = (struct json*) pgagroal_json_get(output, "servers");
-   if (!servers)
-   {
-      goto error;
-   }
-
-   struct json* servers_list = (struct json*) pgagroal_json_get(servers, JSON_TAG_ARRAY_NAME);
-
-   struct json_iterator* servers_iter;
-
-   if (!pgagroal_json_iterator_create(servers_list, &servers_iter))
-   {
-      goto error;
-   }
-
-   int servers_length = pgagroal_json_array_length(servers_list);
-
-   for (int i = 0; i < servers_length; i++)
-   {
-
-      current = (struct json*) servers_iter->value;
-
-      if (!previous_section_printed)
-      {
-         printf("---------------------\n");
-         previous_section_printed = true;
-      }
-      printf("Server:              %s\n", (char*) pgagroal_json_get(current, "server"));
-      printf("Host:                %s\n", (char*) pgagroal_json_get(current, "host"));
-      printf("Port:                %d\n", (int) pgagroal_json_get(current, "port"));
-      printf("State:               %s\n", (char*) pgagroal_json_get(current, "state"));
-      printf("---------------------\n");
-
-      pgagroal_json_iterator_next(servers_iter);
-   }
-
-   // dump the limits information
-   struct json* limits = (struct json*) pgagroal_json_get(output, "limits");
-   struct json* limits_list = (struct json*) pgagroal_json_get(limits, JSON_TAG_ARRAY_NAME);
-
-   struct json_iterator* limits_iter;
-
-   if (!pgagroal_json_iterator_create(limits_list, &limits_iter))
-   {
-      goto error;
-   }
-
-   int limits_length = pgagroal_json_array_length(limits_list);
-
-   for (int i = 0; i < limits_length; ++i)
-   {
-
-      current = (struct json*) limits_iter->value;
-
-      if (!previous_section_printed)
-      {
-         printf("---------------------\n");
-         previous_section_printed = true;
-      }
-      printf("Database:            %s\n", (char*) pgagroal_json_get(current, "database"));
-      printf("Username:            %s\n", (char*) pgagroal_json_get(current, "username"));
-      struct json* current_connections = (struct json*) pgagroal_json_get(current, "connections");
-      printf("Active connections:  %d\n", (int) pgagroal_json_get(current_connections, "active"));
-      printf("Max connections:     %d\n", (int) pgagroal_json_get(current_connections, "max"));
-      printf("Initial connections: %d\n", (int) pgagroal_json_get(current_connections, "initial"));
-      printf("Min connections:     %d\n", (int) pgagroal_json_get(current_connections, "min"));
-      printf("---------------------\n");
-
-      pgagroal_json_iterator_next(limits_iter);
-   }
-
-   struct json_iterator* connections_iter;
-
-   if (!pgagroal_json_iterator_create(connections, &connections_iter))
-   {
-      goto error;
-   }
-
-   int connections_length = pgagroal_json_array_length(connections);
-
-   // print the connection information
-   for (int i = 0; i < connections_length; ++i)
-   {
-
-      current = (struct json*) connections_iter->value;
-
-      if (!previous_section_printed)
-      {
-         printf("---------------------\n");
-         previous_section_printed = false;
-      }
-
-      printf("Connection %4d:     %-15s %-19s %-6s %-6s %s %s %s\n",
-             (int) pgagroal_json_get(current, "number"),
-             (char*) pgagroal_json_get(current, "state"),
-             (char*) pgagroal_json_get(current, "time"),
-             (char*) pgagroal_json_get(current, "pid"),
-             (char*) pgagroal_json_get(current, "fd"),
-             (char*) pgagroal_json_get(current, "user"),
-             (char*) pgagroal_json_get(current, "database"),
-             (char*) pgagroal_json_get(current, "detail"));
-
-      pgagroal_json_iterator_next(connections_iter);
-
-   }
-
-   // all done
-   goto end;
-
-error:
-   status = 1;
-end:
-   if (json)
-   {
-      pgagroal_json_destroy(json);
-   }
-
-   return status;
-
-}
-
-/**
  * Utility method to get the information about the `conf ls` command.
  * This method produces a json object that needs to be printed out in textual format.
  *
@@ -2957,71 +2740,6 @@ end:
 
 }
 
-/**
- * Utility function to handle a JSON object and print it out
- * as normal text.
- *
- * @param json the JSON object
- * @returns 0 on success
- */
-static int
-pgagroal_management_json_print_conf_ls(struct json* json)
-{
-   int status = EXIT_STATUS_OK;
-
-   // sanity check
-   if (!json)
-   {
-      goto error;
-   }
-
-   // now get the output and start printing it
-   struct json* output = pgagroal_json_extract_command_output_object(json);
-
-   // files
-   struct json* files = (struct json*) pgagroal_json_get(output, "files");
-   if (!files)
-   {
-      goto error;
-   }
-
-   struct json* files_array = (struct json*) pgagroal_json_get(files, JSON_TAG_ARRAY_NAME);
-   struct json_iterator* files_iter;
-
-   if (!pgagroal_json_iterator_create(files_array, &files_iter))
-   {
-      goto error;
-   }
-
-   int files_arr_length = pgagroal_json_array_length(files_array);
-
-   struct json* current;
-
-   for (int i = 0; i < files_arr_length ; ++i)
-   {
-      current = (struct json*) files_iter->value;
-      // the current JSON object is made by two different values
-      printf("%-25s : %s\n",
-             (char*) pgagroal_json_get(current, "description"),
-             (char*) pgagroal_json_get(current, "path"));
-
-      pgagroal_json_iterator_next(files_iter);
-   }
-
-   status = pgagroal_json_command_object_exit_status(json);
-   goto end;
-
-error:
-   status = EXIT_STATUS_DATA_ERROR;
-end:
-   if (json)
-   {
-      pgagroal_json_destroy(json);
-   }
-
-   return status;
-}
-
 static struct json*
 pgagroal_json_create_new_command_object(char* command_name, bool success, char* executable_name, char* executable_version)
 {
@@ -3118,34 +2836,6 @@ error:
 
 }
 
-static bool
-pgagroal_json_is_command_name_equals_to(struct json* json, char* command_name)
-{
-   if (!json || !command_name || strlen(command_name) <= 0)
-   {
-      goto error;
-   }
-
-   struct json* command = (struct json*) pgagroal_json_get(json, JSON_TAG_COMMAND);
-   if (!command)
-   {
-      goto error;
-   }
-
-   struct json* cName = (struct json*) pgagroal_json_get(command, JSON_TAG_COMMAND_NAME);
-   if (!cName)
-   {
-      goto error;
-   }
-
-   return !strncmp(command_name,
-                   (char*) cName->elements,
-                   MISC_LENGTH);
-
-error:
-   return false;
-}
-
 static int
 pgagroal_json_set_command_object_faulty(struct json* json, char* message, int exit_status)
 {
@@ -3186,8 +2876,9 @@ pgagroal_json_command_object_exit_status(struct json* json)
    }
 
    int status = (int) pgagroal_json_get(command, JSON_TAG_COMMAND_EXIT_STATUS);
-   if (!status)
+   if (status)
    {
+
       goto error;
    }
 
@@ -3224,10 +2915,10 @@ error:
 }
 
 static int
-pgagroal_json_print_and_free_json_object(struct json* json)
+pgagroal_print_and_free_object(struct json* json, int32_t format)
 {
    int status = pgagroal_json_command_object_exit_status(json);
-   pgagroal_json_print(json, FORMAT_JSON);
+   pgagroal_json_print(json, format);
    pgagroal_json_destroy(json);
    return status;
 }
