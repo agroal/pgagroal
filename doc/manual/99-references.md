@@ -14,7 +14,6 @@
   [openssl]: http://www.openssl.org/
   [systemd]: https://www.freedesktop.org/wiki/Software/systemd/
   [rst2man]: https://docutils.sourceforge.io/
-  [cjson]: https://github.com/DaveGamble/cJSON
   [pandoc]: https://pandoc.org/
   [pandoc_latex_template]: https://github.com/Wandmalfarbe/pandoc-latex-template
   [texlive]: https://www.tug.org/texlive/
