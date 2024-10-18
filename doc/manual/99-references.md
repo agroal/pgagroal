@@ -10,7 +10,7 @@
   [gcc]: https://gcc.gnu.org
   [cmake]: https://cmake.org
   [make]: https://www.gnu.org/software/make/
-  [libev]: http://software.schmorp.de/pkg/libev.html
+  [liburing]: https://github.com/axboe/liburing
   [openssl]: http://www.openssl.org/
   [systemd]: https://www.freedesktop.org/wiki/Software/systemd/
   [rst2man]: https://docutils.sourceforge.io/
