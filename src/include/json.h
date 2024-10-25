@@ -99,6 +99,15 @@ uintptr_t
 pgagroal_json_get(struct json* item, char* tag);
 
 /**
+ * Check if the json item contains the given key
+ * @param item The json item
+ * @param key The key
+ * @return True if the key exists, otherwise false
+ */
+bool
+pgagroal_json_contains_key(struct json* item, char* key);
+
+/**
  * Append an entry into the json array
  * If the entry is put into an empty json object, it will be treated as json array,
  * otherwise if the json object is an item, it will reject the entry

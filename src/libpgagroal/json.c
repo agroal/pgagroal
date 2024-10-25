@@ -46,6 +46,7 @@ static int parse_string(char* str, uint64_t* index, struct json** obj);
 static int json_add(struct json* obj, char* key, uintptr_t val, enum value_type type);
 static int fill_value(char* str, char* key, uint64_t* index, struct json* o);
 static bool value_start(char ch);
+static int handle_escape_char(char* str, uint64_t* index, uint64_t len, char* ch);
 
 int
 pgagroal_json_append(struct json* array, uintptr_t entry, enum value_type type)
@@ -117,10 +118,7 @@ pgagroal_json_to_string(struct json* object, int32_t format, char* tag, int inde
    if (object == NULL || (object->type == JSONUnknown || object->elements == NULL))
    {
       str = pgagroal_indent(str, tag, indent);
-      if (format == FORMAT_JSON)
-      {
-         str = pgagroal_append(str, "{}");
-      }
+      str = pgagroal_append(str, "{}");
       return str;
    }
    if (object->type != JSONArray)
@@ -161,6 +159,16 @@ pgagroal_json_get(struct json* item, char* tag)
       return 0;
    }
    return pgagroal_art_search(item->elements, (unsigned char*)tag, strlen(tag) + 1);
+}
+
+bool
+pgagroal_json_contains_key(struct json* item, char* key)
+{
+   if (item == NULL || item->type != JSONItem || key == NULL || strlen(key) == 0)
+   {
+      return false;
+   }
+   return pgagroal_art_contains_key(item->elements, (unsigned char*)key, strlen(key) + 1);
 }
 
 int
@@ -325,6 +333,18 @@ parse_string(char* str, uint64_t* index, struct json** obj)
          // The key
          while (idx < len && str[idx] != '"')
          {
+            char ec_ch;
+            // handle escape character
+            if (str[idx] == '\\')
+            {
+               if (handle_escape_char(str, &idx, len, &ec_ch))
+               {
+                  goto error;
+               }
+               key = pgagroal_append_char(key, ec_ch);
+               continue;
+            }
+
             key = pgagroal_append_char(key, str[idx++]);
          }
          if (idx == len || key == NULL)
@@ -443,6 +463,17 @@ fill_value(char* str, char* key, uint64_t* index, struct json* o)
       idx++;
       while (idx < len && str[idx] != '"')
       {
+         char ec_ch;
+         if (str[idx] == '\\')
+         {
+            if (handle_escape_char(str, &idx, len, &ec_ch))
+            {
+               goto error;
+            }
+            val = pgagroal_append_char(val, ec_ch);
+            continue;
+         }
+
          val = pgagroal_append_char(val, str[idx++]);
       }
       if (idx == len)
@@ -547,6 +578,38 @@ fill_value(char* str, char* key, uint64_t* index, struct json* o)
    return 0;
 error:
    return 1;
+}
+
+static int
+handle_escape_char(char* str, uint64_t* index, uint64_t len, char* ch)
+{
+   uint64_t idx = *index;
+   idx++;
+   if (idx == len)   // security check
+   {
+      return 1;
+   }
+   // Check the next character after checking '\' character
+   switch (str[idx])
+   {
+      case '\"':
+      case '\\':
+         *ch = str[idx];
+         break;
+      case 'n':
+         *ch = '\n';
+         break;
+      case 't':
+         *ch = '\t';
+         break;
+      case 'r':
+         *ch = '\r';
+         break;
+      default:
+         return 1;
+   }
+   *index = idx + 1;
+   return 0;
 }
 
 static bool

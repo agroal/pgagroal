@@ -316,7 +316,7 @@ is_ssl_request(int client_fd)
 
 static int
 get_connection_state(struct vault_configuration* config, int client_fd)
-{  
+{
    if (config->common.tls)
    {
       if (is_ssl_request(client_fd))

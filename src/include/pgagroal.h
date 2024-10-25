@@ -178,6 +178,7 @@ extern "C" {
 #define INDENT_PER_LEVEL      2
 #define FORMAT_JSON           0
 #define FORMAT_TEXT           1
+#define FORMAT_JSON_COMPACT   2
 #define BULLET_POINT          "- "
 
 #define likely(x)    __builtin_expect (!!(x), 1)

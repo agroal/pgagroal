@@ -26,7 +26,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
 #ifndef PGAGROAL_VALUE_H
 #define PGAGROAL_VALUE_H
 
@@ -59,7 +58,7 @@ enum value_type {
    ValueDeque,
    ValueART,
    ValueRef,
-   ValueVerifyEntry,
+   ValueMem,
 };
 
 /**

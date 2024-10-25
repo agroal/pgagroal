@@ -61,6 +61,7 @@ static char* bool_to_string_cb(uintptr_t data, int32_t format, char* tag, int in
 static char* deque_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
 static char* art_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
 static char* json_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
+static char* mem_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
 
 int
 pgagroal_value_create(enum value_type type, uintptr_t data, struct value** value)
@@ -126,6 +127,9 @@ pgagroal_value_create(enum value_type type, uintptr_t data, struct value** value
       case ValueART:
          val->to_string = art_to_string_cb;
          break;
+      case ValueMem:
+         val->to_string = mem_to_string_cb;
+         break;
       default:
          val->to_string = noop_to_string_cb;
          break;
@@ -144,6 +148,10 @@ pgagroal_value_create(enum value_type type, uintptr_t data, struct value** value
          val->destroy_data = free_destroy_cb;
          break;
       }
+      case ValueMem:
+         val->data = data;
+         val->destroy_data = free_destroy_cb;
+         break;
       case ValueJSON:
          val->data = data;
          val->destroy_data = json_destroy_cb;
@@ -292,8 +300,9 @@ static char*
 int8_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    char buf[MISC_LENGTH];
+
+   ret = pgagroal_indent(ret, tag, indent);
    memset(buf, 0, MISC_LENGTH);
    snprintf(buf, MISC_LENGTH, "%" PRId8, (int8_t)data);
    ret = pgagroal_append(ret, buf);
@@ -304,8 +313,8 @@ static char*
 uint8_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    char buf[MISC_LENGTH];
+   ret = pgagroal_indent(ret, tag, indent);
    memset(buf, 0, MISC_LENGTH);
    snprintf(buf, MISC_LENGTH, "%" PRIu8, (uint8_t)data);
    ret = pgagroal_append(ret, buf);
@@ -316,8 +325,9 @@ static char*
 int16_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    char buf[MISC_LENGTH];
+
+   ret = pgagroal_indent(ret, tag, indent);
    memset(buf, 0, MISC_LENGTH);
    snprintf(buf, MISC_LENGTH, "%" PRId16, (int16_t)data);
    ret = pgagroal_append(ret, buf);
@@ -328,8 +338,9 @@ static char*
 uint16_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    char buf[MISC_LENGTH];
+
+   ret = pgagroal_indent(ret, tag, indent);
    memset(buf, 0, MISC_LENGTH);
    snprintf(buf, MISC_LENGTH, "%" PRIu16, (uint16_t)data);
    ret = pgagroal_append(ret, buf);
@@ -340,8 +351,9 @@ static char*
 int32_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    char buf[MISC_LENGTH];
+
+   ret = pgagroal_indent(ret, tag, indent);
    memset(buf, 0, MISC_LENGTH);
    snprintf(buf, MISC_LENGTH, "%" PRId32, (int32_t)data);
    ret = pgagroal_append(ret, buf);
@@ -352,8 +364,9 @@ static char*
 uint32_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    char buf[MISC_LENGTH];
+
+   ret = pgagroal_indent(ret, tag, indent);
    memset(buf, 0, MISC_LENGTH);
    snprintf(buf, MISC_LENGTH, "%" PRIu32, (uint32_t)data);
    ret = pgagroal_append(ret, buf);
@@ -364,8 +377,9 @@ static char*
 int64_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    char buf[MISC_LENGTH];
+
+   ret = pgagroal_indent(ret, tag, indent);
    memset(buf, 0, MISC_LENGTH);
    snprintf(buf, MISC_LENGTH, "%" PRId64, (int64_t)data);
    ret = pgagroal_append(ret, buf);
@@ -376,8 +390,9 @@ static char*
 uint64_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    char buf[MISC_LENGTH];
+
+   ret = pgagroal_indent(ret, tag, indent);
    memset(buf, 0, MISC_LENGTH);
    snprintf(buf, MISC_LENGTH, "%" PRIu64, (uint64_t)data);
    ret = pgagroal_append(ret, buf);
@@ -388,8 +403,9 @@ static char*
 float_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    char buf[MISC_LENGTH];
+
+   ret = pgagroal_indent(ret, tag, indent);
    memset(buf, 0, MISC_LENGTH);
    snprintf(buf, MISC_LENGTH, "%f", pgagroal_value_to_float(data));
    ret = pgagroal_append(ret, buf);
@@ -400,11 +416,13 @@ static char*
 double_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    char buf[MISC_LENGTH];
+
+   ret = pgagroal_indent(ret, tag, indent);
    memset(buf, 0, MISC_LENGTH);
    snprintf(buf, MISC_LENGTH, "%f", pgagroal_value_to_double(data));
    ret = pgagroal_append(ret, buf);
+
    return ret;
 }
 
@@ -412,20 +430,22 @@ static char*
 string_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    char* str = (char*) data;
    char buf[MISC_LENGTH];
+   char* translated_string = NULL;
+
+   ret = pgagroal_indent(ret, tag, indent);
    memset(buf, 0, MISC_LENGTH);
    if (str == NULL)
    {
-      if (format == FORMAT_JSON)
+      if (format == FORMAT_JSON || format == FORMAT_JSON_COMPACT)
       {
          snprintf(buf, MISC_LENGTH, "null");
       }
    }
    else if (strlen(str) == 0)
    {
-      if (format == FORMAT_JSON)
+      if (format == FORMAT_JSON || format == FORMAT_JSON_COMPACT)
       {
          snprintf(buf, MISC_LENGTH, "\"%s\"", str);
       }
@@ -436,9 +456,11 @@ string_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
    }
    else
    {
-      if (format == FORMAT_JSON)
+      if (format == FORMAT_JSON || format == FORMAT_JSON_COMPACT)
       {
-         snprintf(buf, MISC_LENGTH, "\"%s\"", str);
+         translated_string = pgagroal_escape_string(str);
+         snprintf(buf, MISC_LENGTH, "\"%s\"", translated_string);
+         free(translated_string);
       }
       else if (format == FORMAT_TEXT)
       {
@@ -453,8 +475,8 @@ static char*
 bool_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    bool val = (bool) data;
+   ret = pgagroal_indent(ret, tag, indent);
    ret = pgagroal_append(ret, val?"true":"false");
    return ret;
 }
@@ -463,11 +485,13 @@ static char*
 char_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
-   ret = pgagroal_indent(ret, tag, indent);
    char buf[MISC_LENGTH];
+
+   ret = pgagroal_indent(ret, tag, indent);
    memset(buf, 0, MISC_LENGTH);
    snprintf(buf, MISC_LENGTH, "'%c'", (char)data);
    ret = pgagroal_append(ret, buf);
+
    return ret;
 }
 
@@ -487,4 +511,18 @@ static char*
 json_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    return pgagroal_json_to_string((struct json*)data, format, tag, indent);
+}
+
+static char*
+mem_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+{
+   char* ret = NULL;
+   char buf[MISC_LENGTH];
+
+   ret = pgagroal_indent(ret, tag, indent);
+   memset(buf, 0, MISC_LENGTH);
+   snprintf(buf, MISC_LENGTH, "%p", (void*)data);
+   ret = pgagroal_append(ret, buf);
+
+   return ret;
 }

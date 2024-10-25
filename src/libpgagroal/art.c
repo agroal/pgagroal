@@ -27,6 +27,7 @@
  */
 
 #include <art.h>
+#include <json.h>
 #include <utils.h>
 
 #include <stdbool.h>
@@ -292,8 +293,14 @@ art_to_json_string_cb(void* param, const unsigned char* key, uint32_t key_len, s
 static int
 art_to_text_string_cb(void* param, const unsigned char* key, uint32_t key_len, struct value* value);
 
+static int
+art_to_compact_json_string_cb(void* param, const unsigned char* key, uint32_t key_len, struct value* value);
+
 static char*
 to_json_string(struct art* t, char* tag, int indent);
+
+static char*
+to_compact_json_string(struct art* t, char* tag, int indent);
 
 static char*
 to_text_string(struct art* t, char* tag, int indent);
@@ -381,6 +388,10 @@ pgagroal_art_to_string(struct art* t, int32_t format, char* tag, int indent)
    else if (format == FORMAT_TEXT)
    {
       return to_text_string(t, tag, indent);
+   }
+   else if (format == FORMAT_JSON_COMPACT)
+   {
+      return to_compact_json_string(t, tag, indent);
    }
    return NULL;
 }
@@ -1459,16 +1470,43 @@ art_to_json_string_cb(void* param, const unsigned char* key, uint32_t key_len, s
    struct to_string_param* p = (struct to_string_param*) param;
    char* str = NULL;
    char* tag = NULL;
+   char* translated_key = NULL;
    p->cnt++;
    bool has_next = p->cnt < p->t->size;
    tag = pgagroal_append_char(tag, '"');
-   tag = pgagroal_append(tag, (char*)key);
+   translated_key = pgagroal_escape_string((char*)key);
+   tag = pgagroal_append(tag, translated_key);
+   free(translated_key);
    tag = pgagroal_append_char(tag, '"');
    tag = pgagroal_append(tag, ": ");
    str = pgagroal_value_to_string(value, FORMAT_JSON, tag, p->indent);
    free(tag);
    p->str = pgagroal_append(p->str, str);
    p->str = pgagroal_append(p->str, has_next ? ",\n" : "\n");
+
+   free(str);
+   return 0;
+}
+
+static int
+art_to_compact_json_string_cb(void* param, const unsigned char* key, uint32_t key_len, struct value* value)
+{
+   struct to_string_param* p = (struct to_string_param*) param;
+   char* str = NULL;
+   char* tag = NULL;
+   char* translated_key = NULL;
+   p->cnt++;
+   bool has_next = p->cnt < p->t->size;
+   tag = pgagroal_append_char(tag, '"');
+   translated_key = pgagroal_escape_string((char*)key);
+   tag = pgagroal_append(tag, (char*)translated_key);
+   free(translated_key);
+   tag = pgagroal_append_char(tag, '"');
+   tag = pgagroal_append(tag, ":");
+   str = pgagroal_value_to_string(value, FORMAT_JSON_COMPACT, tag, p->indent);
+   free(tag);
+   p->str = pgagroal_append(p->str, str);
+   p->str = pgagroal_append(p->str, has_next ? "," : "");
 
    free(str);
    return 0;
@@ -1484,7 +1522,7 @@ art_to_text_string_cb(void* param, const unsigned char* key, uint32_t key_len, s
    bool has_next = p->cnt < p->t->size;
    tag = pgagroal_append(tag, (char*)key);
    tag = pgagroal_append(tag, ": ");
-   if (value->type == ValueJSON)
+   if (value->type == ValueJSON && ((struct json*) value->data)->type != JSONUnknown)
    {
       tag = pgagroal_append(tag, "\n");
    }
@@ -1492,7 +1530,15 @@ art_to_text_string_cb(void* param, const unsigned char* key, uint32_t key_len, s
    {
       if (p->cnt == 1)
       {
-         str = pgagroal_value_to_string(value, FORMAT_TEXT, tag, 0);
+         if (value->type != ValueJSON || ((struct json*) value->data)->type == JSONUnknown)
+         {
+            str = pgagroal_value_to_string(value, FORMAT_TEXT, tag, 0);
+         }
+         else
+         {
+            p->str = pgagroal_indent(p->str, tag, 0);
+            str = pgagroal_value_to_string(value, FORMAT_TEXT, NULL, p->indent + INDENT_PER_LEVEL);
+         }
       }
       else
       {
@@ -1531,6 +1577,29 @@ to_json_string(struct art* t, char* tag, int indent)
    art_iterate(t, art_to_json_string_cb, &param);
    ret = param.str;
    ret = pgagroal_indent(ret, NULL, indent);
+   ret = pgagroal_append(ret, "}");
+   return ret;
+}
+
+static char*
+to_compact_json_string(struct art* t, char* tag, int indent)
+{
+   char* ret = NULL;
+   ret = pgagroal_indent(ret, tag, indent);
+   if (t == NULL || t->size == 0)
+   {
+      ret = pgagroal_append(ret, "{}");
+      return ret;
+   }
+   ret = pgagroal_append(ret, "{");
+   struct to_string_param param = {
+      .indent = indent,
+      .str = ret,
+      .t = t,
+      .cnt = 0,
+   };
+   art_iterate(t, art_to_compact_json_string_cb, &param);
+   ret = param.str;
    ret = pgagroal_append(ret, "}");
    return ret;
 }

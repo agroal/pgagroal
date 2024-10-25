@@ -464,6 +464,14 @@ pgagroal_indent(char* str, char* tag, int indent);
 bool
 pgagroal_compare_string(const char* str1, const char* str2);
 
+/**
+* Escape a string
+* @param str The original string
+* @return The escaped string
+*/
+char*
+pgagroal_escape_string(char* str);
+
 #ifdef DEBUG
 
 /**

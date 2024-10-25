@@ -65,6 +65,9 @@ static char*
 to_json_string(struct deque* deque, char* tag, int indent);
 
 static char*
+to_compact_json_string(struct deque* deque, char* tag, int indent);
+
+static char*
 to_text_string(struct deque* deque, char* tag, int indent);
 
 static struct deque_node*
@@ -228,6 +231,10 @@ pgagroal_deque_to_string(struct deque* deque, int32_t format, char* tag, int ind
    else if (format == FORMAT_TEXT)
    {
       return to_text_string(deque, tag, indent);
+   }
+   else if (format == FORMAT_JSON_COMPACT)
+   {
+      return to_compact_json_string(deque, tag, indent);
    }
    return NULL;
 }
@@ -457,6 +464,42 @@ to_json_string(struct deque* deque, char* tag, int indent)
       cur = deque_next(deque, cur);
    }
    ret = pgagroal_indent(ret, NULL, indent);
+   ret = pgagroal_append(ret, "]");
+   deque_unlock(deque);
+   return ret;
+}
+
+static char*
+to_compact_json_string(struct deque* deque, char* tag, int indent)
+{
+   char* ret = NULL;
+   ret = pgagroal_indent(ret, tag, indent);
+   struct deque_node* cur = NULL;
+   if (deque == NULL || pgagroal_deque_empty(deque))
+   {
+      ret = pgagroal_append(ret, "[]");
+      return ret;
+   }
+   deque_read_lock(deque);
+   ret = pgagroal_append(ret, "[");
+   cur = deque_next(deque, deque->start);
+   while (cur != NULL)
+   {
+      bool has_next = cur->next != deque->end;
+      char* str = NULL;
+      char* t = NULL;
+      if (cur->tag != NULL)
+      {
+         t = pgagroal_append(t, cur->tag);
+         t = pgagroal_append(t, ":");
+      }
+      str = pgagroal_value_to_string(cur->data, FORMAT_JSON_COMPACT, t, indent);
+      free(t);
+      ret = pgagroal_append(ret, str);
+      ret = pgagroal_append(ret, has_next ? "," : "");
+      free(str);
+      cur = deque_next(deque, cur);
+   }
    ret = pgagroal_append(ret, "]");
    deque_unlock(deque);
    return ret;
