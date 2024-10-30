@@ -53,6 +53,7 @@
 #include <netinet/tcp.h>
 
 static int bind_host(const char* hostname, int port, int** fds, int* length, bool non_blocking, int* buffer_size, bool no_delay, int backlog);
+static int socket_buffers(int fd, int* buffer_size);
 
 /**
  *
@@ -524,28 +525,6 @@ pgagroal_tcp_nodelay(int fd)
 }
 
 int
-pgagroal_socket_buffers(int fd, int* buffer_size)
-{
-   socklen_t optlen = sizeof(int);
-
-   if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, buffer_size, optlen) == -1)
-   {
-      pgagroal_log_warn("socket_buffers: SO_RCVBUF %d %s", fd, strerror(errno));
-      errno = 0;
-      return 1;
-   }
-
-   if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, buffer_size, optlen) == -1)
-   {
-      pgagroal_log_warn("socket_buffers: SO_SNDBUF %d %s", fd, strerror(errno));
-      errno = 0;
-      return 1;
-   }
-
-   return 0;
-}
-
-int
 pgagroal_read_socket(SSL* ssl, int fd, char* buffer, size_t buffer_size)
 {
    int byte_read;
@@ -575,6 +554,28 @@ pgagroal_write_socket(SSL* ssl, int fd, char* buffer, size_t buffer_size)
    }
 
    return byte_write;
+}
+
+static int
+socket_buffers(int fd, int* buffer_size)
+{
+   socklen_t optlen = sizeof(int);
+
+   if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, buffer_size, optlen) == -1)
+   {
+      pgagroal_log_warn("socket_buffers: SO_RCVBUF %d %s", fd, strerror(errno));
+      errno = 0;
+      return 1;
+   }
+
+   if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, buffer_size, optlen) == -1)
+   {
+      pgagroal_log_warn("socket_buffers: SO_SNDBUF %d %s", fd, strerror(errno));
+      errno = 0;
+      return 1;
+   }
+
+   return 0;
 }
 
 /**
@@ -654,7 +655,7 @@ bind_host(const char* hostname, int port, int** fds, int* length, bool non_block
          }
       }
 
-      if (pgagroal_socket_buffers(sockfd, buffer_size))
+      if (socket_buffers(sockfd, buffer_size))
       {
          pgagroal_disconnect(sockfd);
          continue;
