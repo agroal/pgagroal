@@ -554,7 +554,7 @@ main(int argc, char** argv)
    else
    {
       /* Remote connection */
-      if (pgagroal_connect(host, atoi(port), &socket, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay))
+      if (pgagroal_connect(host, atoi(port), &socket, config->keep_alive, config->non_blocking, config->nodelay))
       {
          /* Remote connection */
          l_port = strtol(port, NULL, 10);
@@ -572,7 +572,7 @@ main(int argc, char** argv)
             goto done;
          }
 
-         if (pgagroal_connect(host, (int)l_port, &socket, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay))
+         if (pgagroal_connect(host, (int)l_port, &socket, config->keep_alive, config->non_blocking, config->nodelay))
          {
             warnx("No route to host: %s:%ld\n", host, l_port);
             goto done;

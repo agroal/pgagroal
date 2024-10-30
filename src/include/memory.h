@@ -44,13 +44,6 @@ void
 pgagroal_memory_init(void);
 
 /**
- * Set the size of the local message structure
- * @param size The size
- */
-void
-pgagroal_memory_size(size_t size);
-
-/**
  * Get the message structure
  * @return The structure
  */

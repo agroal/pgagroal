@@ -52,23 +52,10 @@ static void* data = NULL;
 void
 pgagroal_memory_init(void)
 {
-   struct main_configuration* config;
-
 #ifdef DEBUG
    assert(shmem != NULL);
 #endif
 
-   config = (struct main_configuration*)shmem;
-
-   pgagroal_memory_size(config->buffer_size);
-}
-
-/**
- *
- */
-void
-pgagroal_memory_size(size_t size)
-{
    pgagroal_memory_destroy();
 
    message = (struct message*)calloc(1, sizeof(struct message));
@@ -77,7 +64,7 @@ pgagroal_memory_size(size_t size)
       goto error;
    }
 
-   data = calloc(1, size);
+   data = calloc(1, DEFAULT_BUFFER_SIZE);
    if (data == NULL)
    {
       goto error;
@@ -85,7 +72,7 @@ pgagroal_memory_size(size_t size)
 
    message->kind = 0;
    message->length = 0;
-   message->max_length = size;
+   message->max_length = DEFAULT_BUFFER_SIZE;
    message->data = data;
 
    return;

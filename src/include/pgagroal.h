@@ -67,10 +67,9 @@ extern "C" {
 
 #define MAX_PROCESS_TITLE_LENGTH 256
 
-#define MAX_BUFFER_SIZE      65535
-#define DEFAULT_BUFFER_SIZE  65535
-#define SECURITY_BUFFER_SIZE  1024
-#define HTTP_BUFFER_SIZE      1024
+#define DEFAULT_BUFFER_SIZE  131072
+#define SECURITY_BUFFER_SIZE   1024
+#define HTTP_BUFFER_SIZE       1024
 
 #define MAX_USERNAME_LENGTH    128
 #define MAX_DATABASE_LENGTH    256
@@ -536,7 +535,6 @@ struct main_configuration
    char pidfile[MAX_PATH];       /**< File containing the PID */
 
    char libev[MISC_LENGTH]; /**< Name of libev mode */
-   int buffer_size;         /**< Socket buffer size */
    bool keep_alive;         /**< Use keep alive */
    bool nodelay;            /**< Use NODELAY */
    bool non_blocking;       /**< Use non blocking */

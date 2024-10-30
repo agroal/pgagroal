@@ -143,7 +143,6 @@ pgagroal_init_configuration(void* shm)
    config->disconnect_client = 0;
    config->disconnect_client_force = false;
 
-   config->buffer_size = DEFAULT_BUFFER_SIZE;
    config->keep_alive = true;
    config->nodelay = true;
    config->non_blocking = false;
@@ -2664,7 +2663,6 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
 
    /* libev */
    restart_string("libev", config->libev, reload->libev, true);
-   config->buffer_size = reload->buffer_size;
    config->keep_alive = reload->keep_alive;
    config->nodelay = reload->nodelay;
    config->non_blocking = reload->non_blocking;
@@ -3680,10 +3678,6 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       {
          return to_string(buffer, config->unix_socket_dir, buffer_size);
       }
-      else if (!strncmp(key, "buffer_size", MISC_LENGTH))
-      {
-         return to_int(buffer, config->buffer_size);
-      }
       else if (!strncmp(key, "keep_alive", MISC_LENGTH))
       {
          return to_bool(buffer, config->keep_alive);
@@ -4652,17 +4646,6 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
          max = MISC_LENGTH - 1;
       }
       memcpy(config->libev, value, max);
-   }
-   else if (key_in_section("buffer_size", section, key, true, &unknown))
-   {
-      if (as_int(value, &config->buffer_size))
-      {
-         unknown = true;
-      }
-      if (config->buffer_size > MAX_BUFFER_SIZE)
-      {
-         config->buffer_size = MAX_BUFFER_SIZE;
-      }
    }
    else if (key_in_section("keep_alive", section, key, true, &unknown))
    {

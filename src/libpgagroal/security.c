@@ -191,7 +191,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
       }
       else
       {
-         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &server_fd, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay);
+         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &server_fd, config->keep_alive, config->non_blocking, config->nodelay);
       }
 
       if (ret)
@@ -868,8 +868,6 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
    struct message* sasl_continue_response = NULL;
    struct message* sasl_final = NULL;
    struct message* msg = NULL;
-
-   pgagroal_memory_size(DEFAULT_BUFFER_SIZE);
 
    if (pgagroal_get_home_directory() == NULL)
    {
@@ -4695,7 +4693,7 @@ retry:
       }
       else
       {
-         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, server_fd, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay);
+         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, server_fd, config->keep_alive, config->non_blocking, config->nodelay);
       }
 
       if (ret)

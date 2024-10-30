@@ -58,8 +58,9 @@ static int bind_host(const char* hostname, int port, int** fds, int* length, boo
  *
  */
 int
-pgagroal_bind(const char* hostname, int port, int** fds, int* length, bool non_blocking, int* buffer_size, bool no_delay, int backlog)
+pgagroal_bind(const char* hostname, int port, int** fds, int* length, bool non_blocking, bool no_delay, int backlog)
 {
+   int default_buffer_size = DEFAULT_BUFFER_SIZE;
    struct ifaddrs* ifaddr, * ifa;
    struct sockaddr_in* sa4;
    struct sockaddr_in6* sa6;
@@ -98,7 +99,7 @@ pgagroal_bind(const char* hostname, int port, int** fds, int* length, bool non_b
                inet_ntop(AF_INET6, &sa6->sin6_addr, addr, sizeof(addr));
             }
 
-            if (bind_host(addr, port, &new_fds, &new_length, non_blocking, buffer_size, no_delay, backlog))
+            if (bind_host(addr, port, &new_fds, &new_length, non_blocking, &default_buffer_size, no_delay, backlog))
             {
                free(new_fds);
                continue;
@@ -135,7 +136,7 @@ pgagroal_bind(const char* hostname, int port, int** fds, int* length, bool non_b
       return 0;
    }
 
-   return bind_host(hostname, port, fds, length, non_blocking, buffer_size, no_delay, backlog);
+   return bind_host(hostname, port, fds, length, non_blocking, &default_buffer_size, no_delay, backlog);
 }
 
 /**
@@ -228,8 +229,9 @@ pgagroal_remove_unix_socket(const char* directory, const char* file)
  *
  */
 int
-pgagroal_connect(const char* hostname, int port, int* fd, bool keep_alive, bool non_blocking, int* buffer_size, bool no_delay)
+pgagroal_connect(const char* hostname, int port, int* fd, bool keep_alive, bool non_blocking, bool no_delay)
 {
+   int default_buffer_size = DEFAULT_BUFFER_SIZE;
    struct addrinfo hints = {0};
    struct addrinfo* servinfo = NULL;
    struct addrinfo* p = NULL;
@@ -294,7 +296,7 @@ pgagroal_connect(const char* hostname, int port, int* fd, bool keep_alive, bool 
             }
          }
 
-         if (setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, buffer_size, optlen) == -1)
+         if (setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &default_buffer_size, optlen) == -1)
          {
             error = errno;
             pgagroal_disconnect(*fd);
@@ -303,7 +305,7 @@ pgagroal_connect(const char* hostname, int port, int* fd, bool keep_alive, bool 
             continue;
          }
 
-         if (setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, buffer_size, optlen) == -1)
+         if (setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &default_buffer_size, optlen) == -1)
          {
             error = errno;
             pgagroal_disconnect(*fd);
