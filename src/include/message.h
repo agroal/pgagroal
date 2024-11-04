@@ -51,7 +51,6 @@ struct message
 {
    signed char kind;  /**< The kind of the message */
    ssize_t length;    /**< The length of the message */
-   size_t max_length; /**< The maximum size of the message */
    void* data;        /**< The message data */
 } __attribute__ ((aligned (64)));
 

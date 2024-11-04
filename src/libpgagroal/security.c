@@ -28,6 +28,7 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <aes.h>
 #include <logging.h>
 #include <memory.h>
 #include <message.h>
@@ -89,10 +90,6 @@ static char* get_password(char* username);
 static char* get_frontend_password(char* username);
 static char* get_admin_password(char* username);
 static int   get_salt(void* data, char** salt);
-
-static int derive_key_iv(char* password, unsigned char* key, unsigned char* iv);
-static int aes_encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphertext, int* ciphertext_length);
-static int aes_decrypt(char* ciphertext, int ciphertext_length, unsigned char* key, unsigned char* iv, char** plaintext);
 
 static int sasl_prep(char* password, char** password_prep);
 static int generate_nounce(char** nounce);
@@ -639,6 +636,8 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
 
    *client_ssl = NULL;
 
+   pgagroal_memory_init();
+
    /* Receive client calls - at any point if client exits return AUTH_ERROR */
    status = pgagroal_read_timeout_message(NULL, client_fd, config->common.authentication_timeout, &msg);
    if (status != MESSAGE_STATUS_OK)
@@ -1036,7 +1035,7 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
       goto error;
    }
 
-   pgagroal_base64_decode(base64_salt, strlen(base64_salt), &salt, &salt_length);
+   pgagroal_base64_decode(base64_salt, strlen(base64_salt), (void**)&salt, &salt_length);
 
    iteration = atoi(iteration_string);
 
@@ -1085,7 +1084,7 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
 
    /* Get 'v' attribute */
    base64_server_signature = sasl_final->data + 11;
-   pgagroal_base64_decode(base64_server_signature, sasl_final->length - 11, &server_signature_received, &server_signature_received_length);
+   pgagroal_base64_decode(base64_server_signature, sasl_final->length - 11, (void**)&server_signature_received, &server_signature_received_length);
 
    if (server_signature(password_prep, salt, salt_length, iteration,
                         NULL, 0,
@@ -1968,7 +1967,7 @@ retry:
    }
 
    get_scram_attribute('p', (char*)msg->data + 5, msg->length - 5, &base64_client_proof);
-   pgagroal_base64_decode(base64_client_proof, strlen(base64_client_proof), &client_proof_received, &client_proof_received_length);
+   pgagroal_base64_decode(base64_client_proof, strlen(base64_client_proof), (void**)&client_proof_received, &client_proof_received_length);
 
    client_final_message_without_proof = calloc(1, 58);
 
@@ -2766,7 +2765,7 @@ server_scram256(char* username, char* password, int slot, SSL* server_ssl)
       goto error;
    }
 
-   pgagroal_base64_decode(base64_salt, strlen(base64_salt), &salt, &salt_length);
+   pgagroal_base64_decode(base64_salt, strlen(base64_salt), (void**)&salt, &salt_length);
 
    iteration = atoi(iteration_string);
 
@@ -2826,7 +2825,7 @@ server_scram256(char* username, char* password, int slot, SSL* server_ssl)
    /* Get 'v' attribute */
    base64_server_signature = sasl_final->data + 11;
    pgagroal_base64_decode(base64_server_signature, sasl_final->length - 11,
-                          &server_signature_received, &server_signature_received_length);
+                          (void**)&server_signature_received, &server_signature_received_length);
 
    if (server_signature(password_prep, salt, salt_length, iteration,
                         NULL, 0,
@@ -3282,7 +3281,7 @@ pgagroal_get_master_key(char** masterkey)
       goto error;
    }
 
-   pgagroal_base64_decode(&line[0], strlen(&line[0]), &mk, &mk_length);
+   pgagroal_base64_decode(&line[0], strlen(&line[0]), (void**)&mk, &mk_length);
 
    *masterkey = mk;
 
@@ -3300,40 +3299,6 @@ error:
    }
 
    return 1;
-}
-
-int
-pgagroal_encrypt(char* plaintext, char* password, char** ciphertext, int* ciphertext_length)
-{
-   unsigned char key[EVP_MAX_KEY_LENGTH];
-   unsigned char iv[EVP_MAX_IV_LENGTH];
-
-   memset(&key, 0, sizeof(key));
-   memset(&iv, 0, sizeof(iv));
-
-   if (derive_key_iv(password, key, iv) != 0)
-   {
-      return 1;
-   }
-
-   return aes_encrypt(plaintext, key, iv, ciphertext, ciphertext_length);
-}
-
-int
-pgagroal_decrypt(char* ciphertext, int ciphertext_length, char* password, char** plaintext)
-{
-   unsigned char key[EVP_MAX_KEY_LENGTH];
-   unsigned char iv[EVP_MAX_IV_LENGTH];
-
-   memset(&key, 0, sizeof(key));
-   memset(&iv, 0, sizeof(iv));
-
-   if (derive_key_iv(password, key, iv) != 0)
-   {
-      return 1;
-   }
-
-   return aes_decrypt(ciphertext, ciphertext_length, key, iv, plaintext);
 }
 
 int
@@ -3485,131 +3450,6 @@ pgagroal_tls_valid(void)
    return 0;
 
 error:
-
-   return 1;
-}
-
-static int
-derive_key_iv(char* password, unsigned char* key, unsigned char* iv)
-{
-   if (!EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha1(), NULL,
-                       (unsigned char*) password, strlen(password), 1,
-                       key, iv))
-   {
-      return 1;
-   }
-
-   return 0;
-}
-
-static int
-aes_encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphertext, int* ciphertext_length)
-{
-   EVP_CIPHER_CTX* ctx = NULL;
-   int length;
-   size_t size;
-   unsigned char* ct = NULL;
-   int ct_length;
-
-   if (!(ctx = EVP_CIPHER_CTX_new()))
-   {
-      goto error;
-   }
-
-   if (EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv) != 1)
-   {
-      goto error;
-   }
-
-   size = strlen(plaintext) + EVP_CIPHER_block_size(EVP_aes_256_cbc());
-   ct = calloc(1, size);
-
-   if (EVP_EncryptUpdate(ctx,
-                         ct, &length,
-                         (unsigned char*)plaintext, strlen((char*)plaintext)) != 1)
-   {
-      goto error;
-   }
-
-   ct_length = length;
-
-   if (EVP_EncryptFinal_ex(ctx, ct + length, &length) != 1)
-   {
-      goto error;
-   }
-
-   ct_length += length;
-
-   EVP_CIPHER_CTX_free(ctx);
-
-   *ciphertext = (char*)ct;
-   *ciphertext_length = ct_length;
-
-   return 0;
-
-error:
-   if (ctx)
-   {
-      EVP_CIPHER_CTX_free(ctx);
-   }
-
-   free(ct);
-
-   return 1;
-}
-
-static int
-aes_decrypt(char* ciphertext, int ciphertext_length, unsigned char* key, unsigned char* iv, char** plaintext)
-{
-   EVP_CIPHER_CTX* ctx = NULL;
-   int plaintext_length;
-   int length;
-   size_t size;
-   char* pt = NULL;
-
-   if (!(ctx = EVP_CIPHER_CTX_new()))
-   {
-      goto error;
-   }
-
-   if (EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv) != 1)
-   {
-      goto error;
-   }
-
-   size = ciphertext_length + EVP_CIPHER_block_size(EVP_aes_256_cbc());
-   pt = calloc(1, size);
-
-   if (EVP_DecryptUpdate(ctx,
-                         (unsigned char*)pt, &length,
-                         (unsigned char*)ciphertext, ciphertext_length) != 1)
-   {
-      goto error;
-   }
-
-   plaintext_length = length;
-
-   if (EVP_DecryptFinal_ex(ctx, (unsigned char*)pt + length, &length) != 1)
-   {
-      goto error;
-   }
-
-   plaintext_length += length;
-
-   EVP_CIPHER_CTX_free(ctx);
-
-   pt[plaintext_length] = 0;
-   *plaintext = pt;
-
-   return 0;
-
-error:
-   if (ctx)
-   {
-      EVP_CIPHER_CTX_free(ctx);
-   }
-
-   free(pt);
 
    return 1;
 }
@@ -5053,7 +4893,7 @@ auth_query_server_scram256(char* username, char* password, int socket, SSL* serv
       goto error;
    }
 
-   pgagroal_base64_decode(base64_salt, strlen(base64_salt), &salt, &salt_length);
+   pgagroal_base64_decode(base64_salt, strlen(base64_salt), (void**)&salt, &salt_length);
 
    iteration = atoi(iteration_string);
 
@@ -5113,7 +4953,7 @@ auth_query_server_scram256(char* username, char* password, int socket, SSL* serv
    /* Get 'v' attribute */
    base64_server_signature = sasl_final->data + 11;
    pgagroal_base64_decode(base64_server_signature, sasl_final->length - 11,
-                          &server_signature_received, &server_signature_received_length);
+                          (void**)&server_signature_received, &server_signature_received_length);
 
    if (server_signature(password_prep, salt, salt_length, iteration,
                         NULL, 0,
@@ -5473,15 +5313,15 @@ retry:
 
    /* Process shadow information */
    iterations = atoi(s_iterations);
-   if (pgagroal_base64_decode(base64_salt, strlen(base64_salt), &salt, &salt_length))
+   if (pgagroal_base64_decode(base64_salt, strlen(base64_salt), (void**)&salt, &salt_length))
    {
       goto error;
    }
-   if (pgagroal_base64_decode(base64_stored_key, strlen(base64_stored_key), &stored_key, &stored_key_length))
+   if (pgagroal_base64_decode(base64_stored_key, strlen(base64_stored_key), (void**)&stored_key, &stored_key_length))
    {
       goto error;
    }
-   if (pgagroal_base64_decode(base64_server_key, strlen(base64_server_key), &server_key, &server_key_length))
+   if (pgagroal_base64_decode(base64_server_key, strlen(base64_server_key), (void**)&server_key, &server_key_length))
    {
       goto error;
    }
@@ -5515,7 +5355,7 @@ retry:
    }
 
    get_scram_attribute('p', (char*)msg->data + 5, msg->length - 5, &base64_client_proof);
-   pgagroal_base64_decode(base64_client_proof, strlen(base64_client_proof), &client_proof_received, &client_proof_received_length);
+   pgagroal_base64_decode(base64_client_proof, strlen(base64_client_proof), (void**)&client_proof_received, &client_proof_received_length);
 
    client_final_message_without_proof = calloc(1, 58);
    memcpy(client_final_message_without_proof, msg->data + 5, 57);

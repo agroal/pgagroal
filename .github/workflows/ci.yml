@@ -23,12 +23,14 @@ jobs:
       run: sudo apt update
     - name: Install libev
       run: sudo apt install -y libev4 libev-dev
-    - name: Install cJSON
-      run: sudo apt install -y libcjson1 libcjson-dev
     - name: Install systemd
       run: sudo apt install -y libsystemd-dev
     - name: Install rst2man
       run: sudo apt install -y python3-docutils
+    - name: Install zstd
+      run: sudo apt install -y libzstd-dev
+    - name: Install lz4
+      run: sudo apt install -y liblz4-dev
     - name: Install graphviz
       run: sudo apt install graphviz
     - name: Install doxygen
@@ -113,8 +115,10 @@ jobs:
       run: brew install openssl
     - name: Install libev
       run: brew install libev
-    - name: Install cJSON
-      run: brew install cjson
+    - name: Install zstd
+      run: brew install libzstd
+    - name: Install lz4
+      run: brew install liblz4
     - name: Install rst2man
       run: brew install docutils
     - name: Install graphviz

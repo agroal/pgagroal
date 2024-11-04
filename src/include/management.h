@@ -34,132 +34,120 @@ extern "C" {
 #endif
 
 #include <pgagroal.h>
+#include <json.h>
 
 #include <stdbool.h>
 #include <stdlib.h>
 
 #include <openssl/ssl.h>
 
-#define MANAGEMENT_TRANSFER_CONNECTION 1
-#define MANAGEMENT_RETURN_CONNECTION   2
-#define MANAGEMENT_KILL_CONNECTION     3
-#define MANAGEMENT_FLUSH               4
-#define MANAGEMENT_GRACEFULLY          5
-#define MANAGEMENT_STOP                6
-#define MANAGEMENT_STATUS              7
-#define MANAGEMENT_DETAILS             8
-#define MANAGEMENT_ISALIVE             9
-#define MANAGEMENT_CANCEL_SHUTDOWN    10
-#define MANAGEMENT_ENABLEDB           11
-#define MANAGEMENT_DISABLEDB          12
-#define MANAGEMENT_RESET              13
-#define MANAGEMENT_RESET_SERVER       14
-#define MANAGEMENT_CLIENT_DONE        15
-#define MANAGEMENT_CLIENT_FD          16
+/**
+ * Management header
+ */
+#define MANAGEMENT_COMPRESSION_NONE     0
+#define MANAGEMENT_COMPRESSION_GZIP     1
+#define MANAGEMENT_COMPRESSION_ZSTD     2
+#define MANAGEMENT_COMPRESSION_LZ4      3
+#define MANAGEMENT_COMPRESSION_BZIP2    4
+
+#define MANAGEMENT_ENCRYPTION_NONE      0
+#define MANAGEMENT_ENCRYPTION_AES256    1
+#define MANAGEMENT_ENCRYPTION_AES192    2
+#define MANAGEMENT_ENCRYPTION_AES128    3
+
+/**
+ * Management categories
+ */
+#define MANAGEMENT_CATEGORY_HEADER   "Header"
+#define MANAGEMENT_CATEGORY_REQUEST  "Request"
+#define MANAGEMENT_CATEGORY_RESPONSE "Response"
+#define MANAGEMENT_CATEGORY_OUTCOME  "Outcome"
+
+/**
+ * Management commands
+ */
+#define MANAGEMENT_CANCEL_SHUTDOWN     1
+/* #define MANAGEMENT_CONFIG_GET          2 */
+/* #define MANAGEMENT_CONFIG_LS           3 */
+/* #define MANAGEMENT_CONFIG_SET          4 */
+#define MANAGEMENT_DETAILS             5
+#define MANAGEMENT_DISABLEDB           6
+#define MANAGEMENT_ENABLEDB            7
+#define MANAGEMENT_FLUSH               8
+#define MANAGEMENT_GET_PASSWORD        9
+#define MANAGEMENT_GRACEFULLY         10
+#define MANAGEMENT_PING               11
+#define MANAGEMENT_RELOAD             12
+#define MANAGEMENT_CLEAR              13
+#define MANAGEMENT_CLEAR_SERVER       14
+#define MANAGEMENT_SHUTDOWN           15
+#define MANAGEMENT_STATUS             16
 #define MANAGEMENT_SWITCH_TO          17
-#define MANAGEMENT_RELOAD             18
-#define MANAGEMENT_REMOVE_FD          19
-#define MANAGEMENT_CONFIG_GET         20
-#define MANAGEMENT_CONFIG_SET         21
-#define MANAGEMENT_CONFIG_LS          22
-#define MANAGEMENT_GET_PASSWORD       23
 
 /**
- * Status for the 'ping' (i.e., is-alive) command
+ * Management arguments
  */
-#define PING_STATUS_RUNNING 1
-#define PING_STATUS_SHUTDOWN_GRACEFULLY 2
+#define MANAGEMENT_ARGUMENT_ACTIVE_CONNECTIONS    "ActiveConnections"
+#define MANAGEMENT_ARGUMENT_APPNAME               "AppName"
+#define MANAGEMENT_ARGUMENT_CLIENT_VERSION        "ClientVersion"
+#define MANAGEMENT_ARGUMENT_COMMAND               "Command"
+#define MANAGEMENT_ARGUMENT_COMPRESSION           "Compression"
+#define MANAGEMENT_ARGUMENT_CONNECTIONS           "Connections"
+#define MANAGEMENT_ARGUMENT_DATABASE              "Database"
+#define MANAGEMENT_ARGUMENT_DATABASES             "Databases"
+#define MANAGEMENT_ARGUMENT_ENABLED               "Enabled"
+#define MANAGEMENT_ARGUMENT_ENCRYPTION            "Encryption"
+#define MANAGEMENT_ARGUMENT_ERROR                 "Error"
+#define MANAGEMENT_ARGUMENT_FD                    "FD"
+#define MANAGEMENT_ARGUMENT_HOST                  "Host"
+#define MANAGEMENT_ARGUMENT_INITIAL_CONNECTIONS   "InitialConnections"
+#define MANAGEMENT_ARGUMENT_LIMITS                "Limits"
+#define MANAGEMENT_ARGUMENT_MAX_CONNECTIONS       "MaxConnections"
+#define MANAGEMENT_ARGUMENT_MIN_CONNECTIONS       "MinConnections"
+#define MANAGEMENT_ARGUMENT_MODE                  "Mode"
+#define MANAGEMENT_ARGUMENT_NUMBER_OF_SERVERS     "NumberOfServers"
+#define MANAGEMENT_ARGUMENT_OUTPUT                "Output"
+#define MANAGEMENT_ARGUMENT_PASSWORD              "Password"
+#define MANAGEMENT_ARGUMENT_PID                   "PID"
+#define MANAGEMENT_ARGUMENT_PORT                  "Port"
+#define MANAGEMENT_ARGUMENT_RESTART               "Restart"
+#define MANAGEMENT_ARGUMENT_SERVER                "Server"
+#define MANAGEMENT_ARGUMENT_SERVERS               "Servers"
+#define MANAGEMENT_ARGUMENT_SERVER_VERSION        "ServerVersion"
+#define MANAGEMENT_ARGUMENT_START_TIME            "StartTime"
+#define MANAGEMENT_ARGUMENT_STATE                 "State"
+#define MANAGEMENT_ARGUMENT_STATUS                "Status"
+#define MANAGEMENT_ARGUMENT_TIME                  "Time"
+#define MANAGEMENT_ARGUMENT_TIMESTAMP             "Timestamp"
+#define MANAGEMENT_ARGUMENT_TIMESTAMP             "Timestamp"
+#define MANAGEMENT_ARGUMENT_TOTAL_CONNECTIONS     "TotalConnections"
+#define MANAGEMENT_ARGUMENT_USERNAME              "Username"
 
 /**
- * Available command output formats
+ * Management error
  */
-#define COMMAND_OUTPUT_FORMAT_TEXT 'T'
-#define COMMAND_OUTPUT_FORMAT_JSON 'J'
+#define MANAGEMENT_ERROR_BAD_PAYLOAD     1
+#define MANAGEMENT_ERROR_UNKNOWN_COMMAND 2
+#define MANAGEMENT_ERROR_ALLOCATION      3
+
+#define MANAGEMENT_ERROR_METRICS_NOFORK   100
+#define MANAGEMENT_ERROR_METRICS_NETWORK  101
+
+#define MANAGEMENT_ERROR_FLUSH_NOFORK   200
+#define MANAGEMENT_ERROR_FLUSH_NETWORK  201
+
+#define MANAGEMENT_ERROR_STATUS_NOFORK   700
+#define MANAGEMENT_ERROR_STATUS_NETWORK  701
+
+#define MANAGEMENT_ERROR_STATUS_DETAILS_NOFORK  800
+#define MANAGEMENT_ERROR_STATUS_DETAILS_NETWORK 801
 
 /**
- * Available applications
+ * Output formats
  */
-#define PGAGROAL_EXECUTABLE 1
-#define PGAGROAL_EXECUTABLE_CLI 2
-#define PGAGROAL_EXECUTABLE_VAULT 3
-
-/** @struct pgagroal_version_info
- * stores the application name and its version
- * which are sent through the socket
- */
-struct pgagroal_version_info
-{
-   char s[2];   /**< The command encoded */
-   int command; /**< The command */
-   char v[3];   /**< The version encoded */
-   int version; /**< The version */
-};
-
-/**
- * Get the frontend password of a user
- * @param ssl The SSL connection
- * @param socket The socket descriptor
- * @param user The frontend user
- * @param password The desired password
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_get_password(SSL* ssl, int socket, char* username, char* password);
-
-/**
- * Write the frontend password of a user to the socket
- * @param socket The socket descriptor
- * @param password The frontend user
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_write_get_password(SSL* ssl, int socket, char* password);
-
-/**
- * Read the management header
- * @param socket The socket descriptor
- * @param id The resulting management identifier
- * @param slot The resulting slot
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_read_header(int socket, signed char* id, int32_t* slot);
-
-/**
- * Read the management payload
- * @param socket The socket descriptor
- * @param id The management identifier
- * @param payload_i The resulting integer payload
- * @param payload_s The resulting string payload
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_read_payload(int socket, signed char id, int* payload_i, char** payload_s);
-
-/**
- * Management operation: Transfer a connection
- * @param slot The slot
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_transfer_connection(int32_t slot);
-
-/**
- * Management operation: Return a connection
- * @param slot The slot
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_return_connection(int32_t slot);
-
-/**
- * Management operation: Kill a connection
- * @param slot The slot
- * @param socket The socket
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_kill_connection(int32_t slot, int socket);
+#define MANAGEMENT_OUTPUT_FORMAT_TEXT 0
+#define MANAGEMENT_OUTPUT_FORMAT_JSON 1
+#define MANAGEMENT_OUTPUT_FORMAT_RAW  2
 
 /**
  * Management operation: Flush the pool
@@ -167,338 +155,289 @@ pgagroal_management_kill_connection(int32_t slot, int socket);
  * @param socket The socket descriptor
  * @param mode The flush mode
  * @param database The database
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_flush(SSL* ssl, int socket, int32_t mode, char* database);
+pgagroal_management_request_flush(SSL* ssl, int socket, int32_t mode, char* database, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
  * Management operation: Enable database
  * @param ssl The SSL connection
  * @param socket The socket descriptor
  * @param database The database name
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_enabledb(SSL* ssl, int socket, char* database);
+pgagroal_management_request_enabledb(SSL* ssl, int socket, char* database, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
  * Management operation: Disable database
  * @param ssl The SSL connection
  * @param socket The socket descriptor
  * @param database The database name
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_disabledb(SSL* ssl, int socket, char* database);
+pgagroal_management_request_disabledb(SSL* ssl, int socket, char* database, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
  * Management operation: Gracefully
  * @param ssl The SSL connection
  * @param socket The socket descriptor
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_gracefully(SSL* ssl, int socket);
+pgagroal_management_request_gracefully(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
  * Management operation: Stop
  * @param ssl The SSL connection
  * @param socket The socket descriptor
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_stop(SSL* ssl, int socket);
+pgagroal_management_request_shutdown(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
  * Management operation: Cancel shutdown
  * @param ssl The SSL connection
  * @param socket The socket descriptor
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_cancel_shutdown(SSL* ssl, int socket);
+pgagroal_management_request_cancel_shutdown(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
  * Management operation: Status
  * @param ssl The SSL connection
  * @param socket The socket descriptor
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_status(SSL* ssl, int socket);
-
-/**
- * Management: Read status
- * @param socket The socket
- * @param output_format a char describing the type of output (text or json)
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_read_status(SSL* ssl, int socket, char output_format);
-
-/**
- * Management: Write status
- * @param socket The socket
- * @param graceful Is pgagroal in graceful shutdown
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_write_status(int socket, bool graceful);
+pgagroal_management_request_status(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
  * Management operation: Details
  * @param ssl The SSL connection
  * @param socket The socket
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_details(SSL* ssl, int socket);
-
-/**
- * Management: Read details
- * @param socket The socket
- * @param output_format the output format for this command (text, json)
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_read_details(SSL* ssl, int socket, char output_format);
-
-/**
- * Management: Write details
- * @param socket The socket
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_write_details(int socket);
+pgagroal_management_request_details(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
  * Management operation: isalive
  * @param socket The socket
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_isalive(SSL* ssl, int socket);
+pgagroal_management_request_ping(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
- * Management: Read isalive
- * @param socket The socket
- * @param status The resulting status
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_read_isalive(SSL* ssl, int socket, int* status, char output_format);
-
-/**
- * Management: Write isalive
- * @param socket The socket
- * @param gracefully Is the server shutting down gracefully
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_write_isalive(int socket, bool gracefully);
-
-/**
- * Management operation: Reset
+ * Management operation: Clear
  * @param ssl The SSL connection
  * @param socket The socket
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_reset(SSL* ssl, int socket);
+pgagroal_management_request_clear(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
- * Management operation: Reset server
+ * Management operation: Clear server
  * @param ssl The SSL connection
  * @param socket The socket
  * @param server The server
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_reset_server(SSL* ssl, int socket, char* server);
-
-/**
- * Management operation: Client done
- * @param pid The pid
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_client_done(pid_t pid);
-
-/**
- * Management operation: Client file descriptor
- * @param slot The slot
- * @param pid The pid
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_management_client_fd(int32_t slot, pid_t pid);
+pgagroal_management_request_clear_server(SSL* ssl, int socket, char* server, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
  * Management operation: Switch to
  * @param ssl The SSL connection
  * @param socket The socket
  * @param server The server
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_switch_to(SSL* ssl, int socket, char* server);
+pgagroal_management_request_switch_to(SSL* ssl, int socket, char* server, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
  * Management operation: Reload
  * @param ssl The SSL connection
  * @param socket The socket
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_reload(SSL* ssl, int socket);
+pgagroal_management_request_reload(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+
+/* /\** */
+/*  * Management operation: get a configuration setting. */
+/*  * This function sends over the socket the message to get a configuration */
+/*  * value. */
+/*  * In particular, the message block for the action config_get is sent, */
+/*  * then the size of the configuration parameter to get (e.g., `max_connections`) */
+/*  * and last the parameter name itself. */
+/*  * */
+/*  * @param ssl the SSL connection */
+/*  * @param socket the socket file descriptor */
+/*  * @param config_key the name of the configuration parameter to get back */
+/*  * @param compression The compress method for wire protocol */
+/*  * @param encryption The encrypt method for wire protocol */
+/*  * @param output_format The output format */
+/*  * @return 0 on success, 1 on error */
+/*  *\/ */
+/* int */
+/* pgagroal_management_request_config_get(SSL* ssl, int socket, char* config_key, uint8_t compression, uint8_t encryption, int32_t output_format); */
+
+/* /\** */
+/*  * Management operation: set a configuration setting. */
+/*  * This function sends over the socket the message to set a configuration */
+/*  * value. */
+/*  * In particular, the message block for the action config_set is sent, */
+/*  * then the size of the configuration parameter to set (e.g., `max_connections`), */
+/*  * then the parameter name. At this point another couple of "size" and "value" is */
+/*  * sent with the size of the value to set and its value. */
+/*  * */
+/*  * @param ssl the SSL connection */
+/*  * @param socket the socket file descriptor */
+/*  * @param config_key the name of the configuration parameter to set */
+/*  * @param config_value the value to set for the new parameter */
+/*  * @param compression The compress method for wire protocol */
+/*  * @param encryption The encrypt method for wire protocol */
+/*  * @param output_format The output format */
+/*  * @return 0 on success, 1 on error */
+/*  *\/ */
+/* int */
+/* pgagroal_management_request_config_set(SSL* ssl, int socket, char* config_key, char* config_value, uint8_t compression, uint8_t encryption, int32_t output_format); */
+
+/* /\** */
+/*  * Entry point for managing the `conf ls` command that */
+/*  * will list all the configuration files used by the running */
+/*  * daemon. */
+/*  * */
+/*  * @param ssl the SSL handler */
+/*  * @param socket the socket file descriptor */
+/*  * @param compression The compress method for wire protocol */
+/*  * @param encryption The encrypt method for wire protocol */
+/*  * @param output_format The output format */
+/*  * @returns 0 on success */
+/*  *\/ */
+/* int */
+/* pgagroal_management_request_conf_ls(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format); */
 
 /**
- * Management operation: Remove socket descriptor
- * @param slot The slot
- * @param socket The socket
- * @param pid The pid
+ * Get the frontend password of a user
+ * @param ssl The SSL connection
+ * @param socket The socket descriptor
+ * @param user The frontend user
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_remove_fd(int32_t slot, int socket, pid_t pid);
+pgagroal_management_request_get_password(SSL* ssl, int socket, char* username, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
- * Management operation: get a configuration setting.
- * This function sends over the socket the message to get a configuration
- * value.
- * In particular, the message block for the action config_get is sent,
- * then the size of the configuration parameter to get (e.g., `max_connections`)
- * and last the parameter name itself.
- *
- * @param ssl the SSL connection
- * @param socket the socket file descriptor
- * @param config_key the name of the configuration parameter to get back
- * @return 0 on success, 1 on error
+ * Create an ok response
+ * @param ssl The SSL connection
+ * @param socket The socket descriptor
+ * @param start_time The start time
+ * @param end_time The end time
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param payload The full payload
+ * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_config_get(SSL* ssl, int socket, char* config_key);
+pgagroal_management_response_ok(SSL* ssl, int socket, time_t start_time, time_t end_time, uint8_t compression, uint8_t encryption, struct json* payload);
 
 /**
- * Management operation result: receives the key to read in the configuration.
- *
- * Internally, exploits the function to read the payload from the socket.
- * @see pgagroal_management_read_payload
- *
- * @param ssl the socket file descriptor
- * @param config_key the key to read (is used only to print in the output)
- * @param verbose verbosity flag
- * @param output_format the output format
- * @param expected_value if set, a value that the configuration should match
- * @return 0 on success
+ * Create an error response
+ * @param ssl The SSL connection
+ * @param socket The socket descriptor
+ * @param server The server
+ * @param error The error code
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param payload The full payload
+ * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_read_config_get(int socket, char* config_key, char* expected_value, bool verbose, char output_format);
+pgagroal_management_response_error(SSL* ssl, int socket, char* server, int32_t error, uint8_t compression, uint8_t encryption, struct json* payload);
 
 /**
- * Management operation: write the result of a config_get action on the socket.
- *
- * Writes on the socket the result of the request for a specific
- * configuration parameter.
- *
-   ° @param socket the socket file descriptor
- * @param config_key the name of the configuration parameter to get
- * @return 0 on success
+ * Create a response
+ * @param json The JSON structure
+ * @param server The server
+ * @param response The response
+ * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_write_config_get(int socket, char* config_key);
+pgagroal_management_create_response(struct json* json, int server, struct json** response);
 
 /**
- * Management operation: set a configuration setting.
- * This function sends over the socket the message to set a configuration
- * value.
- * In particular, the message block for the action config_set is sent,
- * then the size of the configuration parameter to set (e.g., `max_connections`),
- * then the parameter name. At this point another couple of "size" and "value" is
- * sent with the size of the value to set and its value.
- *
- * @param ssl the SSL connection
- * @param socket the socket file descriptor
- * @param config_key the name of the configuration parameter to set
- * @param config_value the value to set for the new parameter
- * @return 0 on success, 1 on error
+ * Read the management JSON
+ * @param ssl The SSL connection
+ * @param socket The socket descriptor
+ * @param compression The pointer to an integer that will store the compress method
+ * @param json The JSON structure
+ * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_config_set(SSL* ssl, int socket, char* config_key, char* config_value);
+pgagroal_management_read_json(SSL* ssl, int socket, uint8_t* compression, uint8_t* encryption, struct json** json);
 
 /**
- * Function to execute the config-set and write over the socket
- * the result.
- *
- * If the parameter is set, the function calls the
- * pgagroal_management_write_config_get to send back over the
- * socket the current value of the parameter. Therefore,
- * this function answers always back the current value
- * so that it is possible to reason about the new value and
- * see if it has changed.
- *
- * @param socket the socket to use for communication
- * @param config_key the key to set
- * @param config_value the value to use
- * @return 0 on success
+ * Write the management JSON
+ * @param ssl The SSL connection
+ * @param socket The socket descriptor
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param json The JSON structure
+ * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_management_write_config_set(int socket, char* config_key, char* config_value);
-
-/**
- * Entry point for managing the `conf ls` command that
- * will list all the configuration files used by the running
- * daemon.
- *
- * @param ssl the SSL handler
- * @param fd the socket file descriptor
- * @returns 0 on success
- */
-int
-pgagroal_management_conf_ls(SSL* ssl, int fd);
-
-/**
- * Reads out of the socket the list of configuration
- * files and prints them out to the standard output.
- *
- * The order of the read paths is:
- * - configuration path
- * - HBA path
- * - limit path
- * - frontend users path
- * - admins path
- * - Superusers path
- * - users path
- *
- * @param socket the file descriptor of the open socket
- * @param ssl the SSL handler
- * @param output_format the format to output the command result
- * @returns 0 on success
- */
-int
-pgagroal_management_read_conf_ls(SSL* ssl, int socket, char output_format);
-
-/**
- * The management function responsible for sending
- * the configuration paths into the socket.
- *
- * The function sends every path following the path length,
- * that must be limited to MAX_PATH size.
- *
- * The order of the sent paths is:
- * - configuration path
- * - HBA path
- * - limit path
- * - frontend users path
- * - admins path
- * - Superusers path
- * - users path
- *
- * @params socket the file descriptor of the open socket
- * @returns 0 on success
- */
-int
-pgagroal_management_write_conf_ls(int socket);
+pgagroal_management_write_json(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, struct json* json);
 
 #ifdef __cplusplus
 }

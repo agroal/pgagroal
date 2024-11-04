@@ -47,7 +47,8 @@ extern "C" {
 #define PGAGROAL_HOMEPAGE "https://agroal.github.io/pgagroal/"
 #define PGAGROAL_ISSUES "https://github.com/agroal/pgagroal/issues"
 
-#define MAIN_UDS ".s.pgagroal"
+#define MAIN_UDS     ".s.pgagroal"
+#define TRANSFER_UDS ".s.pgagroal.tu"
 
 #ifdef HAVE_FREEBSD
     #define PGAGROAL_DEFAULT_CONFIGURATION_PATH "/usr/local/etc/pgagroal/"
@@ -141,6 +142,23 @@ extern "C" {
 #define HUGEPAGE_TRY 1
 #define HUGEPAGE_ON  2
 
+#define ENCRYPTION_NONE         0
+#define ENCRYPTION_AES_256_CBC  1
+#define ENCRYPTION_AES_192_CBC  2
+#define ENCRYPTION_AES_128_CBC  3
+#define ENCRYPTION_AES_256_CTR  4
+#define ENCRYPTION_AES_192_CTR  5
+#define ENCRYPTION_AES_128_CTR  6
+
+#define COMPRESSION_NONE         0
+#define COMPRESSION_CLIENT_GZIP  1
+#define COMPRESSION_CLIENT_ZSTD  2
+#define COMPRESSION_CLIENT_LZ4   3
+#define COMPRESSION_CLIENT_BZIP2 4
+#define COMPRESSION_SERVER_GZIP  5
+#define COMPRESSION_SERVER_ZSTD  6
+#define COMPRESSION_SERVER_LZ4   7
+
 #define UPDATE_PROCESS_TITLE_NEVER 0
 #define UPDATE_PROCESS_TITLE_STRICT 1
 #define UPDATE_PROCESS_TITLE_MINIMAL 2
@@ -182,6 +200,8 @@ extern "C" {
 
 #define likely(x)    __builtin_expect (!!(x), 1)
 #define unlikely(x)  __builtin_expect (!!(x), 0)
+
+#define EMPTY_STR(_s) (_s[0] == 0)
 
 #define MAX(a, b)            \
         ({ __typeof__ (a) _a = (a);  \
@@ -496,7 +516,7 @@ struct vault_configuration
  */
 struct main_configuration
 {
-   struct configuration common;          /**< Common configurations */
+   struct configuration common;       /**< Common configurations */
    char hba_path[MAX_PATH];           /**< The HBA path */
    char limit_path[MAX_PATH];         /**< The limit path */
    char users_path[MAX_PATH];         /**< The users path */

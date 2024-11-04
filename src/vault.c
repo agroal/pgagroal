@@ -179,7 +179,9 @@ route_users(char* username, char** response, SSL* s_ssl, int client_fd)
 {
    struct vault_configuration* config = (struct vault_configuration*)shmem;
    int client_pgagroal_fd = -1;
-   char password[MAX_PASSWORD_LENGTH + 1];
+   struct json* read = NULL;
+   struct json* res = NULL;
+   char* password = NULL;
 
    // Connect to pgagroal management port
    if (connect_pgagroal(config, config->vault_server.user.username, config->vault_server.user.password, &s_ssl, &client_pgagroal_fd)) // Change NULL to ssl
@@ -190,10 +192,8 @@ route_users(char* username, char** response, SSL* s_ssl, int client_fd)
       return;
    }
 
-   memset(password, 0, MAX_PASSWORD_LENGTH);
-
    // Call GET_PASSWORD at management port
-   if (pgagroal_management_get_password(s_ssl, client_pgagroal_fd, username, password))
+   if (pgagroal_management_request_get_password(s_ssl, client_pgagroal_fd, username, COMPRESSION_NONE, ENCRYPTION_AES_256_CBC, MANAGEMENT_OUTPUT_FORMAT_JSON))
    {
       pgagroal_log_error("pgagroal-vault: Couldn't get password from the management");
       // Send Error Response
@@ -201,16 +201,28 @@ route_users(char* username, char** response, SSL* s_ssl, int client_fd)
       return;
    }
 
-   if (strlen(password) == 0) // user not found
+   if (pgagroal_management_read_json(s_ssl, client_pgagroal_fd, NULL, NULL, &read))
+   {
+      pgagroal_log_warn("pgagroal-vault: Couldn't receive the result");
+   }
+
+   if (read != NULL)
+   {
+      res = (struct json*)pgagroal_json_get(read, MANAGEMENT_CATEGORY_RESPONSE);
+      password = (char*)pgagroal_json_get(res, MANAGEMENT_ARGUMENT_PASSWORD);
+   }
+
+   if (password == NULL || strlen(password) == 0) // user not found
    {
       pgagroal_log_warn("pgagroal-vault: Couldn't find the user: %s", username);
       route_not_found(response);
    }
-
    else
    {
       route_found(response, password);
    }
+
+   pgagroal_json_destroy(read);
 }
 
 static void

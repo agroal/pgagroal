@@ -29,6 +29,8 @@
 /* pgagroal */
 #include <pgagroal.h>
 #include <configuration.h>
+#include <connection.h>
+#include <json.h>
 #include <logging.h>
 #include <management.h>
 #include <memory.h>
@@ -40,6 +42,7 @@
 #include <security.h>
 #include <server.h>
 #include <shmem.h>
+#include <status.h>
 #include <utils.h>
 #include <worker.h>
 
@@ -71,6 +74,7 @@
 
 static void accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
 static void accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
+static void accept_transfer_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
 static void accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
 static void accept_management_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
 static void shutdown_cb(struct ev_loop* loop, ev_signal* w, int revents);
@@ -82,11 +86,11 @@ static void max_connection_age_cb(struct ev_loop* loop, ev_periodic* w, int reve
 static void rotate_frontend_password_cb(struct ev_loop* loop, ev_periodic* w, int revents);
 static void validation_cb(struct ev_loop* loop, ev_periodic* w, int revents);
 static void disconnect_client_cb(struct ev_loop* loop, ev_periodic* w, int revents);
-static void pgagroal_frontend_user_password_startup(struct main_configuration* config);
+static void frontend_user_password_startup(struct main_configuration* config);
 static bool accept_fatal(int error);
 static void add_client(pid_t pid);
 static void remove_client(pid_t pid);
-static void reload_configuration(void);
+static bool reload_configuration(void);
 static void create_pidfile_or_exit(void);
 static void remove_pidfile(void);
 static void shutdown_ports(void);
@@ -100,6 +104,7 @@ static struct accept_io io_uds;
 static int* main_fds = NULL;
 static int main_fds_length = -1;
 static int unix_management_socket = -1;
+static int unix_transfer_socket = -1;
 static int unix_pgsql_socket = -1;
 static struct accept_io io_metrics[MAX_FDS];
 static int* metrics_fds = NULL;
@@ -110,6 +115,7 @@ static int management_fds_length = -1;
 static struct pipeline main_pipeline;
 static int known_fds[MAX_NUMBER_OF_CONNECTIONS];
 static struct client* clients = NULL;
+static struct accept_io io_transfer;
 
 static void
 start_mgt(void)
@@ -132,6 +138,30 @@ shutdown_mgt(void)
    pgagroal_disconnect(unix_management_socket);
    errno = 0;
    pgagroal_remove_unix_socket(config->unix_socket_dir, MAIN_UDS);
+   errno = 0;
+}
+
+static void
+start_transfer(void)
+{
+   memset(&io_transfer, 0, sizeof(struct accept_io));
+   ev_io_init((struct ev_io*)&io_transfer, accept_transfer_cb, unix_transfer_socket, EV_READ);
+   io_transfer.socket = unix_transfer_socket;
+   io_transfer.argv = argv_ptr;
+   ev_io_start(main_loop, (struct ev_io*)&io_transfer);
+}
+
+static void
+shutdown_transfer(void)
+{
+   struct main_configuration* config;
+
+   config = (struct main_configuration*)shmem;
+
+   ev_io_stop(main_loop, (struct ev_io*)&io_transfer);
+   pgagroal_disconnect(unix_transfer_socket);
+   errno = 0;
+   pgagroal_remove_unix_socket(config->unix_socket_dir, TRANSFER_UDS);
    errno = 0;
 }
 
@@ -769,7 +799,7 @@ read_superuser_path:
       errx(1, "Invalid configuration");
    }
 
-   pgagroal_frontend_user_password_startup(config);
+   frontend_user_password_startup(config);
 
    if (pgagroal_validate_hba_configuration(shmem))
    {
@@ -824,6 +854,8 @@ read_superuser_path:
    shmem_size = tmp_size;
    shmem = tmp_shmem;
    config = (struct main_configuration*)shmem;
+
+   pgagroal_memory_init();
 
    if (getrlimit(RLIMIT_NOFILE, &flimit) == -1)
    {
@@ -886,12 +918,22 @@ read_superuser_path:
 
    pgagroal_set_proc_title(argc, argv, "main", NULL);
 
-   /* Bind Unix Domain Socket for file descriptor transfers */
+   /* Bind Unix Domain Socket: Main */
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, &unix_management_socket))
    {
       pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, MAIN_UDS);
 #ifdef HAVE_LINUX
       sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, MAIN_UDS);
+#endif
+      goto error;
+   }
+
+   /* Bind Unix Domain Socket: Transfer */
+   if (pgagroal_bind_unix_socket(config->unix_socket_dir, TRANSFER_UDS, &unix_transfer_socket))
+   {
+      pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, TRANSFER_UDS);
+#ifdef HAVE_LINUX
+      sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, TRANSFER_UDS);
 #endif
       goto error;
    }
@@ -1008,6 +1050,7 @@ read_superuser_path:
       goto error;
    }
 
+   start_transfer();
    start_mgt();
    start_uds();
    start_io();
@@ -1105,6 +1148,7 @@ read_superuser_path:
    }
    pgagroal_log_debug("Unix Domain Socket: %d", unix_pgsql_socket);
    pgagroal_log_debug("Management: %d", unix_management_socket);
+   pgagroal_log_debug("Transfer: %d", unix_transfer_socket);
    for (int i = 0; i < metrics_fds_length; i++)
    {
       pgagroal_log_debug("Metrics: %d", *(metrics_fds + i));
@@ -1170,6 +1214,7 @@ read_superuser_path:
    shutdown_management();
    shutdown_metrics();
    shutdown_mgt();
+   shutdown_transfer();
    shutdown_io();
    shutdown_uds();
 
@@ -1192,6 +1237,8 @@ read_superuser_path:
    pgagroal_destroy_shared_memory(prometheus_shmem, prometheus_shmem_size);
    pgagroal_destroy_shared_memory(prometheus_cache_shmem, prometheus_cache_shmem_size);
    pgagroal_destroy_shared_memory(shmem, shmem_size);
+
+   pgagroal_memory_destroy();
 
    return 0;
 
@@ -1220,6 +1267,8 @@ accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    ai = (struct accept_io*)watcher;
    config = (struct main_configuration*)shmem;
+
+   errno = 0;
 
    memset(&address, 0, sizeof(address));
 
@@ -1265,6 +1314,7 @@ accept_main_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          {
             shutdown_ports();
             pgagroal_flush(FLUSH_GRACEFULLY, "*");
+            exit(0);
          }
 
          start_io();
@@ -1325,11 +1375,16 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    struct sockaddr_in6 client_addr;
    socklen_t client_addr_length;
    int client_fd;
-   signed char id;
-   int32_t slot;
-   int payload_i, secondary_payload_i;
-   char* payload_s = NULL;
-   char* secondary_payload_s = NULL;
+   int32_t id;
+   pid_t pid;
+   char* str = NULL;
+   time_t start_time;
+   time_t end_time;
+   uint8_t compression = MANAGEMENT_COMPRESSION_NONE;
+   uint8_t encryption = MANAGEMENT_ENCRYPTION_NONE;
+   struct accept_io* ai;
+   struct json* payload = NULL;
+   struct json* header = NULL;
    struct main_configuration* config;
 
    if (EV_ERROR & revents)
@@ -1339,6 +1394,9 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    }
 
    config = (struct main_configuration*)shmem;
+   ai = (struct accept_io*)watcher;
+
+   errno = 0;
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
@@ -1371,215 +1429,400 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       return;
    }
 
-   /* Process internal management request -- f.ex. returning a file descriptor to the pool */
-   pgagroal_management_read_header(client_fd, &id, &slot);
-   pgagroal_management_read_payload(client_fd, id, &payload_i, &payload_s);
-
-   switch (id)
+   /* Process management request */
+   if (pgagroal_management_read_json(NULL, client_fd, &compression, &encryption, &payload))
    {
-      case MANAGEMENT_TRANSFER_CONNECTION:
-         pgagroal_log_debug("pgagroal: Management transfer connection: Slot %d FD %d", slot, payload_i);
-         config->connections[slot].fd = payload_i;
-         known_fds[slot] = config->connections[slot].fd;
+      pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_BAD_PAYLOAD, compression, encryption, NULL);
+      pgagroal_log_error("Management: Bad payload (%d)", MANAGEMENT_ERROR_BAD_PAYLOAD);
+      goto error;
+   }
 
-         if (config->pipeline == PIPELINE_TRANSACTION)
+   header = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_HEADER);
+   id = (int32_t)pgagroal_json_get(header, MANAGEMENT_ARGUMENT_COMMAND);
+
+   str = pgagroal_json_to_string(payload, FORMAT_JSON, NULL, 0);
+   pgagroal_log_debug("Management %d: %s", id, str);
+
+   if (id == MANAGEMENT_FLUSH)
+   {
+      pgagroal_log_debug("pgagroal: Management flush");
+
+      pid = fork();
+      if (pid == -1)
+      {
+         pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_FLUSH_NOFORK, compression, encryption, payload);
+         pgagroal_log_error("Flush: No fork (%d)", MANAGEMENT_ERROR_FLUSH_NOFORK);
+         goto error;
+      }
+      else if (pid == 0)
+      {
+         struct json* pyl = NULL;
+
+         shutdown_ports();
+
+         pgagroal_json_clone(payload, &pyl);
+
+         pgagroal_set_proc_title(1, ai->argv, "flush", NULL);
+         pgagroal_request_flush(NULL, client_fd, compression, encryption, pyl);
+      }
+   }
+   else if (id == MANAGEMENT_ENABLEDB)
+   {
+      struct json* req = NULL;
+      struct json* res = NULL;
+      struct json* databases = NULL;
+      char* database = NULL;
+      
+      pgagroal_log_debug("pgagroal: Management enabledb: ");
+      pgagroal_pool_status();
+
+      start_time = time(NULL);
+
+      req = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
+      database = (char*)pgagroal_json_get(req, MANAGEMENT_ARGUMENT_DATABASE);
+
+      pgagroal_management_create_response(payload, -1, &res);
+      pgagroal_json_create(&databases);
+      
+      for (int i = 0; i < NUMBER_OF_DISABLED; i++)
+      {
+         bool found = false;
+         struct json* js = NULL;
+
+         if (!strcmp("*", database))
          {
-            struct client* c = clients;
-            while (c != NULL)
-            {
-               pgagroal_management_client_fd(slot, c->pid);
-               c = c->next;
-            }
+            memset(&config->disabled[i], 0, MAX_DATABASE_LENGTH);
+            found = true;
+         }
+         else if (!strcmp(config->disabled[i], database))
+         {
+            memset(&config->disabled[i], 0, MAX_DATABASE_LENGTH);
+            found = true;
          }
 
-         break;
-      case MANAGEMENT_RETURN_CONNECTION:
-         pgagroal_log_debug("pgagroal: Management return connection: Slot %d", slot);
-         break;
-      case MANAGEMENT_KILL_CONNECTION:
-         pgagroal_log_debug("pgagroal: Management kill connection: Slot %d", slot);
-         if (known_fds[slot] == payload_i)
+         if (found)
          {
-            struct client* c = clients;
+            pgagroal_json_create(&js);
 
-            while (c != NULL)
-            {
-               pgagroal_management_remove_fd(slot, payload_i, c->pid);
-               c = c->next;
-            }
+            pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
+            pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)true, ValueBool);
 
-            pgagroal_disconnect(payload_i);
-            known_fds[slot] = 0;
+            pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
          }
-         break;
-      case MANAGEMENT_FLUSH:
-         pgagroal_log_debug("pgagroal: Management flush (%d/%s)", payload_i, payload_s);
+      }
+
+      pgagroal_json_put(res, MANAGEMENT_ARGUMENT_DATABASES, (uintptr_t)databases, ValueJSON);
+
+      end_time = time(NULL);
+
+      pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+   }
+   else if (id == MANAGEMENT_DISABLEDB)
+   {
+      struct json* req = NULL;
+      struct json* res = NULL;
+      struct json* databases = NULL;
+      char* database = NULL;
+      
+      pgagroal_log_debug("pgagroal: Management disabledb: ");
+      pgagroal_pool_status();
+
+      start_time = time(NULL);
+
+      req = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
+      database = (char*)pgagroal_json_get(req, MANAGEMENT_ARGUMENT_DATABASE);
+
+      pgagroal_management_create_response(payload, -1, &res);
+      pgagroal_json_create(&databases);
+
+      for (int i = 0; i < NUMBER_OF_DISABLED; i++)
+      {
+         bool found = false;
+         struct json* js = NULL;
+
+         if (!strcmp("*", database))
+         {
+            memcpy(&config->disabled[i], database, strlen(database));
+         }
+         else if (!strcmp(config->disabled[i], ""))
+         {
+            memcpy(&config->disabled[i], database, strlen(database));
+            break;
+         }
+
+         if (found)
+         {
+            pgagroal_json_create(&js);
+
+            pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
+            pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)false, ValueBool);
+
+            pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
+         }
+      }
+
+      pgagroal_json_put(res, MANAGEMENT_ARGUMENT_DATABASES, (uintptr_t)databases, ValueJSON);
+
+      end_time = time(NULL);
+
+      pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+   }
+   else if (id == MANAGEMENT_GRACEFULLY)
+   {
+      pgagroal_log_debug("pgagroal: Management gracefully");
+      pgagroal_pool_status();
+
+      start_time = time(NULL);
+
+      config->gracefully = true;
+      
+      end_time = time(NULL);
+
+      pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+   }
+   else if (id == MANAGEMENT_SHUTDOWN)
+   {
+      pgagroal_log_debug("pgagroal: Management shutdown");
+      pgagroal_pool_status();
+
+      start_time = time(NULL);
+
+      end_time = time(NULL);
+
+      pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+
+      ev_break(loop, EVBREAK_ALL);
+      keep_running = 0;
+   }
+   else if (id == MANAGEMENT_CANCEL_SHUTDOWN)
+   {
+      pgagroal_log_debug("pgagroal: Management cancel shutdown");
+      pgagroal_pool_status();
+
+      start_time = time(NULL);
+
+      config->gracefully = false;
+
+      end_time = time(NULL);
+
+      pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+   }
+   else if (id == MANAGEMENT_STATUS)
+   {
+      pgagroal_log_debug("pgagroal: Management status");
+      pgagroal_pool_status();
+
+      pid = fork();
+      if (pid == -1)
+      {
+         pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_STATUS_NOFORK, compression, encryption, payload);
+         pgagroal_log_error("Status: No fork %s (%d)", NULL, MANAGEMENT_ERROR_STATUS_NOFORK);
+         goto error;
+      }
+      else if (pid == 0)
+      {
+         struct json* pyl = NULL;
+
+         shutdown_ports();
+
+         pgagroal_json_clone(payload, &pyl);
+
+         pgagroal_set_proc_title(1, ai->argv, "status", NULL);
+         pgagroal_status(NULL, client_fd, compression, encryption, pyl);
+      }
+   }
+   else if (id == MANAGEMENT_DETAILS)
+   {
+      pgagroal_log_debug("pgagroal: Management details");
+      pgagroal_pool_status();
+
+
+      pid = fork();
+      if (pid == -1)
+      {
+         pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_STATUS_NOFORK, compression, encryption, payload);
+         pgagroal_log_error("Status: No fork %s (%d)", NULL, MANAGEMENT_ERROR_STATUS_NOFORK);
+         goto error;
+      }
+      else if (pid == 0)
+      {
+         struct json* pyl = NULL;
+
+         shutdown_ports();
+
+         pgagroal_json_clone(payload, &pyl);
+
+         pgagroal_set_proc_title(1, ai->argv, "status", NULL);
+         pgagroal_status_details(NULL, client_fd, compression, encryption, pyl);
+      }
+   }
+   else if (id == MANAGEMENT_PING)
+   {
+      struct json* response = NULL;
+
+      pgagroal_log_debug("pgagroal: Management ping");
+
+      start_time = time(NULL);
+
+      pgagroal_management_create_response(payload, -1, &response);
+
+      end_time = time(NULL);
+
+      pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+   }
+   else if (id == MANAGEMENT_CLEAR)
+   {
+      pgagroal_log_debug("pgagroal: Management clear");
+
+      start_time = time(NULL);
+
+      pgagroal_prometheus_clear();
+      
+      end_time = time(NULL);
+
+      pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+
+   }
+   else if (id == MANAGEMENT_CLEAR_SERVER)
+   {
+      pgagroal_log_debug("pgagroal: Management clear server");
+      char* server = NULL;
+      struct json* req = NULL;
+      
+      start_time = time(NULL);
+
+      req = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
+      server = (char*)pgagroal_json_get(req, MANAGEMENT_ARGUMENT_SERVER);
+
+      pgagroal_server_clear(server);
+      pgagroal_prometheus_failed_servers();
+      
+      end_time = time(NULL);
+
+      pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+   }
+   else if (id == MANAGEMENT_SWITCH_TO)
+   {
+      pgagroal_log_debug("pgagroal: Management switch to");
+      int old_primary = -1;
+      signed char server_state;
+      char* server = NULL;
+      struct json* req = NULL;
+      
+      start_time = time(NULL);
+
+      req = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
+      server = (char*)pgagroal_json_get(req, MANAGEMENT_ARGUMENT_SERVER);
+
+      for (int i = 0; old_primary == -1 && i < config->number_of_servers; i++)
+      {
+         server_state = atomic_load(&config->servers[i].state);
+         if (server_state == SERVER_PRIMARY)
+         {
+            old_primary = i;
+         }
+      }
+
+      if (!pgagroal_server_switch(server))
+      {
          if (!fork())
          {
             shutdown_ports();
-            pgagroal_flush(payload_i, payload_s);
-         }
-         break;
-      case MANAGEMENT_ENABLEDB:
-         pgagroal_log_debug("pgagroal: Management enabledb: %s", payload_s);
-         pgagroal_pool_status();
-
-         for (int i = 0; i < NUMBER_OF_DISABLED; i++)
-         {
-            if (!strcmp("*", payload_s))
+            if (old_primary != -1)
             {
-               memset(&config->disabled[i], 0, MAX_DATABASE_LENGTH);
+               pgagroal_flush_server(old_primary);
             }
-            else if (!strcmp(config->disabled[i], payload_s))
+            else
             {
-               memset(&config->disabled[i], 0, MAX_DATABASE_LENGTH);
+               pgagroal_flush(FLUSH_GRACEFULLY, "*");
+               exit(0);
             }
          }
-
-         free(payload_s);
-         break;
-      case MANAGEMENT_DISABLEDB:
-         pgagroal_log_debug("pgagroal: Management disabledb: %s", payload_s);
-         pgagroal_pool_status();
-
-         if (!strcmp("*", payload_s))
-         {
-            for (int i = 0; i < NUMBER_OF_DISABLED; i++)
-            {
-               memset(&config->disabled[i], 0, MAX_DATABASE_LENGTH);
-            }
-
-            memcpy(&config->disabled[0], payload_s, 1);
-         }
-         else
-         {
-            for (int i = 0; i < NUMBER_OF_DISABLED; i++)
-            {
-               if (!strcmp(config->disabled[i], ""))
-               {
-                  memcpy(&config->disabled[i], payload_s, strlen(payload_s));
-                  break;
-               }
-            }
-         }
-
-         free(payload_s);
-         break;
-      case MANAGEMENT_GRACEFULLY:
-         pgagroal_log_debug("pgagroal: Management gracefully");
-         pgagroal_pool_status();
-         config->gracefully = true;
-         break;
-      case MANAGEMENT_STOP:
-         pgagroal_log_debug("pgagroal: Management stop");
-         pgagroal_pool_status();
-         ev_break(loop, EVBREAK_ALL);
-         keep_running = 0;
-         break;
-      case MANAGEMENT_CANCEL_SHUTDOWN:
-         pgagroal_log_debug("pgagroal: Management cancel shutdown");
-         pgagroal_pool_status();
-         config->gracefully = false;
-         break;
-      case MANAGEMENT_STATUS:
-         pgagroal_log_debug("pgagroal: Management status");
-         pgagroal_pool_status();
-         pgagroal_management_write_status(client_fd, config->gracefully);
-         break;
-      case MANAGEMENT_DETAILS:
-         pgagroal_log_debug("pgagroal: Management details");
-         pgagroal_pool_status();
-         pgagroal_management_write_status(client_fd, config->gracefully);
-         pgagroal_management_write_details(client_fd);
-         break;
-      case MANAGEMENT_ISALIVE:
-         pgagroal_log_debug("pgagroal: Management isalive");
-         pgagroal_management_write_isalive(client_fd, config->gracefully);
-         break;
-      case MANAGEMENT_CONFIG_LS:
-         pgagroal_log_debug("pgagroal: Management conf ls");
-         pgagroal_management_write_conf_ls(client_fd);
-         break;
-      case MANAGEMENT_RESET:
-         pgagroal_log_debug("pgagroal: Management reset");
-         pgagroal_prometheus_reset();
-         break;
-      case MANAGEMENT_RESET_SERVER:
-         pgagroal_log_debug("pgagroal: Management reset server");
-         pgagroal_server_reset(payload_s);
          pgagroal_prometheus_failed_servers();
-         break;
-      case MANAGEMENT_CLIENT_DONE:
-         pgagroal_log_debug("pgagroal: Management client done");
-         pid_t p = (pid_t)payload_i;
-         remove_client(p);
-         break;
-      case MANAGEMENT_SWITCH_TO:
-         pgagroal_log_debug("pgagroal: Management switch to");
-         int old_primary = -1;
-         signed char server_state;
-         for (int i = 0; old_primary == -1 && i < config->number_of_servers; i++)
-         {
-            server_state = atomic_load(&config->servers[i].state);
-            if (server_state == SERVER_PRIMARY)
-            {
-               old_primary = i;
-            }
-         }
-
-         if (!pgagroal_server_switch(payload_s))
-         {
-            if (!fork())
-            {
-               shutdown_ports();
-               if (old_primary != -1)
-               {
-                  pgagroal_flush_server(old_primary);
-               }
-               else
-               {
-                  pgagroal_flush(FLUSH_GRACEFULLY, "*");
-               }
-            }
-            pgagroal_prometheus_failed_servers();
-         }
-         break;
-      case MANAGEMENT_RELOAD:
-         pgagroal_log_debug("pgagroal: Management reload");
-         reload_configuration();
-         break;
-      case MANAGEMENT_CONFIG_GET:
-         pgagroal_log_debug("pgagroal: Management config-get for key <%s>", payload_s);
-         pgagroal_management_write_config_get(client_fd, payload_s);
-         break;
-      case MANAGEMENT_CONFIG_SET:
-         // this command has a secondary payload to extract, that is the configuration value
-         pgagroal_management_read_payload(client_fd, id, &secondary_payload_i, &secondary_payload_s);
-         pgagroal_log_debug("pgagroal: Management config-set for key <%s> setting value to <%s>", payload_s, secondary_payload_s);
-         pgagroal_management_write_config_set(client_fd, payload_s, secondary_payload_s);
-         break;
-      case MANAGEMENT_GET_PASSWORD:
-      {
-         // get frontend password
-         char frontend_password[MAX_PASSWORD_LENGTH];
-         memset(frontend_password, 0, sizeof(frontend_password));
-
-         for (int i = 0; i < config->number_of_frontend_users; i++)
-         {
-            if (!strcmp(&config->frontend_users[i].username[0], payload_s))
-            {
-               memcpy(frontend_password, config->frontend_users[i].password, strlen(config->frontend_users[i].password));
-            }
-         }
-
-         // Send password to the vault
-         pgagroal_management_write_get_password(NULL, client_fd, frontend_password);
-         pgagroal_disconnect(client_fd);
-         return;
       }
-      default:
-         pgagroal_log_debug("pgagroal: Unknown management id: %d", id);
-         break;
+
+      end_time = time(NULL);
+
+      pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+   }
+   else if (id == MANAGEMENT_RELOAD)
+   {
+      bool restart = false;
+      struct json* res = NULL;
+
+      pgagroal_log_debug("pgagroal: Management reload");
+
+      start_time = time(NULL);
+      
+      restart = reload_configuration();
+
+      pgagroal_management_create_response(payload, -1, &res);
+
+      pgagroal_json_put(res, MANAGEMENT_ARGUMENT_RESTART, (uintptr_t)restart, ValueBool);
+
+      end_time = time(NULL);
+
+      pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+   }
+   /* else if (id == MANAGEMENT_CONFIG_GET) */
+   /* { */
+   /*    pgagroal_log_debug("pgagroal: Management config-get for key <%s>", payload_s); */
+   /*    pgagroal_management_write_config_get(client_fd, payload_s); */
+   /* } */
+   /* else if (id == MANAGEMENT_CONFIG_SET) */
+   /* { */
+   /*    // this command has a secondary payload to extract, that is the configuration value */
+   /*    pgagroal_management_read_payload(client_fd, id, &secondary_payload_i, &secondary_payload_s); */
+   /*    pgagroal_log_debug("pgagroal: Management config-set for key <%s> setting value to <%s>", payload_s, secondary_payload_s); */
+   /*    pgagroal_management_write_config_set(client_fd, payload_s, secondary_payload_s); */
+   /* } */
+   /* else if (id == MANAGEMENT_CONFIG_LS) */
+   /* { */
+   /*    pgagroal_log_debug("pgagroal: Management conf ls"); */
+   /*    pgagroal_management_write_conf_ls(client_fd); */
+   /* } */
+   else if (id == MANAGEMENT_GET_PASSWORD)
+   {
+      int index = -1;
+      char* username = NULL;
+      struct json* req = NULL;
+      struct json* res = NULL;
+      
+      start_time = time(NULL);
+      
+      req = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
+      username = (char*)pgagroal_json_get(req, MANAGEMENT_ARGUMENT_USERNAME);
+
+      for (int i = 0; index == -1 && i < config->number_of_frontend_users; i++)
+      {
+         if (!strcmp(&config->frontend_users[i].username[0], username))
+         {
+            index = i;
+         }
+      }
+      
+      pgagroal_management_create_response(payload, -1, &res);
+      
+      pgagroal_json_put(res, MANAGEMENT_ARGUMENT_USERNAME, (uintptr_t)username, ValueString);
+
+      if (index != -1)
+      {
+         pgagroal_json_put(res, MANAGEMENT_ARGUMENT_PASSWORD, (uintptr_t)config->frontend_users[index].password, ValueString);
+      }
+      else
+      {
+         pgagroal_json_put(res, MANAGEMENT_ARGUMENT_PASSWORD, (uintptr_t)NULL, ValueString);
+      }
+
+      end_time = time(NULL);
+
+      pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+   }
+   else
+   {
+      pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_UNKNOWN_COMMAND, compression, encryption, payload);
+      pgagroal_log_error("Unknown: %s (%d)", pgagroal_json_to_string(payload, FORMAT_JSON, NULL, 0), MANAGEMENT_ERROR_UNKNOWN_COMMAND);
+      goto error;
    }
 
    if (keep_running && config->gracefully)
@@ -1591,6 +1834,206 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          ev_break(loop, EVBREAK_ALL);
       }
    }
+
+   free(str);
+
+   pgagroal_json_destroy(payload);
+
+   pgagroal_disconnect(client_fd);
+
+   pgagroal_prometheus_self_sockets_sub();
+
+   return;
+
+error:
+
+   free(str);
+
+   pgagroal_disconnect(client_fd);
+
+   pgagroal_prometheus_self_sockets_sub();
+}
+
+static void
+accept_transfer_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
+{
+   struct sockaddr_in6 client_addr;
+   socklen_t client_addr_length;
+   int client_fd = 0;
+   int id = -1;
+   pid_t pid = 0;
+   int32_t slot = -1;
+   int fd = -1;
+   struct main_configuration* config;
+
+   if (EV_ERROR & revents)
+   {
+      pgagroal_log_trace("accept_mgt_cb: got invalid event: %s", strerror(errno));
+      return;
+   }
+
+   config = (struct main_configuration*)shmem;
+
+   errno = 0;
+
+   client_addr_length = sizeof(client_addr);
+   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
+
+   pgagroal_prometheus_self_sockets_add();
+
+   if (client_fd == -1)
+   {
+      if (accept_fatal(errno) && keep_running)
+      {
+         pgagroal_log_warn("Restarting transfer due to: %s (%d)", strerror(errno), watcher->fd);
+
+         shutdown_mgt();
+
+         if (pgagroal_bind_unix_socket(config->unix_socket_dir, TRANSFER_UDS, &unix_transfer_socket))
+         {
+            pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, TRANSFER_UDS);
+            exit(1);
+         }
+
+         start_mgt();
+
+         pgagroal_log_debug("Transfer: %d", unix_transfer_socket);
+      }
+      else
+      {
+         pgagroal_log_debug("accept: %s (%d)", strerror(errno), watcher->fd);
+      }
+      errno = 0;
+      return;
+   }
+
+   /* Process transfer request */
+   if (pgagroal_connection_id_read(client_fd, &id))
+   {
+      goto error;
+   }
+
+   if (id == CONNECTION_TRANSFER)
+   {
+      pgagroal_log_trace("pgagroal: Transfer connection");
+
+      if (pgagroal_connection_transfer_read(client_fd, &slot, &fd))
+      {
+         pgagroal_log_error("pgagroal: Transfer connection: Slot %d FD %d", slot, fd);
+         goto error;
+      }
+
+      config->connections[slot].fd = fd;
+      known_fds[slot] = config->connections[slot].fd;
+
+      if (config->pipeline == PIPELINE_TRANSACTION)
+      {
+         struct client* c = clients;
+         while (c != NULL)
+         {
+            int c_fd = -1;
+
+            if (pgagroal_connection_get_pid(c->pid, &c_fd))
+            {
+               goto error;
+            }
+
+            if (pgagroal_connection_id_write(c_fd, CONNECTION_CLIENT_FD))
+            {
+               goto error;
+            }
+
+            if (pgagroal_connection_transfer_write(c_fd, slot))
+            {
+               goto error;
+            }
+
+            pgagroal_disconnect(c_fd);
+            
+            c = c->next;
+         }
+      }
+
+      pgagroal_log_debug("pgagroal: Transfer connection: Slot %d FD %d", slot, fd);
+
+   }
+   else if (id == CONNECTION_RETURN)
+   {
+      pgagroal_log_trace("pgagroal: Transfer return connection");
+
+      if (pgagroal_connection_slot_read(client_fd, &slot))
+      {
+         pgagroal_log_error("pgagroal: Transfer return connection: Slot %d", slot);
+         goto error;
+      }
+
+      pgagroal_log_debug("pgagroal: Transfer return connection: Slot %d", slot);
+   }
+   else if (id == CONNECTION_KILL)
+   {
+      pgagroal_log_trace("pgagroal: Transfer kill connection");
+
+      if (pgagroal_connection_transfer_read(client_fd, &slot, &fd))
+      {
+         pgagroal_log_error("pgagroal: Transfer kill connection: Slot %d FD %d", slot, fd);
+         goto error;
+      }
+
+      if (known_fds[slot] == fd)
+      {
+         struct client* c = clients;
+         while (c != NULL)
+         {
+            int c_fd = -1;
+
+            if (pgagroal_connection_get_pid(c->pid, &c_fd))
+            {
+               goto error;
+            }
+
+            if (pgagroal_connection_id_write(c_fd, CONNECTION_REMOVE_FD))
+            {
+               goto error;
+            }
+
+            if (pgagroal_connection_transfer_write(c_fd, slot))
+            {
+               goto error;
+            }
+
+            pgagroal_disconnect(c_fd);
+            
+            c = c->next;
+         }
+
+         pgagroal_disconnect(fd);
+         known_fds[slot] = 0;
+      }
+
+      pgagroal_log_debug("pgagroal: Transfer kill connection: Slot %d FD %d", slot, fd);
+   }
+   else if (id == CONNECTION_CLIENT_DONE)
+   {
+      pgagroal_log_debug("pgagroal: Transfer client done");
+
+      if (pgagroal_connection_pid_read(client_fd, &pid))
+      {
+         pgagroal_log_error("pgagroal: Transfer client done: PID %d", (int)pid);
+         goto error;
+      }
+
+      remove_client(pid);
+
+      pgagroal_log_debug("pgagroal: Transfer client done: PID %d", (int)pid);
+   }
+
+   pgagroal_disconnect(client_fd);
+
+   pgagroal_prometheus_self_sockets_sub();
+
+   return;
+   
+error:
 
    pgagroal_disconnect(client_fd);
 
@@ -1613,6 +2056,8 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    }
 
    config = (struct main_configuration*)shmem;
+
+   errno = 0;
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
@@ -1689,6 +2134,8 @@ accept_management_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    memset(&address, 0, sizeof(address));
 
    config = (struct main_configuration*)shmem;
+
+   errno = 0;
 
    client_addr_length = sizeof(client_addr);
    client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
@@ -1920,7 +2367,7 @@ accept_fatal(int error)
 }
 
 static void
-pgagroal_frontend_user_password_startup(struct main_configuration* config)
+frontend_user_password_startup(struct main_configuration* config)
 {
    char* pwd = NULL;
 
@@ -1931,11 +2378,11 @@ pgagroal_frontend_user_password_startup(struct main_configuration* config)
          memcpy(&config->frontend_users[i].username, config->users[i].username, strlen(config->users[i].username));
          if (pgagroal_generate_password(config->rotate_frontend_password_length, &pwd))
          {
-            pgagroal_log_debug("pgagroal_frontend_user_password_startup: unable to generate random password at startup");
+            pgagroal_log_debug("frontend_user_password_startup: unable to generate random password at startup");
             return;
          }
          memcpy(&config->frontend_users[i].password, pwd, strlen(pwd) + 1);
-         pgagroal_log_trace("pgagroal_frontend_user_password_startup: frontend user with username=%s initiated", config->frontend_users[i].username);
+         pgagroal_log_trace("frontend_user_password_startup: frontend user with username=%s initiated", config->frontend_users[i].username);
          free(pwd);
       }
       config->number_of_frontend_users = config->number_of_users;
@@ -2006,9 +2453,10 @@ remove_client(pid_t pid)
    }
 }
 
-static void
+static bool
 reload_configuration(void)
 {
+   bool restart = false;
    char pgsql[MISC_LENGTH];
    struct main_configuration* config;
 
@@ -2019,7 +2467,7 @@ reload_configuration(void)
    shutdown_metrics();
    shutdown_management();
 
-   pgagroal_reload_configuration();
+   pgagroal_reload_configuration(&restart);
 
    memset(&pgsql, 0, sizeof(pgsql));
    snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->common.port);
@@ -2107,7 +2555,12 @@ reload_configuration(void)
       pgagroal_log_debug("Remote management: %d", *(management_fds + i));
    }
 
-   return;
+   if (restart)
+   {
+      remove_pidfile();
+   }
+
+   exit(0);
 
 error:
    remove_pidfile();

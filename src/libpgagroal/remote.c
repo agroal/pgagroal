@@ -48,12 +48,12 @@ void
 pgagroal_remote_management(int client_fd, char* address)
 {
    int server_fd = -1;
-   int status;
    int exit_code;
    int auth_status;
-   signed char type;
+   uint8_t compression;
+   uint8_t encryption;
    SSL* client_ssl = NULL;
-   struct message* msg = NULL;
+   struct json* payload = NULL;
    struct main_configuration* config;
 
    pgagroal_start_logging();
@@ -68,123 +68,32 @@ pgagroal_remote_management(int client_fd, char* address)
    auth_status = pgagroal_remote_management_auth(client_fd, address, &client_ssl);
    if (auth_status == AUTH_SUCCESS)
    {
-      status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
-      if (status != MESSAGE_STATUS_OK)
-      {
-         goto done;
-      }
-
-      type = pgagroal_read_byte(msg->data);
-
       if (pgagroal_connect_unix_socket(config->unix_socket_dir, MAIN_UDS, &server_fd))
       {
          goto done;
       }
 
-      status = pgagroal_write_message(NULL, server_fd, msg);
-      if (status != MESSAGE_STATUS_OK)
+      if (pgagroal_management_read_json(client_ssl, client_fd, &compression, &encryption, &payload))
       {
          goto done;
       }
 
-      switch (type)
+      if (pgagroal_management_write_json(NULL, server_fd, compression, encryption, payload))
       {
-         case MANAGEMENT_GRACEFULLY:
-         case MANAGEMENT_STOP:
-         case MANAGEMENT_CANCEL_SHUTDOWN:
-         case MANAGEMENT_RESET:
-         case MANAGEMENT_RELOAD:
-            break;
-         case MANAGEMENT_STATUS:
-         case MANAGEMENT_ISALIVE:
-         case MANAGEMENT_DETAILS:
-            do
-            {
-               status = pgagroal_read_timeout_message(NULL, server_fd, 1, &msg);
-               if (status != MESSAGE_STATUS_OK)
-               {
-                  goto done;
-               }
+         goto done;
+      }
 
-               status = pgagroal_write_message(client_ssl, client_fd, msg);
-            }
-            while (status == MESSAGE_STATUS_OK);
-            break;
-         case MANAGEMENT_FLUSH:
-         case MANAGEMENT_RESET_SERVER:
-         case MANAGEMENT_SWITCH_TO:
-            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
+      pgagroal_json_destroy(payload);
+      payload = NULL;
 
-            status = pgagroal_write_message(NULL, server_fd, msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
-         case MANAGEMENT_ENABLEDB:
-         case MANAGEMENT_DISABLEDB:
-            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
+      if (pgagroal_management_read_json(NULL, server_fd, &compression, &encryption, &payload))
+      {
+         goto done;
+      }
 
-            status = pgagroal_write_message(NULL, server_fd, msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
-
-            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
-
-            status = pgagroal_write_message(NULL, server_fd, msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
-
-            break;
-
-         case MANAGEMENT_GET_PASSWORD:
-            // Read username size from local
-            status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
-
-            status = pgagroal_write_message(NULL, server_fd, msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
-
-            status = pgagroal_read_timeout_message(NULL, server_fd, config->common.authentication_timeout, &msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
-
-            status = pgagroal_write_message(client_ssl, client_fd, msg);
-            if (status != MESSAGE_STATUS_OK)
-            {
-               goto done;
-            }
-
-            break;
-         default:
-            pgagroal_log_warn("Unknown management operation: %d", type);
-            pgagroal_log_message(msg);
-            exit_code = 1;
-            goto done;
-            break;
+      if (pgagroal_management_write_json(client_ssl, client_fd, compression, encryption, payload))
+      {
+         goto done;
       }
    }
    else
@@ -193,6 +102,9 @@ pgagroal_remote_management(int client_fd, char* address)
    }
 
 done:
+
+   pgagroal_json_destroy(payload);
+   payload = NULL;
 
    if (client_ssl != NULL)
    {

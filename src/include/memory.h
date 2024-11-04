@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #include <pgagroal.h>
+#include <message.h>
 
 #include <stdlib.h>
 

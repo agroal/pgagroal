@@ -269,7 +269,7 @@ pgagroal_server_force_failover(int server)
 }
 
 int
-pgagroal_server_reset(char* server)
+pgagroal_server_clear(char* server)
 {
    signed char state;
    struct main_configuration* config = NULL;

@@ -165,6 +165,14 @@ signed char
 pgagroal_read_byte(void* data);
 
 /**
+ * Read an uint8
+ * @param data Pointer to the data
+ * @return The uint8
+ */
+uint8_t
+pgagroal_read_uint8(void* data);
+
+/**
  * Read an int16
  * @param data Pointer to the data
  * @return The int16
@@ -179,6 +187,14 @@ pgagroal_read_int16(void* data);
  */
 int32_t
 pgagroal_read_int32(void* data);
+
+/**
+ * Read an uint32
+ * @param data Pointer to the data
+ * @return The uint32
+ */
+uint32_t
+pgagroal_read_uint32(void* data);
 
 /**
  * Read a long
@@ -205,12 +221,28 @@ void
 pgagroal_write_byte(void* data, signed char b);
 
 /**
+ * Write a uint8
+ * @param data Pointer to the data
+ * @param b The uint8
+ */
+void
+pgagroal_write_uint8(void* data, uint8_t b);
+
+/**
  * Write an int32
  * @param data Pointer to the data
  * @param i The int32
  */
 void
 pgagroal_write_int32(void* data, int32_t i);
+
+/**
+ * Write an uint32
+ * @param data Pointer to the data
+ * @param i The uint32
+ */
+void
+pgagroal_write_uint32(void* data, uint32_t i);
 
 /**
  * Write a long
@@ -303,7 +335,7 @@ pgagroal_exists(char* f);
  * @return 0 if success, otherwise 1
  */
 int
-pgagroal_base64_encode(char* raw, size_t raw_length, char** encoded, size_t* encoded_length);
+pgagroal_base64_encode(void* raw, size_t raw_length, char** encoded, size_t* encoded_length);
 
 /**
  * BASE64 decode a string
@@ -314,7 +346,7 @@ pgagroal_base64_encode(char* raw, size_t raw_length, char** encoded, size_t* enc
  * @return 0 if success, otherwise 1
  */
 int
-pgagroal_base64_decode(char* encoded, size_t encoded_length, char** raw, size_t* raw_length);
+pgagroal_base64_decode(char* encoded, size_t encoded_length, void** raw, size_t* raw_length);
 
 /**
  * Set process title.
@@ -360,6 +392,16 @@ void
 pgagroal_set_connection_proc_title(int argc, char** argv, struct connection* connection);
 
 /**
+ * Get the timestramp difference as a string
+ * @param start_time The start time
+ * @param end_time The end time
+ * @param seconds The number of seconds
+ * @return The timestamp string
+ */
+char*
+pgagroal_get_timestamp_string(time_t start_time, time_t end_time, int32_t* seconds);
+
+/**
  * Provide the application version number as a unique value composed of the three
  * specified parts. For example, when invoked with (1,5,0) it returns 10500.
  * Every part of the number must be between 0 and 99, and the function
@@ -395,6 +437,15 @@ pgagroal_version_number(void);
  */
 bool
 pgagroal_version_ge(unsigned int major, unsigned int minor, unsigned int patch);
+
+/**
+ * Does a string end with another string
+ * @param str The string
+ * @param suffix The suffix
+ * @return The result
+ */
+bool
+pgagroal_ends_with(char* str, char* suffix);
 
 /**
  * Append a string

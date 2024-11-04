@@ -69,26 +69,51 @@ The memory interface is defined in [memory.h](../src/include/memory.h) ([memory.
 
 ## Management
 
-[**pgagroal**](https://github.com/agroal/pgagroal) has a management interface which serves two purposes.
-
-First, it defines the administrator abilities that can be performed on the pool when it is running. This include
-for example flushing the pool. The `pgagroal-cli` program is used for these operations ([cli.c](../src/cli.c)).
-
-Second, the interface is used internally to transfer the connection (socket descriptor) from the child process
-to the main [**pgagroal**](https://github.com/agroal/pgagroal) process after a new connection has been created. This is necessary since the socket descriptor
-needs to be available to subsequent client and hence processes.
-
-The management interface use Unix Domain Socket for communication.
+`pgagroal` has a management interface which defines the administrator abilities that can be performed when it is running.
+This include for example taking a backup. The `pgagroal-cli` program is used for these operations ([cli.c](../src/cli.c)).
 
 The management interface is defined in [management.h](../src/include/management.h). The management interface
-uses its own protocol which always consist of a header
+uses its own protocol which uses JSON as its foundation.
 
-| Field      | Type | Description |
-|------------|------|-------------|
-| `id` | Byte | The identifier of the message type |
-| `slot` | Int | The slot that the message is for |
+### Write
 
-The rest of the message is depending on the message type.
+The client sends a single JSON string to the server,
+
+| Field         | Type   | Description                     |
+| :------------ | :----- | :------------------------------ |
+| `compression` | uint8  | The compression type            |
+| `encryption`  | uint8  | The encryption type             |
+| `length`      | uint32 | The length of the JSON document |
+| `json`        | String | The JSON document               |
+
+The server sends a single JSON string to the client,
+
+| Field         | Type   | Description                     |
+| :------------ | :----- | :------------------------------ |
+| `compression` | uint8  | The compression type            |
+| `encryption`  | uint8  | The encryption type             |
+| `length`      | uint32 | The length of the JSON document |
+| `json`        | String | The JSON document               |
+
+### Read
+
+The server sends a single JSON string to the client,
+
+| Field         | Type   | Description                     |
+| :------------ | :----- | :------------------------------ |
+| `compression` | uint8  | The compression type            |
+| `encryption`  | uint8  | The encryption type             |
+| `length`      | uint32 | The length of the JSON document |
+| `json`        | String | The JSON document               |
+
+The client sends to the server a single JSON documents,
+
+| Field         | Type   | Description                     |
+| :------------ | :----- | :------------------------------ |
+| `compression` | uint8  | The compression type            |
+| `encryption`  | uint8  | The encryption type             |
+| `length`      | uint32 | The length of the JSON document |
+| `json`        | String | The JSON document               |
 
 ### Remote management
 
@@ -245,7 +270,7 @@ However, some configuration settings requires a full restart of [**pgagroal**](h
 * Limit rules defined by `pgagroal_databases.conf`
 * TLS rules defined by server section
 
-The configuration can also be reloaded using `pgagroal-cli -c pgagroal.conf reload`. The command is only supported
+The configuration can also be reloaded using `pgagroal-cli -c pgagroal.conf conf reload`. The command is only supported
 over the local interface, and hence doesn't work remotely.
 
 ## Prometheus

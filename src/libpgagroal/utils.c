@@ -33,6 +33,7 @@
 #include <server.h>
 
 /* system */
+#include <err.h>
 #include <ev.h>
 #include <execinfo.h>
 #include <pwd.h>
@@ -188,7 +189,6 @@ pgagroal_extract_message(char type, struct message* msg, struct message** extrac
 
          result->kind = pgagroal_read_byte(data);
          result->length = 1 + m_length;
-         result->max_length = 1 + m_length;
          result->data = data;
 
          *extracted = result;
@@ -290,6 +290,12 @@ pgagroal_read_byte(void* data)
    return (signed char) *((char*)data);
 }
 
+uint8_t
+pgagroal_read_uint8(void* data)
+{
+   return (uint8_t) *((char*)data);
+}
+
 int16_t
 pgagroal_read_int16(void* data)
 {
@@ -314,6 +320,22 @@ pgagroal_read_int32(void* data)
                  ((bytes[1] << 16)) |
                  ((bytes[2] << 8)) |
                  ((bytes[3]));
+
+   return res;
+}
+
+uint32_t
+pgagroal_read_uint32(void* data)
+{
+   uint8_t bytes[] = {*((uint8_t*)data),
+                      *((uint8_t*)(data + 1)),
+                      *((uint8_t*)(data + 2)),
+                      *((uint8_t*)(data + 3))};
+
+   uint32_t res = (uint32_t)(((uint32_t)bytes[0] << 24)) |
+                  (((uint32_t)bytes[1] << 16)) |
+                  (((uint32_t)bytes[2] << 8)) |
+                  (((uint32_t)bytes[3]));
 
    return res;
 }
@@ -355,6 +377,12 @@ pgagroal_write_byte(void* data, signed char b)
 }
 
 void
+pgagroal_write_uint8(void* data, uint8_t b)
+{
+   *((uint8_t*)(data)) = b;
+}
+
+void
 pgagroal_write_int32(void* data, int32_t i)
 {
    char* ptr = (char*)&i;
@@ -366,6 +394,20 @@ pgagroal_write_int32(void* data, int32_t i)
    *((char*)(data + 1)) = *ptr;
    ptr++;
    *((char*)(data)) = *ptr;
+}
+
+void
+pgagroal_write_uint32(void* data, uint32_t i)
+{
+   uint8_t* ptr = (uint8_t*)&i;
+
+   *((uint8_t*)(data + 3)) = *ptr;
+   ptr++;
+   *((uint8_t*)(data + 2)) = *ptr;
+   ptr++;
+   *((uint8_t*)(data + 1)) = *ptr;
+   ptr++;
+   *((uint8_t*)(data)) = *ptr;
 }
 
 void
@@ -569,6 +611,34 @@ pgagroal_libev_engine(unsigned int val)
 }
 
 char*
+pgagroal_get_timestamp_string(time_t start_time, time_t end_time, int32_t* seconds)
+{
+   int32_t total_seconds;
+   int hours;
+   int minutes;
+   int sec;
+   char elapsed[128];
+   char* result = NULL;
+
+   *seconds = 0;
+
+   total_seconds = (int32_t)difftime(end_time, start_time);
+
+   *seconds = total_seconds;
+
+   hours = total_seconds / 3600;
+   minutes = (total_seconds % 3600) / 60;
+   sec = total_seconds % 60;
+
+   memset(&elapsed[0], 0, sizeof(elapsed));
+   sprintf(&elapsed[0], "%02i:%02i:%02i", hours, minutes, sec);
+
+   result = pgagroal_append(result, &elapsed[0]);
+
+   return result;
+}
+
+char*
 pgagroal_get_home_directory(void)
 {
    struct passwd* pw = getpwuid(getuid());
@@ -639,7 +709,7 @@ pgagroal_exists(char* f)
 }
 
 int
-pgagroal_base64_encode(char* raw, size_t raw_length, char** encoded, size_t* encoded_length)
+pgagroal_base64_encode(void* raw, size_t raw_length, char** encoded, size_t* encoded_length)
 {
    BIO* b64_bio;
    BIO* mem_bio;
@@ -688,7 +758,7 @@ error:
 }
 
 int
-pgagroal_base64_decode(char* encoded, size_t encoded_length, char** raw, size_t* raw_length)
+pgagroal_base64_decode(char* encoded, size_t encoded_length, void** raw, size_t* raw_length)
 {
    BIO* b64_bio;
    BIO* mem_bio;
@@ -882,6 +952,15 @@ pgagroal_version_ge(unsigned int major, unsigned int minor, unsigned int patch)
    {
       return false;
    }
+}
+
+bool
+pgagroal_ends_with(char* str, char* suffix)
+{
+   int str_len = strlen(str);
+   int suffix_len = strlen(suffix);
+
+   return (str_len >= suffix_len) && (strcmp(str + (str_len - suffix_len), suffix) == 0);
 }
 
 char*

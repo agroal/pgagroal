@@ -66,7 +66,10 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of [**pgagroal**]
 * [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
 * [rst2man](https://docutils.sourceforge.io/)
 * [libatomic](https://gcc.gnu.org/wiki/Atomic)
-* [cJSON](https://github.com/DaveGamble/cJSON)
+* [zlib](https://zlib.net)
+* [zstd](http://www.zstd.net)
+* [lz4](https://lz4.github.io/lz4/)
+* [bzip2](http://sourceware.org/bzip2/)
 
 On Rocky Linux (and similar) operating systems, the dependencies
 can be installed via `dnf(8)` as follows:
@@ -77,8 +80,11 @@ dnf install git gcc cmake make    \
             openssl openssl-devel \
             systemd systemd-devel \
             python3-docutils      \
-            libatomic             \
-            cjson cjson-devel
+            libatomic \
+            zlib zlib-devel \
+            libzstd libzstd-devel \
+            lz4 lz4-devel \
+            bzip2 bzip2-devel
 ```
 
 Please note that, on Rocky Linux, in order to install the `python3-docutils`

@@ -30,6 +30,7 @@
 #include <pgagroal.h>
 #include <logging.h>
 #include <network.h>
+#include <utils.h>
 
 /* system */
 #include <errno.h>
@@ -53,7 +54,7 @@
 #include <netinet/tcp.h>
 
 static int bind_host(const char* hostname, int port, int** fds, int* length, bool non_blocking, int* buffer_size, bool no_delay, int backlog);
-static int socket_buffers(int fd, int* buffer_size);
+static int socket_buffers(int fd);
 
 /**
  *
@@ -184,7 +185,14 @@ pgagroal_bind_unix_socket(const char* directory, const char* file, int* fd)
    }
 
    memset(&buf, 0, sizeof(buf));
-   snprintf(&buf[0], sizeof(buf), "%s/%s", directory, file);
+   if (!pgagroal_ends_with(&buf[0], "/"))
+   {
+      snprintf(&buf[0], sizeof(buf), "%s/%s", directory, file);
+   }
+   else
+   {
+      snprintf(&buf[0], sizeof(buf), "%s%s", directory, file);
+   }
 
    strncpy(addr.sun_path, &buf[0], sizeof(addr.sun_path) - 1);
    unlink(&buf[0]);
@@ -557,18 +565,19 @@ pgagroal_write_socket(SSL* ssl, int fd, char* buffer, size_t buffer_size)
 }
 
 static int
-socket_buffers(int fd, int* buffer_size)
+socket_buffers(int fd)
 {
+   int default_buffer_size = DEFAULT_BUFFER_SIZE;
    socklen_t optlen = sizeof(int);
 
-   if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, buffer_size, optlen) == -1)
+   if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &default_buffer_size, optlen) == -1)
    {
       pgagroal_log_warn("socket_buffers: SO_RCVBUF %d %s", fd, strerror(errno));
       errno = 0;
       return 1;
    }
 
-   if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, buffer_size, optlen) == -1)
+   if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &default_buffer_size, optlen) == -1)
    {
       pgagroal_log_warn("socket_buffers: SO_SNDBUF %d %s", fd, strerror(errno));
       errno = 0;
@@ -655,7 +664,7 @@ bind_host(const char* hostname, int port, int** fds, int* length, bool non_block
          }
       }
 
-      if (socket_buffers(sockfd, buffer_size))
+      if (socket_buffers(sockfd))
       {
          pgagroal_disconnect(sockfd);
          continue;

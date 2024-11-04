@@ -26,74 +26,65 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PGAGROAL_SERVER_H
-#define PGAGROAL_SERVER_H
+#ifndef PGAGROAL_AES_H
+#define PGAGROAL_AES_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include <pgagroal.h>
+#include <json.h>
 
-#include <stdlib.h>
 #include <openssl/ssl.h>
 
 /**
- * Get the primary server
- * @param server The resulting server identifier
+ * Encrypt a string
+ * @param plaintext The string
+ * @param password The master password
+ * @param ciphertext The ciphertext output
+ * @param ciphertext_length The length of the ciphertext
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_get_primary(int* server);
+pgagroal_encrypt(char* plaintext, char* password, char** ciphertext, int* ciphertext_length, int mode);
 
 /**
- * Update the server state
- * @param slot The slot
- * @param socket The descriptor
- * @param ssl The SSL connection
+ * Decrypt a string
+ * @param ciphertext The string
+ * @param ciphertext_length The length of the ciphertext
+ * @param password The master password
+ * @param plaintext The plaintext output
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_update_server_state(int slot, int socket, SSL* ssl);
+pgagroal_decrypt(char* ciphertext, int ciphertext_length, char* password, char** plaintext, int mode);
 
 /**
- * Print the state of the servers
+ *
+ * Encrypt a buffer
+ * @param origin_buffer The original buffer
+ * @param origin_size The size of the buffer
+ * @param enc_buffer The result buffer
+ * @param enc_size The result buffer size
+ * @param mode The aes mode
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_server_status(void);
+pgagroal_encrypt_buffer(unsigned char* origin_buffer, size_t origin_size, unsigned char** enc_buffer, size_t* enc_size, int mode);
 
 /**
- * Failover
- * @param slot The slot
+ *
+ * Decrypt a buffer
+ * @param origin_buffer The original buffer
+ * @param origin_size The size of the buffer
+ * @param dec_buffer The result buffer
+ * @param dec_size The result buffer size
+ * @param mode The aes mode
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_server_failover(int slot);
-
-/**
- * Force failover
- * @param server The server
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_server_force_failover(int server);
-
-/**
- * Clear server
- * @param server The server
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_server_clear(char* server);
-
-/**
- * Switch server
- * @param server The server
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_server_switch(char* server);
+pgagroal_decrypt_buffer(unsigned char* origin_buffer, size_t origin_size, unsigned char** dec_buffer, size_t* dec_size, int mode);
 
 #ifdef __cplusplus
 }

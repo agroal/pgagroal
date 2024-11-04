@@ -29,12 +29,15 @@
 /* pgagroal */
 #include <pgagroal.h>
 #include <configuration.h>
+#include <json.h>
 #include <logging.h>
 #include <management.h>
+#include <memory.h>
 #include <network.h>
 #include <security.h>
 #include <shmem.h>
 #include <utils.h>
+#include <value.h>
 
 /* system */
 #include <getopt.h>
@@ -50,47 +53,74 @@
 
 #include <openssl/ssl.h>
 
-#define ACTION_UNKNOWN         0
-#define ACTION_FLUSH           1
-#define ACTION_GRACEFULLY      2
-#define ACTION_STOP            3
-#define ACTION_STATUS          4
-#define ACTION_STATUS_DETAILS  5
-#define ACTION_ISALIVE         6
-#define ACTION_CANCELSHUTDOWN  7
-#define ACTION_ENABLEDB        8
-#define ACTION_DISABLEDB       9
-#define ACTION_RESET          10
-#define ACTION_RESET_SERVER   11
-#define ACTION_SWITCH_TO      12
-#define ACTION_RELOAD         13
-#define ACTION_CONFIG_GET     14
-#define ACTION_CONFIG_SET     15
-#define ACTION_CONFIG_LS      16
+#define HELP 99
 
-static int flush(SSL* ssl, int socket, int32_t mode, char* database);
-static int enabledb(SSL* ssl, int socket, char* database);
-static int disabledb(SSL* ssl, int socket, char* database);
-static int gracefully(SSL* ssl, int socket);
-static int stop(SSL* ssl, int socket);
-static int cancel_shutdown(SSL* ssl, int socket);
-static int status(SSL* ssl, int socket, char output_format);
-static int details(SSL* ssl, int socket, char output_format);
-static int isalive(SSL* ssl, int socket, char output_format);
-static int reset(SSL* ssl, int socket);
-static int reset_server(SSL* ssl, int socket, char* server);
-static int switch_to(SSL* ssl, int socket, char* server);
-static int reload(SSL* ssl, int socket);
-static int config_ls(SSL* ssl, int socket, char output_format);
-static int config_get(SSL* ssl, int socket, char* config_key, bool verbose, char output_format);
-static int config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose, char output_format);
+#define COMMAND_CANCELSHUTDOWN  "cancel-shutdown"
+#define COMMAND_CLEAR           "clear"
+#define COMMAND_CLEAR_SERVER    "clear-server"
+#define COMMAND_DISABLEDB       "disable-db"
+#define COMMAND_ENABLEDB        "enable-db"
+#define COMMAND_FLUSH           "flush"
+#define COMMAND_GRACEFULLY      "shutdown-gracefully"
+#define COMMAND_PING            "ping"
+#define COMMAND_RELOAD          "reload"
+#define COMMAND_SHUTDOWN        "shutdown"
+#define COMMAND_STATUS          "status"
+#define COMMAND_STATUS_DETAILS  "status-details"
+#define COMMAND_SWITCH_TO       "switch-to"
+/* #define COMMAND_CONFIG_GET      "conf-get" */
+/* #define COMMAND_CONFIG_LS       "conf-ls" */
+/* #define COMMAND_CONFIG_SET      "conf-set" */
+
+#define OUTPUT_FORMAT_JSON "json"
+#define OUTPUT_FORMAT_TEXT "text"
+
+#define UNSPECIFIED "Unspecified"
+
+static void display_helper(char* command);
+static void help_cancel_shutdown(void);
+/* static void help_config(void); */
+static void help_clear(void);
+static void help_conf(void);
+static void help_disabledb(void);
+static void help_enabledb(void);
+static void help_flush(void);
+static void help_ping(void);
+static void help_shutdown(void);
+static void help_status_details(void);
+static void help_switch_to(void);
+
+static int cancel_shutdown(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+/* static int config_get(SSL* ssl, int socket, char* config_key, bool verbose, uint8_t compression, uint8_t encryption, int32_t output_format); */
+/* static int config_ls(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format); */
+/* static int config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose, uint8_t compression, uint8_t encryption, int32_t output_format); */
+static int details(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int disabledb(SSL* ssl, int socket, char* database, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int enabledb(SSL* ssl, int socket, char* database, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int flush(SSL* ssl, int socket, int32_t mode, char* database, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int gracefully(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int pgagroal_shutdown(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int ping(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int reload(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int clear(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int clear_server(SSL* ssl, int socket, char* server, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int status(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int switch_to(SSL* ssl, int socket, char* server, uint8_t compression, uint8_t encryption, int32_t output_format);
+
+static int  process_result(SSL* ssl, int socket, int32_t output_format);
+
+static char* translate_command(int32_t cmd_code);
+static char* translate_output_format(int32_t out_code);
+static char* translate_compression(int32_t compression_code);
+static char* translate_encryption(int32_t encryption_code);
+static void translate_json_object(struct json* j);
 
 const struct pgagroal_command command_table[] = {
    {
       .command = "flush",
       .subcommand = "",
       .accepted_argument_count = {0, 1},
-      .action = ACTION_FLUSH,
+      .action = MANAGEMENT_FLUSH,
       .mode = FLUSH_GRACEFULLY,
       .default_argument = "*",
       .deprecated = false,
@@ -100,15 +130,15 @@ const struct pgagroal_command command_table[] = {
       .command = "ping",
       .subcommand = "",
       .accepted_argument_count = {0},
-      .action = ACTION_ISALIVE,
+      .action = MANAGEMENT_PING,
       .deprecated = false,
-      .log_message = "<is-alive>"
+      .log_message = "<ping>"
    },
    {
       .command = "enable",
       .subcommand = "",
       .accepted_argument_count = {0, 1},
-      .action = ACTION_ENABLEDB,
+      .action = MANAGEMENT_ENABLEDB,
       .default_argument = "*",
       .deprecated = false,
       .log_message = "<enable> [%s]",
@@ -117,7 +147,7 @@ const struct pgagroal_command command_table[] = {
       .command = "disable",
       .subcommand = "",
       .accepted_argument_count = {0, 1},
-      .action = ACTION_DISABLEDB,
+      .action = MANAGEMENT_DISABLEDB,
       .default_argument = "*",
       .deprecated = false,
       .log_message = "<disable> [%s]",
@@ -126,7 +156,7 @@ const struct pgagroal_command command_table[] = {
       .command = "shutdown",
       .subcommand = "",
       .accepted_argument_count = {0},
-      .action = ACTION_GRACEFULLY,
+      .action = MANAGEMENT_GRACEFULLY,
       .deprecated = false,
       .log_message = "<shutdown gracefully>"
    },
@@ -134,7 +164,7 @@ const struct pgagroal_command command_table[] = {
       .command = "status",
       .subcommand = "",
       .accepted_argument_count = {0},
-      .action = ACTION_STATUS,
+      .action = MANAGEMENT_STATUS,
       .deprecated = false,
       .log_message = "<status>"
    },
@@ -142,7 +172,7 @@ const struct pgagroal_command command_table[] = {
       .command = "switch-to",
       .subcommand = "",
       .accepted_argument_count = {1},
-      .action = ACTION_SWITCH_TO,
+      .action = MANAGEMENT_SWITCH_TO,
       .deprecated = false,
       .log_message = "<switch-to> [%s]"
    },
@@ -150,7 +180,7 @@ const struct pgagroal_command command_table[] = {
       .command = "clear",
       .subcommand = "",
       .accepted_argument_count = {1},
-      .action = ACTION_RESET_SERVER,
+      .action = MANAGEMENT_CLEAR_SERVER,
       .deprecated = false,
       .log_message = "<clear server [%s]>",
    },
@@ -158,7 +188,7 @@ const struct pgagroal_command command_table[] = {
       .command = "shutdown",
       .subcommand = "gracefully",
       .accepted_argument_count = {0},
-      .action = ACTION_GRACEFULLY,
+      .action = MANAGEMENT_GRACEFULLY,
       .deprecated = false,
       .log_message = "<shutdown gracefully>"
    },
@@ -166,7 +196,7 @@ const struct pgagroal_command command_table[] = {
       .command = "shutdown",
       .subcommand = "immediate",
       .accepted_argument_count = {0},
-      .action = ACTION_STOP,
+      .action = MANAGEMENT_SHUTDOWN,
       .deprecated = false,
       .log_message = "<shutdown immediate>"
    },
@@ -174,7 +204,7 @@ const struct pgagroal_command command_table[] = {
       .command = "shutdown",
       .subcommand = "cancel",
       .accepted_argument_count = {0},
-      .action = ACTION_CANCELSHUTDOWN,
+      .action = MANAGEMENT_CANCEL_SHUTDOWN,
       .deprecated = false,
       .log_message = "<shutdown cancel>"
    },
@@ -182,39 +212,39 @@ const struct pgagroal_command command_table[] = {
       .command = "conf",
       .subcommand = "reload",
       .accepted_argument_count = {0},
-      .action = ACTION_RELOAD,
+      .action = MANAGEMENT_RELOAD,
       .deprecated = false,
       .log_message = "<conf reload>"
    },
-   {
-      .command = "conf",
-      .subcommand = "get",
-      .accepted_argument_count = {1},
-      .action = ACTION_CONFIG_GET,
-      .deprecated = false,
-      .log_message = "<conf get> [%s]"
-   },
-   {
-      .command = "conf",
-      .subcommand = "set",
-      .accepted_argument_count = {2},
-      .action = ACTION_CONFIG_SET,
-      .deprecated = false,
-      .log_message = "<conf set> [%s] = [%s]"
-   },
-   {
-      .command = "conf",
-      .subcommand = "ls",
-      .accepted_argument_count = {0},
-      .action = ACTION_CONFIG_LS,
-      .deprecated = false,
-      .log_message = "<conf ls>"
-   },
+   /* { */
+   /*    .command = "conf", */
+   /*    .subcommand = "get", */
+   /*    .accepted_argument_count = {1}, */
+   /*    .action = MANAGEMENT_CONFIG_GET, */
+   /*    .deprecated = false, */
+   /*    .log_message = "<conf get> [%s]" */
+   /* }, */
+   /* { */
+   /*    .command = "conf", */
+   /*    .subcommand = "set", */
+   /*    .accepted_argument_count = {2}, */
+   /*    .action = MANAGEMENT_CONFIG_SET, */
+   /*    .deprecated = false, */
+   /*    .log_message = "<conf set> [%s] = [%s]" */
+   /* }, */
+   /* { */
+   /*    .command = "conf", */
+   /*    .subcommand = "ls", */
+   /*    .accepted_argument_count = {0}, */
+   /*    .action = MANAGEMENT_CONFIG_LS, */
+   /*    .deprecated = false, */
+   /*    .log_message = "<conf ls>" */
+   /* }, */
    {
       .command = "clear",
       .subcommand = "server",
       .accepted_argument_count = {0, 1},
-      .action = ACTION_RESET_SERVER,
+      .action = MANAGEMENT_CLEAR_SERVER,
       .default_argument = "server",
       .deprecated = false,
       .log_message = "<clear server> [%s]",
@@ -223,7 +253,7 @@ const struct pgagroal_command command_table[] = {
       .command = "flush",
       .subcommand = "idle",
       .accepted_argument_count = {0, 1},
-      .action = ACTION_FLUSH,
+      .action = MANAGEMENT_FLUSH,
       .mode = FLUSH_IDLE,
       .default_argument = "*",
       .deprecated = false,
@@ -233,7 +263,7 @@ const struct pgagroal_command command_table[] = {
       .command = "flush",
       .subcommand = "gracefully",
       .accepted_argument_count = {0, 1},
-      .action = ACTION_FLUSH,
+      .action = MANAGEMENT_FLUSH,
       .mode = FLUSH_GRACEFULLY,
       .default_argument = "*",
       .deprecated = false,
@@ -243,7 +273,7 @@ const struct pgagroal_command command_table[] = {
       .command = "flush",
       .subcommand = "all",
       .accepted_argument_count = {0, 1},
-      .action = ACTION_FLUSH,
+      .action = MANAGEMENT_FLUSH,
       .mode = FLUSH_ALL,
       .default_argument = "*",
       .deprecated = false,
@@ -253,7 +283,7 @@ const struct pgagroal_command command_table[] = {
       .command = "clear",
       .subcommand = "prometheus",
       .accepted_argument_count = {0},
-      .action = ACTION_RESET,
+      .action = MANAGEMENT_CLEAR,
       .deprecated = false,
       .log_message = "<clear prometheus>"
    },
@@ -261,7 +291,7 @@ const struct pgagroal_command command_table[] = {
       .command = "status",
       .subcommand = "details",
       .accepted_argument_count = {0},
-      .action = ACTION_STATUS_DETAILS,
+      .action = MANAGEMENT_DETAILS,
       .deprecated = false,
       .log_message = "<status details>"
    },
@@ -285,17 +315,19 @@ usage(void)
    printf("  pgagroal-cli [ OPTIONS ] [ COMMAND ] \n");
    printf("\n");
    printf("Options:\n");
-   printf("  -c, --config CONFIG_FILE Set the path to the pgagroal.conf file\n");
-   printf("                           Default: %s\n", PGAGROAL_DEFAULT_CONF_FILE);
-   printf("  -h, --host HOST          Set the host name\n");
-   printf("  -p, --port PORT          Set the port number\n");
-   printf("  -U, --user USERNAME      Set the user name\n");
-   printf("  -P, --password PASSWORD  Set the password\n");
-   printf("  -L, --logfile FILE       Set the log file\n");
-   printf("  -F, --format text|json   Set the output format\n");
-   printf("  -v, --verbose            Output text string of result\n");
-   printf("  -V, --version            Display version information\n");
-   printf("  -?, --help               Display help\n");
+   printf("  -c, --config CONFIG_FILE                     Set the path to the pgagroal.conf file\n");
+   printf("                                                 Default: %s\n", PGAGROAL_DEFAULT_CONF_FILE);
+   printf("  -h, --host HOST                              Set the host name\n");
+   printf("  -p, --port PORT                              Set the port number\n");
+   printf("  -U, --user USERNAME                          Set the user name\n");
+   printf("  -P, --password PASSWORD                      Set the password\n");
+   printf("  -L, --logfile FILE                           Set the log file\n");
+   printf("  -F, --format text|json|raw                   Set the output format\n");
+   printf("  -C, --compress none|gz|zstd|lz4|bz2          Compress the wire protocol\n");
+   printf("  -E, --encrypt none|aes|aes256|aes192|aes128  Encrypt the wire protocol\n");
+   printf("  -v, --verbose                                Output text string of result\n");
+   printf("  -V, --version                                Display version information\n");
+   printf("  -?, --help                                   Display help\n");
    printf("\n");
    printf("Commands:\n");
    printf("  flush [mode] [database]  Flush connections according to [mode].\n");
@@ -347,12 +379,15 @@ main(int argc, char** argv)
    char* logfile = NULL;
    int c;
    int option_index = 0;
+   bool matched = false;
    size_t size;
    char un[MAX_USERNAME_LENGTH];
    struct main_configuration* config = NULL;
    bool remote_connection = false;
    long l_port;
-   char output_format = COMMAND_OUTPUT_FORMAT_TEXT;
+   int32_t output_format = MANAGEMENT_OUTPUT_FORMAT_TEXT;
+   int32_t compression = MANAGEMENT_COMPRESSION_NONE;
+   int32_t encryption = MANAGEMENT_ENCRYPTION_NONE;
    size_t command_count = sizeof(command_table) / sizeof(struct pgagroal_command);
    struct pgagroal_parsed_command parsed = {.cmd = NULL, .args = {0}};
 
@@ -367,12 +402,14 @@ main(int argc, char** argv)
          {"password", required_argument, 0, 'P'},
          {"logfile", required_argument, 0, 'L'},
          {"format", required_argument, 0, 'F' },
+         {"compress", required_argument, 0, 'C'},
+         {"encrypt", required_argument, 0, 'E'},
          {"verbose", no_argument, 0, 'v'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
 
-      c = getopt_long(argc, argv, "vV?c:h:p:U:P:L:F:",
+      c = getopt_long(argc, argv, "vV?c:h:p:U:P:L:F:C:E:",
                       long_options, &option_index);
 
       if (c == -1)
@@ -407,11 +444,74 @@ main(int argc, char** argv)
          case 'F':
             if (!strncmp(optarg, "json", MISC_LENGTH))
             {
-               output_format = COMMAND_OUTPUT_FORMAT_JSON;
+               output_format = MANAGEMENT_OUTPUT_FORMAT_JSON;
+            }
+            else if (!strncmp(optarg, "raw", MISC_LENGTH))
+            {
+               output_format = MANAGEMENT_OUTPUT_FORMAT_RAW;
+            }
+            else if (!strncmp(optarg, "text", MISC_LENGTH))
+            {
+               output_format = MANAGEMENT_OUTPUT_FORMAT_TEXT;
             }
             else
             {
-               output_format = COMMAND_OUTPUT_FORMAT_TEXT;
+               warnx("pgagroal-cli: Format type is not correct");
+               exit(1);
+            }
+            break;
+         case 'C':
+            if (!strncmp(optarg, "gz", MISC_LENGTH))
+            {
+               compression = MANAGEMENT_COMPRESSION_GZIP;
+            }
+            else if (!strncmp(optarg, "zstd", MISC_LENGTH))
+            {
+               compression = MANAGEMENT_COMPRESSION_ZSTD;
+            }
+            else if (!strncmp(optarg, "lz4", MISC_LENGTH))
+            {
+               compression = MANAGEMENT_COMPRESSION_LZ4;
+            }
+            else if (!strncmp(optarg, "bz2", MISC_LENGTH))
+            {
+               compression = MANAGEMENT_COMPRESSION_BZIP2;
+            }
+            else if (!strncmp(optarg, "none", MISC_LENGTH))
+            {
+               break;
+            }
+            else
+            {
+               warnx("pgagroal-cli: Compress method is not correct");
+               exit(1);
+            }
+            break;
+         case 'E':
+            if (!strncmp(optarg, "aes", MISC_LENGTH))
+            {
+               encryption = MANAGEMENT_ENCRYPTION_AES256;
+            }
+            else if (!strncmp(optarg, "aes256", MISC_LENGTH))
+            {
+               encryption = MANAGEMENT_ENCRYPTION_AES256;
+            }
+            else if (!strncmp(optarg, "aes192", MISC_LENGTH))
+            {
+               encryption = MANAGEMENT_ENCRYPTION_AES192;
+            }
+            else if (!strncmp(optarg, "aes128", MISC_LENGTH))
+            {
+               encryption = MANAGEMENT_ENCRYPTION_AES128;
+            }
+            else if (!strncmp(optarg, "none", MISC_LENGTH))
+            {
+               break;
+            }
+            else
+            {
+               warnx("pgagroal-cli: Encrypt method is not correct");
+               exit(1);
             }
             break;
          case 'v':
@@ -534,11 +634,21 @@ main(int argc, char** argv)
 
    if (!parse_command(argc, argv, optind, &parsed, command_table, command_count))
    {
-      usage();
+      if (argc > optind)
+      {
+         char* command = argv[optind];
+         display_helper(command);
+      }
+      else
+      {
+         usage();
+      }
       exit_code = 1;
       goto done;
    }
    pgagroal_log_trace((char*)parsed.cmd->log_message, parsed.args[0], parsed.args[1]);
+
+   matched = true;
 
    config = (struct main_configuration*)shmem;
 
@@ -613,8 +723,7 @@ username:
       {
          if ((unsigned char)(*(password + i)) & 0x80)
          {
-
-            warnx("Bad credentials for %s\n", username);
+            warnx("pgagroal-cli: Bad credentials for %s\n", username);
             goto done;
          }
       }
@@ -627,55 +736,55 @@ username:
       }
    }
 
-   if (parsed.cmd->action == ACTION_FLUSH)
+   if (parsed.cmd->action == MANAGEMENT_FLUSH)
    {
-      exit_code = flush(s_ssl, socket, parsed.cmd->mode, parsed.args[0]);
+      exit_code = flush(s_ssl, socket, parsed.cmd->mode, parsed.args[0], compression, encryption, output_format);
    }
-   else if (parsed.cmd->action == ACTION_ENABLEDB)
+   else if (parsed.cmd->action == MANAGEMENT_ENABLEDB)
    {
-      exit_code = enabledb(s_ssl, socket, parsed.args[0]);
+      exit_code = enabledb(s_ssl, socket, parsed.args[0], compression, encryption, output_format);
    }
-   else if (parsed.cmd->action == ACTION_DISABLEDB)
+   else if (parsed.cmd->action == MANAGEMENT_DISABLEDB)
    {
-      exit_code = disabledb(s_ssl, socket, parsed.args[0]);
+      exit_code = disabledb(s_ssl, socket, parsed.args[0], compression, encryption, output_format);
    }
-   else if (parsed.cmd->action == ACTION_GRACEFULLY)
+   else if (parsed.cmd->action == MANAGEMENT_GRACEFULLY)
    {
-      exit_code = gracefully(s_ssl, socket);
+      exit_code = gracefully(s_ssl, socket, compression, encryption, output_format);
    }
-   else if (parsed.cmd->action == ACTION_STOP)
+   else if (parsed.cmd->action == MANAGEMENT_SHUTDOWN)
    {
-      exit_code = stop(s_ssl, socket);
+      exit_code = pgagroal_shutdown(s_ssl, socket, compression, encryption, output_format);
    }
-   else if (parsed.cmd->action == ACTION_CANCELSHUTDOWN)
+   else if (parsed.cmd->action == MANAGEMENT_CANCEL_SHUTDOWN)
    {
-      exit_code = cancel_shutdown(s_ssl, socket);
+      exit_code = cancel_shutdown(s_ssl, socket, compression, encryption, output_format);
    }
-   else if (parsed.cmd->action == ACTION_STATUS)
+   else if (parsed.cmd->action == MANAGEMENT_STATUS)
    {
-      exit_code = status(s_ssl, socket, output_format);
+      exit_code = status(s_ssl, socket, compression, encryption, output_format);
    }
-   else if (parsed.cmd->action == ACTION_STATUS_DETAILS)
+   else if (parsed.cmd->action == MANAGEMENT_DETAILS)
    {
-      exit_code = details(s_ssl, socket, output_format);
+      exit_code = details(s_ssl, socket, compression, encryption, output_format);
    }
-   else if (parsed.cmd->action == ACTION_ISALIVE)
+   else if (parsed.cmd->action == MANAGEMENT_PING)
    {
-      exit_code = isalive(s_ssl, socket, output_format);
+      exit_code = ping(s_ssl, socket, compression, encryption, output_format);
    }
-   else if (parsed.cmd->action == ACTION_RESET)
+   else if (parsed.cmd->action == MANAGEMENT_CLEAR)
    {
-      exit_code = reset(s_ssl, socket);
+      exit_code = clear(s_ssl, socket, compression, encryption, output_format);
    }
-   else if (parsed.cmd->action == ACTION_RESET_SERVER)
+   else if (parsed.cmd->action == MANAGEMENT_CLEAR_SERVER)
    {
-      exit_code = reset_server(s_ssl, socket, parsed.args[0]);
+      exit_code = clear_server(s_ssl, socket, parsed.args[0], compression, encryption, output_format);
    }
-   else if (parsed.cmd->action == ACTION_SWITCH_TO)
+   else if (parsed.cmd->action == MANAGEMENT_SWITCH_TO)
    {
-      exit_code = switch_to(s_ssl, socket, parsed.args[0]);
+      exit_code = switch_to(s_ssl, socket, parsed.args[0], compression, encryption, output_format);
    }
-   else if (parsed.cmd->action == ACTION_RELOAD)
+   else if (parsed.cmd->action == MANAGEMENT_RELOAD)
    {
       if (configuration_path == NULL)
       {
@@ -685,21 +794,21 @@ username:
       }
       else
       {
-         exit_code = reload(s_ssl, socket);
+         exit_code = reload(s_ssl, socket, compression, encryption, output_format);
       }
    }
-   else if (parsed.cmd->action == ACTION_CONFIG_GET)
-   {
-      exit_code = config_get(s_ssl, socket, parsed.args[0], verbose, output_format);
-   }
-   else if (parsed.cmd->action == ACTION_CONFIG_SET)
-   {
-      exit_code = config_set(s_ssl, socket, parsed.args[0], parsed.args[1], verbose, output_format);
-   }
-   else if (parsed.cmd->action == ACTION_CONFIG_LS)
-   {
-      exit_code = config_ls(s_ssl, socket, output_format);
-   }
+   /* else if (parsed.cmd->action == MANAGEMENT_CONFIG_GET) */
+   /* { */
+   /*    exit_code = config_get(s_ssl, socket, parsed.args[0], verbose, compression, encryption, output_format); */
+   /* } */
+   /* else if (parsed.cmd->action == MANAGEMENT_CONFIG_SET) */
+   /* { */
+   /*    exit_code = config_set(s_ssl, socket, parsed.args[0], parsed.args[1], verbose, compression, encryption, output_format); */
+   /* } */
+   /* else if (parsed.cmd->action == MANAGEMENT_CONFIG_LS) */
+   /* { */
+   /*    exit_code = config_ls(s_ssl, socket, compression, encryption, output_format); */
+   /* } */
 
 done:
 
@@ -720,17 +829,9 @@ done:
 
    if (configuration_path != NULL)
    {
-      if (parsed.cmd != NULL)
+      if (matched && exit_code != 0)
       {
-         switch (exit_code)
-         {
-            case EXIT_STATUS_CONNECTION_ERROR:
-               printf("Connection error on %s\n", config->unix_socket_dir);
-               break;
-            case EXIT_STATUS_DATA_ERROR:
-            case EXIT_STATUS_OK:
-               break;
-         }
+         warnx("No connection to pgagroal on %s", config->unix_socket_dir);
       }
    }
 
@@ -741,270 +842,673 @@ done:
 
    if (verbose)
    {
-      warnx("%s (%d)", exit_code == EXIT_STATUS_OK ? "Success" : "Error", exit_code);
+      warnx("%s (%d)", exit_code == 0 ? "Success" : "Error", exit_code);
    }
 
    return exit_code;
 }
 
-static int
-flush(SSL* ssl, int socket, int32_t mode, char* database)
+static void
+help_cancel_shutdown(void)
 {
-   if (pgagroal_management_flush(ssl, socket, mode, database))
-   {
-      return EXIT_STATUS_CONNECTION_ERROR;
-   }
-
-   return EXIT_STATUS_OK;
+   printf("Cancel shutdown of pgagroal\n");
+   printf("  pgagroal-cli cancel-shutdown\n");
 }
 
-static int
-enabledb(SSL* ssl, int socket, char* database)
+static void
+help_shutdown(void)
 {
-   if (pgagroal_management_enabledb(ssl, socket, database))
-   {
-      return EXIT_STATUS_CONNECTION_ERROR;
-   }
-
-   return EXIT_STATUS_OK;
+   printf("Shutdown pgagroal\n");
+   printf("  pgagroal-cli shutdown\n");
 }
 
-static int
-disabledb(SSL* ssl, int socket, char* database)
+static void
+help_ping(void)
 {
-   if (pgagroal_management_disabledb(ssl, socket, database))
-   {
-      return EXIT_STATUS_CONNECTION_ERROR;
-   }
-
-   return EXIT_STATUS_OK;
+   printf("Check if pgagroal is alive\n");
+   printf("  pgagroal-cli ping\n");
 }
 
-static int
-gracefully(SSL* ssl, int socket)
+static void
+help_status_details(void)
 {
-   if (pgagroal_management_gracefully(ssl, socket))
-   {
-      return EXIT_STATUS_CONNECTION_ERROR;
-   }
-
-   return EXIT_STATUS_OK;
+   printf("Status of pgagroal\n");
+   printf("  pgagroal-cli status [details]\n");
 }
 
-static int
-stop(SSL* ssl, int socket)
+static void
+help_disabledb(void)
 {
-   if (pgagroal_management_stop(ssl, socket))
-   {
-      return EXIT_STATUS_CONNECTION_ERROR;
-   }
-
-   return EXIT_STATUS_OK;
+   printf("Disable a database\n");
+   printf("  pgagroal-cli disabledb <database>|*\n");
 }
 
-static int
-cancel_shutdown(SSL* ssl, int socket)
+static void
+help_enabledb(void)
 {
-   if (pgagroal_management_cancel_shutdown(ssl, socket))
-   {
-      return EXIT_STATUS_CONNECTION_ERROR;
-   }
-
-   return EXIT_STATUS_OK;
+   printf("Enable a database\n");
+   printf("  pgagroal-cli enabledb <database>|*\n");
 }
 
-static int
-status(SSL* ssl, int socket, char output_format)
+static void
+help_conf(void)
 {
-   if (pgagroal_management_status(ssl, socket) == 0)
+   printf("Manage the configuration\n");
+   printf("  pgagroal-cli conf [reload]\n");
+}
+
+static void
+help_clear(void)
+{
+   printf("Reset data\n");
+   printf("  pgagroal-cli clear [prometheus]\n");
+}
+
+static void
+help_flush(void)
+{
+   printf("Flush connections\n");
+   printf("  pgagroal-cli flush [gracefully|idle|all] [*|<database>]\n");
+}
+
+static void
+help_switch_to(void)
+{
+   printf("Switch to another primary server\n");
+   printf("  pgagroal-cli switch-to <server>\n");
+}
+
+static void
+display_helper(char* command)
+{
+   if (!strcmp(command, COMMAND_CANCELSHUTDOWN))
    {
-      return pgagroal_management_read_status(ssl, socket, output_format);
+      help_cancel_shutdown();
+   }
+   else if (//!strcmp(command, COMMAND_CONFIG_GET) ||
+            //!strcmp(command, COMMAND_CONFIG_LS) ||
+            //!strcmp(command, COMMAND_CONFIG_SET) ||
+            !strcmp(command, COMMAND_RELOAD))
+   {
+      help_conf();
+   }
+   else if (!strcmp(command, COMMAND_DISABLEDB))
+   {
+      help_disabledb();
+   }
+   else if (!strcmp(command, COMMAND_ENABLEDB))
+   {
+      help_enabledb();
+   }
+   else if (!strcmp(command, COMMAND_FLUSH))
+   {
+      help_flush();
+   }
+   else if (!strcmp(command, COMMAND_PING))
+   {
+      help_ping();
+   }
+   else if (!strcmp(command, COMMAND_CLEAR) ||
+            !strcmp(command, COMMAND_CLEAR_SERVER))
+   {
+      help_clear();
+   }
+   else if (!strcmp(command, COMMAND_SHUTDOWN))
+   {
+      help_shutdown();
+   }
+   else if (!strcmp(command, COMMAND_STATUS))
+   {
+      help_status_details();
+   }
+   else if (!strcmp(command, COMMAND_SWITCH_TO))
+   {
+      help_switch_to();
    }
    else
    {
-      return EXIT_STATUS_CONNECTION_ERROR;
+      usage();
    }
 }
 
 static int
-details(SSL* ssl, int socket, char output_format)
+flush(SSL* ssl, int socket, int32_t mode, char* database, uint8_t compression, uint8_t encryption, int32_t output_format)
 {
-   if (pgagroal_management_details(ssl, socket) == 0)
+   if (pgagroal_management_request_flush(ssl, socket, mode, database, compression, encryption, output_format))
    {
-      return pgagroal_management_read_details(ssl, socket, output_format);
-
+      goto error;
    }
 
-   // if here, an error occurred
-   return EXIT_STATUS_CONNECTION_ERROR;
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
 
+   return 0;
+
+error:
+
+   return 1;
 }
 
 static int
-isalive(SSL* ssl, int socket, char output_format)
+enabledb(SSL* ssl, int socket, char* database, uint8_t compression, uint8_t encryption, int32_t output_format)
 {
-   int status = -1;
-
-   if (pgagroal_management_isalive(ssl, socket) == 0)
+   if (pgagroal_management_request_enabledb(ssl, socket, database, compression, encryption, output_format))
    {
-      if (pgagroal_management_read_isalive(ssl, socket, &status, output_format))
-      {
-         return EXIT_STATUS_CONNECTION_ERROR;
-      }
+      goto error;
+   }
 
-      if (status != PING_STATUS_RUNNING && status != PING_STATUS_SHUTDOWN_GRACEFULLY)
-      {
-         return EXIT_STATUS_CONNECTION_ERROR;
-      }
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+disabledb(SSL* ssl, int socket, char* database, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_disabledb(ssl, socket, database, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+gracefully(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_gracefully(ssl, socket, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+pgagroal_shutdown(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_shutdown(ssl, socket, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+cancel_shutdown(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_cancel_shutdown(ssl, socket, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+status(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_status(ssl, socket, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+details(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_details(ssl, socket, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+ping(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_ping(ssl, socket, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+clear(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_clear(ssl, socket, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+clear_server(SSL* ssl, int socket, char* server, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_clear_server(ssl, socket, server, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+switch_to(SSL* ssl, int socket, char* server, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_switch_to(ssl, socket, server, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+reload(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_reload(ssl, socket, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   if (process_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
+/* static int */
+/* config_get(SSL* ssl, int socket, char* config_key, bool verbose, uint8_t compression, uint8_t encryption, int32_t output_format) */
+/* { */
+
+/*    if (!config_key || strlen(config_key) > MISC_LENGTH) */
+/*    { */
+/*       goto error; */
+/*    } */
+
+/*    if (pgagroal_management_config_get(ssl, socket, config_key)) */
+/*    { */
+/*       goto error; */
+/*    } */
+
+/*    if (pgagroal_management_read_config_get(socket, config_key, NULL, verbose, output_format)) */
+/*    { */
+/*       goto error; */
+/*    } */
+
+/*    return 0; */
+
+/* error: */
+/*    return 1; */
+/* } */
+
+/* static int */
+/* config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose, uint8_t compression, uint8_t encryption, int32_t output_format) */
+/* { */
+/*    int status = EXIT_STATUS_OK; */
+
+/*    if (!config_key || strlen(config_key) > MISC_LENGTH */
+/*        || !config_value || strlen(config_value) > MISC_LENGTH) */
+/*    { */
+/*       goto error; */
+/*    } */
+
+/*    if (pgagroal_management_config_set(ssl, socket, config_key, config_value)) */
+/*    { */
+/*       goto error; */
+/*    } */
+
+/*    status = pgagroal_management_read_config_get(socket, config_key, config_value, verbose, output_format); */
+
+/*    return status; */
+/* error: */
+/*    return 1; */
+/* } */
+
+/* static int */
+/* config_ls(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format) */
+/* { */
+/*    if (pgagroal_management_conf_ls(ssl, socket)) */
+/*    { */
+/*       goto error; */
+/*    } */
+
+/*    if (pgagroal_management_read_conf_ls(ssl, socket, output_format)) */
+/*    { */
+/*       goto error; */
+/*    } */
+
+/*    return EXIT_STATUS_OK; */
+/* error: */
+/*    return EXIT_STATUS_CONNECTION_ERROR; */
+/* } */
+
+static int
+process_result(SSL* ssl, int socket, int32_t output_format)
+{
+   struct json* read = NULL;
+
+   if (pgagroal_management_read_json(ssl, socket, NULL, NULL, &read))
+   {
+      goto error;
+   }
+
+   if (MANAGEMENT_OUTPUT_FORMAT_RAW != output_format)
+   {
+      translate_json_object(read);
+   }
+
+   if (MANAGEMENT_OUTPUT_FORMAT_TEXT == output_format)
+   {
+      pgagroal_json_print(read, FORMAT_TEXT);
    }
    else
    {
-      return EXIT_STATUS_CONNECTION_ERROR;
+      pgagroal_json_print(read, FORMAT_JSON);
    }
 
-   return EXIT_STATUS_OK;
-}
+   pgagroal_json_destroy(read);
 
-static int
-reset(SSL* ssl, int socket)
-{
-   if (pgagroal_management_reset(ssl, socket))
-   {
-      return EXIT_STATUS_CONNECTION_ERROR;
-   }
-
-   return EXIT_STATUS_OK;
-}
-
-static int
-reset_server(SSL* ssl, int socket, char* server)
-{
-   if (pgagroal_management_reset_server(ssl, socket, server))
-   {
-      return EXIT_STATUS_CONNECTION_ERROR;
-   }
-
-   return EXIT_STATUS_OK;
-}
-
-static int
-switch_to(SSL* ssl, int socket, char* server)
-{
-   if (pgagroal_management_switch_to(ssl, socket, server))
-   {
-      return EXIT_STATUS_CONNECTION_ERROR;
-   }
-
-   return EXIT_STATUS_OK;
-}
-
-static int
-reload(SSL* ssl, int socket)
-{
-   if (pgagroal_management_reload(ssl, socket))
-   {
-      return EXIT_STATUS_CONNECTION_ERROR;
-   }
-
-   return EXIT_STATUS_OK;
-}
-
-/**
- * Entry point for a config-get command line action.
- *
- * First it sends the message to pgagroal process to execute a config-get,
- * then reads back the answer.
- *
- * @param ssl the SSL mode
- * @param socket the socket file descriptor
- * @param config_key the key of the configuration parameter, that is the name
- * of the configuration parameter to read.
- * @param verbose if true the function will print on STDOUT also the config key
- * @param output_format the format for the output (e.g., json)
- * @returns 0 on success, 1 on network failure, 2 on data failure
- */
-static int
-config_get(SSL* ssl, int socket, char* config_key, bool verbose, char output_format)
-{
-
-   if (!config_key || strlen(config_key) > MISC_LENGTH)
-   {
-      goto error;
-   }
-
-   if (pgagroal_management_config_get(ssl, socket, config_key))
-   {
-      goto error;
-   }
-
-   if (pgagroal_management_read_config_get(socket, config_key, NULL, verbose, output_format))
-   {
-      goto error;
-   }
-
-   return EXIT_STATUS_OK;
+   return 0;
 
 error:
-   return EXIT_STATUS_CONNECTION_ERROR;
+
+   pgagroal_json_destroy(read);
+
+   return 1;
 }
 
-/**
- * Entry point for a config-set command.
- *
- * The function requires the configuration parameter to set and its value.
- * It then sends the command over the socket and reads the answer back.
- *
- * @param ssl the SSL connection
- * @param socket the socket to use
- * @param config_key the parameter name to set
- * @param config_value the value to set the parameter to
- * @param verbose if true the system will print back the new value of the configuration parameter
- * @return 0 on success
- */
-static int
-config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose, char output_format)
+static char*
+translate_command(int32_t cmd_code)
 {
-
-   int status = EXIT_STATUS_OK;
-
-   if (!config_key || strlen(config_key) > MISC_LENGTH
-       || !config_value || strlen(config_value) > MISC_LENGTH)
+   char* command_output = NULL;
+   switch (cmd_code)
    {
-      goto error;
+      case MANAGEMENT_CANCEL_SHUTDOWN:
+         command_output = pgagroal_append(command_output, COMMAND_CANCELSHUTDOWN);
+         break;
+      case MANAGEMENT_DETAILS:
+         command_output = pgagroal_append(command_output, COMMAND_STATUS_DETAILS);
+         break;
+      case MANAGEMENT_DISABLEDB:
+         command_output = pgagroal_append(command_output, COMMAND_DISABLEDB);
+         break;
+      case MANAGEMENT_ENABLEDB:
+         command_output = pgagroal_append(command_output, COMMAND_ENABLEDB);
+         break;
+      case MANAGEMENT_FLUSH:
+         command_output = pgagroal_append(command_output, COMMAND_FLUSH);
+         break;
+      case MANAGEMENT_GRACEFULLY:
+         command_output = pgagroal_append(command_output, COMMAND_GRACEFULLY);
+         break;
+      case MANAGEMENT_PING:
+         command_output = pgagroal_append(command_output, COMMAND_PING);
+         break;
+      case MANAGEMENT_RELOAD:
+         command_output = pgagroal_append(command_output, COMMAND_RELOAD);
+         break;
+      case MANAGEMENT_CLEAR:
+         command_output = pgagroal_append(command_output, COMMAND_CLEAR);
+         break;
+      case MANAGEMENT_CLEAR_SERVER:
+         command_output = pgagroal_append(command_output, COMMAND_CLEAR_SERVER);
+         break;
+      case MANAGEMENT_SHUTDOWN:
+         command_output = pgagroal_append(command_output, COMMAND_SHUTDOWN);
+         break;
+      case MANAGEMENT_STATUS:
+         command_output = pgagroal_append(command_output, COMMAND_STATUS);
+         break;
+      case MANAGEMENT_SWITCH_TO:
+         command_output = pgagroal_append(command_output, COMMAND_SWITCH_TO);
+         break;
+      default:
+         break;
    }
-
-   if (pgagroal_management_config_set(ssl, socket, config_key, config_value))
-   {
-      goto error;
-   }
-
-   status = pgagroal_management_read_config_get(socket, config_key, config_value, verbose, output_format);
-
-   return status;
-error:
-   return EXIT_STATUS_CONNECTION_ERROR;
+   return command_output;
 }
 
-/**
- * Asks the daemon about the configuration file location.
- *
- * @returns 0 on success
- */
-static int
-config_ls(SSL* ssl, int socket, char output_format)
+static char*
+translate_output_format(int32_t out_code)
 {
-
-   if (pgagroal_management_conf_ls(ssl, socket))
+   char* output_format_output = NULL;
+   switch (out_code)
    {
-      goto error;
+      case MANAGEMENT_OUTPUT_FORMAT_JSON:
+         output_format_output = pgagroal_append(output_format_output, OUTPUT_FORMAT_JSON);
+         break;
+      case MANAGEMENT_OUTPUT_FORMAT_TEXT:
+         output_format_output = pgagroal_append(output_format_output, OUTPUT_FORMAT_TEXT);
+         break;
+      default:
+         break;
    }
+   return output_format_output;
+}
 
-   if (pgagroal_management_read_conf_ls(ssl, socket, output_format))
+static char*
+translate_compression(int32_t compression_code)
+{
+   char* compression_output = NULL;
+   switch (compression_code)
    {
-      goto error;
+      case COMPRESSION_CLIENT_GZIP:
+      case COMPRESSION_SERVER_GZIP:
+         compression_output = pgagroal_append(compression_output, "gzip");
+         break;
+      case COMPRESSION_CLIENT_ZSTD:
+      case COMPRESSION_SERVER_ZSTD:
+         compression_output = pgagroal_append(compression_output, "zstd");
+         break;
+      case COMPRESSION_CLIENT_LZ4:
+      case COMPRESSION_SERVER_LZ4:
+         compression_output = pgagroal_append(compression_output, "lz4");
+         break;
+      case COMPRESSION_CLIENT_BZIP2:
+         compression_output = pgagroal_append(compression_output, "bzip2");
+         break;
+      default:
+         compression_output = pgagroal_append(compression_output, "none");
+         break;
    }
+   return compression_output;
+}
 
-   return EXIT_STATUS_OK;
-error:
-   return EXIT_STATUS_CONNECTION_ERROR;
+static char*
+translate_encryption(int32_t encryption_code)
+{
+   char* encryption_output = NULL;
+   switch (encryption_code)
+   {
+      case ENCRYPTION_AES_256_CBC:
+         encryption_output = pgagroal_append(encryption_output, "aes-256-cbc");
+         break;
+      case ENCRYPTION_AES_192_CBC:
+         encryption_output = pgagroal_append(encryption_output, "aes-192-cbc");
+         break;
+      case ENCRYPTION_AES_128_CBC:
+         encryption_output = pgagroal_append(encryption_output, "aes-128-cbc");
+         break;
+      case ENCRYPTION_AES_256_CTR:
+         encryption_output = pgagroal_append(encryption_output, "aes-256-ctr");
+         break;
+      case ENCRYPTION_AES_192_CTR:
+         encryption_output = pgagroal_append(encryption_output, "aes-192-ctr");
+         break;
+      case ENCRYPTION_AES_128_CTR:
+         encryption_output = pgagroal_append(encryption_output, "aes-128-ctr");
+         break;
+      default:
+         encryption_output = pgagroal_append(encryption_output, "none");
+         break;
+   }
+   return encryption_output;
+}
+
+static void
+translate_json_object(struct json* j)
+{
+   struct json* header = NULL;
+   int32_t command = 0;
+   char* translated_command = NULL;
+   int32_t out_format = -1;
+   char* translated_out_format = NULL;
+   int32_t out_compression = -1;
+   char* translated_compression = NULL;
+   int32_t out_encryption = -1;
+   char* translated_encryption = NULL;
+
+   // Translate arguments of header
+   header = (struct json*)pgagroal_json_get(j, MANAGEMENT_CATEGORY_HEADER);
+
+   if (header)
+   {
+      command = (int32_t)pgagroal_json_get(header, MANAGEMENT_ARGUMENT_COMMAND);
+      translated_command = translate_command(command);
+      if (translated_command)
+      {
+         pgagroal_json_put(header, MANAGEMENT_ARGUMENT_COMMAND, (uintptr_t)translated_command, ValueString);
+      }
+
+      out_format = (int32_t)pgagroal_json_get(header, MANAGEMENT_ARGUMENT_OUTPUT);
+      translated_out_format = translate_output_format(out_format);
+      if (translated_out_format)
+      {
+         pgagroal_json_put(header, MANAGEMENT_ARGUMENT_OUTPUT, (uintptr_t)translated_out_format, ValueString);
+      }
+
+      out_compression = (int32_t)pgagroal_json_get(header, MANAGEMENT_ARGUMENT_COMPRESSION);
+      translated_compression = translate_compression(out_compression);
+      if (translated_compression)
+      {
+         pgagroal_json_put(header, MANAGEMENT_ARGUMENT_COMPRESSION, (uintptr_t)translated_compression, ValueString);
+      }
+
+      out_encryption = (int32_t)pgagroal_json_get(header, MANAGEMENT_ARGUMENT_ENCRYPTION);
+      translated_encryption = translate_encryption(out_encryption);
+      if (translated_encryption)
+      {
+         pgagroal_json_put(header, MANAGEMENT_ARGUMENT_ENCRYPTION, (uintptr_t)translated_encryption, ValueString);
+      }
+
+      free(translated_command);
+      free(translated_out_format);
+      free(translated_compression);
+      free(translated_encryption);
+   }
 }

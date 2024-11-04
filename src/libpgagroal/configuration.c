@@ -28,6 +28,7 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <aes.h>
 #include <configuration.h>
 #include <logging.h>
 #include <pipeline.h>
@@ -74,7 +75,7 @@ static void extract_limit(char* str, int server_max, char** database, char** use
 static unsigned int as_seconds(char* str, unsigned int* age, unsigned int default_age);
 static unsigned int as_bytes(char* str, unsigned int* bytes, unsigned int default_bytes);
 
-static int transfer_configuration(struct main_configuration* config, struct main_configuration* reload);
+static bool transfer_configuration(struct main_configuration* config, struct main_configuration* reload);
 static void copy_server(struct server* dst, struct server* src);
 static void copy_hba(struct hba* dst, struct hba* src);
 static void copy_user(struct user* dst, struct user* src);
@@ -1312,13 +1313,13 @@ pgagroal_read_users_configuration(void* shm, char* filename)
             goto error;
          }
 
-         if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
+         if (pgagroal_base64_decode(ptr, strlen(ptr), (void**)&decoded, &decoded_length))
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
          }
 
-         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password, ENCRYPTION_AES_256_CBC))
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
@@ -1434,13 +1435,13 @@ pgagroal_read_frontend_users_configuration(void* shm, char* filename)
             goto error;
          }
 
-         if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
+         if (pgagroal_base64_decode(ptr, strlen(ptr), (void**)&decoded, &decoded_length))
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
          }
 
-         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password, ENCRYPTION_AES_256_CBC))
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
@@ -1581,13 +1582,13 @@ pgagroal_read_admins_configuration(void* shm, char* filename)
             goto error;
          }
 
-         if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
+         if (pgagroal_base64_decode(ptr, strlen(ptr), (void**)&decoded, &decoded_length))
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
          }
 
-         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+            if (pgagroal_decrypt(decoded, decoded_length, master_key, &password, ENCRYPTION_AES_256_CBC))
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
@@ -1694,13 +1695,13 @@ pgagroal_vault_read_users_configuration(void* shm, char* filename)
             goto error;
          }
 
-         if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
+         if (pgagroal_base64_decode(ptr, strlen(ptr), (void**)&decoded, &decoded_length))
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
          }
 
-         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password, ENCRYPTION_AES_256_CBC))
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
@@ -1828,14 +1829,14 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
             goto error;
          }
 
-         if (pgagroal_base64_decode(ptr, strlen(ptr), &decoded, &decoded_length))
+         if (pgagroal_base64_decode(ptr, strlen(ptr), (void**)&decoded, &decoded_length))
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
 
          }
 
-         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password))
+         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password, ENCRYPTION_AES_256_CBC))
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
@@ -1894,13 +1895,15 @@ pgagroal_validate_superuser_configuration(void* shm)
 }
 
 int
-pgagroal_reload_configuration(void)
+pgagroal_reload_configuration(bool* r)
 {
    size_t reload_size;
    struct main_configuration* reload = NULL;
    struct main_configuration* config;
 
    config = (struct main_configuration*)shmem;
+
+   *r = false;
 
    pgagroal_log_trace("Configuration: %s", config->common.configuration_path);
    pgagroal_log_trace("HBA: %s", config->hba_path);
@@ -2004,10 +2007,7 @@ pgagroal_reload_configuration(void)
       goto error;
    }
 
-   if (transfer_configuration(config, reload) > 0)
-   {
-      goto error;
-   }
+   *r = transfer_configuration(config, reload);
 
    pgagroal_destroy_shared_memory((void*)reload, reload_size);
 
@@ -2567,24 +2567,25 @@ extract_value(char* str, int offset, char** value)
  *
  * @param config the new (clean) configuration
  * @param reload the one loaded from the configuration (i.e., the one to apply)
- * @return 0 on success, a negative number in the case some parameters cannot be changed
- * because require a restart (in such case, the value indicates the number of untouched
- * parameters), a positive value in the case of a dramatic error.
+ * @return True, if restart or false if not
  */
-static int
+static bool
 transfer_configuration(struct main_configuration* config, struct main_configuration* reload)
 {
+   bool changed = false;
+
 #ifdef HAVE_LINUX
    sd_notify(0, "RELOADING=1");
 #endif
-
-   int unchanged = 0;
 
    memcpy(config->common.host, reload->common.host, MISC_LENGTH);
    config->common.port = reload->common.port;
    config->common.metrics = reload->common.metrics;
    config->common.metrics_cache_max_age = reload->common.metrics_cache_max_age;
-   unchanged -= restart_int("metrics_cache_max_size", config->common.metrics_cache_max_size, reload->common.metrics_cache_max_size);
+   if (restart_int("metrics_cache_max_size", config->common.metrics_cache_max_size, reload->common.metrics_cache_max_size))
+   {
+      changed= true;
+   }
    config->management = reload->management;
 
    config->update_process_title = reload->update_process_title;
@@ -2594,13 +2595,19 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    /* disabled */
 
    /* pipeline */
-   unchanged -= restart_int("pipeline", config->pipeline, reload->pipeline);
+   if (restart_int("pipeline", config->pipeline, reload->pipeline))
+   {
+      changed = true;
+   }
 
    config->failover = reload->failover;
    memcpy(config->failover_script, reload->failover_script, MISC_LENGTH);
 
    /* log_type */
-   restart_int("log_type", config->common.log_type, reload->common.log_type);
+   if (restart_int("log_type", config->common.log_type, reload->common.log_type))
+   {
+      changed = true;
+   }
    config->common.log_level = reload->common.log_level;
 
    /* log_path */
@@ -2644,7 +2651,10 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
 
    /* active_connections */
    /* max_connections */
-   unchanged -= restart_int("max_connections", config->max_connections, reload->max_connections);
+   if (restart_int("max_connections", config->max_connections, reload->max_connections))
+   {
+      changed = true;
+   }
    config->allow_unknown_users = reload->allow_unknown_users;
 
    config->blocking_timeout = reload->blocking_timeout;
@@ -2659,16 +2669,25 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    config->disconnect_client = reload->disconnect_client;
    config->disconnect_client_force = reload->disconnect_client_force;
    /* pidfile */
-   restart_string("pidfile", config->pidfile, reload->pidfile, true);
+   if (restart_string("pidfile", config->pidfile, reload->pidfile, true))
+   {
+      changed = true;
+   }
 
    /* libev */
-   restart_string("libev", config->libev, reload->libev, true);
+   if (restart_string("libev", config->libev, reload->libev, true))
+   {
+      changed = true;
+   }
    config->keep_alive = reload->keep_alive;
    config->nodelay = reload->nodelay;
    config->non_blocking = reload->non_blocking;
    config->backlog = reload->backlog;
    /* hugepage */
-   unchanged -= restart_int("hugepage", config->common.hugepage, reload->common.hugepage);
+   if (restart_int("hugepage", config->common.hugepage, reload->common.hugepage))
+   {
+      changed = true;
+   }
    config->tracker = reload->tracker;
    config->track_prepared_statements = reload->track_prepared_statements;
 
@@ -2676,7 +2695,10 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
 
    // does make sense to check for remote connections? Because in the case the Unix socket dir
    // changes the pgagroal-cli probably will not be able to connect in any case!
-   restart_string("unix_socket_dir", config->unix_socket_dir, reload->unix_socket_dir, false);
+   if (restart_string("unix_socket_dir", config->unix_socket_dir, reload->unix_socket_dir, false))
+   {
+      changed = true;
+   }
 
    /* su_connection */
 
@@ -2685,7 +2707,10 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    // decreasing the number of servers is probably a bad idea
    if (config->number_of_servers > reload->number_of_servers)
    {
-      restart_int("decreasing number of servers", config->number_of_servers, reload->number_of_servers);
+      if (restart_int("decreasing number of servers", config->number_of_servers, reload->number_of_servers))
+      {
+         changed = true;
+      }
    }
 
    for (int i = 0; i < reload->number_of_servers; i++)
@@ -2693,7 +2718,10 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
       // check and emit restart warning only for not-added servers
       if (i < config->number_of_servers)
       {
-         restart_server(&reload->servers[i], &config->servers[i]);
+         if (restart_server(&reload->servers[i], &config->servers[i]))
+         {
+            changed = true;
+         }
       }
 
       copy_server(&config->servers[i], &reload->servers[i]);
@@ -2713,7 +2741,10 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
 
    /* number_of_limits */
    /* limits */
-   unchanged -= restart_limit("limits", config, reload);
+   if (restart_limit("limits", config, reload))
+   {
+      changed = true;
+   }
 
    memset(&config->users[0], 0, sizeof(struct user) * NUMBER_OF_USERS);
    for (int i = 0; i < reload->number_of_users; i++)
@@ -2746,12 +2777,12 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    sd_notify(0, "READY=1");
 #endif
 
-   if (unchanged < 0)
+   if (changed)
    {
-      pgagroal_log_warn("%d settings cannot be applied", unchanged * -1);
+      pgagroal_log_warn("Settings cannot be applied");
    }
 
-   return unchanged;
+   return changed;
 }
 
 /**

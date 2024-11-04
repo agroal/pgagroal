@@ -304,7 +304,7 @@ pgagroal_prometheus_self_sockets_sub(void);
  * Reset the counters and histograms
  */
 void
-pgagroal_prometheus_reset(void);
+pgagroal_prometheus_clear(void);
 
 /**
  * Increase SERVER_ERROR for a server
