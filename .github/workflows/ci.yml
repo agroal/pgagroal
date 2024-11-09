@@ -116,9 +116,9 @@ jobs:
     - name: Install libev
       run: brew install libev
     - name: Install zstd
-      run: brew install libzstd
+      run: brew install zstd
     - name: Install lz4
-      run: brew install liblz4
+      run: brew install lz4
     - name: Install rst2man
       run: brew install docutils
     - name: Install graphviz
