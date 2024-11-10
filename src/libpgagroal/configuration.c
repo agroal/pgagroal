@@ -144,6 +144,8 @@ pgagroal_init_configuration(void* shm)
    config->disconnect_client = 0;
    config->disconnect_client_force = false;
 
+   config->all_disabled = false;
+
    config->keep_alive = true;
    config->nodelay = true;
    config->non_blocking = false;

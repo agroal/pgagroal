@@ -1484,30 +1484,40 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       pgagroal_management_create_response(payload, -1, &res);
       pgagroal_json_create(&databases);
       
-      for (int i = 0; i < NUMBER_OF_DISABLED; i++)
+      if (!strcmp("*", database))
       {
-         bool found = false;
          struct json* js = NULL;
 
-         if (!strcmp("*", database))
-         {
-            memset(&config->disabled[i], 0, MAX_DATABASE_LENGTH);
-            found = true;
-         }
-         else if (!strcmp(config->disabled[i], database))
-         {
-            memset(&config->disabled[i], 0, MAX_DATABASE_LENGTH);
-            found = true;
-         }
+         config->all_disabled = false;
+         memset(&config->disabled, 0, sizeof(config->disabled));
 
-         if (found)
+         pgagroal_json_create(&js);
+
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)true, ValueBool);
+
+         pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
+      }
+      else
+      {
+         bool found = false;
+         for (int i = 0; !found && i < NUMBER_OF_DISABLED; i++)
          {
-            pgagroal_json_create(&js);
+            struct json* js = NULL;
 
-            pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
-            pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)true, ValueBool);
+            if (!strcmp(config->disabled[i], database))
+            {
+               memset(&config->disabled[i], 0, MAX_DATABASE_LENGTH);
 
-            pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
+               pgagroal_json_create(&js);
+
+               pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
+               pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)true, ValueBool);
+
+               pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
+
+               found = true;
+            }
          }
       }
 
@@ -1535,29 +1545,42 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       pgagroal_management_create_response(payload, -1, &res);
       pgagroal_json_create(&databases);
 
-      for (int i = 0; i < NUMBER_OF_DISABLED; i++)
+      config->all_disabled = false;
+
+      if (!strcmp("*", database))
       {
-         bool found = false;
          struct json* js = NULL;
 
-         if (!strcmp("*", database))
-         {
-            memcpy(&config->disabled[i], database, strlen(database));
-         }
-         else if (!strcmp(config->disabled[i], ""))
-         {
-            memcpy(&config->disabled[i], database, strlen(database));
-            break;
-         }
+         config->all_disabled = true;
+         memset(&config->disabled, 0, sizeof(config->disabled));
 
-         if (found)
+         pgagroal_json_create(&js);
+
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)false, ValueBool);
+
+         pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
+      }
+      else
+      {
+         bool inserted = false;
+         for (int i = 0; !inserted && i < NUMBER_OF_DISABLED; i++)
          {
-            pgagroal_json_create(&js);
+            struct json* js = NULL;
 
-            pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
-            pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)false, ValueBool);
+            if (strlen(config->disabled[i]) == 0)
+            {
+               memcpy(&config->disabled[i], database, strlen(database) > MAX_DATABASE_LENGTH ? MAX_DATABASE_LENGTH : strlen(database));
 
-            pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
+               pgagroal_json_create(&js);
+
+               pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
+               pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)false, ValueBool);
+
+               pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
+
+               inserted = true;
+            }
          }
       }
 

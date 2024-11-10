@@ -210,7 +210,9 @@ status_details(bool details, struct json* response)
 
    if (details)
    {
+      int number_of_disabled = 0;
       struct json* limits = NULL;
+      struct json* databases = NULL;
       struct json* connections = NULL;
 
       pgagroal_json_create(&limits);
@@ -236,23 +238,38 @@ status_details(bool details, struct json* response)
 
       pgagroal_json_put(response, MANAGEMENT_ARGUMENT_LIMITS, (uintptr_t)limits, ValueJSON);
          
-      // TODO Databases + Disabled
-/*    for (int i = 0; i < NUMBER_OF_DISABLED; i++) */
-/*    { */
-/*       if (strcmp(disabled[i], "")) */
-/*       { */
-/*          if (!strcmp(disabled[i], "*")) */
-/*          { */
-/*             cJSON_AddItemToArray(databases_array, cJSON_CreateString("ALL")); */
-/*             counter = -1; */
-/*          } */
-/*          else */
-/*          { */
-/*             cJSON_AddItemToArray(databases_array, cJSON_CreateString(disabled[i])); */
-/*             counter++; */
-/*          } */
-/*       } */
-/*    } */
+      pgagroal_json_create(&databases);
+
+      for (int i = 0; i < NUMBER_OF_DISABLED; i++)
+      {
+         struct json* js = NULL;
+
+         if (strlen(config->disabled[i]) > 0)
+         {
+            pgagroal_json_create(&js);
+
+            pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)config->disabled[i], ValueString);
+            pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)false, ValueBool);
+
+            pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
+
+            number_of_disabled++;
+         }
+      }
+
+      if (number_of_disabled == 0)
+      {
+         struct json* js = NULL;
+
+         pgagroal_json_create(&js);
+
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)"*", ValueString);
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)!config->all_disabled, ValueBool);
+
+         pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
+      }
+   
+      pgagroal_json_put(response, MANAGEMENT_ARGUMENT_DATABASES, (uintptr_t)databases, ValueJSON);
       
       for (int i = 0; i < config->max_connections; i++)
       {
@@ -260,11 +277,11 @@ status_details(bool details, struct json* response)
 
          pgagroal_json_create(&js);
          
-         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_START_TIME, (uintptr_t)config->connections[i].start_time, ValueUInt64);
-         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_TIMESTAMP, (uintptr_t)config->connections[i].timestamp, ValueUInt64);
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_START_TIME, (uintptr_t)config->connections[i].start_time, ValueInt64);
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_TIMESTAMP, (uintptr_t)config->connections[i].timestamp, ValueInt64);
 
-         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_PID, (uintptr_t)config->connections[i].pid, ValueUInt32);
-         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_FD, (uintptr_t)config->connections[i].fd, ValueUInt32);
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_PID, (uintptr_t)config->connections[i].pid, ValueInt32);
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_FD, (uintptr_t)config->connections[i].fd, ValueInt32);
 
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)config->connections[i].database, ValueString);
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_USERNAME, (uintptr_t)config->connections[i].username, ValueString);

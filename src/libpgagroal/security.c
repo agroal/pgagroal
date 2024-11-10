@@ -3096,10 +3096,14 @@ is_disabled(char* database)
 
    config = (struct main_configuration*)shmem;
 
+   if (config->all_disabled)
+   {
+      return true;
+   }
+
    for (int i = 0; i < NUMBER_OF_DISABLED; i++)
    {
-      if (!strcmp(config->disabled[i], "*") ||
-          !strcmp(config->disabled[i], database))
+      if (!strcmp(config->disabled[i], database))
       {
          return true;
       }
