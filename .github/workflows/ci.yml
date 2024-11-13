@@ -32,7 +32,7 @@ jobs:
     - name: Install lz4
       run: sudo apt install -y liblz4-dev
     - name: Install bzip2
-      run: sudo apt install -y bzip2-dev
+      run: sudo apt install -y libbz2-dev
     - name: Install graphviz
       run: sudo apt install graphviz
     - name: Install doxygen
