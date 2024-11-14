@@ -928,7 +928,7 @@ display_helper(char* command)
    else if (//!strcmp(command, COMMAND_CONFIG_GET) ||
             //!strcmp(command, COMMAND_CONFIG_LS) ||
             //!strcmp(command, COMMAND_CONFIG_SET) ||
-            !strcmp(command, COMMAND_RELOAD))
+      !strcmp(command, COMMAND_RELOAD))
    {
       help_conf();
    }

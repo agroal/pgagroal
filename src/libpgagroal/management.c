@@ -369,7 +369,6 @@ error:
    return 1;
 }
 
-
 int
 pgagroal_management_request_ping(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
 {

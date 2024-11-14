@@ -53,7 +53,6 @@ static int write_complete(SSL* ssl, int socket, void* buf, size_t size);
 static int write_socket(int socket, void* buf, size_t size);
 static int write_ssl(SSL* ssl, void* buf, size_t size);
 
-
 int
 pgagroal_connection_get(int* client_fd)
 {
@@ -72,7 +71,7 @@ pgagroal_connection_get(int* client_fd)
    }
 
    *client_fd = fd;
-   
+
    return 0;
 
 error:
@@ -102,7 +101,7 @@ pgagroal_connection_get_pid(pid_t pid, int* client_fd)
    }
 
    *client_fd = fd;
-   
+
    free(f);
 
    return 0;
@@ -113,7 +112,6 @@ error:
 
    return 1;
 }
-
 
 int
 pgagroal_connection_id_write(int client_fd, int id)
@@ -141,7 +139,7 @@ int
 pgagroal_connection_id_read(int client_fd, int* id)
 {
    char buf4[4];
-   
+
    *id = -1;
 
    memset(&buf4[0], 0, sizeof(buf4));
@@ -231,7 +229,7 @@ pgagroal_connection_transfer_read(int client_fd, int* slot, int* fd)
    struct cmsghdr* cmptr = NULL;
    struct iovec iov[1];
    struct msghdr msg;
-   
+
    *slot = -1;
    *fd = -1;
 
@@ -279,7 +277,7 @@ pgagroal_connection_transfer_read(int client_fd, int* slot, int* fd)
    *fd = *(int*)CMSG_DATA(cmptr);
 
    free(cmptr);
-   
+
    return 0;
 
 error:
@@ -318,7 +316,7 @@ int
 pgagroal_connection_slot_read(int client_fd, int32_t* slot)
 {
    char buf4[4];
-   
+
    *slot = -1;
 
    memset(&buf4[0], 0, sizeof(buf4));
@@ -364,7 +362,7 @@ int
 pgagroal_connection_socket_read(int client_fd, int* socket)
 {
    char buf4[4];
-   
+
    *socket = -1;
 
    memset(&buf4[0], 0, sizeof(buf4));
@@ -410,7 +408,7 @@ int
 pgagroal_connection_pid_read(int client_fd, pid_t* pid)
 {
    char buf4[4];
-   
+
    *pid = -1;
 
    memset(&buf4[0], 0, sizeof(buf4));
@@ -637,7 +635,6 @@ write_ssl(SSL* ssl, void* buf, size_t size)
    return 1;
 }
 
-
 /* int */
 /* pgagroal_management_client_done(pid_t pid) */
 /* { */
@@ -680,10 +677,6 @@ write_ssl(SSL* ssl, void* buf, size_t size)
 
 /*    return 1; */
 /* } */
-
-
-
-
 
 /* int */
 /* pgagroal_management_client_fd(int32_t slot, pid_t pid) */
@@ -757,7 +750,6 @@ write_ssl(SSL* ssl, void* buf, size_t size)
 /*    return 1; */
 /* } */
 
-
 /* int */
 /* pgagroal_management_remove_fd(int32_t slot, int socket, pid_t pid) */
 /* { */
@@ -809,7 +801,6 @@ write_ssl(SSL* ssl, void* buf, size_t size)
 
 /*    return 1; */
 /* } */
-
 
 /* /\* */
 /*  * Utility function to convert PGAGROAL_VERSION into a number. */
@@ -898,7 +889,6 @@ write_ssl(SSL* ssl, void* buf, size_t size)
 
 /*    return 0; */
 /* } */
-
 
 /* /\* */
 /*  * Utility function to convert command into a string. */

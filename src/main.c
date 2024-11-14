@@ -1472,7 +1472,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       struct json* res = NULL;
       struct json* databases = NULL;
       char* database = NULL;
-      
+
       pgagroal_log_debug("pgagroal: Management enabledb: ");
       pgagroal_pool_status();
 
@@ -1483,7 +1483,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
       pgagroal_management_create_response(payload, -1, &res);
       pgagroal_json_create(&databases);
-      
+
       if (!strcmp("*", database))
       {
          struct json* js = NULL;
@@ -1533,7 +1533,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       struct json* res = NULL;
       struct json* databases = NULL;
       char* database = NULL;
-      
+
       pgagroal_log_debug("pgagroal: Management disabledb: ");
       pgagroal_pool_status();
 
@@ -1598,7 +1598,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       start_time = time(NULL);
 
       config->gracefully = true;
-      
+
       end_time = time(NULL);
 
       pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
@@ -1659,7 +1659,6 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       pgagroal_log_debug("pgagroal: Management details");
       pgagroal_pool_status();
 
-
       pid = fork();
       if (pid == -1)
       {
@@ -1700,7 +1699,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       start_time = time(NULL);
 
       pgagroal_prometheus_clear();
-      
+
       end_time = time(NULL);
 
       pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
@@ -1711,7 +1710,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       pgagroal_log_debug("pgagroal: Management clear server");
       char* server = NULL;
       struct json* req = NULL;
-      
+
       start_time = time(NULL);
 
       req = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
@@ -1719,7 +1718,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
       pgagroal_server_clear(server);
       pgagroal_prometheus_failed_servers();
-      
+
       end_time = time(NULL);
 
       pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
@@ -1731,7 +1730,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       signed char server_state;
       char* server = NULL;
       struct json* req = NULL;
-      
+
       start_time = time(NULL);
 
       req = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
@@ -1776,7 +1775,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       pgagroal_log_debug("pgagroal: Management reload");
 
       start_time = time(NULL);
-      
+
       restart = reload_configuration();
 
       pgagroal_management_create_response(payload, -1, &res);
@@ -1810,9 +1809,9 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       char* username = NULL;
       struct json* req = NULL;
       struct json* res = NULL;
-      
+
       start_time = time(NULL);
-      
+
       req = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
       username = (char*)pgagroal_json_get(req, MANAGEMENT_ARGUMENT_USERNAME);
 
@@ -1823,9 +1822,9 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
             index = i;
          }
       }
-      
+
       pgagroal_management_create_response(payload, -1, &res);
-      
+
       pgagroal_json_put(res, MANAGEMENT_ARGUMENT_USERNAME, (uintptr_t)username, ValueString);
 
       if (index != -1)
@@ -1972,7 +1971,7 @@ accept_transfer_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
             }
 
             pgagroal_disconnect(c_fd);
-            
+
             c = c->next;
          }
       }
@@ -2025,7 +2024,7 @@ accept_transfer_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
             }
 
             pgagroal_disconnect(c_fd);
-            
+
             c = c->next;
          }
 
@@ -2055,7 +2054,7 @@ accept_transfer_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    pgagroal_prometheus_self_sockets_sub();
 
    return;
-   
+
 error:
 
    pgagroal_disconnect(client_fd);

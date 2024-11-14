@@ -105,7 +105,7 @@ pgagroal_status_details(SSL* ssl, int client_fd, uint8_t compression, uint8_t en
 
    pgagroal_memory_init();
    pgagroal_start_logging();
-   
+
    start_time = time(NULL);
 
    if (pgagroal_management_create_response(payload, -1, &response))
@@ -223,7 +223,7 @@ status_details(bool details, struct json* response)
          struct json* js = NULL;
 
          pgagroal_json_create(&js);
-         
+
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)config->limits[i].database, ValueString);
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_USERNAME, (uintptr_t)config->limits[i].username, ValueString);
 
@@ -232,12 +232,12 @@ status_details(bool details, struct json* response)
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_MAX_CONNECTIONS, (uintptr_t)config->limits[i].max_size, ValueUInt32);
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_INITIAL_CONNECTIONS, (uintptr_t)config->limits[i].initial_size, ValueUInt32);
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_MIN_CONNECTIONS, (uintptr_t)config->limits[i].min_size, ValueUInt32);
-         
+
          pgagroal_json_append(limits, (uintptr_t)js, ValueJSON);
       }
 
       pgagroal_json_put(response, MANAGEMENT_ARGUMENT_LIMITS, (uintptr_t)limits, ValueJSON);
-         
+
       pgagroal_json_create(&databases);
 
       for (int i = 0; i < NUMBER_OF_DISABLED; i++)
@@ -264,19 +264,19 @@ status_details(bool details, struct json* response)
          pgagroal_json_create(&js);
 
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)"*", ValueString);
-         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)!config->all_disabled, ValueBool);
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t) !config->all_disabled, ValueBool);
 
          pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
       }
-   
+
       pgagroal_json_put(response, MANAGEMENT_ARGUMENT_DATABASES, (uintptr_t)databases, ValueJSON);
-      
+
       for (int i = 0; i < config->max_connections; i++)
       {
          struct json* js = NULL;
 
          pgagroal_json_create(&js);
-         
+
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_START_TIME, (uintptr_t)config->connections[i].start_time, ValueInt64);
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_TIMESTAMP, (uintptr_t)config->connections[i].timestamp, ValueInt64);
 
@@ -286,7 +286,7 @@ status_details(bool details, struct json* response)
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)config->connections[i].database, ValueString);
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_USERNAME, (uintptr_t)config->connections[i].username, ValueString);
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_APPNAME, (uintptr_t)config->connections[i].appname, ValueString);
-      
+
          pgagroal_json_append(connections, (uintptr_t)js, ValueJSON);
       }
 

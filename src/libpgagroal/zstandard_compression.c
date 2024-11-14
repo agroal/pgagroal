@@ -112,4 +112,3 @@ pgagroal_zstdd_string(unsigned char* compressed_buffer, size_t compressed_size, 
 
    return 0;
 }
-

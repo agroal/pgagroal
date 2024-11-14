@@ -549,7 +549,7 @@ pgagroal_kill_connection(int slot, SSL* ssl)
       {
          result = 1;
       }
-      
+
       pgagroal_disconnect(transfer_fd);
 
       if (ssl != NULL)
@@ -1020,7 +1020,7 @@ pgagroal_request_flush(SSL* ssl, int client_fd, uint8_t compression, uint8_t enc
    char* database = NULL;
 
    start_time = time(NULL);
-      
+
    req = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
    mode = (int)pgagroal_json_get(req, MANAGEMENT_ARGUMENT_MODE);
    database = (char*)pgagroal_json_get(req, MANAGEMENT_ARGUMENT_DATABASE);

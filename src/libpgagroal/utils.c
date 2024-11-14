@@ -1272,30 +1272,30 @@ pgagroal_escape_string(char* str)
    {
       switch (str[i])
       {
-      case '\\':
-      case '\"':
-         translated_ec_string[idx] = '\\';
-         idx++;
-         translated_ec_string[idx] = str[i];
-         break;
-      case '\n':
-         translated_ec_string[idx] = '\\';
-         idx++;
-         translated_ec_string[idx] = 'n';
-         break;
-      case '\t':
-         translated_ec_string[idx] = '\\';
-         idx++;
-         translated_ec_string[idx] = 't';
-         break;
-      case '\r':
-         translated_ec_string[idx] = '\\';
-         idx++;
-         translated_ec_string[idx] = 'r';
-         break;
-      default:
-         translated_ec_string[idx] = str[i];
-         break;
+         case '\\':
+         case '\"':
+            translated_ec_string[idx] = '\\';
+            idx++;
+            translated_ec_string[idx] = str[i];
+            break;
+         case '\n':
+            translated_ec_string[idx] = '\\';
+            idx++;
+            translated_ec_string[idx] = 'n';
+            break;
+         case '\t':
+            translated_ec_string[idx] = '\\';
+            idx++;
+            translated_ec_string[idx] = 't';
+            break;
+         case '\r':
+            translated_ec_string[idx] = '\\';
+            idx++;
+            translated_ec_string[idx] = 'r';
+            break;
+         default:
+            translated_ec_string[idx] = str[i];
+            break;
       }
    }
    translated_ec_string[idx] = '\0'; // terminator

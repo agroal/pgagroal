@@ -64,7 +64,7 @@ pgagroal_memory_init(void)
          goto error;
       }
    }
-   
+
    if (data == NULL)
    {
       data = calloc(1, DEFAULT_BUFFER_SIZE);

@@ -38,7 +38,6 @@ static const EVP_CIPHER* (*get_cipher(int mode))(void);
 
 static int encrypt_decrypt_buffer(unsigned char* origin_buffer, size_t origin_size, unsigned char** res_buffer, size_t* res_size, int enc, int mode);
 
-
 int
 pgagroal_encrypt(char* plaintext, char* password, char** ciphertext, int* ciphertext_length, int mode)
 {

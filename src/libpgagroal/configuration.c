@@ -1590,7 +1590,7 @@ pgagroal_read_admins_configuration(void* shm, char* filename)
             goto error;
          }
 
-            if (pgagroal_decrypt(decoded, decoded_length, master_key, &password, ENCRYPTION_AES_256_CBC))
+         if (pgagroal_decrypt(decoded, decoded_length, master_key, &password, ENCRYPTION_AES_256_CBC))
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
@@ -2586,7 +2586,7 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    config->common.metrics_cache_max_age = reload->common.metrics_cache_max_age;
    if (restart_int("metrics_cache_max_size", config->common.metrics_cache_max_size, reload->common.metrics_cache_max_size))
    {
-      changed= true;
+      changed = true;
    }
    config->management = reload->management;
 
