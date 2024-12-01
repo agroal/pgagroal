@@ -74,7 +74,7 @@ int
 pgagroal_art_create(struct art** tree);
 
 /**
- * inserts a new value into the art tree, note that the key is copied
+ * inserts a new value into the art tree,note that the key is copied while the value is sometimes not(depending on value type)
  * @param t The tree
  * @param key The key
  * @param key_len The length of the key
@@ -84,6 +84,18 @@ pgagroal_art_create(struct art** tree);
  */
 int
 pgagroal_art_insert(struct art* t, unsigned char* key, uint32_t key_len, uintptr_t value, enum value_type type);
+
+/**
+ * inserts a new ValueRef value into the art tree with a custom to_string and destroy data callback config
+ * @param t The tree
+ * @param key The key
+ * @param key_len The length of the key
+ * @param value The value data
+ * @param config The config
+ * @return 0 if the item was successfully inserted, otherwise 1
+ */
+int
+pgagroal_art_insert_with_config(struct art* t, unsigned char* key, uint32_t key_len, uintptr_t value, struct value_config* config);
 
 /**
  * Check if a key exists in the ART tree

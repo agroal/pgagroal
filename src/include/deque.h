@@ -25,6 +25,7 @@
  * TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef PGAGROAL_DEQUE_H
 #define PGAGROAL_DEQUE_H
 
@@ -82,7 +83,7 @@ int
 pgagroal_deque_create(bool thread_safe, struct deque** deque);
 
 /**
- * Add a node to deque's tail, the tag will be copied, but the data will not
+ * Add a node to deque's tail, the tag will be copied
  * This function is thread safe
  * @param deque The deque
  * @param tag The tag,optional
@@ -92,6 +93,27 @@ pgagroal_deque_create(bool thread_safe, struct deque** deque);
  */
 int
 pgagroal_deque_add(struct deque* deque, char* tag, uintptr_t data, enum value_type type);
+
+/**
+ * Remove all the nodes with the given tag
+ * @param deque The deque
+ * @param tag The tag
+ * @return Number of nodes removed
+ */
+int
+pgagroal_deque_remove(struct deque* deque, char* tag);
+
+/**
+ * Add a node to deque's tail with custom to_string and data destroy callback,
+ * the type will be set to ValueRef
+ * This function is thread safe
+ * @param deque The deque
+ * @param tag The tag,optional
+ * @param data The data
+ * @return 0 if success, otherwise 1
+ */
+int
+pgagroal_deque_add_with_config(struct deque* deque, char* tag, uintptr_t data, struct value_config* config);
 
 /**
  * Retrieve value and remove the node from deque's head.
@@ -127,6 +149,15 @@ pgagroal_deque_peek(struct deque* deque, char** tag);
  */
 uintptr_t
 pgagroal_deque_get(struct deque* deque, char* tag);
+
+/**
+ * Does the tag exists
+ * @param deque The deque
+ * @param tag The tag
+ * @return True if exists, otherwise false
+ */
+bool
+pgagroal_deque_exists(struct deque* deque, char* tag);
 
 /**
  * Create a deque iterator
@@ -181,6 +212,13 @@ pgagroal_deque_empty(struct deque* deque);
  */
 void
 pgagroal_deque_list(struct deque* deque);
+
+/**
+ * Sort the deque
+ * @param deque The deque
+ */
+void
+pgagroal_deque_sort(struct deque* deque);
 
 /**
  * Convert what's inside deque to string

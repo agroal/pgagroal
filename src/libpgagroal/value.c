@@ -25,7 +25,6 @@
  * TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 /* pgagroal */
 #include <art.h>
 #include <deque.h>
@@ -128,6 +127,7 @@ pgagroal_value_create(enum value_type type, uintptr_t data, struct value** value
          val->to_string = art_to_string_cb;
          break;
       case ValueMem:
+      case ValueRef:
          val->to_string = mem_to_string_cb;
          break;
       default:
@@ -174,6 +174,27 @@ pgagroal_value_create(enum value_type type, uintptr_t data, struct value** value
 
 error:
    return 1;
+}
+
+int
+pgagroal_value_create_with_config(uintptr_t data, struct value_config* config, struct value** value)
+{
+   if (pgagroal_value_create(ValueRef, data, value))
+   {
+      return 1;
+   }
+   if (config != NULL)
+   {
+      if (config->destroy_data != NULL)
+      {
+         (*value)->destroy_data = config->destroy_data;
+      }
+      if (config->to_string != NULL)
+      {
+         (*value)->to_string = config->to_string;
+      }
+   }
+   return 0;
 }
 
 int
@@ -289,11 +310,11 @@ json_destroy_cb(uintptr_t data)
 static char*
 noop_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
+   char* ret = NULL;
+   ret = pgagroal_indent(ret, tag, indent);
    (void) data;
-   (void) tag;
-   (void) indent;
    (void) format;
-   return NULL;
+   return ret;
 }
 
 static char*

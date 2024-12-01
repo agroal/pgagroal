@@ -74,14 +74,37 @@ struct value
 };
 
 /**
+ * @struct value_config
+ * Defines configuration for managing a value
+ */
+struct value_config
+{
+   data_destroy_cb destroy_data; /**< The callback to destroy data */
+   data_to_string_cb to_string; /**< The callback to convert data to string */
+};
+
+/**
  * Create a value based on the data and value type
- * @param type The value type, use ValueRef if you are only storing pointers without the need to manage memory
+ * @param type The value type, use ValueRef if you are only storing pointers without the need to manage memory,
+ * use ValueMem if you are storing pointers to a chunk of memory that needs to and can be simply freed
+ * (meaning it can't have pointers to other malloced memories)
  * @param data The value data, type cast it to uintptr_t before passing into function
  * @param value [out] The value
  * @return 0 on success, 1 if otherwise
  */
 int
 pgagroal_value_create(enum value_type type, uintptr_t data, struct value** value);
+
+/**
+ * Create a value with a config for customized destroy or to_string callback,
+ * the type will default to ValueRef
+ * @param data The value data, type cast it to uintptr_t before passing into function
+ * @param config The configuration
+ * @param value [out] The value
+ * @return 0 on success, 1 if otherwise
+ */
+int
+pgagroal_value_create_with_config(uintptr_t data, struct value_config* config, struct value** value);
 
 /**
  * Destroy a value along with the data within

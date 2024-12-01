@@ -36,11 +36,11 @@
 
 // tag is copied if not NULL
 static void
-deque_offer(struct deque* deque, char* tag, uintptr_t data, enum value_type type);
+deque_offer(struct deque* deque, char* tag, uintptr_t data, enum value_type type, struct value_config* config);
 
 // tag is copied if not NULL
 static void
-deque_node_create(uintptr_t data, enum value_type type, char* tag, struct deque_node** node);
+deque_node_create(uintptr_t data, enum value_type type, char* tag, struct value_config* config, struct deque_node** node);
 
 // tag will always be freed
 static void
@@ -73,6 +73,18 @@ to_text_string(struct deque* deque, char* tag, int indent);
 static struct deque_node*
 deque_remove(struct deque* deque, struct deque_node* node);
 
+static struct deque_node*
+get_middle(struct deque_node* node);
+
+static struct deque_node*
+deque_sort(struct deque_node* node);
+
+static struct deque_node*
+deque_merge(struct deque_node* node1, struct deque_node* node2);
+
+static int
+tag_compare(char* tag1, char* tag2);
+
 int
 pgagroal_deque_create(bool thread_safe, struct deque** deque)
 {
@@ -84,8 +96,8 @@ pgagroal_deque_create(bool thread_safe, struct deque** deque)
    {
       pthread_rwlock_init(&q->mutex, NULL);
    }
-   deque_node_create(0, ValueInt32, NULL, &q->start);
-   deque_node_create(0, ValueInt32, NULL, &q->end);
+   deque_node_create(0, ValueInt32, NULL, NULL, &q->start);
+   deque_node_create(0, ValueInt32, NULL, NULL, &q->end);
    q->start->next = q->end;
    q->end->prev = q->start;
    *deque = q;
@@ -95,7 +107,36 @@ pgagroal_deque_create(bool thread_safe, struct deque** deque)
 int
 pgagroal_deque_add(struct deque* deque, char* tag, uintptr_t data, enum value_type type)
 {
-   deque_offer(deque, tag, data, type);
+   deque_offer(deque, tag, data, type, NULL);
+   return 0;
+}
+
+int
+pgagroal_deque_remove(struct deque* deque, char* tag)
+{
+   int cnt = 0;
+   struct deque_iterator* iter = NULL;
+   if (deque == NULL || tag == NULL)
+   {
+      return 0;
+   }
+   pgagroal_deque_iterator_create(deque, &iter);
+   while (pgagroal_deque_iterator_next(iter))
+   {
+      if (pgagroal_compare_string(iter->tag, tag))
+      {
+         pgagroal_deque_iterator_remove(iter);
+         cnt++;
+      }
+   }
+   pgagroal_deque_iterator_destroy(iter);
+   return cnt;
+}
+
+int
+pgagroal_deque_add_with_config(struct deque* deque, char* tag, uintptr_t data, struct value_config* config)
+{
+   deque_offer(deque, tag, data, ValueRef, config);
    return 0;
 }
 
@@ -181,6 +222,25 @@ error:
 }
 
 bool
+pgagroal_deque_exists(struct deque* deque, char* tag)
+{
+   bool ret = false;
+   struct deque_node* n = NULL;
+
+   deque_read_lock(deque);
+
+   n = deque_find(deque, tag);
+   if (n != NULL)
+   {
+      ret = true;
+   }
+
+   deque_unlock(deque);
+
+   return ret;
+}
+
+bool
 pgagroal_deque_empty(struct deque* deque)
 {
    return pgagroal_deque_size(deque) == 0;
@@ -196,6 +256,35 @@ pgagroal_deque_list(struct deque* deque)
       pgagroal_log_trace("Deque: %s", str);
       free(str);
    }
+}
+
+void
+pgagroal_deque_sort(struct deque* deque)
+{
+   deque_write_lock(deque);
+   if (deque == NULL || deque->start == NULL || deque->end == NULL || deque->size <= 1)
+   {
+      deque_unlock(deque);
+      return;
+   }
+   // break the connection to start and end node since we are going to move nodes around
+   struct deque_node* first = deque->start->next;
+   struct deque_node* last = deque->end->prev;
+   struct deque_node* node = NULL;
+   first->prev = NULL;
+   last->next = NULL;
+   deque->start->next = NULL;
+   deque->end->prev = NULL;
+   node = deque_sort(first);
+   deque->start->next = node;
+   node->prev = deque->start;
+   while (node->next != NULL)
+   {
+      node = node->next;
+   }
+   deque->end->prev = node;
+   node->next = deque->end;
+   deque_unlock(deque);
 }
 
 void
@@ -318,11 +407,11 @@ pgagroal_deque_iterator_next(struct deque_iterator* iter)
 }
 
 static void
-deque_offer(struct deque* deque, char* tag, uintptr_t data, enum value_type type)
+deque_offer(struct deque* deque, char* tag, uintptr_t data, enum value_type type, struct value_config* config)
 {
    struct deque_node* n = NULL;
    struct deque_node* last = NULL;
-   deque_node_create(data, type, tag, &n);
+   deque_node_create(data, type, tag, config, &n);
    deque_write_lock(deque);
    deque->size++;
    last = deque->end->prev;
@@ -334,16 +423,22 @@ deque_offer(struct deque* deque, char* tag, uintptr_t data, enum value_type type
 }
 
 static void
-deque_node_create(uintptr_t data, enum value_type type, char* tag, struct deque_node** node)
+deque_node_create(uintptr_t data, enum value_type type, char* tag, struct value_config* config, struct deque_node** node)
 {
    struct deque_node* n = NULL;
    n = malloc(sizeof(struct deque_node));
    memset(n, 0, sizeof(struct deque_node));
-   pgagroal_value_create(type, data, &n->data);
+   if (config != NULL)
+   {
+      pgagroal_value_create_with_config(data, config, &n->data);
+   }
+   else
+   {
+      pgagroal_value_create(type, data, &n->data);
+   }
    if (tag != NULL)
    {
-      n->tag = malloc(strlen(tag) + 1);
-      strcpy(n->tag, tag);
+      n->tag = pgagroal_append(NULL, tag);
    }
    else
    {
@@ -565,4 +660,126 @@ deque_remove(struct deque* deque, struct deque_node* node)
    deque_node_destroy(node);
    deque->size--;
    return prev;
+}
+
+static struct deque_node*
+get_middle(struct deque_node* node)
+{
+   struct deque_node* slow = node;
+   struct deque_node* fast = node;
+   while (fast != NULL && fast->next != NULL)
+   {
+      slow = slow->next;
+      fast = fast->next->next;
+   }
+   return slow;
+}
+
+static struct deque_node*
+deque_sort(struct deque_node* node)
+{
+   struct deque_node* mid = NULL;
+   struct deque_node* prevmid = NULL;
+   struct deque_node* node1 = NULL;
+   struct deque_node* node2 = NULL;
+   if (node == NULL || node->next == NULL)
+   {
+      return node;
+   }
+   mid = get_middle(node);
+   prevmid = mid->prev;
+   mid->prev = NULL;
+   prevmid->next = NULL;
+   node1 = deque_sort(node);
+   node2 = deque_sort(mid);
+   return deque_merge(node1, node2);
+}
+
+static struct deque_node*
+deque_merge(struct deque_node* node1, struct deque_node* node2)
+{
+   struct deque_node* node = NULL;
+   struct deque_node* left = node1;
+   struct deque_node* right = node2;
+   struct deque_node* next = NULL;
+   struct deque_node* start = NULL;
+   if (node1 == NULL)
+   {
+      return node2;
+   }
+   if (node2 == NULL)
+   {
+      return node1;
+   }
+   while (left != NULL && right != NULL)
+   {
+      if (tag_compare(left->tag, right->tag) <= 0)
+      {
+         next = left->next;
+         if (node == NULL)
+         {
+            start = left;
+            node = left;
+            node->prev = NULL;
+            node->next = NULL;
+         }
+         else
+         {
+            node->next = left;
+            left->prev = node;
+            left->next = NULL;
+            node = node->next;
+         }
+         left = next;
+      }
+      else
+      {
+         next = right->next;
+         if (node == NULL)
+         {
+            start = right;
+            node = right;
+            node->prev = NULL;
+            node->next = NULL;
+         }
+         else
+         {
+            node->next = right;
+            right->prev = node;
+            right->next = NULL;
+            node = node->next;
+         }
+         right = next;
+      }
+   }
+   while (left != NULL)
+   {
+      next = left->next;
+      node->next = left;
+      left->prev = node;
+      left = next;
+      node = node->next;
+   }
+   while (right != NULL)
+   {
+      next = right->next;
+      node->next = right;
+      right->prev = node;
+      right = next;
+      node = node->next;
+   }
+   return start;
+}
+static int
+tag_compare(char* tag1, char* tag2)
+{
+   if (tag1 == NULL)
+   {
+      return tag2 == NULL ? 0 : 1;
+   }
+   if (tag2 == NULL)
+   {
+      return tag1 == NULL ? 0 : -1;
+   }
+   return strcmp(tag1, tag2);
 }
