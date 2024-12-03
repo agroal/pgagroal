@@ -87,7 +87,6 @@ static int* metrics_fds = NULL;
 static int metrics_fds_length = -1;
 static int* server_fds = NULL;
 static int server_fds_length = -1;
-static int default_buffer_size = DEFAULT_BUFFER_SIZE;
 
 static int
 router(SSL* c_ssl, SSL* s_ssl, int client_fd)
@@ -180,7 +179,9 @@ route_users(char* username, char** response, SSL* s_ssl, int client_fd)
 {
    struct vault_configuration* config = (struct vault_configuration*)shmem;
    int client_pgagroal_fd = -1;
-   char password[MAX_PASSWORD_LENGTH + 1];
+   struct json* read = NULL;
+   struct json* res = NULL;
+   char* password = NULL;
 
    // Connect to pgagroal management port
    if (connect_pgagroal(config, config->vault_server.user.username, config->vault_server.user.password, &s_ssl, &client_pgagroal_fd)) // Change NULL to ssl
@@ -191,10 +192,8 @@ route_users(char* username, char** response, SSL* s_ssl, int client_fd)
       return;
    }
 
-   memset(password, 0, MAX_PASSWORD_LENGTH);
-
    // Call GET_PASSWORD at management port
-   if (pgagroal_management_get_password(s_ssl, client_pgagroal_fd, username, password))
+   if (pgagroal_management_request_get_password(s_ssl, client_pgagroal_fd, username, COMPRESSION_NONE, ENCRYPTION_AES_256_CBC, MANAGEMENT_OUTPUT_FORMAT_JSON))
    {
       pgagroal_log_error("pgagroal-vault: Couldn't get password from the management");
       // Send Error Response
@@ -202,16 +201,28 @@ route_users(char* username, char** response, SSL* s_ssl, int client_fd)
       return;
    }
 
-   if (strlen(password) == 0) // user not found
+   if (pgagroal_management_read_json(s_ssl, client_pgagroal_fd, NULL, NULL, &read))
+   {
+      pgagroal_log_warn("pgagroal-vault: Couldn't receive the result");
+   }
+
+   if (read != NULL)
+   {
+      res = (struct json*)pgagroal_json_get(read, MANAGEMENT_CATEGORY_RESPONSE);
+      password = (char*)pgagroal_json_get(res, MANAGEMENT_ARGUMENT_PASSWORD);
+   }
+
+   if (password == NULL || strlen(password) == 0) // user not found
    {
       pgagroal_log_warn("pgagroal-vault: Couldn't find the user: %s", username);
       route_not_found(response);
    }
-
    else
    {
       route_found(response, password);
    }
+
+   pgagroal_json_destroy(read);
 }
 
 static void
@@ -253,7 +264,7 @@ connect_pgagroal(struct vault_configuration* config, char* username, char* passw
 {
    SSL* s = NULL;
 
-   if (pgagroal_connect(config->vault_server.server.host, config->vault_server.server.port, client_socket, false, false, &default_buffer_size, false))
+   if (pgagroal_connect(config->vault_server.server.host, config->vault_server.server.port, client_socket, false, false, false))
    {
       pgagroal_disconnect(*client_socket);
       return 1;
@@ -316,7 +327,7 @@ is_ssl_request(int client_fd)
 
 static int
 get_connection_state(struct vault_configuration* config, int client_fd)
-{  
+{
    if (config->common.tls)
    {
       if (is_ssl_request(client_fd))
@@ -588,7 +599,7 @@ read_users_path:
 
    // -- Bind & Listen at the given hostname and port --
 
-   if (pgagroal_bind(config->common.host, config->common.port, &server_fds, &server_fds_length, false, &default_buffer_size, false, -1))
+   if (pgagroal_bind(config->common.host, config->common.port, &server_fds, &server_fds_length, false, false, -1))
    {
       errx(1, "pgagroal-vault: Could not bind to %s:%d", config->common.host, config->common.port);
    }
@@ -623,7 +634,7 @@ read_users_path:
    if (config->common.metrics > 0)
    {
       /* Bind metrics socket */
-      if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, false, &default_buffer_size, false, -1))
+      if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, false, false, -1))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
 #ifdef HAVE_LINUX
@@ -727,7 +738,7 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          free(server_fds);
          server_fds = NULL;
 
-         if (pgagroal_bind(config->common.host, config->common.port, &server_fds, &server_fds_length, false, &default_buffer_size, false, -1))
+         if (pgagroal_bind(config->common.host, config->common.port, &server_fds, &server_fds_length, false, false, -1))
          {
             pgagroal_log_fatal("pgagroal-vault: Could not bind to %s:%d", config->common.host, config->common.port);
             exit(1);
@@ -821,7 +832,7 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
          metrics_fds = NULL;
          metrics_fds_length = 0;
 
-         if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, false, &default_buffer_size, false, -1))
+         if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, false, false, -1))
          {
             pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
             exit(1);

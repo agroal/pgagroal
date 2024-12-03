@@ -69,6 +69,7 @@
 #define TWENTYFOUR_HOURS   86400
 
 static int resolve_page(struct message* msg);
+static int badrequest_page(int client_fd);
 static int unknown_page(int client_fd);
 static int home_page(int client_fd);
 static int home_vault_page(int client_fd);
@@ -149,6 +150,8 @@ pgagroal_prometheus(int client_fd)
    exit(0);
 
 error:
+
+   badrequest_page(client_fd);
 
    pgagroal_log_debug("pgagroal_prometheus: disconnect %d", client_fd);
    pgagroal_disconnect(client_fd);
@@ -905,7 +908,7 @@ pgagroal_prometheus_self_sockets_sub(void)
 }
 
 void
-pgagroal_prometheus_reset(void)
+pgagroal_prometheus_clear(void)
 {
    signed char cache_is_free;
    struct main_configuration* config;
@@ -1100,6 +1103,40 @@ resolve_page(struct message* msg)
    }
 
    return PAGE_UNKNOWN;
+}
+
+static int
+badrequest_page(int client_fd)
+{
+   char* data = NULL;
+   time_t now;
+   char time_buf[32];
+   int status;
+   struct message msg;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&data, 0, sizeof(data));
+
+   now = time(NULL);
+
+   memset(&time_buf, 0, sizeof(time_buf));
+   ctime_r(&now, &time_buf[0]);
+   time_buf[strlen(time_buf) - 1] = 0;
+
+   data = pgagroal_append(data, "HTTP/1.1 400 Bad Request\r\n");
+   data = pgagroal_append(data, "Date: ");
+   data = pgagroal_append(data, &time_buf[0]);
+   data = pgagroal_append(data, "\r\n");
+
+   msg.kind = 0;
+   msg.length = strlen(data);
+   msg.data = data;
+
+   status = pgagroal_write_message(NULL, client_fd, &msg);
+
+   free(data);
+
+   return status;
 }
 
 static int

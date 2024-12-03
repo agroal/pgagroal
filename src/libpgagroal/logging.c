@@ -514,3 +514,18 @@ retry:
       }
    }
 }
+
+bool
+pgagroal_log_is_enabled(int level)
+{
+   struct configuration* config;
+
+   config = (struct configuration*)shmem;
+
+   if (level >= config->log_level)
+   {
+      return true;
+   }
+
+   return false;
+}

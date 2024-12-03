@@ -38,7 +38,7 @@ extern "C" {
 
 #include <stdlib.h>
 
-/** @struct
+/** @struct signal_info
  * Defines the signal structure
  */
 struct signal_info
@@ -47,26 +47,26 @@ struct signal_info
    int slot;                /**< The slot */
 };
 
-/** @struct
+/** @struct accept_io
  * Defines the accept io structure
  */
 struct accept_io
 {
-   struct ev_io io;
-   int socket;
-   char** argv;
+   struct ev_io io; /**< The I/O */
+   int socket;      /**< The socket */
+   char** argv;     /**< The argv */
 };
 
-/** @struct
+/** @struct client
  * Defines the client structure
  */
 struct client
 {
-   pid_t pid;
-   struct client* next;
+   pid_t pid;           /**< The process id */
+   struct client* next; /**< The next client */
 };
 
-/** @struct
+/** @struct pgagroal_command
  * Defines pgagroal commands.
  * The necessary fields are marked with an ">".
  *
@@ -89,23 +89,23 @@ struct client
  */
 struct pgagroal_command
 {
-   const char* command;
-   const char* subcommand;
-   const int accepted_argument_count[MISC_LENGTH];
+   const char* command;                            /**< The command */
+   const char* subcommand;                         /**< The sub-command */
+   const int accepted_argument_count[MISC_LENGTH]; /**< The array of accepted arguments */
 
-   const int action;
-   const int mode;
-   const char* default_argument;
-   const char* log_message;
+   const int action;                               /**< The action */
+   const int mode;                                 /**< The mode of the action */
+   const char* default_argument;                   /**< The default argument */
+   const char* log_message;                        /**< The log message */
 
    /* Deprecation information */
-   bool deprecated;
-   unsigned int deprecated_since_major;
-   unsigned int deprecated_since_minor;
-   const char* deprecated_by;
+   bool deprecated;                                /**< Is the command deprecated */
+   unsigned int deprecated_since_major;            /**< Deprecated since major */
+   unsigned int deprecated_since_minor;            /**< Deprecated since minor */
+   const char* deprecated_by;                      /**< Deprecated by */
 };
 
-/** @struct
+/** @struct pgagroal_parsed_command
  * Holds parsed command data.
  *
  * Fields:
@@ -114,8 +114,8 @@ struct pgagroal_command
  */
 struct pgagroal_parsed_command
 {
-   const struct pgagroal_command* cmd;
-   char* args[MISC_LENGTH];
+   const struct pgagroal_command* cmd; /**< The command */
+   char* args[MISC_LENGTH];            /**< The command arguments */
 };
 
 /**
@@ -157,20 +157,20 @@ int
 pgagroal_extract_error_message(struct message* msg, char** error);
 
 /**
- * Get a string for the state
- * @param state
- * @return The string
- */
-char*
-pgagroal_get_state_string(signed char state);
-
-/**
  * Read a byte
  * @param data Pointer to the data
  * @return The byte
  */
 signed char
 pgagroal_read_byte(void* data);
+
+/**
+ * Read an uint8
+ * @param data Pointer to the data
+ * @return The uint8
+ */
+uint8_t
+pgagroal_read_uint8(void* data);
 
 /**
  * Read an int16
@@ -187,6 +187,14 @@ pgagroal_read_int16(void* data);
  */
 int32_t
 pgagroal_read_int32(void* data);
+
+/**
+ * Read an uint32
+ * @param data Pointer to the data
+ * @return The uint32
+ */
+uint32_t
+pgagroal_read_uint32(void* data);
 
 /**
  * Read a long
@@ -213,12 +221,28 @@ void
 pgagroal_write_byte(void* data, signed char b);
 
 /**
+ * Write a uint8
+ * @param data Pointer to the data
+ * @param b The uint8
+ */
+void
+pgagroal_write_uint8(void* data, uint8_t b);
+
+/**
  * Write an int32
  * @param data Pointer to the data
  * @param i The int32
  */
 void
 pgagroal_write_int32(void* data, int32_t i);
+
+/**
+ * Write an uint32
+ * @param data Pointer to the data
+ * @param i The uint32
+ */
+void
+pgagroal_write_uint32(void* data, uint32_t i);
 
 /**
  * Write a long
@@ -307,10 +331,11 @@ pgagroal_exists(char* f);
  * @param raw The string
  * @param raw_length The length of the raw string
  * @param encoded The encoded string
+ * @param encoded_length The length of the encoded string
  * @return 0 if success, otherwise 1
  */
 int
-pgagroal_base64_encode(char* raw, int raw_length, char** encoded);
+pgagroal_base64_encode(void* raw, size_t raw_length, char** encoded, size_t* encoded_length);
 
 /**
  * BASE64 decode a string
@@ -321,7 +346,7 @@ pgagroal_base64_encode(char* raw, int raw_length, char** encoded);
  * @return 0 if success, otherwise 1
  */
 int
-pgagroal_base64_decode(char* encoded, size_t encoded_length, char** raw, int* raw_length);
+pgagroal_base64_decode(char* encoded, size_t encoded_length, void** raw, size_t* raw_length);
 
 /**
  * Set process title.
@@ -367,6 +392,16 @@ void
 pgagroal_set_connection_proc_title(int argc, char** argv, struct connection* connection);
 
 /**
+ * Get the timestramp difference as a string
+ * @param start_time The start time
+ * @param end_time The end time
+ * @param seconds The number of seconds
+ * @return The timestamp string
+ */
+char*
+pgagroal_get_timestamp_string(time_t start_time, time_t end_time, int32_t* seconds);
+
+/**
  * Provide the application version number as a unique value composed of the three
  * specified parts. For example, when invoked with (1,5,0) it returns 10500.
  * Every part of the number must be between 0 and 99, and the function
@@ -402,6 +437,15 @@ pgagroal_version_number(void);
  */
 bool
 pgagroal_version_ge(unsigned int major, unsigned int minor, unsigned int patch);
+
+/**
+ * Does a string end with another string
+ * @param str The string
+ * @param suffix The suffix
+ * @return The result
+ */
+bool
+pgagroal_ends_with(char* str, char* suffix);
 
 /**
  * Append a string
@@ -442,6 +486,42 @@ pgagroal_append_ulong(char* orig, unsigned long l);
  */
 char*
 pgagroal_append_ullong(char* orig, unsigned long long l);
+
+/**
+ * Append a char
+ * @param orig The original string
+ * @param s The string
+ * @return The resulting string
+ */
+char*
+pgagroal_append_char(char* orig, char c);
+
+/**
+ * Indent a string
+ * @param str The string
+ * @param tag [Optional] The tag, which will be applied after indentation if not NULL
+ * @param indent The indent
+ * @return The indented string
+ */
+char*
+pgagroal_indent(char* str, char* tag, int indent);
+
+/**
+ * Compare two strings
+ * @param str1 The first string
+ * @param str2 The second string
+ * @return true if the strings are the same, otherwise false
+ */
+bool
+pgagroal_compare_string(const char* str1, const char* str2);
+
+/**
+ * Escape a string
+ * @param str The original string
+ * @return The escaped string
+ */
+char*
+pgagroal_escape_string(char* str);
 
 #ifdef DEBUG
 
@@ -494,6 +574,17 @@ parse_command(int argc,
  */
 char*
 pgagroal_server_state_as_string(signed char state);
+
+/**
+ * Utility function to convert the status of a connection
+ * into a descriptive string. Useful to spurt the status
+ * in command line output.
+ *
+ * @param state the actual state of the connection
+ * @returns the (allocated) buffer with the string
+ */
+char*
+pgagroal_connection_state_as_string(signed char state);
 
 #ifdef __cplusplus
 }

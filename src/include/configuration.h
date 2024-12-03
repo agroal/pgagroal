@@ -274,10 +274,11 @@ pgagroal_validate_superuser_configuration(void* shmem);
 
 /**
  * Reload the configuration
+ * @param reload Should the server be reloaded
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_reload_configuration(void);
+pgagroal_reload_configuration(bool* reload);
 
 /**
  * Automatically initialize the 'pidfile'

@@ -17,7 +17,7 @@ dnf install postgresql-server
 #### Basic dependencies
 
 ``` sh
-dnf install git gcc cmake make libev libev-devel openssl openssl-devel systemd systemd-devel python3-docutils libatomic cjson cjson-devel
+dnf install git gcc cmake make libev libev-devel openssl openssl-devel systemd systemd-devel python3-docutils libatomic zlib zlib-devel libzstd libzstd-devel lz4 lz4-devel bzip2 bzip2-devel
 ```
 
 #### Generate user and developer guide
@@ -49,6 +49,16 @@ This process is optional. If you choose not to generate the PDF and HTML files, 
 
     ```sh
     dnf install 'tex(footnote.sty)' 'tex(footnotebackref.sty)' 'tex(pagecolor.sty)' 'tex(hardwrap.sty)' 'tex(mdframed.sty)' 'tex(sourcesanspro.sty)' 'tex(ly1enc.def)' 'tex(sourcecodepro.sty)' 'tex(titling.sty)' 'tex(csquotes.sty)' 'tex(zref-abspage.sty)' 'tex(needspace.sty)'
+    ```
+
+#### Generate API guide
+
+This process is optional. If you choose not to generate the API HTML files, you can opt out of downloading these dependencies, and the process will automatically skip the generation.
+
+Download dependencies
+
+    ``` sh
+    dnf install graphviz doxygen
     ```
 
 ### Build
@@ -247,10 +257,10 @@ pgagroal -c pgagroal.conf -a pgagroal_hba.conf
 psql -h localhost -p 2345 -U myuser mydb
 ```
 
-#### Stop pgagroal
+#### Shutdown pgagroal
 
 ``` sh
-pgagroal-cli -c pgagroal.conf stop
+pgagroal-cli -c pgagroal.conf shutdown
 ```
 
 ## Basic git guide

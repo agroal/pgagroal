@@ -14,7 +14,6 @@
   [openssl]: http://www.openssl.org/
   [systemd]: https://www.freedesktop.org/wiki/Software/systemd/
   [rst2man]: https://docutils.sourceforge.io/
-  [cjson]: https://github.com/DaveGamble/cJSON
   [pandoc]: https://pandoc.org/
   [pandoc_latex_template]: https://github.com/Wandmalfarbe/pandoc-latex-template
   [texlive]: https://www.tug.org/texlive/
@@ -24,6 +23,8 @@
   [prometheus]: https://prometheus.io/
   [wireshark]: https://www.wireshark.org/
   [pgprtdbg]: https://github.com/jesperpedersen/pgprtdbg
+  [ART_paper]: http://www-db.in.tum.de/~leis/papers/ART.pdf
+  [libart]: https://github.com/armon/libart
 
 <!-- doc/ -->
   [rpm]: https://github.com/agroal/pgagroal/blob/main/doc/RPM.md

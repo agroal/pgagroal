@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #include <pgagroal.h>
+#include <message.h>
 
 #include <stdlib.h>
 
@@ -42,13 +43,6 @@ extern "C" {
  */
 void
 pgagroal_memory_init(void);
-
-/**
- * Set the size of the local message structure
- * @param size The size
- */
-void
-pgagroal_memory_size(size_t size);
 
 /**
  * Get the message structure

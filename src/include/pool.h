@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #include <pgagroal.h>
+#include <json.h>
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -90,8 +91,8 @@ void
 pgagroal_validation(void);
 
 /**
- * Flush the pool
- * @param mode The flush mode
+ * Flush the pool (JSON)
+ * @param mode The mode
  * @param database The database
  */
 void
@@ -103,6 +104,17 @@ pgagroal_flush(int mode, char* database);
  */
 void
 pgagroal_flush_server(signed char server);
+
+/**
+ * Flush the pool (JSON)
+ * @param ssl The SSL connection
+ * @param client_fd The client
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param payload The payload
+ */
+void
+pgagroal_request_flush(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload);
 
 /**
  * Prefill the pool

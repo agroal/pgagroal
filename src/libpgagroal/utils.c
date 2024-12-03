@@ -33,6 +33,7 @@
 #include <server.h>
 
 /* system */
+#include <err.h>
 #include <ev.h>
 #include <execinfo.h>
 #include <pwd.h>
@@ -188,7 +189,6 @@ pgagroal_extract_message(char type, struct message* msg, struct message** extrac
 
          result->kind = pgagroal_read_byte(data);
          result->length = 1 + m_length;
-         result->max_length = 1 + m_length;
          result->data = data;
 
          *extracted = result;
@@ -249,8 +249,11 @@ error:
 }
 
 char*
-pgagroal_get_state_string(signed char state)
+pgagroal_connection_state_as_string(signed char state)
 {
+   char* buf;
+   int buf_size = strlen("Unknown") + 1 + 4 + 1;  // 'unknown' + <space> + <number> + \0
+
    switch (state)
    {
       case STATE_NOTINIT:
@@ -273,15 +276,24 @@ pgagroal_get_state_string(signed char state)
          return "Validating";
       case STATE_REMOVE:
          return "Removing";
+      default:
+         buf = malloc(buf_size);
+         memset(buf, 0, buf_size);
+         snprintf(buf, buf_size, "Unknown %02d", state);
+         return buf;
    }
-
-   return "Unknown";
 }
 
 signed char
 pgagroal_read_byte(void* data)
 {
    return (signed char) *((char*)data);
+}
+
+uint8_t
+pgagroal_read_uint8(void* data)
+{
+   return (uint8_t) *((char*)data);
 }
 
 int16_t
@@ -308,6 +320,22 @@ pgagroal_read_int32(void* data)
                  ((bytes[1] << 16)) |
                  ((bytes[2] << 8)) |
                  ((bytes[3]));
+
+   return res;
+}
+
+uint32_t
+pgagroal_read_uint32(void* data)
+{
+   uint8_t bytes[] = {*((uint8_t*)data),
+                      *((uint8_t*)(data + 1)),
+                      *((uint8_t*)(data + 2)),
+                      *((uint8_t*)(data + 3))};
+
+   uint32_t res = (uint32_t)(((uint32_t)bytes[0] << 24)) |
+                  (((uint32_t)bytes[1] << 16)) |
+                  (((uint32_t)bytes[2] << 8)) |
+                  (((uint32_t)bytes[3]));
 
    return res;
 }
@@ -349,6 +377,12 @@ pgagroal_write_byte(void* data, signed char b)
 }
 
 void
+pgagroal_write_uint8(void* data, uint8_t b)
+{
+   *((uint8_t*)(data)) = b;
+}
+
+void
 pgagroal_write_int32(void* data, int32_t i)
 {
    char* ptr = (char*)&i;
@@ -360,6 +394,20 @@ pgagroal_write_int32(void* data, int32_t i)
    *((char*)(data + 1)) = *ptr;
    ptr++;
    *((char*)(data)) = *ptr;
+}
+
+void
+pgagroal_write_uint32(void* data, uint32_t i)
+{
+   uint8_t* ptr = (uint8_t*)&i;
+
+   *((uint8_t*)(data + 3)) = *ptr;
+   ptr++;
+   *((uint8_t*)(data + 2)) = *ptr;
+   ptr++;
+   *((uint8_t*)(data + 1)) = *ptr;
+   ptr++;
+   *((uint8_t*)(data)) = *ptr;
 }
 
 void
@@ -563,6 +611,34 @@ pgagroal_libev_engine(unsigned int val)
 }
 
 char*
+pgagroal_get_timestamp_string(time_t start_time, time_t end_time, int32_t* seconds)
+{
+   int32_t total_seconds;
+   int hours;
+   int minutes;
+   int sec;
+   char elapsed[128];
+   char* result = NULL;
+
+   *seconds = 0;
+
+   total_seconds = (int32_t)difftime(end_time, start_time);
+
+   *seconds = total_seconds;
+
+   hours = total_seconds / 3600;
+   minutes = (total_seconds % 3600) / 60;
+   sec = total_seconds % 60;
+
+   memset(&elapsed[0], 0, sizeof(elapsed));
+   sprintf(&elapsed[0], "%02i:%02i:%02i", hours, minutes, sec);
+
+   result = pgagroal_append(result, &elapsed[0]);
+
+   return result;
+}
+
+char*
 pgagroal_get_home_directory(void)
 {
    struct passwd* pw = getpwuid(getuid());
@@ -633,12 +709,15 @@ pgagroal_exists(char* f)
 }
 
 int
-pgagroal_base64_encode(char* raw, int raw_length, char** encoded)
+pgagroal_base64_encode(void* raw, size_t raw_length, char** encoded, size_t* encoded_length)
 {
    BIO* b64_bio;
    BIO* mem_bio;
    BUF_MEM* mem_bio_mem_ptr;
    char* r = NULL;
+
+   *encoded = NULL;
+   *encoded_length = 0;
 
    if (raw == NULL)
    {
@@ -667,6 +746,7 @@ pgagroal_base64_encode(char* raw, int raw_length, char** encoded)
    BUF_MEM_free(mem_bio_mem_ptr);
 
    *encoded = r;
+   *encoded_length = strlen(r);
 
    return 0;
 
@@ -678,13 +758,16 @@ error:
 }
 
 int
-pgagroal_base64_decode(char* encoded, size_t encoded_length, char** raw, int* raw_length)
+pgagroal_base64_decode(char* encoded, size_t encoded_length, void** raw, size_t* raw_length)
 {
    BIO* b64_bio;
    BIO* mem_bio;
    size_t size;
    char* decoded;
    int index;
+
+   *raw = NULL;
+   *raw_length = 0;
 
    if (encoded == NULL)
    {
@@ -869,6 +952,15 @@ pgagroal_version_ge(unsigned int major, unsigned int minor, unsigned int patch)
    {
       return false;
    }
+}
+
+bool
+pgagroal_ends_with(char* str, char* suffix)
+{
+   int str_len = strlen(str);
+   int suffix_len = strlen(suffix);
+
+   return (str_len >= suffix_len) && (strcmp(str + (str_len - suffix_len), suffix) == 0);
 }
 
 char*
@@ -1091,16 +1183,6 @@ parse_command(int argc,
 #undef EMPTY_STR
 }
 
-/**
- * Given a server state, it returns a string that
- * described the state in a human-readable form.
- *
- * If the state cannot be determined, the numeric
- * form of the state is returned as a string.
- *
- * @param state the value of the sate for the server
- * @returns the string representing the state
- */
 char*
 pgagroal_server_state_as_string(signed char state)
 {
@@ -1120,4 +1202,103 @@ pgagroal_server_state_as_string(signed char state)
          snprintf(buf, 5, "%d", state);
          return buf;
    }
+}
+
+char*
+pgagroal_append_char(char* orig, char c)
+{
+   char str[2];
+
+   memset(&str[0], 0, sizeof(str));
+   snprintf(&str[0], 2, "%c", c);
+   orig = pgagroal_append(orig, str);
+
+   return orig;
+}
+
+char*
+pgagroal_indent(char* str, char* tag, int indent)
+{
+   for (int i = 0; i < indent; i++)
+   {
+      str = pgagroal_append(str, " ");
+   }
+   if (tag != NULL)
+   {
+      str = pgagroal_append(str, tag);
+   }
+   return str;
+}
+
+bool
+pgagroal_compare_string(const char* str1, const char* str2)
+{
+   if (str1 == NULL && str2 == NULL)
+   {
+      return true;
+   }
+   if ((str1 == NULL && str2 != NULL) || (str1 != NULL && str2 == NULL))
+   {
+      return false;
+   }
+   return strcmp(str1, str2) == 0;
+}
+
+char*
+pgagroal_escape_string(char* str)
+{
+   if (str == NULL)
+   {
+      return NULL;
+   }
+
+   char* translated_ec_string = NULL;
+   int len = 0;
+   int idx = 0;
+   size_t translated_len = 0;
+
+   len = strlen(str);
+   for (int i = 0; i < len; i++)
+   {
+      if (str[i] == '\"' || str[i] == '\\' || str[i] == '\n' || str[i] == '\t' || str[i] == '\r')
+      {
+         translated_len++;
+      }
+      translated_len++;
+   }
+   translated_ec_string = (char*)malloc(translated_len + 1);
+
+   for (int i = 0; i < len; i++, idx++)
+   {
+      switch (str[i])
+      {
+         case '\\':
+         case '\"':
+            translated_ec_string[idx] = '\\';
+            idx++;
+            translated_ec_string[idx] = str[i];
+            break;
+         case '\n':
+            translated_ec_string[idx] = '\\';
+            idx++;
+            translated_ec_string[idx] = 'n';
+            break;
+         case '\t':
+            translated_ec_string[idx] = '\\';
+            idx++;
+            translated_ec_string[idx] = 't';
+            break;
+         case '\r':
+            translated_ec_string[idx] = '\\';
+            idx++;
+            translated_ec_string[idx] = 'r';
+            break;
+         default:
+            translated_ec_string[idx] = str[i];
+            break;
+      }
+   }
+   translated_ec_string[idx] = '\0'; // terminator
+
+   return translated_ec_string;
 }

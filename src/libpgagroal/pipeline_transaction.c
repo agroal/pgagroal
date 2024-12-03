@@ -28,8 +28,9 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <connection.h>
 #include <logging.h>
-#include <management.h>
+//#include <management.h>
 #include <message.h>
 #include <network.h>
 #include <pipeline.h>
@@ -118,7 +119,7 @@ transaction_start(struct ev_loop* loop, struct worker_io* w)
    deallocate = false;
 
    memset(&p, 0, sizeof(p));
-   snprintf(&p[0], sizeof(p), ".s.%d", getpid());
+   snprintf(&p[0], sizeof(p), ".s.pgagroal.%d", getpid());
 
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, &p[0], &unix_socket))
    {
@@ -610,11 +611,10 @@ accept_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 {
    struct sockaddr_in client_addr;
    socklen_t client_addr_length;
-   int client_fd;
-   signed char id;
-   int32_t payload_slot;
-   int payload_i;
-   char* payload_s = NULL;
+   int client_fd = -1;
+   int id = -1;
+   int32_t slot = -1;
+   int fd = -1;
    struct main_configuration* config = NULL;
 
    config = (struct main_configuration*)shmem;
@@ -636,27 +636,42 @@ accept_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    }
 
    /* Process management request */
-   pgagroal_management_read_header(client_fd, &id, &payload_slot);
-   pgagroal_management_read_payload(client_fd, id, &payload_i, &payload_s);
-
-   switch (id)
+   if (pgagroal_connection_id_read(client_fd, &id))
    {
-      case MANAGEMENT_CLIENT_FD:
-         pgagroal_log_debug("pgagroal: Management client file descriptor: Slot %d FD %d", payload_slot, payload_i);
-         fds[payload_slot] = payload_i;
-         break;
-      case MANAGEMENT_REMOVE_FD:
-         pgagroal_log_debug("pgagroal: Management remove file descriptor: Slot %d FD %d", payload_slot, payload_i);
-         if (fds[payload_slot] == payload_i && !config->connections[payload_slot].new && config->connections[payload_slot].fd > 0)
-         {
-            pgagroal_disconnect(payload_i);
-            fds[payload_slot] = 0;
-         }
-         break;
-      default:
-         pgagroal_log_debug("pgagroal: Unsupported management id: %d", id);
-         break;
+      pgagroal_log_error("pgagroal: Management client: ID: %d", id);
+      goto done;
    }
+
+   if (id == CONNECTION_CLIENT_FD)
+   {
+      if (pgagroal_connection_transfer_read(client_fd, &slot, &fd))
+      {
+         pgagroal_log_error("pgagroal: Management client_fd: ID: %d Slot %d FD %d", id, slot, fd);
+         goto done;
+      }
+
+      fds[slot] = fd;
+   }
+   else if (id == CONNECTION_REMOVE_FD)
+   {
+      if (pgagroal_connection_transfer_read(client_fd, &slot, &fd))
+      {
+         pgagroal_log_error("pgagroal: Management remove_fd: ID: %d Slot %d FD %d", id, slot, fd);
+         goto done;
+      }
+
+      if (fds[slot] == fd && !config->connections[slot].new && config->connections[slot].fd > 0)
+      {
+         pgagroal_disconnect(fd);
+         fds[slot] = 0;
+      }
+   }
+   else
+   {
+      pgagroal_log_debug("pgagroal: Unsupported management id: %d", id);
+   }
+
+done:
 
    pgagroal_disconnect(client_fd);
 }

@@ -19,19 +19,6 @@ dnf install -y pgagroal
 * [PostgreSQL YUM](https://yum.postgresql.org/howto/)
 * [Linux downloads](https://www.postgresql.org/download/linux/redhat/)
 
-## RHEL 8 / RockyLinux 8
-
-```
-dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm
-```
-
-and do the install via
-
-```
-dnf install -y pgagroal
-```
-
 ## RHEL 9 / RockyLinux 9
 
 ```
@@ -59,14 +46,20 @@ We recommend using Fedora to test and run [**pgagroal**][pgagroal], but other Li
 * [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
 * [rst2man](https://docutils.sourceforge.io/)
 * [libatomic](https://gcc.gnu.org/wiki/Atomic)
-* [cJSON](https://github.com/DaveGamble/cJSON)
+* [zlib](https://zlib.net)
+* [zstd](http://www.zstd.net)
+* [lz4](https://lz4.github.io/lz4/)
+* [bzip2](http://sourceware.org/bzip2/)
 
 ```sh
 dnf install git gcc cmake make libev libev-devel \
             openssl openssl-devel \
             systemd systemd-devel \
             python3-docutils libatomic \
-            cjson cjson-devel
+            zlib zlib-devel \
+            libzstd libzstd-devel \
+            lz4 lz4-devel \
+            bzip2 bzip2-devel
 ```
 
 Alternative [clang 8+](https://clang.llvm.org/) can be used.
@@ -96,15 +89,9 @@ Then install the EPEL repository,
 dnf install epel-release
 ```
 
-Then to enable powertools
+Then to enable CodeReady Builder
 
 ``` sh
-# On RHEL 8 / Rocky 8
-dnf config-manager --set-enabled codeready-builder-for-rhel-8-rhui-rpms
-dnf config-manager --set-enabled powertools
-dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-
-# On RHEL 9 / Rocky 9, PowerTools is called crb (CodeReady Builder)
 dnf config-manager --set-enabled codeready-builder-for-rhel-9-rhui-rpms
 dnf config-manager --set-enabled crb
 dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
@@ -120,7 +107,7 @@ On FreeBSD, `pkg` is used instead of `dnf` or `yum`.
 Use `pkg install <package name>` to install the following packages
 
 ``` sh
-git gcc cmake libev openssl libssh py39-docutils libcjson
+git gcc cmake libev openssl libssh py39-docutils
 ```
 
 ### Build
@@ -182,6 +169,16 @@ mv eisvogel.latex $HOME/.local/share/pandoc/templates
 ```
 
 where `$HOME` is your home directory.
+
+#### Generate API guide
+
+This process is optional. If you choose not to generate the API HTML files, you can opt out of downloading these dependencies, and the process will automatically skip the generation.
+
+Download dependencies
+
+``` sh
+dnf install graphviz doxygen
+```
 
 ### Build
 

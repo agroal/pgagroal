@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14.0)
 
-set(VERSION_MAJOR "1")
-set(VERSION_MINOR "7")
+set(VERSION_MAJOR "2")
+set(VERSION_MINOR "0")
 set(VERSION_PATCH "0")
 set(VERSION_STRING ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 
@@ -59,6 +59,34 @@ if(NOT COMPILER_SUPPORTS_C17)
   message(FATAL_ERROR "The compiler ${CMAKE_C_COMPILER} has no C17 support. Please use a different C compiler.")
 endif()
 
+find_package(ZLIB)
+if (ZLIB_FOUND)
+  message(STATUS "zlib found")
+else ()
+  message(FATAL_ERROR "zlib needed")
+endif()
+
+find_package(BZip2)
+if (BZIP2_FOUND)
+  message(STATUS "bzip2 found")
+else ()
+  message(FATAL_ERROR "bzip2 needed")
+endif()
+
+find_package(Zstd)
+if (ZSTD_FOUND)
+  message(STATUS "zstd found")
+else ()
+  message(FATAL_ERROR "zstd needed")
+endif()
+
+find_package(Lz4)
+if (LZ4_FOUND)
+  message(STATUS "lz4 found")
+else ()
+  message(FATAL_ERROR "lz4 needed")
+endif()
+
 find_package(Libev 4.11)
 if (LIBEV_FOUND)
   message(STATUS "libev found")
@@ -80,13 +108,11 @@ else ()
   message(FATAL_ERROR "rst2man needed")
 endif()
 
-# search for cJSON library
-# <https://github.com/DaveGamble/cJSON>
-find_package(cJSON)
-if (cJSON_FOUND)
-  message(STATUS "cJSON found version ${CJSON_VERSION}")
+find_package(THREAD)
+if (THREAD_FOUND)
+  message(STATUS "pthread found")
 else ()
-  message(FATAL_ERROR "cJSON needed")
+  message(FATAL_ERROR "pthread needed")
 endif()
 
 find_package(Pandoc)
@@ -103,6 +129,13 @@ if (PDFLATEX_FOUND)
 else ()
   set(generation FALSE)
   message(STATUS "pdflatex needed. The generation process will be skipped.")
+endif()
+
+find_package(Doxygen
+             REQUIRED dot)
+
+if (DOXYGEN_FOUND)
+  message(status "Doxygen found: ${DOXYGEN_EXECUTABLE}")
 endif()
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")

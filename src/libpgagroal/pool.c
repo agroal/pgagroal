@@ -28,6 +28,7 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <connection.h>
 #include <logging.h>
 #include <network.h>
 #include <management.h>
@@ -164,6 +165,7 @@ start:
             if (!fork())
             {
                pgagroal_flush(FLUSH_GRACEFULLY, "*");
+               exit(0);
             }
 
             goto error;
@@ -181,7 +183,7 @@ start:
          }
          else
          {
-            ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &fd, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay);
+            ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &fd, config->keep_alive, config->non_blocking, config->nodelay);
          }
 
          if (ret)
@@ -381,6 +383,7 @@ pgagroal_return_connection(int slot, SSL* ssl, bool transaction_mode)
    time_t now;
    signed char in_use;
    signed char age_check;
+   int transfer_fd = -1;
 
    config = (struct main_configuration*)shmem;
 
@@ -398,7 +401,7 @@ pgagroal_return_connection(int slot, SSL* ssl, bool transaction_mode)
          {
             pgagroal_prometheus_connection_max_connection_age();
             pgagroal_tracking_event_slot(TRACKER_MAX_CONNECTION_AGE, slot);
-            return pgagroal_kill_connection(slot, ssl);
+            goto kill_connection;
          }
       }
    }
@@ -438,10 +441,42 @@ pgagroal_return_connection(int slot, SSL* ssl, bool transaction_mode)
 
          if (config->connections[slot].new)
          {
-            pgagroal_management_transfer_connection(slot);
+            if (pgagroal_connection_get(&transfer_fd))
+            {
+               goto kill_connection;
+            }
+
+            if (pgagroal_connection_id_write(transfer_fd, CONNECTION_TRANSFER))
+            {
+               goto kill_connection;
+            }
+
+            if (pgagroal_connection_transfer_write(transfer_fd, slot))
+            {
+               goto kill_connection;
+            }
+
+            pgagroal_disconnect(transfer_fd);
+            transfer_fd = -1;
          }
 
-         pgagroal_management_return_connection(slot);
+         if (pgagroal_connection_get(&transfer_fd))
+         {
+            goto kill_connection;
+         }
+
+         if (pgagroal_connection_id_write(transfer_fd, CONNECTION_RETURN))
+         {
+            goto kill_connection;
+         }
+
+         if (pgagroal_connection_slot_write(transfer_fd, slot))
+         {
+            goto kill_connection;
+         }
+
+         pgagroal_disconnect(transfer_fd);
+         transfer_fd = -1;
 
          if (config->connections[slot].limit_rule >= 0)
          {
@@ -467,6 +502,8 @@ pgagroal_return_connection(int slot, SSL* ssl, bool transaction_mode)
 
 kill_connection:
 
+   pgagroal_disconnect(transfer_fd);
+
    pgagroal_tracking_event_slot(TRACKER_RETURN_CONNECTION_KILL, slot);
 
    return pgagroal_kill_connection(slot, ssl);
@@ -479,6 +516,7 @@ pgagroal_kill_connection(int slot, SSL* ssl)
    int ssl_shutdown;
    int result = 0;
    int fd;
+   int transfer_fd;
    struct main_configuration* config;
 
    config = (struct main_configuration*)shmem;
@@ -492,7 +530,27 @@ pgagroal_kill_connection(int slot, SSL* ssl)
    fd = config->connections[slot].fd;
    if (fd != -1)
    {
-      pgagroal_management_kill_connection(slot, fd);
+      if (pgagroal_connection_get(&transfer_fd))
+      {
+         result = 1;
+      }
+
+      if (pgagroal_connection_id_write(transfer_fd, CONNECTION_KILL))
+      {
+         result = 1;
+      }
+
+      if (pgagroal_connection_slot_write(transfer_fd, slot))
+      {
+         result = 1;
+      }
+
+      if (pgagroal_connection_socket_write(transfer_fd, fd))
+      {
+         result = 1;
+      }
+
+      pgagroal_disconnect(transfer_fd);
 
       if (ssl != NULL)
       {
@@ -882,8 +940,6 @@ pgagroal_flush(int mode, char* database)
    pgagroal_pool_status();
    pgagroal_memory_destroy();
    pgagroal_stop_logging();
-
-   exit(0);
 }
 
 void
@@ -950,6 +1006,39 @@ pgagroal_flush_server(signed char server)
    pgagroal_pool_status();
    pgagroal_memory_destroy();
    pgagroal_stop_logging();
+
+   exit(0);
+}
+
+void
+pgagroal_request_flush(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload)
+{
+   time_t start_time;
+   time_t end_time;
+   struct json* req = NULL;
+   int mode = 0;
+   char* database = NULL;
+
+   start_time = time(NULL);
+
+   req = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
+   mode = (int)pgagroal_json_get(req, MANAGEMENT_ARGUMENT_MODE);
+   database = (char*)pgagroal_json_get(req, MANAGEMENT_ARGUMENT_DATABASE);
+
+   if (database != NULL)
+   {
+      pgagroal_flush(mode, database);
+   }
+   else
+   {
+      pgagroal_flush(mode, "*");
+   }
+
+   end_time = time(NULL);
+
+   pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+
+   pgagroal_json_destroy(payload);
 
    exit(0);
 }

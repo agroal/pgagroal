@@ -47,7 +47,8 @@ extern "C" {
 #define PGAGROAL_HOMEPAGE "https://agroal.github.io/pgagroal/"
 #define PGAGROAL_ISSUES "https://github.com/agroal/pgagroal/issues"
 
-#define MAIN_UDS ".s.pgagroal"
+#define MAIN_UDS     ".s.pgagroal"
+#define TRANSFER_UDS ".s.pgagroal.tu"
 
 #ifdef HAVE_FREEBSD
     #define PGAGROAL_DEFAULT_CONFIGURATION_PATH "/usr/local/etc/pgagroal/"
@@ -67,10 +68,9 @@ extern "C" {
 
 #define MAX_PROCESS_TITLE_LENGTH 256
 
-#define MAX_BUFFER_SIZE      65535
-#define DEFAULT_BUFFER_SIZE  65535
-#define SECURITY_BUFFER_SIZE  1024
-#define HTTP_BUFFER_SIZE      1024
+#define DEFAULT_BUFFER_SIZE  131072
+#define SECURITY_BUFFER_SIZE   1024
+#define HTTP_BUFFER_SIZE       1024
 
 #define MAX_USERNAME_LENGTH    128
 #define MAX_DATABASE_LENGTH    256
@@ -142,6 +142,23 @@ extern "C" {
 #define HUGEPAGE_TRY 1
 #define HUGEPAGE_ON  2
 
+#define ENCRYPTION_NONE         0
+#define ENCRYPTION_AES_256_CBC  1
+#define ENCRYPTION_AES_192_CBC  2
+#define ENCRYPTION_AES_128_CBC  3
+#define ENCRYPTION_AES_256_CTR  4
+#define ENCRYPTION_AES_192_CTR  5
+#define ENCRYPTION_AES_128_CTR  6
+
+#define COMPRESSION_NONE         0
+#define COMPRESSION_CLIENT_GZIP  1
+#define COMPRESSION_CLIENT_ZSTD  2
+#define COMPRESSION_CLIENT_LZ4   3
+#define COMPRESSION_CLIENT_BZIP2 4
+#define COMPRESSION_SERVER_GZIP  5
+#define COMPRESSION_SERVER_ZSTD  6
+#define COMPRESSION_SERVER_LZ4   7
+
 #define UPDATE_PROCESS_TITLE_NEVER 0
 #define UPDATE_PROCESS_TITLE_STRICT 1
 #define UPDATE_PROCESS_TITLE_MINIMAL 2
@@ -175,8 +192,16 @@ extern "C" {
 #define EXIT_STATUS_CONNECTION_ERROR 1
 #define EXIT_STATUS_DATA_ERROR       2
 
+#define INDENT_PER_LEVEL      2
+#define FORMAT_JSON           0
+#define FORMAT_TEXT           1
+#define FORMAT_JSON_COMPACT   2
+#define BULLET_POINT          "- "
+
 #define likely(x)    __builtin_expect (!!(x), 1)
 #define unlikely(x)  __builtin_expect (!!(x), 0)
+
+#define EMPTY_STR(_s) (_s[0] == 0)
 
 #define MAX(a, b)            \
         ({ __typeof__ (a) _a = (a);  \
@@ -252,7 +277,7 @@ extern void* prometheus_shmem;
  */
 extern void* prometheus_cache_shmem;
 
-/** @struct
+/** @struct server
  * Defines a server
  */
 struct server
@@ -268,7 +293,7 @@ struct server
    int lineno;                      /**< The line number within the configuration file */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct connection
  * Defines a connection
  */
 struct connection
@@ -295,7 +320,7 @@ struct connection
    int fd;                 /**< The descriptor */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct hba
  * Defines a HBA entry
  */
 struct hba
@@ -308,7 +333,7 @@ struct hba
    int lineno;                        /**< The line number within the configuration file */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct limit
  * Defines a limit entry
  */
 struct limit
@@ -322,7 +347,7 @@ struct limit
    int lineno;                         /**< The line number within the configuration file */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct user
  * Defines a user
  */
 struct user
@@ -331,16 +356,16 @@ struct user
    char password[MAX_PASSWORD_LENGTH]; /**< The password */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct vault_server
  * Defines a vault server
  */
 struct vault_server
 {
-   struct server server;
-   struct user user;
+   struct server server; /**< The server */
+   struct user user;     /**< The user */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct prometheus_connection
  * Defines the Prometheus connection metric
  */
 struct prometheus_connection
@@ -348,7 +373,7 @@ struct prometheus_connection
    atomic_ullong query_count;           /**< The number of queries per connection */
 } __attribute__ ((aligned (64)));
 
-/**
+/** @struct prometheus_cache
  * A structure to handle the Prometheus response
  * so that it is possible to serve the very same
  * response over and over depending on the cache
@@ -370,7 +395,7 @@ struct prometheus_cache
    char data[];          /**< the payload */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct prometheus
  * Defines the common Prometheus metrics
  */
 struct prometheus
@@ -387,7 +412,7 @@ struct prometheus
 
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct main_prometheus
  * Defines the Main Prometheus metrics
  */
 struct main_prometheus
@@ -409,8 +434,8 @@ struct main_prometheus
    atomic_ulong connection_success;            /**< The number of success calls */
 
    /**< The number of connection awaiting due to `blocking_timeout` */
-   atomic_ulong connections_awaiting[NUMBER_OF_LIMITS];
-   atomic_ulong connections_awaiting_total;
+   atomic_ulong connections_awaiting[NUMBER_OF_LIMITS]; /**< The number of connection waiting per limit */
+   atomic_ulong connections_awaiting_total;             /**< The number of connection waiting in total */
 
    atomic_ulong auth_user_success;      /**< The number of AUTH_SUCCESS calls */
    atomic_ulong auth_user_bad_password; /**< The number of AUTH_BAD_PASSWORD calls */
@@ -432,15 +457,15 @@ struct main_prometheus
 
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct vault_prometheus
  * Defines the Vault Prometheus metrics
  */
 struct vault_prometheus
 {
-   struct prometheus prometheus_base;
+   struct prometheus prometheus_base; /**< The Prometheus base */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct configuration
  * Defines the common configurations between pgagroal and vault
  */
 struct configuration
@@ -475,7 +500,7 @@ struct configuration
    unsigned int metrics_cache_max_size; /**< Number of bytes max to cache the Prometheus response */
 };
 
-/** @struct
+/** @struct vault_configuration
  * Defines the configuration of pgagroal-vault
  */
 struct vault_configuration
@@ -486,12 +511,12 @@ struct vault_configuration
    struct vault_server vault_server; /**< The vault servers */
 } __attribute__ ((aligned (64)));
 
-/** @struct
+/** @struct main_configuration
  * Defines the configuration and state of pgagroal
  */
 struct main_configuration
 {
-   struct configuration common;          /**< Common configurations */
+   struct configuration common;       /**< Common configurations */
    char hba_path[MAX_PATH];           /**< The HBA path */
    char limit_path[MAX_PATH];         /**< The limit path */
    char users_path[MAX_PATH];         /**< The users path */
@@ -502,6 +527,7 @@ struct main_configuration
    int management;         /**< The management port */
    bool gracefully;        /**< Is pgagroal in gracefully mode */
 
+   bool all_disabled;                                      /**< Are all databases disabled */
    char disabled[NUMBER_OF_DISABLED][MAX_DATABASE_LENGTH]; /**< Which databases are disabled */
 
    int pipeline; /**< The pipeline type */
@@ -530,7 +556,6 @@ struct main_configuration
    char pidfile[MAX_PATH];       /**< File containing the PID */
 
    char libev[MISC_LENGTH]; /**< Name of libev mode */
-   int buffer_size;         /**< Socket buffer size */
    bool keep_alive;         /**< Use keep alive */
    bool nodelay;            /**< Use NODELAY */
    bool non_blocking;       /**< Use non blocking */

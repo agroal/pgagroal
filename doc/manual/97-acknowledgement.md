@@ -19,6 +19,15 @@ Ashutosh Sharma <ash2003sharma@gmail.com>
 Henrique de Carvalho <decarv.henrique@gmail.com>
 Yihe Lu <t1t4m1un@gmail.com>
 Eugenio Gigante <giganteeugenio2@gmail.com>
+Mohanad Khaled <mohanadkhaled87@gmail.com>
+Haoran Zhang <andrewzhr9911@gmail.com>
+```
+
+## Committers
+
+```
+Jesper Pedersen <jesper.pedersen@comcast.net>
+Luca Ferrari <fluca1978@gmail.com>
 ```
 
 ## Contributing
@@ -38,7 +47,3 @@ community.
 Consider giving the project a [star][star] on
 [GitHub][pagmoneta] if you find it useful. And, feel free to follow
 the project on [Twitter][twitter] as well.
-
-## License
-
-[BSD-3-Clause][license]

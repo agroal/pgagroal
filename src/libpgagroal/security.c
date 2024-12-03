@@ -28,6 +28,7 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <aes.h>
 #include <logging.h>
 #include <memory.h>
 #include <message.h>
@@ -90,10 +91,6 @@ static char* get_frontend_password(char* username);
 static char* get_admin_password(char* username);
 static int   get_salt(void* data, char** salt);
 
-static int derive_key_iv(char* password, unsigned char* key, unsigned char* iv);
-static int aes_encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphertext, int* ciphertext_length);
-static int aes_decrypt(char* ciphertext, int ciphertext_length, unsigned char* key, unsigned char* iv, char** plaintext);
-
 static int sasl_prep(char* password, char** password_prep);
 static int generate_nounce(char** nounce);
 static int get_scram_attribute(char attribute, char* input, size_t size, char** value);
@@ -118,7 +115,7 @@ static int  server_signature(char* password, char* salt, int salt_length, int it
                              char* client_first_message_bare, size_t client_first_message_bare_length,
                              char* server_first_message, size_t server_first_message_length,
                              char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length,
-                             unsigned char** result, int* result_length);
+                             unsigned char** result, size_t* result_length);
 
 static bool is_tls_user(char* username, char* database);
 static int  create_ssl_ctx(bool client, SSL_CTX** ctx);
@@ -191,7 +188,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
       }
       else
       {
-         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &server_fd, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay);
+         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &server_fd, config->keep_alive, config->non_blocking, config->nodelay);
       }
 
       if (ret)
@@ -639,6 +636,8 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
 
    *client_ssl = NULL;
 
+   pgagroal_memory_init();
+
    /* Receive client calls - at any point if client exits return AUTH_ERROR */
    status = pgagroal_read_timeout_message(NULL, client_fd, config->common.authentication_timeout, &msg);
    if (status != MESSAGE_STATUS_OK)
@@ -841,7 +840,7 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
    char root_file[MISC_LENGTH];
    struct stat st = {0};
    char* salt = NULL;
-   int salt_length = 0;
+   size_t salt_length = 0;
    char* password_prep = NULL;
    char* client_nounce = NULL;
    char* combined_nounce = NULL;
@@ -855,11 +854,12 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
    unsigned char* proof = NULL;
    int proof_length;
    char* proof_base = NULL;
+   size_t proof_base_length;
    char* base64_server_signature = NULL;
    char* server_signature_received = NULL;
-   int server_signature_received_length;
+   size_t server_signature_received_length;
    unsigned char* server_signature_calc = NULL;
-   int server_signature_calc_length;
+   size_t server_signature_calc_length;
    struct message* sslrequest_msg = NULL;
    struct message* startup_msg = NULL;
    struct message* sasl_response = NULL;
@@ -867,8 +867,6 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
    struct message* sasl_continue_response = NULL;
    struct message* sasl_final = NULL;
    struct message* msg = NULL;
-
-   pgagroal_memory_size(DEFAULT_BUFFER_SIZE);
 
    if (pgagroal_get_home_directory() == NULL)
    {
@@ -947,13 +945,9 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
                            case SSL_ERROR_WANT_ACCEPT:
                            case SSL_ERROR_WANT_X509_LOOKUP:
 #ifndef HAVE_OPENBSD
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
                            case SSL_ERROR_WANT_ASYNC:
                            case SSL_ERROR_WANT_ASYNC_JOB:
-#if (OPENSSL_VERSION_NUMBER >= 0x10101000L)
                            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
-#endif
-#endif
 #endif
                               break;
                            case SSL_ERROR_SYSCALL:
@@ -1041,7 +1035,7 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
       goto error;
    }
 
-   pgagroal_base64_decode(base64_salt, strlen(base64_salt), &salt, &salt_length);
+   pgagroal_base64_decode(base64_salt, strlen(base64_salt), (void**)&salt, &salt_length);
 
    iteration = atoi(iteration_string);
 
@@ -1063,7 +1057,7 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
       goto error;
    }
 
-   pgagroal_base64_encode((char*)proof, proof_length, &proof_base);
+   pgagroal_base64_encode((char*)proof, proof_length, &proof_base, &proof_base_length);
 
    status = pgagroal_create_auth_scram256_continue_response(&wo_proof[0], (char*)proof_base, &sasl_continue_response);
    if (status != MESSAGE_STATUS_OK)
@@ -1090,7 +1084,7 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
 
    /* Get 'v' attribute */
    base64_server_signature = sasl_final->data + 11;
-   pgagroal_base64_decode(base64_server_signature, sasl_final->length - 11, &server_signature_received, &server_signature_received_length);
+   pgagroal_base64_decode(base64_server_signature, sasl_final->length - 11, (void**)&server_signature_received, &server_signature_received_length);
 
    if (server_signature(password_prep, salt, salt_length, iteration,
                         NULL, 0,
@@ -1880,14 +1874,16 @@ client_scram256(SSL* c_ssl, int client_fd, char* username, char* password, int s
    char* salt = NULL;
    int salt_length = 0;
    char* base64_salt = NULL;
+   size_t base64_salt_length;
    char* base64_client_proof = NULL;
    char* client_proof_received = NULL;
-   int client_proof_received_length = 0;
+   size_t client_proof_received_length = 0;
    unsigned char* client_proof_calc = NULL;
    int client_proof_calc_length = 0;
    unsigned char* server_signature_calc = NULL;
-   int server_signature_calc_length = 0;
+   size_t server_signature_calc_length = 0;
    char* base64_server_signature_calc = NULL;
+   size_t base64_server_signature_calc_length;
    struct main_configuration* config;
    struct message* msg = NULL;
    struct message* sasl_continue = NULL;
@@ -1941,7 +1937,7 @@ retry:
    get_scram_attribute('r', (char*)msg->data + 26, msg->length - 26, &client_nounce);
    generate_nounce(&server_nounce);
    generate_salt(&salt, &salt_length);
-   pgagroal_base64_encode(salt, salt_length, &base64_salt);
+   pgagroal_base64_encode(salt, salt_length, &base64_salt, &base64_salt_length);
 
    server_first_message = calloc(1, 89);
 
@@ -1971,7 +1967,7 @@ retry:
    }
 
    get_scram_attribute('p', (char*)msg->data + 5, msg->length - 5, &base64_client_proof);
-   pgagroal_base64_decode(base64_client_proof, strlen(base64_client_proof), &client_proof_received, &client_proof_received_length);
+   pgagroal_base64_decode(base64_client_proof, strlen(base64_client_proof), (void**)&client_proof_received, &client_proof_received_length);
 
    client_final_message_without_proof = calloc(1, 58);
 
@@ -2004,7 +2000,7 @@ retry:
       goto error;
    }
 
-   pgagroal_base64_encode((char*)server_signature_calc, server_signature_calc_length, &base64_server_signature_calc);
+   pgagroal_base64_encode((char*)server_signature_calc, server_signature_calc_length, &base64_server_signature_calc, &base64_server_signature_calc_length);
 
    status = pgagroal_create_auth_scram256_final(base64_server_signature_calc, &msg);
    if (status != MESSAGE_STATUS_OK)
@@ -2688,7 +2684,7 @@ server_scram256(char* username, char* password, int slot, SSL* server_ssl)
    int auth_index = 1;
    int server_fd;
    char* salt = NULL;
-   int salt_length = 0;
+   size_t salt_length = 0;
    char* password_prep = NULL;
    char* client_nounce = NULL;
    char* combined_nounce = NULL;
@@ -2702,11 +2698,12 @@ server_scram256(char* username, char* password, int slot, SSL* server_ssl)
    unsigned char* proof = NULL;
    int proof_length;
    char* proof_base = NULL;
+   size_t proof_base_length;
    char* base64_server_signature = NULL;
    char* server_signature_received = NULL;
-   int server_signature_received_length;
+   size_t server_signature_received_length;
    unsigned char* server_signature_calc = NULL;
-   int server_signature_calc_length;
+   size_t server_signature_calc_length;
    struct message* sasl_response = NULL;
    struct message* sasl_continue = NULL;
    struct message* sasl_continue_response = NULL;
@@ -2768,7 +2765,7 @@ server_scram256(char* username, char* password, int slot, SSL* server_ssl)
       goto error;
    }
 
-   pgagroal_base64_decode(base64_salt, strlen(base64_salt), &salt, &salt_length);
+   pgagroal_base64_decode(base64_salt, strlen(base64_salt), (void**)&salt, &salt_length);
 
    iteration = atoi(iteration_string);
 
@@ -2790,7 +2787,7 @@ server_scram256(char* username, char* password, int slot, SSL* server_ssl)
       goto error;
    }
 
-   pgagroal_base64_encode((char*)proof, proof_length, &proof_base);
+   pgagroal_base64_encode((char*)proof, proof_length, &proof_base, &proof_base_length);
 
    status = pgagroal_create_auth_scram256_continue_response(&wo_proof[0], (char*)proof_base, &sasl_continue_response);
    if (status != MESSAGE_STATUS_OK)
@@ -2828,7 +2825,7 @@ server_scram256(char* username, char* password, int slot, SSL* server_ssl)
    /* Get 'v' attribute */
    base64_server_signature = sasl_final->data + 11;
    pgagroal_base64_decode(base64_server_signature, sasl_final->length - 11,
-                          &server_signature_received, &server_signature_received_length);
+                          (void**)&server_signature_received, &server_signature_received_length);
 
    if (server_signature(password_prep, salt, salt_length, iteration,
                         NULL, 0,
@@ -3099,10 +3096,14 @@ is_disabled(char* database)
 
    config = (struct main_configuration*)shmem;
 
+   if (config->all_disabled)
+   {
+      return true;
+   }
+
    for (int i = 0; i < NUMBER_OF_DISABLED; i++)
    {
-      if (!strcmp(config->disabled[i], "*") ||
-          !strcmp(config->disabled[i], database))
+      if (!strcmp(config->disabled[i], database))
       {
          return true;
       }
@@ -3226,7 +3227,7 @@ pgagroal_get_master_key(char** masterkey)
    char buf[MISC_LENGTH];
    char line[MISC_LENGTH];
    char* mk = NULL;
-   int mk_length = 0;
+   size_t mk_length = 0;
    struct stat st = {0};
 
    if (pgagroal_get_home_directory() == NULL)
@@ -3284,7 +3285,7 @@ pgagroal_get_master_key(char** masterkey)
       goto error;
    }
 
-   pgagroal_base64_decode(&line[0], strlen(&line[0]), &mk, &mk_length);
+   pgagroal_base64_decode(&line[0], strlen(&line[0]), (void**)&mk, &mk_length);
 
    *masterkey = mk;
 
@@ -3302,40 +3303,6 @@ error:
    }
 
    return 1;
-}
-
-int
-pgagroal_encrypt(char* plaintext, char* password, char** ciphertext, int* ciphertext_length)
-{
-   unsigned char key[EVP_MAX_KEY_LENGTH];
-   unsigned char iv[EVP_MAX_IV_LENGTH];
-
-   memset(&key, 0, sizeof(key));
-   memset(&iv, 0, sizeof(iv));
-
-   if (derive_key_iv(password, key, iv) != 0)
-   {
-      return 1;
-   }
-
-   return aes_encrypt(plaintext, key, iv, ciphertext, ciphertext_length);
-}
-
-int
-pgagroal_decrypt(char* ciphertext, int ciphertext_length, char* password, char** plaintext)
-{
-   unsigned char key[EVP_MAX_KEY_LENGTH];
-   unsigned char iv[EVP_MAX_IV_LENGTH];
-
-   memset(&key, 0, sizeof(key));
-   memset(&iv, 0, sizeof(iv));
-
-   if (derive_key_iv(password, key, iv) != 0)
-   {
-      return 1;
-   }
-
-   return aes_decrypt(ciphertext, ciphertext_length, key, iv, plaintext);
 }
 
 int
@@ -3492,136 +3459,6 @@ error:
 }
 
 static int
-derive_key_iv(char* password, unsigned char* key, unsigned char* iv)
-{
-
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
-   OpenSSL_add_all_algorithms();
-#endif
-
-   if (!EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha1(), NULL,
-                       (unsigned char*) password, strlen(password), 1,
-                       key, iv))
-   {
-      return 1;
-   }
-
-   return 0;
-}
-
-static int
-aes_encrypt(char* plaintext, unsigned char* key, unsigned char* iv, char** ciphertext, int* ciphertext_length)
-{
-   EVP_CIPHER_CTX* ctx = NULL;
-   int length;
-   size_t size;
-   unsigned char* ct = NULL;
-   int ct_length;
-
-   if (!(ctx = EVP_CIPHER_CTX_new()))
-   {
-      goto error;
-   }
-
-   if (EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv) != 1)
-   {
-      goto error;
-   }
-
-   size = strlen(plaintext) + EVP_CIPHER_block_size(EVP_aes_256_cbc());
-   ct = calloc(1, size);
-
-   if (EVP_EncryptUpdate(ctx,
-                         ct, &length,
-                         (unsigned char*)plaintext, strlen((char*)plaintext)) != 1)
-   {
-      goto error;
-   }
-
-   ct_length = length;
-
-   if (EVP_EncryptFinal_ex(ctx, ct + length, &length) != 1)
-   {
-      goto error;
-   }
-
-   ct_length += length;
-
-   EVP_CIPHER_CTX_free(ctx);
-
-   *ciphertext = (char*)ct;
-   *ciphertext_length = ct_length;
-
-   return 0;
-
-error:
-   if (ctx)
-   {
-      EVP_CIPHER_CTX_free(ctx);
-   }
-
-   free(ct);
-
-   return 1;
-}
-
-static int
-aes_decrypt(char* ciphertext, int ciphertext_length, unsigned char* key, unsigned char* iv, char** plaintext)
-{
-   EVP_CIPHER_CTX* ctx = NULL;
-   int plaintext_length;
-   int length;
-   size_t size;
-   char* pt = NULL;
-
-   if (!(ctx = EVP_CIPHER_CTX_new()))
-   {
-      goto error;
-   }
-
-   if (EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv) != 1)
-   {
-      goto error;
-   }
-
-   size = ciphertext_length + EVP_CIPHER_block_size(EVP_aes_256_cbc());
-   pt = calloc(1, size);
-
-   if (EVP_DecryptUpdate(ctx,
-                         (unsigned char*)pt, &length,
-                         (unsigned char*)ciphertext, ciphertext_length) != 1)
-   {
-      goto error;
-   }
-
-   plaintext_length = length;
-
-   if (EVP_DecryptFinal_ex(ctx, (unsigned char*)pt + length, &length) != 1)
-   {
-      goto error;
-   }
-
-   plaintext_length += length;
-
-   EVP_CIPHER_CTX_free(ctx);
-
-   pt[plaintext_length] = 0;
-   *plaintext = pt;
-
-   return 0;
-
-error:
-   if (ctx)
-   {
-      EVP_CIPHER_CTX_free(ctx);
-   }
-
-   free(pt);
-
-   return 1;
-}
-
-static int
 sasl_prep(char* password, char** password_prep)
 {
    char* p = NULL;
@@ -3654,6 +3491,7 @@ generate_nounce(char** nounce)
    size_t s = 18;
    unsigned char r[s + 1];
    char* base = NULL;
+   size_t base_length;
    int result;
 
    memset(&r[0], 0, sizeof(r));
@@ -3666,21 +3504,13 @@ generate_nounce(char** nounce)
 
    r[s] = '\0';
 
-   pgagroal_base64_encode((char*)&r[0], s, &base);
+   pgagroal_base64_encode((char*)&r[0], s, &base, &base_length);
 
    *nounce = base;
-
-#if OPENSSL_API_COMPAT < 0x10100000L
-   RAND_cleanup();
-#endif
 
    return 0;
 
 error:
-
-#if OPENSSL_API_COMPAT < 0x10100000L
-   RAND_cleanup();
-#endif
 
    return 1;
 }
@@ -3753,14 +3583,7 @@ client_proof(char* password, char* salt, int salt_length, int iterations,
    unsigned char* c_s = NULL;
    unsigned int length;
    unsigned char* r = NULL;
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
    HMAC_CTX* ctx = HMAC_CTX_new();
-#else
-   HMAC_CTX hctx;
-   HMAC_CTX* ctx = &hctx;
-
-   HMAC_CTX_init(ctx);
-#endif
 
    if (salted_password(password, salt, salt_length, iterations, &s_p, &s_p_length))
    {
@@ -3826,11 +3649,7 @@ client_proof(char* password, char* salt, int salt_length, int iterations,
    *result = r;
    *result_length = size;
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
    HMAC_CTX_free(ctx);
-#else
-   HMAC_CTX_cleanup(ctx);
-#endif
 
    free(s_p);
    free(c_k);
@@ -3846,11 +3665,7 @@ error:
 
    if (ctx != NULL)
    {
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
       HMAC_CTX_free(ctx);
-#else
-      HMAC_CTX_cleanup(ctx);
-#endif
    }
 
    free(s_p);
@@ -3876,24 +3691,7 @@ verify_client_proof(char* s_key, int s_key_length,
    int s_k_length;
    unsigned char* c_s = NULL;
    unsigned int length;
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
    HMAC_CTX* ctx = HMAC_CTX_new();
-#else
-   HMAC_CTX hctx;
-   HMAC_CTX* ctx = &hctx;
-
-   HMAC_CTX_init(ctx);
-#endif
-
-   /* if (salted_password(password, salt, salt_length, iterations, &s_p, &s_p_length)) */
-   /* { */
-   /*    goto error; */
-   /* } */
-
-   /* if (salted_password_key(s_p, s_p_length, "Client Key", &c_k, &c_k_length)) */
-   /* { */
-   /*    goto error; */
-   /* } */
 
    c_k = calloc(1, size);
    c_k_length = size;
@@ -3952,11 +3750,7 @@ verify_client_proof(char* s_key, int s_key_length,
       goto error;
    }
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
    HMAC_CTX_free(ctx);
-#else
-   HMAC_CTX_cleanup(ctx);
-#endif
 
    free(c_k);
    free(s_k);
@@ -3968,11 +3762,7 @@ error:
 
    if (ctx != NULL)
    {
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
       HMAC_CTX_free(ctx);
-#else
-      HMAC_CTX_cleanup(ctx);
-#endif
    }
 
    free(c_k);
@@ -3992,14 +3782,7 @@ salted_password(char* password, char* salt, int salt_length, int iterations, uns
    unsigned char Ui_prev[size];
    unsigned int Ui_length;
    unsigned char* r = NULL;
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
    HMAC_CTX* ctx = HMAC_CTX_new();
-#else
-   HMAC_CTX hctx;
-   HMAC_CTX* ctx = &hctx;
-
-   HMAC_CTX_init(ctx);
-#endif
 
    if (ctx == NULL)
    {
@@ -4043,13 +3826,10 @@ salted_password(char* password, char* salt, int salt_length, int iterations, uns
 
    for (int i = 2; i <= iterations; i++)
    {
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
       if (HMAC_CTX_reset(ctx) != 1)
       {
          goto error;
       }
-
-#endif
 
       if (HMAC_Init_ex(ctx, password, password_length, EVP_sha256(), NULL) != 1)
       {
@@ -4076,11 +3856,7 @@ salted_password(char* password, char* salt, int salt_length, int iterations, uns
    *result = r;
    *result_length = size;
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
    HMAC_CTX_free(ctx);
-#else
-   HMAC_CTX_cleanup(ctx);
-#endif
 
    return 0;
 
@@ -4088,11 +3864,7 @@ error:
 
    if (ctx != NULL)
    {
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
       HMAC_CTX_free(ctx);
-#else
-      HMAC_CTX_cleanup(ctx);
-#endif
    }
 
    *result = NULL;
@@ -4107,14 +3879,7 @@ salted_password_key(unsigned char* salted_password, int salted_password_length, 
    size_t size = 32;
    unsigned char* r = NULL;
    unsigned int length;
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
    HMAC_CTX* ctx = HMAC_CTX_new();
-#else
-   HMAC_CTX hctx;
-   HMAC_CTX* ctx = &hctx;
-
-   HMAC_CTX_init(ctx);
-#endif
 
    if (ctx == NULL)
    {
@@ -4142,11 +3907,7 @@ salted_password_key(unsigned char* salted_password, int salted_password_length, 
    *result = r;
    *result_length = size;
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
    HMAC_CTX_free(ctx);
-#else
-   HMAC_CTX_cleanup(ctx);
-#endif
 
    return 0;
 
@@ -4154,11 +3915,7 @@ error:
 
    if (ctx != NULL)
    {
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
       HMAC_CTX_free(ctx);
-#else
-      HMAC_CTX_cleanup(ctx);
-#endif
    }
 
    *result = NULL;
@@ -4173,13 +3930,7 @@ stored_key(unsigned char* client_key, int client_key_length, unsigned char** res
    size_t size = 32;
    unsigned char* r = NULL;
    unsigned int length;
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-#else
-   EVP_MD_CTX* ctx = EVP_MD_CTX_create();
-
-   EVP_MD_CTX_init(ctx);
-#endif
 
    if (ctx == NULL)
    {
@@ -4207,11 +3958,7 @@ stored_key(unsigned char* client_key, int client_key_length, unsigned char** res
    *result = r;
    *result_length = size;
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
    EVP_MD_CTX_free(ctx);
-#else
-   EVP_MD_CTX_destroy(ctx);
-#endif
 
    return 0;
 
@@ -4219,11 +3966,7 @@ error:
 
    if (ctx != NULL)
    {
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
       EVP_MD_CTX_free(ctx);
-#else
-      EVP_MD_CTX_destroy(ctx);
-#endif
    }
 
    *result = NULL;
@@ -4250,17 +3993,9 @@ generate_salt(char** salt, int* size)
    *salt = (char*)r;
    *size = s;
 
-#if OPENSSL_API_COMPAT < 0x10100000L
-   RAND_cleanup();
-#endif
-
    return 0;
 
 error:
-
-#if OPENSSL_API_COMPAT < 0x10100000L
-   RAND_cleanup();
-#endif
 
    free(r);
 
@@ -4276,7 +4011,7 @@ server_signature(char* password, char* salt, int salt_length, int iterations,
                  char* client_first_message_bare, size_t client_first_message_bare_length,
                  char* server_first_message, size_t server_first_message_length,
                  char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length,
-                 unsigned char** result, int* result_length)
+                 unsigned char** result, size_t* result_length)
 {
    size_t size = 32;
    unsigned char* r = NULL;
@@ -4286,14 +4021,7 @@ server_signature(char* password, char* salt, int salt_length, int iterations,
    int s_k_length;
    unsigned int length;
    bool do_free = true;
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
    HMAC_CTX* ctx = HMAC_CTX_new();
-#else
-   HMAC_CTX hctx;
-   HMAC_CTX* ctx = &hctx;
-
-   HMAC_CTX_init(ctx);
-#endif
 
    if (ctx == NULL)
    {
@@ -4360,11 +4088,7 @@ server_signature(char* password, char* salt, int salt_length, int iterations,
    *result = r;
    *result_length = length;
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
    HMAC_CTX_free(ctx);
-#else
-   HMAC_CTX_cleanup(ctx);
-#endif
 
    free(s_p);
    if (do_free)
@@ -4381,11 +4105,7 @@ error:
 
    if (ctx != NULL)
    {
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
       HMAC_CTX_free(ctx);
-#else
-      HMAC_CTX_cleanup(ctx);
-#endif
    }
 
    free(s_p);
@@ -4424,21 +4144,6 @@ create_ssl_ctx(bool client, SSL_CTX** ctx)
 {
    SSL_CTX* c = NULL;
 
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
-   OpenSSL_add_all_algorithms();
-#endif
-
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
-   if (client)
-   {
-      c = SSL_CTX_new(TLSv1_2_client_method());
-   }
-   else
-   {
-      c = SSL_CTX_new(TLSv1_2_server_method());
-   }
-
-#else
    if (client)
    {
       c = SSL_CTX_new(TLS_client_method());
@@ -4448,24 +4153,15 @@ create_ssl_ctx(bool client, SSL_CTX** ctx)
       c = SSL_CTX_new(TLS_server_method());
    }
 
-#endif
-
    if (c == NULL)
    {
       goto error;
    }
 
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
-   SSL_CTX_set_options(c, SSL_OP_NO_SSLv3);
-   SSL_CTX_set_options(c, SSL_OP_NO_TLSv1);
-   SSL_CTX_set_options(c, SSL_OP_NO_TLSv1_1);
-#else
    if (SSL_CTX_set_min_proto_version(c, TLS1_2_VERSION) == 0)
    {
       goto error;
    }
-
-#endif
 
    SSL_CTX_set_mode(c, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
    SSL_CTX_set_options(c, SSL_OP_NO_TICKET);
@@ -4841,7 +4537,7 @@ retry:
       }
       else
       {
-         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, server_fd, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay);
+         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, server_fd, config->keep_alive, config->non_blocking, config->nodelay);
       }
 
       if (ret)
@@ -5133,7 +4829,7 @@ auth_query_server_scram256(char* username, char* password, int socket, SSL* serv
 {
    int status = MESSAGE_STATUS_ERROR;
    char* salt = NULL;
-   int salt_length = 0;
+   size_t salt_length = 0;
    char* password_prep = NULL;
    char* client_nounce = NULL;
    char* combined_nounce = NULL;
@@ -5147,11 +4843,12 @@ auth_query_server_scram256(char* username, char* password, int socket, SSL* serv
    unsigned char* proof = NULL;
    int proof_length;
    char* proof_base = NULL;
+   size_t proof_base_length;
    char* base64_server_signature = NULL;
    char* server_signature_received = NULL;
-   int server_signature_received_length;
+   size_t server_signature_received_length;
    unsigned char* server_signature_calc = NULL;
-   int server_signature_calc_length;
+   size_t server_signature_calc_length;
    char* error = NULL;
    struct message* sasl_response = NULL;
    struct message* sasl_continue = NULL;
@@ -5200,7 +4897,7 @@ auth_query_server_scram256(char* username, char* password, int socket, SSL* serv
       goto error;
    }
 
-   pgagroal_base64_decode(base64_salt, strlen(base64_salt), &salt, &salt_length);
+   pgagroal_base64_decode(base64_salt, strlen(base64_salt), (void**)&salt, &salt_length);
 
    iteration = atoi(iteration_string);
 
@@ -5222,7 +4919,7 @@ auth_query_server_scram256(char* username, char* password, int socket, SSL* serv
       goto error;
    }
 
-   pgagroal_base64_encode((char*)proof, proof_length, &proof_base);
+   pgagroal_base64_encode((char*)proof, proof_length, &proof_base, &proof_base_length);
 
    status = pgagroal_create_auth_scram256_continue_response(&wo_proof[0], (char*)proof_base, &sasl_continue_response);
    if (status != MESSAGE_STATUS_OK)
@@ -5260,7 +4957,7 @@ auth_query_server_scram256(char* username, char* password, int socket, SSL* serv
    /* Get 'v' attribute */
    base64_server_signature = sasl_final->data + 11;
    pgagroal_base64_decode(base64_server_signature, sasl_final->length - 11,
-                          &server_signature_received, &server_signature_received_length);
+                          (void**)&server_signature_received, &server_signature_received_length);
 
    if (server_signature(password_prep, salt, salt_length, iteration,
                         NULL, 0,
@@ -5538,23 +5235,24 @@ auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username, char* shad
    char* base64_server_key = NULL;
    int iterations = 4096;
    char* stored_key = NULL;
-   int stored_key_length = 0;
+   size_t stored_key_length = 0;
    char* server_key = NULL;
-   int server_key_length = 0;
+   size_t server_key_length = 0;
    char* client_first_message_bare = NULL;
    char* server_first_message = NULL;
    char* client_final_message_without_proof = NULL;
    char* client_nounce = NULL;
    char* server_nounce = NULL;
    char* salt = NULL;
-   int salt_length = 0;
+   size_t salt_length = 0;
    char* base64_salt = NULL;
    char* base64_client_proof = NULL;
    char* client_proof_received = NULL;
-   int client_proof_received_length = 0;
+   size_t client_proof_received_length = 0;
    unsigned char* server_signature_calc = NULL;
-   int server_signature_calc_length = 0;
+   size_t server_signature_calc_length = 0;
    char* base64_server_signature_calc = NULL;
+   size_t base64_server_signature_calc_length;
    struct main_configuration* config;
    struct message* msg = NULL;
    struct message* sasl_continue = NULL;
@@ -5619,15 +5317,15 @@ retry:
 
    /* Process shadow information */
    iterations = atoi(s_iterations);
-   if (pgagroal_base64_decode(base64_salt, strlen(base64_salt), &salt, &salt_length))
+   if (pgagroal_base64_decode(base64_salt, strlen(base64_salt), (void**)&salt, &salt_length))
    {
       goto error;
    }
-   if (pgagroal_base64_decode(base64_stored_key, strlen(base64_stored_key), &stored_key, &stored_key_length))
+   if (pgagroal_base64_decode(base64_stored_key, strlen(base64_stored_key), (void**)&stored_key, &stored_key_length))
    {
       goto error;
    }
-   if (pgagroal_base64_decode(base64_server_key, strlen(base64_server_key), &server_key, &server_key_length))
+   if (pgagroal_base64_decode(base64_server_key, strlen(base64_server_key), (void**)&server_key, &server_key_length))
    {
       goto error;
    }
@@ -5661,7 +5359,7 @@ retry:
    }
 
    get_scram_attribute('p', (char*)msg->data + 5, msg->length - 5, &base64_client_proof);
-   pgagroal_base64_decode(base64_client_proof, strlen(base64_client_proof), &client_proof_received, &client_proof_received_length);
+   pgagroal_base64_decode(base64_client_proof, strlen(base64_client_proof), (void**)&client_proof_received, &client_proof_received_length);
 
    client_final_message_without_proof = calloc(1, 58);
    memcpy(client_final_message_without_proof, msg->data + 5, 57);
@@ -5686,7 +5384,7 @@ retry:
       goto error;
    }
 
-   pgagroal_base64_encode((char*)server_signature_calc, server_signature_calc_length, &base64_server_signature_calc);
+   pgagroal_base64_encode((char*)server_signature_calc, server_signature_calc_length, &base64_server_signature_calc, &base64_server_signature_calc_length);
 
    status = pgagroal_create_auth_scram256_final(base64_server_signature_calc, &sasl_final);
    if (status != MESSAGE_STATUS_OK)
@@ -5849,13 +5547,9 @@ create_client_tls_connection(int fd, SSL** ssl, char* tls_key_file, char* tls_ce
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
 #ifndef HAVE_OPENBSD
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
             case SSL_ERROR_WANT_ASYNC:
             case SSL_ERROR_WANT_ASYNC_JOB:
-#if (OPENSSL_VERSION_NUMBER >= 0x10101000L)
             case SSL_ERROR_WANT_CLIENT_HELLO_CB:
-#endif
-#endif
 #endif
                break;
             case SSL_ERROR_SYSCALL:

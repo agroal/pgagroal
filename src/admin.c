@@ -28,6 +28,7 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <aes.h>
 #include <logging.h>
 #include <security.h>
 #include <utils.h>
@@ -99,50 +100,6 @@ const struct pgagroal_command command_table[] =
       .deprecated = false,
       .action = ACTION_LIST_USERS,
       .log_message = "<user ls>",
-   },
-   {
-      .command = "add-user",
-      .subcommand = "",
-      .accepted_argument_count = {0},
-      .deprecated = true,
-      .action = ACTION_ADD_USER,
-      .log_message = "<deprecated: use 'user add'> [%s]",
-      .deprecated_since_major = 1,
-      .deprecated_since_minor = 6,
-      .deprecated_by = "user add",
-   },
-   {
-      .command = "update-user",
-      .subcommand = "",
-      .accepted_argument_count = {0},
-      .deprecated = true,
-      .action = ACTION_UPDATE_USER,
-      .log_message = "<deprecated: use 'user edit'> [%s]",
-      .deprecated_since_major = 1,
-      .deprecated_since_minor = 6,
-      .deprecated_by = "user edit",
-   },
-   {
-      .command = "remove-user",
-      .subcommand = "",
-      .accepted_argument_count = {0},
-      .deprecated = true,
-      .action = ACTION_REMOVE_USER,
-      .log_message = "<deprecated: use 'user del'>",
-      .deprecated_since_major = 1,
-      .deprecated_since_minor = 6,
-      .deprecated_by = "user del",
-   },
-   {
-      .command = "list-users",
-      .subcommand = "",
-      .accepted_argument_count = {0},
-      .deprecated = true,
-      .action = ACTION_LIST_USERS,
-      .log_message = "<deprecated: use 'user ls'>",
-      .deprecated_since_major = 1,
-      .deprecated_since_minor = 6,
-      .deprecated_by = "user ls",
    },
 };
 
@@ -323,6 +280,7 @@ master_key(char* password, bool generate_pwd, int pwd_length)
    FILE* file = NULL;
    char buf[MISC_LENGTH];
    char* encoded = NULL;
+   size_t encoded_length;
    struct stat st = {0};
    bool do_free = true;
 
@@ -432,7 +390,7 @@ master_key(char* password, bool generate_pwd, int pwd_length)
       do_free = false;
    }
 
-   pgagroal_base64_encode(password, strlen(password), &encoded);
+   pgagroal_base64_encode(password, strlen(password), &encoded, &encoded_length);
    fputs(encoded, file);
    free(encoded);
 
@@ -475,6 +433,7 @@ add_user(char* users_path, char* username, char* password, bool generate_pwd, in
    char* encrypted = NULL;
    int encrypted_length = 0;
    char* encoded = NULL;
+   size_t encoded_length;
    char un[MAX_USERNAME_LENGTH];
    int number_of_users = 0;
    bool do_verify = true;
@@ -595,8 +554,8 @@ password:
       }
    }
 
-   pgagroal_encrypt(password, master_key, &encrypted, &encrypted_length);
-   pgagroal_base64_encode(encrypted, encrypted_length, &encoded);
+   pgagroal_encrypt(password, master_key, &encrypted, &encrypted_length, ENCRYPTION_AES_256_CBC);
+   pgagroal_base64_encode(encrypted, encrypted_length, &encoded, &encoded_length);
 
    entry = pgagroal_append(entry, username);
    entry = pgagroal_append(entry, ":");
@@ -653,6 +612,7 @@ update_user(char* users_path, char* username, char* password, bool generate_pwd,
    char* encrypted = NULL;
    int encrypted_length = 0;
    char* encoded = NULL;
+   size_t encoded_length;
    char un[MAX_USERNAME_LENGTH];
    bool found = false;
    bool do_verify = true;
@@ -773,8 +733,8 @@ password:
             }
          }
 
-         pgagroal_encrypt(password, master_key, &encrypted, &encrypted_length);
-         pgagroal_base64_encode(encrypted, encrypted_length, &encoded);
+         pgagroal_encrypt(password, master_key, &encrypted, &encrypted_length, ENCRYPTION_AES_256_CBC);
+         pgagroal_base64_encode(encrypted, encrypted_length, &encoded, &encoded_length);
 
          entry = NULL;
          entry = pgagroal_append(entry, username);

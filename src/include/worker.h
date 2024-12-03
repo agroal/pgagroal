@@ -46,7 +46,7 @@ extern "C" {
 #define WORKER_SERVER_FATAL   5
 #define WORKER_FAILOVER       6
 
-/** @struct
+/** @struct worker_io
  * The worker structure for each IO event
  */
 struct worker_io

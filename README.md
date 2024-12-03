@@ -47,12 +47,9 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of [**pgagroal**]
 
 ## Tested platforms
 
-* [Fedora](https://getfedora.org/) 28+
-* [RHEL](https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux) 7.x with
-  [EPEL](https://access.redhat.com/solutions/3358) and
-  [DevTools](https://developers.redhat.com/products/developertoolset/overview) 8+
-* [RHEL](https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux) 8.x with
-  [AppStream](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/installing_managing_and_removing_user-space_components/using-appstream_using-appstream)
+* [Fedora](https://getfedora.org/) 38+
+* [RHEL 9.x](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9)
+* [Rocky Linux 9.x](https://rockylinux.org/)
 
 * [FreeBSD](https://www.freebsd.org/)
 * [OpenBSD](http://www.openbsd.org/)
@@ -69,7 +66,10 @@ See [Architecture](./doc/ARCHITECTURE.md) for the architecture of [**pgagroal**]
 * [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
 * [rst2man](https://docutils.sourceforge.io/)
 * [libatomic](https://gcc.gnu.org/wiki/Atomic)
-* [cJSON](https://github.com/DaveGamble/cJSON)
+* [zlib](https://zlib.net)
+* [zstd](http://www.zstd.net)
+* [lz4](https://lz4.github.io/lz4/)
+* [bzip2](http://sourceware.org/bzip2/)
 
 On Rocky Linux (and similar) operating systems, the dependencies
 can be installed via `dnf(8)` as follows:
@@ -80,8 +80,11 @@ dnf install git gcc cmake make    \
             openssl openssl-devel \
             systemd systemd-devel \
             python3-docutils      \
-            libatomic             \
-            cjson cjson-devel
+            libatomic \
+            zlib zlib-devel \
+            libzstd libzstd-devel \
+            lz4 lz4-devel \
+            bzip2 bzip2-devel
 ```
 
 Please note that, on Rocky Linux, in order to install the `python3-docutils`

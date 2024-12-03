@@ -48,16 +48,16 @@ COMMANDS
 master-key
   Create or update the master key. The master key will be created in the pgagroal user home directory under ~/.pgagroal
 
-add-user
+user add
   Add a user
 
-update-user
+user edit
   Update a user
 
-remove-user
-  Remove a user
+user del
+  Delete a user
 
-list-users
+user ls
   List all users
 
 REPORTING BUGS

@@ -80,12 +80,12 @@ int
 pgagroal_server_force_failover(int server);
 
 /**
- * Reset server
+ * Clear server
  * @param server The server
  * @return 0 upon success, otherwise 1
  */
 int
-pgagroal_server_reset(char* server);
+pgagroal_server_clear(char* server);
 
 /**
  * Switch server

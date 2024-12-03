@@ -244,7 +244,7 @@ session_periodic(void)
                   }
                   else
                   {
-                     ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &socket, config->keep_alive, config->non_blocking, &config->buffer_size, config->nodelay);
+                     ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &socket, config->keep_alive, config->non_blocking, config->nodelay);
                   }
 
                   if (ret == 0)

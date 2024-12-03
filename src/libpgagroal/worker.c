@@ -28,8 +28,8 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <connection.h>
 #include <logging.h>
-#include <management.h>
 #include <memory.h>
 #include <message.h>
 #include <network.h>
@@ -67,6 +67,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    struct pipeline p;
    bool tx_pool = false;
    int32_t slot = -1;
+   int transfer_fd = -1;
    SSL* client_ssl = NULL;
    SSL* server_ssl = NULL;
 
@@ -253,7 +254,22 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       }
    }
 
-   pgagroal_management_client_done(getpid());
+   if (pgagroal_connection_get(&transfer_fd))
+   {
+      pgagroal_log_error("pgagroal_workers: Unable to get a transfer connection");
+   }
+
+   if (pgagroal_connection_id_write(transfer_fd, CONNECTION_CLIENT_DONE))
+   {
+      pgagroal_log_error("pgagroal_workers: Unable to write to a transfer connection");
+   }
+
+   if (pgagroal_connection_pid_write(transfer_fd, getpid()))
+   {
+      pgagroal_log_error("pgagroal_workers: Unable to write to a transfer connection");
+   }
+
+   pgagroal_disconnect(transfer_fd);
 
    if (client_ssl != NULL)
    {
