@@ -42,6 +42,7 @@
 #include <openssl/ssl.h>
 #include <sys/time.h>
 
+static int read_message_from_buffer(void* data, ssize_t size, struct message** msg);
 static int read_message(int socket, bool block, int timeout, struct message** msg);
 static int write_message(int socket, struct message* msg);
 
@@ -85,6 +86,12 @@ int
 pgagroal_read_socket_message(int socket, struct message** msg)
 {
    return read_message(socket, false, 0, msg);
+}
+
+int
+pgagroal_buffer_to_message(void* data, ssize_t size, struct message** msg)
+{
+   return read_message_from_buffer(data, size, msg);
 }
 
 int
@@ -1203,6 +1210,28 @@ pgagroal_log_message(struct message* msg)
    {
       pgagroal_log_mem(msg->data, msg->length);
    }
+}
+
+static int
+read_message_from_buffer(void* data, ssize_t size, struct message** msg)
+{
+   struct message* m = NULL;
+
+   if (data == NULL || size <= 0)
+   {
+      pgagroal_log_error("read_message_from_buffer: bad buffer");
+      return MESSAGE_STATUS_ERROR;
+   }
+
+   m = pgagroal_memory_message();
+
+   m->data = data;
+   m->length = size;
+
+   m->kind = (signed char)(*((char*)m->data));
+   *msg = m;
+
+   return MESSAGE_STATUS_OK;
 }
 
 static int

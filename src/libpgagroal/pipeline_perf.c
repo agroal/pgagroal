@@ -28,6 +28,7 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <ev.h>
 #include <logging.h>
 #include <management.h>
 #include <message.h>
@@ -37,7 +38,6 @@
 
 /* system */
 #include <errno.h>
-#include <ev.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <netinet/in.h>
@@ -115,11 +115,18 @@ performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
-   struct main_configuration* config = NULL;
+   struct main_configuration* config = (struct main_configuration*)shmem;
 
    wi = (struct worker_io*)watcher;
 
-   status = pgagroal_read_socket_message(wi->client_fd, &msg);
+   if (config->ev_backend == EV_BACKEND_IO_URING)
+   {
+      status = pgagroal_buffer_to_message(watcher->data, watcher->size, &msg);
+   }
+   else
+   {
+      status = pgagroal_read_socket_message(wi->client_fd, &msg);
+   }
    if (likely(status == MESSAGE_STATUS_OK))
    {
       if (likely(msg->kind != 'X'))
@@ -140,7 +147,7 @@ performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
       else if (msg->kind == 'X')
       {
          saw_x = true;
-         running = 0;
+         pgagroal_ev_loop_break(loop);
       }
    }
    else if (status == MESSAGE_STATUS_ZERO)
@@ -152,11 +159,9 @@ performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
       goto client_error;
    }
 
-   ev_break (loop, EVBREAK_ONE);
    return;
 
 client_done:
-   config = (struct main_configuration*)shmem;
    pgagroal_log_debug("[C] Client done (slot %d database %s user %s): %s (socket %d status %d)",
                       wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                       strerror(errno), wi->client_fd, status);
@@ -171,12 +176,10 @@ client_done:
       exit_code = WORKER_SERVER_FAILURE;
    }
 
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+   pgagroal_ev_loop_break(loop);
    return;
 
 client_error:
-   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[C] Client error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->client_fd, status);
@@ -184,12 +187,10 @@ client_error:
    errno = 0;
 
    exit_code = WORKER_CLIENT_FAILURE;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+   pgagroal_ev_loop_break(loop);
    return;
 
 server_error:
-   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[C] Server error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->server_fd, status);
@@ -197,8 +198,7 @@ server_error:
    errno = 0;
 
    exit_code = WORKER_SERVER_FAILURE;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+   pgagroal_ev_loop_break(loop);
    return;
 }
 
@@ -209,18 +209,26 @@ performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
    bool fatal = false;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
-   struct main_configuration* config = NULL;
+   struct main_configuration* config = (struct main_configuration*)shmem;
 
    wi = (struct worker_io*)watcher;
 
    if (wi->server_ssl == NULL)
    {
-      status = pgagroal_read_socket_message(wi->server_fd, &msg);
+      if (config->ev_backend == EV_BACKEND_IO_URING)
+      {
+         status = pgagroal_buffer_to_message(watcher->data, watcher->size, &msg);
+      }
+      else
+      {
+         status = pgagroal_read_socket_message(wi->server_fd, &msg);
+      }
    }
    else
    {
       status = pgagroal_read_ssl_message(wi->server_ssl, &msg);
    }
+
    if (likely(status == MESSAGE_STATUS_OK))
    {
       status = pgagroal_write_socket_message(wi->client_fd, msg);
@@ -241,7 +249,7 @@ performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
          if (fatal)
          {
             exit_code = WORKER_SERVER_FATAL;
-            running = 0;
+            pgagroal_ev_loop_break(loop);
          }
       }
    }
@@ -254,11 +262,9 @@ performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
       goto server_error;
    }
 
-   ev_break(loop, EVBREAK_ONE);
    return;
 
 client_error:
-   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[S] Client error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->client_fd, status);
@@ -266,23 +272,20 @@ client_error:
    errno = 0;
 
    exit_code = WORKER_CLIENT_FAILURE;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+
+   pgagroal_ev_loop_break(loop);
    return;
 
 server_done:
-   config = (struct main_configuration*)shmem;
    pgagroal_log_debug("[S] Server done (slot %d database %s user %s): %s (socket %d status %d)",
                       wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                       strerror(errno), wi->server_fd, status);
    errno = 0;
 
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+   pgagroal_ev_loop_break(loop);
    return;
 
 server_error:
-   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[S] Server error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->server_fd, status);
@@ -290,7 +293,7 @@ server_error:
    errno = 0;
 
    exit_code = WORKER_SERVER_FAILURE;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+
+   pgagroal_ev_loop_break(loop);
    return;
 }
