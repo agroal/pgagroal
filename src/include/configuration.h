@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#include <json.h>
 
 /*
  * The main section that must be present in the `pgagroal.conf`
@@ -66,6 +67,61 @@ extern "C" {
 #define PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG -2
 #define PGAGROAL_CONFIGURATION_STATUS_KO -3
 #define PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT -4
+
+#define CONFIGURATION_ARGUMENT_MAIN_CONF_PATH           "main_configuration_path"
+#define CONFIGURATION_ARGUMENT_LIMIT_CONF_PATH          "limit_configuration_path"
+#define CONFIGURATION_ARGUMENT_HBA_CONF_PATH            "hba_configuration_path"
+#define CONFIGURATION_ARGUMENT_USER_CONF_PATH           "users_configuration_path"
+#define CONFIGURATION_ARGUMENT_FRONTEND_USERS_CONF_PATH "frontend_users_configuration_path"
+#define CONFIGURATION_ARGUMENT_ADMIN_CONF_PATH          "admin_configuration_path"
+#define CONFIGURATION_ARGUMENT_SUPERUSER_CONF_PATH      "superuser_configuration_path"
+
+#define CONFIGURATION_ARGUMENT_HOST                             "host"
+#define CONFIGURATION_ARGUMENT_PORT                             "port"
+#define CONFIGURATION_ARGUMENT_UNIX_SOCKET_DIR                  "unix_socket_dir"
+#define CONFIGURATION_ARGUMENT_METRICS                          "metrics"
+#define CONFIGURATION_ARGUMENT_METRICS_CACHE_MAX_AGE            "metrics_cache_max_age"
+#define CONFIGURATION_ARGUMENT_METRICS_CACHE_MAX_SIZE           "metrics_cache_max_size"
+#define CONFIGURATION_ARGUMENT_MANAGEMENT                       "management"
+#define CONFIGURATION_ARGUMENT_LOG_TYPE                         "log_type"
+#define CONFIGURATION_ARGUMENT_LOG_LEVEL                        "log_level"
+#define CONFIGURATION_ARGUMENT_LOG_PATH                         "log_path"
+#define CONFIGURATION_ARGUMENT_LOG_ROTATION_AGE                 "log_rotation_age"
+#define CONFIGURATION_ARGUMENT_LOG_ROTATION_SIZE                "log_rotation_size"
+#define CONFIGURATION_ARGUMENT_LOG_LINE_PREFIX                  "log_line_prefix"
+#define CONFIGURATION_ARGUMENT_LOG_MODE                         "log_mode"
+#define CONFIGURATION_ARGUMENT_LOG_CONNECTIONS                  "log_connections"
+#define CONFIGURATION_ARGUMENT_LOG_DISCONNECTIONS               "log_disconnections"
+#define CONFIGURATION_ARGUMENT_BLOCKING_TIMEOUT                 "blocking_timeout"
+#define CONFIGURATION_ARGUMENT_IDLE_TIMEOUT                     "idle_timeout"
+#define CONFIGURATION_ARGUMENT_ROTATE_FRONTEND_PASSWORD_TIMEOUT "rotate_frontend_password_timeout"
+#define CONFIGURATION_ARGUMENT_ROTATE_FRONTEND_PASSWORD_LENGTH  "rotate_frontend_password_length"
+#define CONFIGURATION_ARGUMENT_MAX_CONNECTION_AGE               "max_connection_age"
+#define CONFIGURATION_ARGUMENT_VALIDATION                       "validation"
+#define CONFIGURATION_ARGUMENT_BACKGROUND_INTERVAL              "background_interval"
+#define CONFIGURATION_ARGUMENT_MAX_RETRIES                      "max_retries"
+#define CONFIGURATION_ARGUMENT_MAX_CONNECTIONS                  "max_connections"
+#define CONFIGURATION_ARGUMENT_ALLOW_UNKNOWN_USERS              "allow_unknown_users"
+#define CONFIGURATION_ARGUMENT_AUTHENTICATION_TIMEOUT           "authentication_timeout"
+#define CONFIGURATION_ARGUMENT_PIPELINE                         "pipeline"
+#define CONFIGURATION_ARGUMENT_AUTH_QUERY                       "auth_query"
+#define CONFIGURATION_ARGUMENT_FAILOVER                         "failover"
+#define CONFIGURATION_ARGUMENT_FAILOVER_SCRIPT                  "failover_script"
+#define CONFIGURATION_ARGUMENT_TLS                              "tls"
+#define CONFIGURATION_ARGUMENT_TLS_CERT_FILE                    "tls_cert_file"
+#define CONFIGURATION_ARGUMENT_TLS_KEY_FILE                     "tls_key_file"
+#define CONFIGURATION_ARGUMENT_TLS_CA_FILE                      "tls_ca_file"
+#define CONFIGURATION_ARGUMENT_LIBEV                            "libev"
+#define CONFIGURATION_ARGUMENT_KEEP_ALIVE                       "keep_alive"
+#define CONFIGURATION_ARGUMENT_NODELAY                          "nodelay"
+#define CONFIGURATION_ARGUMENT_NON_BLOCKING                     "non_blocking"
+#define CONFIGURATION_ARGUMENT_BACKLOG                          "backlog"
+#define CONFIGURATION_ARGUMENT_HUGEPAGE                         "hugepage"
+#define CONFIGURATION_ARGUMENT_TRACKER                          "tracker"
+#define CONFIGURATION_ARGUMENT_TRACK_PREPARED_STATEMENTS        "track_prepared_statements"
+#define CONFIGURATION_ARGUMENT_PIDFILE                          "pidfile"
+#define CONFIGURATION_ARGUMENT_UPDATE_PROCESS_TITLE             "update_process_title"
+#define CONFIGURATION_ARGUMENT_PRIMARY                          "primary"
 
 /**
  * Initialize the configuration structure
@@ -414,6 +470,28 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
  */
 int
 pgagroal_apply_configuration(char* config_key, char* config_value);
+
+/**
+ * Get a configuration parameter value
+ * @param ssl The SSL connection
+ * @param client_fd The client
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param payload The payload
+ */
+void
+pgagroal_conf_get(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload);
+
+/**
+ * Set a configuration parameter value
+ * @param ssl The SSL connection
+ * @param client_fd The client
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param payload The payload
+ */
+void
+pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload);
 
 #ifdef __cplusplus
 }
