@@ -533,6 +533,105 @@ error:
    return 1;
 }
 
+int
+pgagroal_management_request_conf_ls(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   struct json* j = NULL;
+   struct json* request = NULL;
+
+   if (create_header(MANAGEMENT_CONFIG_LS, compression, encryption, output_format, &j))
+   {
+      goto error;
+   }
+
+   if (create_request(j, &request))
+   {
+      goto error;
+   }
+
+   if (pgagroal_management_write_json(ssl, socket, compression, encryption, j))
+   {
+      goto error;
+   }
+
+   pgagroal_json_destroy(j);
+
+   return 0;
+
+error:
+
+   pgagroal_json_destroy(j);
+
+   return 1;
+}
+
+int
+pgagroal_management_request_conf_get(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   struct json* j = NULL;
+   struct json* request = NULL;
+
+   if (create_header(MANAGEMENT_CONFIG_GET, compression, encryption, output_format, &j))
+   {
+      goto error;
+   }
+
+   if (create_request(j, &request))
+   {
+      goto error;
+   }
+
+   if (pgagroal_management_write_json(ssl, socket, compression, encryption, j))
+   {
+      goto error;
+   }
+
+   pgagroal_json_destroy(j);
+
+   return 0;
+
+error:
+
+   pgagroal_json_destroy(j);
+
+   return 1;
+}
+
+int
+pgagroal_management_request_conf_set(SSL* ssl, int socket, char* config_key, char* config_value, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   struct json* j = NULL;
+   struct json* request = NULL;
+
+   if (create_header(MANAGEMENT_CONFIG_SET, compression, encryption, output_format, &j))
+   {
+      goto error;
+   }
+
+   if (create_request(j, &request))
+   {
+      goto error;
+   }
+
+   pgagroal_json_put(request, MANAGEMENT_ARGUMENT_CONFIG_KEY, (uintptr_t)config_key, ValueString);
+   pgagroal_json_put(request, MANAGEMENT_ARGUMENT_CONFIG_VALUE, (uintptr_t)config_value, ValueString);
+
+   if (pgagroal_management_write_json(ssl, socket, compression, encryption, j))
+   {
+      goto error;
+   }
+
+   pgagroal_json_destroy(j);
+
+   return 0;
+
+error:
+
+   pgagroal_json_destroy(j);
+
+   return 1;
+}
+
 static int
 create_header(int32_t command, uint8_t compression, uint8_t encryption, int32_t output_format, struct json** json)
 {
