@@ -68,9 +68,9 @@
 #define COMMAND_STATUS          "status"
 #define COMMAND_STATUS_DETAILS  "status-details"
 #define COMMAND_SWITCH_TO       "switch-to"
-/* #define COMMAND_CONFIG_GET      "conf-get" */
-/* #define COMMAND_CONFIG_LS       "conf-ls" */
-/* #define COMMAND_CONFIG_SET      "conf-set" */
+#define COMMAND_CONFIG_LS       "conf-ls"
+#define COMMAND_CONFIG_GET      "conf-get"
+#define COMMAND_CONFIG_SET      "conf-set"
 
 #define OUTPUT_FORMAT_JSON "json"
 #define OUTPUT_FORMAT_TEXT "text"
@@ -91,9 +91,9 @@ static void help_status_details(void);
 static void help_switch_to(void);
 
 static int cancel_shutdown(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
-/* static int config_get(SSL* ssl, int socket, char* config_key, bool verbose, uint8_t compression, uint8_t encryption, int32_t output_format); */
-/* static int config_ls(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format); */
-/* static int config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose, uint8_t compression, uint8_t encryption, int32_t output_format); */
+static int conf_get(SSL* ssl, int socket, char* config_key, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int conf_ls(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int conf_set(SSL* ssl, int socket, char* config_key, char* config_value, uint8_t compression, uint8_t encryption, int32_t output_format);
 static int details(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
 static int disabledb(SSL* ssl, int socket, char* database, uint8_t compression, uint8_t encryption, int32_t output_format);
 static int enabledb(SSL* ssl, int socket, char* database, uint8_t compression, uint8_t encryption, int32_t output_format);
@@ -107,7 +107,13 @@ static int clear_server(SSL* ssl, int socket, char* server, uint8_t compression,
 static int status(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
 static int switch_to(SSL* ssl, int socket, char* server, uint8_t compression, uint8_t encryption, int32_t output_format);
 
-static int  process_result(SSL* ssl, int socket, int32_t output_format);
+static int process_result(SSL* ssl, int socket, int32_t output_format);
+static int process_ls_result(SSL* ssl, int socket, int32_t output_format);
+static int process_get_result(SSL* ssl, int socket, char* config_key, int32_t output_format);
+static int process_set_result(SSL* ssl, int socket, char* config_key, int32_t output_format);
+
+static int get_conf_path_result(struct json* j, uintptr_t* r);
+static int get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t output_format);
 
 static char* translate_command(int32_t cmd_code);
 static char* translate_output_format(int32_t out_code);
@@ -216,30 +222,30 @@ const struct pgagroal_command command_table[] = {
       .deprecated = false,
       .log_message = "<conf reload>"
    },
-   /* { */
-   /*    .command = "conf", */
-   /*    .subcommand = "get", */
-   /*    .accepted_argument_count = {1}, */
-   /*    .action = MANAGEMENT_CONFIG_GET, */
-   /*    .deprecated = false, */
-   /*    .log_message = "<conf get> [%s]" */
-   /* }, */
-   /* { */
-   /*    .command = "conf", */
-   /*    .subcommand = "set", */
-   /*    .accepted_argument_count = {2}, */
-   /*    .action = MANAGEMENT_CONFIG_SET, */
-   /*    .deprecated = false, */
-   /*    .log_message = "<conf set> [%s] = [%s]" */
-   /* }, */
-   /* { */
-   /*    .command = "conf", */
-   /*    .subcommand = "ls", */
-   /*    .accepted_argument_count = {0}, */
-   /*    .action = MANAGEMENT_CONFIG_LS, */
-   /*    .deprecated = false, */
-   /*    .log_message = "<conf ls>" */
-   /* }, */
+   {
+      .command = "conf",
+      .subcommand = "ls",
+      .accepted_argument_count = {0},
+      .action = MANAGEMENT_CONFIG_LS,
+      .deprecated = false,
+      .log_message = "<conf ls>"
+   },
+   {
+      .command = "conf",
+      .subcommand = "get",
+      .accepted_argument_count = {0, 1},
+      .action = MANAGEMENT_CONFIG_GET,
+      .deprecated = false,
+      .log_message = "<conf get> [%s]"
+   },
+   {
+      .command = "conf",
+      .subcommand = "set",
+      .accepted_argument_count = {2},
+      .action = MANAGEMENT_CONFIG_SET,
+      .deprecated = false,
+      .log_message = "<conf set> [%s] = [%s]"
+   },
    {
       .command = "clear",
       .subcommand = "server",
@@ -348,11 +354,11 @@ usage(void)
    printf("  conf <action>            Manages the configuration (e.g., reloads the configuration\n");
    printf("                           The subcommand <action> can be:\n");
    printf("                           - 'reload' to issue a configuration reload;\n");
+   printf("                           - 'ls'  lists the configuration files used.\n");
    printf("                           - 'get' to obtain information about a runtime configuration value;\n");
    printf("                                   conf get <parameter_name>\n");
    printf("                           - 'set' to modify a configuration value;\n");
    printf("                                   conf set <parameter_name> <parameter_value>;\n");
-   printf("                           - 'ls'  lists the configuration files used.\n");
    printf("  clear <what>             Resets either the Prometheus statistics or the specified server.\n");
    printf("                           <what> can be\n");
    printf("                           - 'server' (default) followed by a server name\n");
@@ -379,7 +385,6 @@ main(int argc, char** argv)
    char* logfile = NULL;
    int c;
    int option_index = 0;
-   bool matched = false;
    size_t size;
    char un[MAX_USERNAME_LENGTH];
    struct main_configuration* config = NULL;
@@ -646,9 +651,6 @@ main(int argc, char** argv)
       exit_code = 1;
       goto done;
    }
-   pgagroal_log_trace((char*)parsed.cmd->log_message, parsed.args[0], parsed.args[1]);
-
-   matched = true;
 
    config = (struct main_configuration*)shmem;
 
@@ -797,18 +799,25 @@ username:
          exit_code = reload(s_ssl, socket, compression, encryption, output_format);
       }
    }
-   /* else if (parsed.cmd->action == MANAGEMENT_CONFIG_GET) */
-   /* { */
-   /*    exit_code = config_get(s_ssl, socket, parsed.args[0], verbose, compression, encryption, output_format); */
-   /* } */
-   /* else if (parsed.cmd->action == MANAGEMENT_CONFIG_SET) */
-   /* { */
-   /*    exit_code = config_set(s_ssl, socket, parsed.args[0], parsed.args[1], verbose, compression, encryption, output_format); */
-   /* } */
-   /* else if (parsed.cmd->action == MANAGEMENT_CONFIG_LS) */
-   /* { */
-   /*    exit_code = config_ls(s_ssl, socket, compression, encryption, output_format); */
-   /* } */
+   else if (parsed.cmd->action == MANAGEMENT_CONFIG_LS)
+   {
+      exit_code = conf_ls(s_ssl, socket, compression, encryption, output_format);
+   }
+   else if (parsed.cmd->action == MANAGEMENT_CONFIG_GET)
+   {
+      if (parsed.args[0])
+      {
+         exit_code = conf_get(s_ssl, socket, parsed.args[0], compression, encryption, output_format);
+      }
+      else
+      {
+         exit_code = conf_get(s_ssl, socket, NULL, compression, encryption, output_format);
+      }
+   }
+   else if (parsed.cmd->action == MANAGEMENT_CONFIG_SET)
+   {
+      exit_code = conf_set(s_ssl, socket, parsed.args[0], parsed.args[1], compression, encryption, output_format);
+   }
 
 done:
 
@@ -826,15 +835,6 @@ done:
    }
 
    pgagroal_disconnect(socket);
-
-   if (configuration_path != NULL)
-   {
-      if (matched && exit_code != 0)
-      {
-         warnx("No connection to pgagroal on %s", config->unix_socket_dir);
-      }
-   }
-
    pgagroal_stop_logging();
    pgagroal_destroy_shared_memory(shmem, size);
 
@@ -895,6 +895,9 @@ help_conf(void)
 {
    printf("Manage the configuration\n");
    printf("  pgagroal-cli conf [reload]\n");
+   printf("  pgagroal-cli conf [ls]\n");
+   printf("  pgagroal-cli conf [get] <parameter_name>\n");
+   printf("  pgagroal-cli conf [set] <parameter_name> <parameter_value>\n");
 }
 
 static void
@@ -925,9 +928,9 @@ display_helper(char* command)
    {
       help_cancel_shutdown();
    }
-   else if (//!strcmp(command, COMMAND_CONFIG_GET) ||
-            //!strcmp(command, COMMAND_CONFIG_LS) ||
-            //!strcmp(command, COMMAND_CONFIG_SET) ||
+   else if (!strcmp(command, COMMAND_CONFIG_GET) ||
+            !strcmp(command, COMMAND_CONFIG_LS) ||
+            !strcmp(command, COMMAND_CONFIG_SET) ||
       !strcmp(command, COMMAND_RELOAD))
    {
       help_conf();
@@ -1231,71 +1234,65 @@ error:
    return 1;
 }
 
-/* static int */
-/* config_get(SSL* ssl, int socket, char* config_key, bool verbose, uint8_t compression, uint8_t encryption, int32_t output_format) */
-/* { */
+static int
+conf_ls(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_conf_ls(ssl, socket, compression, encryption, output_format))
+   {
+      goto error;
+   }
 
-/*    if (!config_key || strlen(config_key) > MISC_LENGTH) */
-/*    { */
-/*       goto error; */
-/*    } */
+   if (process_ls_result(ssl, socket, output_format))
+   {
+      goto error;
+   }
 
-/*    if (pgagroal_management_config_get(ssl, socket, config_key)) */
-/*    { */
-/*       goto error; */
-/*    } */
+   return 0;
 
-/*    if (pgagroal_management_read_config_get(socket, config_key, NULL, verbose, output_format)) */
-/*    { */
-/*       goto error; */
-/*    } */
+error:
 
-/*    return 0; */
+   return 1;
+}
 
-/* error: */
-/*    return 1; */
-/* } */
+static int
+conf_get(SSL* ssl, int socket, char* config_key, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_conf_get(ssl, socket, compression, encryption, output_format))
+   {
+      goto error;
+   }
 
-/* static int */
-/* config_set(SSL* ssl, int socket, char* config_key, char* config_value, bool verbose, uint8_t compression, uint8_t encryption, int32_t output_format) */
-/* { */
-/*    int status = EXIT_STATUS_OK; */
+   if (process_get_result(ssl, socket, config_key, output_format))
+   {
+      goto error;
+   }
 
-/*    if (!config_key || strlen(config_key) > MISC_LENGTH */
-/*        || !config_value || strlen(config_value) > MISC_LENGTH) */
-/*    { */
-/*       goto error; */
-/*    } */
+   return 0;
 
-/*    if (pgagroal_management_config_set(ssl, socket, config_key, config_value)) */
-/*    { */
-/*       goto error; */
-/*    } */
+error:
 
-/*    status = pgagroal_management_read_config_get(socket, config_key, config_value, verbose, output_format); */
+   return 1;
+}
 
-/*    return status; */
-/* error: */
-/*    return 1; */
-/* } */
+static int
+conf_set(SSL* ssl, int socket, char* config_key, char* config_value, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_conf_set(ssl, socket, config_key, config_value, compression, encryption, output_format))
+   {
+      goto error;
+   }
 
-/* static int */
-/* config_ls(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format) */
-/* { */
-/*    if (pgagroal_management_conf_ls(ssl, socket)) */
-/*    { */
-/*       goto error; */
-/*    } */
+   if (process_set_result(ssl, socket, config_key, output_format))
+   {
+      goto error;
+   }
 
-/*    if (pgagroal_management_read_conf_ls(ssl, socket, output_format)) */
-/*    { */
-/*       goto error; */
-/*    } */
+   return 0;
 
-/*    return EXIT_STATUS_OK; */
-/* error: */
-/*    return EXIT_STATUS_CONNECTION_ERROR; */
-/* } */
+error:
+
+   return 1;
+}
 
 static int
 process_result(SSL* ssl, int socket, int32_t output_format)
@@ -1330,6 +1327,407 @@ error:
    pgagroal_json_destroy(read);
 
    return 1;
+}
+
+static int 
+process_ls_result(SSL* ssl, int socket, int32_t output_format)
+{
+   struct json* read = NULL;
+   struct json* json_res = NULL;
+   uintptr_t res;
+
+   if (pgagroal_management_read_json(ssl, socket, NULL, NULL, &read))
+   {
+      goto error;
+   }
+
+   if (get_conf_path_result(read, &res))
+   {
+      goto error;
+   }
+
+   json_res = (struct json*)res;
+
+   if (MANAGEMENT_OUTPUT_FORMAT_JSON == output_format)
+   {
+      pgagroal_json_print(json_res, FORMAT_JSON_COMPACT);
+   }
+   else
+   {
+      struct json_iterator* iter = NULL;
+      pgagroal_json_iterator_create(json_res, &iter);
+      while (pgagroal_json_iterator_next(iter))
+      { 
+         char* value = pgagroal_value_to_string(iter->value, FORMAT_TEXT, NULL, 0);
+         printf("%s\n", value);
+         free(value);
+      }
+      pgagroal_json_iterator_destroy(iter);
+   }
+
+   pgagroal_json_destroy(read);
+   pgagroal_json_destroy(json_res);
+   return 0;
+
+error:
+
+   pgagroal_json_destroy(read);
+   pgagroal_json_destroy(json_res);
+   return 1;
+}
+
+static int
+process_get_result(SSL* ssl, int socket, char* config_key, int32_t output_format)
+{
+   struct json* read = NULL;
+   bool is_char = false;
+   char* char_res = NULL;
+   struct json* json_res = NULL;
+   uintptr_t res;
+
+   if (pgagroal_management_read_json(ssl, socket, NULL, NULL, &read))
+   {
+      goto error;
+   }
+
+   if (get_config_key_result(config_key, read, &res, output_format))
+   {
+      if (MANAGEMENT_OUTPUT_FORMAT_JSON == output_format)
+      {
+         json_res = (struct json*)res;
+         pgagroal_json_print(json_res, FORMAT_JSON_COMPACT);
+      }
+      else
+      {
+         is_char = true;
+         char_res = (char*)res;
+         printf("%s\n", char_res);
+      }
+      goto error;
+   }
+
+   if (!config_key)  // error response | complete configuration
+   {
+      json_res = (struct json*)res;
+
+      if (MANAGEMENT_OUTPUT_FORMAT_TEXT == output_format)
+      {
+         pgagroal_json_print(json_res, FORMAT_TEXT);
+      }
+      else
+      {
+         pgagroal_json_print(json_res, FORMAT_JSON);
+      }
+   }
+   else
+   {
+      if (MANAGEMENT_OUTPUT_FORMAT_JSON == output_format)
+      {
+         json_res = (struct json*)res;
+         pgagroal_json_print(json_res, FORMAT_JSON_COMPACT);
+      }
+      else
+      {
+         is_char = true;
+         char_res = (char*)res;
+         printf("%s\n", char_res);
+      }
+   }
+
+   pgagroal_json_destroy(read);
+   if (config_key)
+   {
+      if (is_char)
+      {
+         free(char_res);
+      }
+      else
+      {
+         pgagroal_json_destroy(json_res);
+      }
+   }
+
+   return 0;
+
+error:
+
+   pgagroal_json_destroy(read);
+   if (config_key)
+   {
+      if (is_char)
+      {
+         free(char_res);
+      }
+      else
+      {
+         pgagroal_json_destroy(json_res);
+      }
+   }
+
+   return 1;
+}
+
+static int
+process_set_result(SSL* ssl, int socket, char* config_key, int32_t output_format)
+{
+   struct json* read = NULL;
+   bool is_char = false;
+   char* char_res = NULL;
+   int status = 0;
+   struct json* json_res = NULL;
+   uintptr_t res;
+
+   if (pgagroal_management_read_json(ssl, socket, NULL, NULL, &read))
+   {
+      goto error;
+   }
+
+   status = get_config_key_result(config_key, read, &res, output_format);
+   if (MANAGEMENT_OUTPUT_FORMAT_JSON == output_format)
+   {
+      json_res = (struct json*)res;
+      pgagroal_json_print(json_res, FORMAT_JSON_COMPACT);
+   }
+   else
+   {
+      is_char = true;
+      char_res = (char*)res;
+      printf("%s\n", char_res);
+   }
+
+   if (status == 1)
+   {
+      goto error;
+   }
+
+   pgagroal_json_destroy(read);
+   if (config_key)
+   {
+      if (is_char)
+      {
+         free(char_res);
+      }
+      else
+      {
+         pgagroal_json_destroy(json_res);
+      }
+   }
+
+   return 0;
+
+error:
+
+   pgagroal_json_destroy(read);
+   if (config_key)
+   {
+      if (is_char)
+      {
+         free(char_res);
+      }
+      else
+      {
+         pgagroal_json_destroy(json_res);
+      }
+   }
+
+   return 1;
+}
+
+static int
+get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t output_format)
+{
+   char server[MISC_LENGTH];
+   char key[MISC_LENGTH];
+
+   struct json* configuration_js = NULL;
+   struct json* filtered_response = NULL;
+   struct json* response = NULL;
+   struct json* outcome = NULL;
+   struct json_iterator* iter;
+   char* config_value = NULL;
+   int begin = -1, end = -1;
+
+   if (!config_key)
+   {
+      *r = (uintptr_t)j;
+      return 0;
+   }
+
+   if (pgagroal_json_create(&filtered_response))
+   {
+      goto error;
+   }
+
+   memset(server, 0, MISC_LENGTH);
+   memset(key, 0, MISC_LENGTH);
+
+   for (int i = 0; i < strlen(config_key); i++)
+   {
+      if (config_key[i] == '.')
+      {
+         if (!strlen(server))
+         {
+            memcpy(server, &config_key[begin], end - begin + 1);
+            server[end - begin + 1] = '\0';
+            begin = end = -1;
+            continue;
+         }
+      }
+
+      if (begin < 0)
+      {
+         begin = i;
+      }
+
+      end = i;
+
+   }
+
+   // if the key has not been found, since there is no ending dot,
+   // try to extract it from the string
+   if (!strlen(key))
+   {
+      memcpy(key, &config_key[begin], end - begin + 1);
+      key[end - begin + 1] = '\0';
+   }
+
+   response = (struct json*)pgagroal_json_get(j, MANAGEMENT_CATEGORY_RESPONSE);
+   outcome = (struct json*)pgagroal_json_get(j, MANAGEMENT_CATEGORY_OUTCOME);
+   if (!response || !outcome)
+   {
+      goto error;
+   }
+
+   // Check if error response
+   if (pgagroal_json_contains_key(outcome, MANAGEMENT_ARGUMENT_ERROR))
+   {
+      goto error;
+   }
+
+   if (strlen(server) > 0)
+   {
+      configuration_js = (struct json*)pgagroal_json_get(response, server);
+      if (!configuration_js)
+      {
+         goto error;
+      }
+   }
+   else
+   {
+      configuration_js = response;
+   }
+
+   pgagroal_json_iterator_create(configuration_js, &iter);
+   while (pgagroal_json_iterator_next(iter))
+   {
+      if (!strcmp(key, iter->key))
+      {
+         config_value = pgagroal_value_to_string(iter->value, FORMAT_TEXT, NULL, 0);
+         if (iter->value->type == ValueJSON)
+         {
+            struct json* server_data = NULL;
+            pgagroal_json_clone((struct json*)iter->value->data, &server_data);
+            pgagroal_json_put(filtered_response, key, (uintptr_t)server_data, iter->value->type);
+         }
+         else
+         {
+            pgagroal_json_put(filtered_response, key, (uintptr_t)iter->value->data, iter->value->type);
+         }
+      }
+   }
+   pgagroal_json_iterator_destroy(iter);
+
+   if (!config_value)  // if key doesn't match with any field in configuration
+   {
+      goto error;
+   }
+
+   if (output_format == MANAGEMENT_OUTPUT_FORMAT_JSON || !config_key)
+   {
+      *r = (uintptr_t)filtered_response;
+      free(config_value);
+   }
+   else
+   {
+      *r = (uintptr_t)config_value;
+      pgagroal_json_destroy(filtered_response);
+   }
+
+   return 0;
+
+error:
+
+   if (output_format == MANAGEMENT_OUTPUT_FORMAT_JSON)
+   {
+      pgagroal_json_put(filtered_response, "Outcome", (uintptr_t)false, ValueBool);
+      *r = (uintptr_t)filtered_response;
+      free(config_value);
+   }
+   else
+   {
+      config_value = (char*)malloc(6);
+      memcpy(config_value, "Error\0", 6);
+      *r = (uintptr_t)config_value;
+      pgagroal_json_destroy(filtered_response);
+   }
+
+   return 1;
+}
+
+static int
+get_conf_path_result(struct json* j, uintptr_t* r)
+{
+   struct json* conf_path_response = NULL;
+   struct json* response = NULL;
+
+   response = (struct json*)pgagroal_json_get(j, MANAGEMENT_CATEGORY_RESPONSE);
+
+   if (!response)
+   {
+      goto error;
+   }
+
+   if (pgagroal_json_create(&conf_path_response))
+   {
+      goto error;
+   }
+
+   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_ADMIN_CONF_PATH))
+   {
+      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_ADMIN_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_ADMIN_CONF_PATH), ValueString);
+   }
+      if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_MAIN_CONF_PATH))
+   {
+      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_MAIN_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_MAIN_CONF_PATH), ValueString);
+   }
+      if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_USER_CONF_PATH))
+   {
+      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_USER_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_USER_CONF_PATH), ValueString);
+   }
+   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_HBA_CONF_PATH))
+   {
+      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_HBA_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_HBA_CONF_PATH), ValueString);
+   }
+   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_FRONTEND_USERS_CONF_PATH))
+   {
+      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_FRONTEND_USERS_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_FRONTEND_USERS_CONF_PATH), ValueString);
+   }
+   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_LIMIT_CONF_PATH))
+   {
+      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_LIMIT_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_LIMIT_CONF_PATH), ValueString);
+   }
+   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_SUPERUSER_CONF_PATH))
+   {
+      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_SUPERUSER_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_SUPERUSER_CONF_PATH), ValueString);
+   }
+
+   *r = (uintptr_t)conf_path_response;
+
+   return 0;
+error:
+
+   return 1;
+
 }
 
 static char*

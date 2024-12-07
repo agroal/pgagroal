@@ -31,6 +31,8 @@
 #include <aes.h>
 #include <configuration.h>
 #include <logging.h>
+#include <management.h>
+#include <network.h>
 #include <pipeline.h>
 #include <security.h>
 #include <shmem.h>
@@ -109,6 +111,9 @@ static int to_pipeline(char* where, int value);
 static int to_log_mode(char* where, int value);
 static int to_log_level(char* where, int value);
 static int to_log_type(char* where, int value);
+
+static void add_configuration_response(struct json* res);
+static void add_servers_configuration_response(struct json* res);
 
 /**
  *
@@ -5300,5 +5305,757 @@ pgagroal_apply_limit_configuration_int(struct limit* limit,
 
 error:
    return 1;
+
+}
+
+static void
+add_configuration_response(struct json* res)
+{
+   struct main_configuration* config = NULL;
+
+   config = (struct main_configuration*)shmem;
+
+   // JSON of main configuration
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_HOST, (uintptr_t)config->common.host, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_PORT, (uintptr_t)config->common.port, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_UNIX_SOCKET_DIR, (uintptr_t)config->unix_socket_dir, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_METRICS, (uintptr_t)config->common.metrics, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_METRICS_CACHE_MAX_AGE, (uintptr_t)config->common.metrics_cache_max_age, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_METRICS_CACHE_MAX_SIZE, (uintptr_t)config->common.metrics_cache_max_size, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_MANAGEMENT, (uintptr_t)config->management, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_LOG_TYPE, (uintptr_t)config->common.log_type, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_LOG_LEVEL, (uintptr_t)config->common.log_level, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_LOG_PATH, (uintptr_t)config->common.log_path, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_LOG_ROTATION_AGE, (uintptr_t)config->common.log_rotation_age, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_LOG_ROTATION_SIZE, (uintptr_t)config->common.log_rotation_size, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_LOG_LINE_PREFIX, (uintptr_t)config->common.log_line_prefix, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_LOG_MODE, (uintptr_t)config->common.log_mode, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_LOG_CONNECTIONS, (uintptr_t)config->common.log_connections, ValueBool);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_LOG_DISCONNECTIONS, (uintptr_t)config->common.log_disconnections, ValueBool);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_BLOCKING_TIMEOUT, (uintptr_t)config->blocking_timeout, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_IDLE_TIMEOUT, (uintptr_t)config->idle_timeout, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_ROTATE_FRONTEND_PASSWORD_TIMEOUT, (uintptr_t)config->rotate_frontend_password_timeout, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_ROTATE_FRONTEND_PASSWORD_LENGTH, (uintptr_t)config->rotate_frontend_password_length, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_MAX_CONNECTION_AGE, (uintptr_t)config->max_connection_age, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_VALIDATION, (uintptr_t)config->validation, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_BACKGROUND_INTERVAL, (uintptr_t)config->background_interval, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_MAX_RETRIES, (uintptr_t)config->max_retries, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_MAX_CONNECTIONS, (uintptr_t)config->max_connections, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_ALLOW_UNKNOWN_USERS, (uintptr_t)config->allow_unknown_users, ValueBool);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_AUTHENTICATION_TIMEOUT, (uintptr_t)config->common.authentication_timeout, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_PIPELINE, (uintptr_t)config->pipeline, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_AUTH_QUERY, (uintptr_t)config->authquery, ValueBool);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_FAILOVER, (uintptr_t)config->failover, ValueBool);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_FAILOVER_SCRIPT, (uintptr_t)config->failover_script, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_TLS, (uintptr_t)config->common.tls, ValueBool);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_TLS_CERT_FILE, (uintptr_t)config->common.tls_cert_file, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_TLS_KEY_FILE, (uintptr_t)config->common.tls_key_file, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_TLS_CA_FILE, (uintptr_t)config->common.tls_ca_file, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_LIBEV, (uintptr_t)config->libev, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_KEEP_ALIVE, (uintptr_t)config->keep_alive, ValueBool);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_NODELAY, (uintptr_t)config->nodelay, ValueBool);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_NON_BLOCKING, (uintptr_t)config->non_blocking, ValueBool);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_BACKLOG, (uintptr_t)config->backlog, ValueInt64);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_HUGEPAGE, (uintptr_t)config->common.hugepage, ValueChar);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_TRACKER, (uintptr_t)config->tracker, ValueBool);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_TRACK_PREPARED_STATEMENTS, (uintptr_t)config->track_prepared_statements, ValueBool);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_PIDFILE, (uintptr_t)config->pidfile, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_UPDATE_PROCESS_TITLE, (uintptr_t)config->update_process_title, ValueInt64);
+}
+
+static void
+add_servers_configuration_response(struct json* res)
+{
+   struct main_configuration* config = NULL;
+
+   config = (struct main_configuration*)shmem;
+
+   // JSON of server configuration
+   for (int i = 0; i < config->number_of_servers; i++)
+   {
+      struct json* server_conf = NULL;
+
+      if (pgagroal_json_create(&server_conf))
+      {
+         return;
+      }
+      
+      pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_HOST, (uintptr_t)config->servers[i].host, ValueString);
+      pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_PORT, (uintptr_t)config->servers[i].port, ValueInt64);
+      pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_TLS, (uintptr_t)config->servers[i].tls, ValueBool);
+      pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_TLS_CERT_FILE, (uintptr_t)config->servers[i].tls_cert_file, ValueString);
+      pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_TLS_KEY_FILE, (uintptr_t)config->servers[i].tls_key_file, ValueString);
+      pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_TLS_CA_FILE, (uintptr_t)config->servers[i].tls_ca_file, ValueString);
+      
+      pgagroal_json_put(res, config->servers[i].name, (uintptr_t)server_conf, ValueJSON);
+   }
+}
+
+void
+pgagroal_conf_get(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload)
+{
+   struct json* response = NULL;
+   char* elapsed = NULL;
+   time_t start_time;
+   time_t end_time;
+   int total_seconds;
+
+   pgagroal_start_logging();
+
+   start_time = time(NULL);
+
+   if (pgagroal_management_create_response(payload, -1, &response))
+   {
+      pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_GET_ERROR, compression, encryption, payload);
+      pgagroal_log_error("Conf Get: Error creating json object (%d)", MANAGEMENT_ERROR_CONF_GET_ERROR);
+      goto error;
+   }
+
+   add_configuration_response(response);
+   add_servers_configuration_response(response);
+
+   end_time = time(NULL);
+
+   if (pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload))
+   {
+      pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_GET_NETWORK, compression, encryption, payload);
+      pgagroal_log_error("Conf Get: Error sending response");
+
+      goto error;
+   }
+
+   elapsed = pgagroal_get_timestamp_string(start_time, end_time, &total_seconds);
+
+   pgagroal_log_info("Conf Get (Elapsed: %s)", elapsed);
+
+   pgagroal_json_destroy(payload);
+
+   pgagroal_disconnect(client_fd);
+
+   pgagroal_stop_logging();
+
+   exit(0);
+error:
+
+   pgagroal_json_destroy(payload);
+
+   pgagroal_disconnect(client_fd);
+
+   pgagroal_stop_logging();
+
+   exit(1);
+}
+
+void
+pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload)
+{
+   struct json* response = NULL;
+   struct json* request = NULL;
+   char* config_key = NULL;
+   char* config_value = NULL;
+   char* elapsed = NULL;
+   time_t start_time;
+   time_t end_time;
+   char section[MISC_LENGTH];
+   char key[MISC_LENGTH];
+   int total_seconds;
+   struct main_configuration* config = NULL;
+   struct json* server_j = NULL;
+   int server_index = -1;
+   int begin = -1, end = -1;
+   size_t max;
+
+   pgagroal_start_logging();
+
+   start_time = time(NULL);
+
+   config = (struct main_configuration*)shmem;
+   // Extract config_key and config_value from request
+   request = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
+   if (!request)
+   {
+      pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_NOREQUEST, compression, encryption, payload);
+      pgagroal_log_error("Conf Set: No request category found in payload (%d)", MANAGEMENT_ERROR_CONF_SET_NOREQUEST);
+      goto error;
+   }
+
+   config_key = (char*)pgagroal_json_get(request, MANAGEMENT_ARGUMENT_CONFIG_KEY);
+   config_value = (char*)pgagroal_json_get(request, MANAGEMENT_ARGUMENT_CONFIG_VALUE);
+
+   if (!config_key || !config_value)
+   {
+      pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_NOCONFIG_KEY_OR_VALUE, compression, encryption, payload);
+      pgagroal_log_error("Conf Set: No config key or config value in request (%d)", MANAGEMENT_ERROR_CONF_SET_NOCONFIG_KEY_OR_VALUE);
+      goto error;
+   }
+
+   // Modify
+   memset(section, 0, MISC_LENGTH);
+   memset(key, 0, MISC_LENGTH);
+
+   for (int i = 0; i < strlen(config_key); i++)
+   {
+      if (config_key[i] == '.')
+      {
+         if (!strlen(section))
+         {
+            memcpy(section, &config_key[begin], end - begin + 1);
+            section[end - begin + 1] = '\0';
+            begin = end = -1;
+            continue;
+         }
+      }
+
+      if (begin < 0)
+      {
+         begin = i;
+      }
+
+      end = i;
+   }
+   // if the key has not been found, since there is no ending dot,
+   // try to extract it from the string
+   if (!strlen(key))
+   {
+      memcpy(key, &config_key[begin], end - begin + 1);
+      key[end - begin + 1] = '\0';
+   }
+
+   if (strlen(section) > 0)
+   {
+      if (pgagroal_json_create(&server_j))
+      {
+         pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_ERROR, compression, encryption, payload);
+         pgagroal_log_error("Conf Set: Error creating json object (%d)", MANAGEMENT_ERROR_CONF_SET_ERROR);
+         goto error;
+      }
+
+      for (int i = 0; i < config->number_of_servers; i++)
+      {
+         if (!strcmp(config->servers[i].name, section))
+         {
+            server_index = i;
+            break;
+         }
+      }
+      if (server_index == -1)
+      {
+         pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_UNKNOWN_SERVER, compression, encryption, payload);
+         pgagroal_log_error("Conf Set: Unknown server value parsed (%d)", MANAGEMENT_ERROR_CONF_SET_UNKNOWN_SERVER);
+         goto error;
+      }
+   }
+
+   if (pgagroal_management_create_response(payload, -1, &response))
+   {
+      pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_ERROR, compression, encryption, payload);
+      pgagroal_log_error("Conf Set: Error creating json object (%d)", MANAGEMENT_ERROR_CONF_SET_ERROR);
+      goto error;
+   }
+
+   if (strlen(key) && config_value)
+   {
+      bool unknown = false;
+      if (!strcmp(key, "host"))
+      {
+         if (strlen(section) > 0)
+         {
+            max = strlen(config_value);
+            if (max > MISC_LENGTH - 1)
+            {
+               max = MISC_LENGTH - 1;
+            }
+            memcpy(&config->servers[server_index].host, config_value, max);
+            config->servers[server_index].host[max] = '\0';
+            pgagroal_json_put(server_j, key, (uintptr_t)config->servers[server_index].host, ValueString);
+            pgagroal_json_put(response, config->servers[server_index].name, (uintptr_t)server_j, ValueJSON);
+         }
+         else
+         {
+            max = strlen(config_value);
+            if (max > MISC_LENGTH - 1)
+            {
+               max = MISC_LENGTH - 1;
+            }
+            memcpy(config->common.host, config_value, max);
+            config->common.host[max] = '\0';
+            pgagroal_json_put(response, key, (uintptr_t)config->common.host, ValueString);
+         }
+      }
+      else if (!strcmp(key, "port"))
+      {
+         if (strlen(section) > 0)
+         {
+            if (as_int(config_value, &config->servers[server_index].port))
+            {
+               unknown = true;
+            }
+            pgagroal_json_put(server_j, key, (uintptr_t)config->servers[server_index].port, ValueInt64);
+            pgagroal_json_put(response, config->servers[server_index].name, (uintptr_t)server_j, ValueJSON);
+         }
+         else
+         {
+            if (as_int(config_value, &config->common.port))
+            {
+               unknown = true;
+            }
+            pgagroal_json_put(response, key, (uintptr_t)config->common.port, ValueInt64);
+         }
+      }
+      else if (!strcmp(key, "tls"))
+      {
+         if (strlen(section) > 0)
+         {
+            if (as_bool(config_value, &config->servers[server_index].tls))
+            {
+               unknown = true;
+            }
+            pgagroal_json_put(server_j, key, (uintptr_t)config->servers[server_index].tls, ValueBool);
+            pgagroal_json_put(response, config->servers[server_index].name, (uintptr_t)server_j, ValueJSON);
+         }
+         else
+         {
+            if (as_bool(config_value, &config->common.tls))
+            {
+               unknown = true;
+            }
+            pgagroal_json_put(response, key, (uintptr_t)config->common.tls, ValueBool);
+         }
+      }
+      else if (!strcmp(key, "tls_cert_file"))
+      {
+         if (strlen(section) > 0)
+         {
+            max = strlen(config_value);
+            if (max > MISC_LENGTH - 1)
+            {
+               max = MISC_LENGTH - 1;
+            }
+            memcpy(&config->servers[server_index].tls_cert_file, config_value, max);
+            config->servers[server_index].tls_cert_file[max] = '\0';
+            pgagroal_json_put(server_j, key, (uintptr_t)config->servers[server_index].tls_cert_file, ValueString);
+            pgagroal_json_put(response, config->servers[server_index].name, (uintptr_t)server_j, ValueJSON);
+         }
+         else
+         {
+            max = strlen(config_value);
+            if (max > MISC_LENGTH - 1)
+            {
+               max = MISC_LENGTH - 1;
+            }
+            memcpy(config->common.tls_cert_file, config_value, max);
+            config->common.tls_cert_file[max] = '\0';
+            pgagroal_json_put(response, key, (uintptr_t)config->common.tls_cert_file, ValueString);
+         }
+      }
+      else if (!strcmp(key, "tls_key_file"))
+      {
+         if (strlen(section) > 0)
+         {
+            max = strlen(config_value);
+            if (max > MISC_LENGTH - 1)
+            {
+               max = MISC_LENGTH - 1;
+            }
+            memcpy(&config->servers[server_index].tls_key_file, config_value, max);
+            config->servers[server_index].tls_key_file[max] = '\0';
+            pgagroal_json_put(server_j, key, (uintptr_t)config->servers[server_index].tls_key_file, ValueString);
+            pgagroal_json_put(response, config->servers[server_index].name, (uintptr_t)server_j, ValueJSON);
+         }
+         else
+         {
+            max = strlen(config_value);
+            if (max > MISC_LENGTH - 1)
+            {
+               max = MISC_LENGTH - 1;
+            }
+            memcpy(config->common.tls_key_file, config_value, max);
+            config->common.tls_key_file[max] = '\0';
+            pgagroal_json_put(response, key, (uintptr_t)config->common.tls_key_file, ValueString);
+         }     
+      }
+      else if (!strcmp(key, "tls_ca_file"))
+      {
+         if (strlen(section) > 0)
+         {
+            max = strlen(config_value);
+            if (max > MISC_LENGTH - 1)
+            {
+               max = MISC_LENGTH - 1;
+            }
+            memcpy(&config->servers[server_index].tls_ca_file, config_value, max);
+            config->servers[server_index].tls_ca_file[max] = '\0';
+            pgagroal_json_put(server_j, key, (uintptr_t)config->servers[server_index].tls_ca_file, ValueString);
+            pgagroal_json_put(response, config->servers[server_index].name, (uintptr_t)server_j, ValueJSON);
+         }
+         else
+         {
+            max = strlen(config_value);
+            if (max > MISC_LENGTH - 1)
+            {
+               max = MISC_LENGTH - 1;
+            }
+            memcpy(config->common.tls_ca_file, config_value, max);
+            config->common.tls_ca_file[max] = '\0';
+            pgagroal_json_put(response, key, (uintptr_t)config->common.tls_ca_file, ValueString);
+         }
+      }
+      else if (!strcmp(key, "unix_socket_dir"))
+      {
+         max = strlen(config_value);
+         if (max > MISC_LENGTH - 1)
+         {
+            max = MISC_LENGTH - 1;
+         }
+         memcpy(config->unix_socket_dir, config_value, max);
+         config->unix_socket_dir[max] = '\0';
+         pgagroal_json_put(response, key, (uintptr_t)config->unix_socket_dir, ValueString);
+      }
+      else if (!strcmp(key, "metrics"))
+      {
+         if (as_int(config_value, &config->common.metrics))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->common.metrics, ValueInt64);
+      }
+      else if (!strcmp(key, "metrics_cache_max_age"))
+      {
+         if (as_seconds(config_value, &config->common.metrics_cache_max_age, PGAGROAL_PROMETHEUS_CACHE_DISABLED))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->common.metrics_cache_max_age, ValueInt64);
+      }
+      else if (!strcmp(key, "metrics_cache_max_size"))
+      {
+         if (as_bytes(config_value, &config->common.metrics_cache_max_size, PROMETHEUS_DEFAULT_CACHE_SIZE))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->common.metrics_cache_max_size, ValueInt64);
+      }
+      else if (!strcmp(key, "management"))
+      {
+         if (as_int(config_value, &config->management))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->management, ValueInt64);
+      }
+      else if (!strcmp(key, "log_type"))
+      {
+         config->common.log_type = as_logging_type(config_value);
+         pgagroal_json_put(response, key, (uintptr_t)config->common.log_type, ValueInt64);
+      }
+      else if (!strcmp(key, "log_level"))
+      {
+         config->common.log_level = as_logging_level(config_value);
+         pgagroal_json_put(response, key, (uintptr_t)config->common.log_level, ValueInt64);
+      }
+      else if (!strcmp(key, "log_path"))
+      {
+         max = strlen(config_value);
+         if (max > MISC_LENGTH - 1)
+         {
+            max = MISC_LENGTH - 1;
+         }
+         memcpy(config->common.log_path, config_value, max);
+         config->common.log_path[max] = '\0';
+         pgagroal_json_put(response, key, (uintptr_t)config->common.log_path, ValueString);
+      }
+      else if (!strcmp(key, "log_rotation_age"))
+      {
+         if (as_logging_rotation_age(config_value, &config->common.log_rotation_age))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->common.log_rotation_age, ValueInt64);
+      }
+      else if (!strcmp(key, "log_rotation_size"))
+      {
+         if (as_logging_rotation_size(config_value, &config->common.log_rotation_size))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->common.log_rotation_size, ValueInt64);
+      }
+      else if (!strcmp(key, "log_line_prefix"))
+      {
+         max = strlen(config_value);
+         if (max > MISC_LENGTH - 1)
+         {
+            max = MISC_LENGTH - 1;
+         }
+         memcpy(config->common.log_path, config_value, max);
+         config->common.log_path[max] = '\0';
+         pgagroal_json_put(response, key, (uintptr_t)config->common.log_path, ValueString);
+      }
+      else if (!strcmp(key, "log_mode"))
+      {
+         config->common.log_mode = as_logging_mode(config_value);
+         pgagroal_json_put(response, key, (uintptr_t)config->common.log_mode, ValueInt64);
+      }
+      else if (!strcmp(key, "log_connetions"))
+      {
+         if (as_bool(config_value, &config->common.log_connections))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->common.log_connections, ValueBool);
+      }
+      else if (!strcmp(key, "log_disconnetions"))
+      {
+         if (as_bool(config_value, &config->common.log_disconnections))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->common.log_disconnections, ValueBool);
+      }
+      else if (!strcmp(key, "blocking_timeout"))
+      {
+         if (as_int(config_value, &config->blocking_timeout))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->blocking_timeout, ValueInt64);
+      }
+      else if (!strcmp(key, "idle_timeout"))
+      {
+         if (as_int(config_value, &config->idle_timeout))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->idle_timeout, ValueInt64);
+      }
+      else if (!strcmp(key, "rotate_frontend_password_length"))
+      {
+         if (as_int(config_value, &config->rotate_frontend_password_length))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->rotate_frontend_password_length, ValueInt64);
+      }
+      else if (!strcmp(key, "rotate_frontend_password_timeout"))
+      {
+         if (as_int(config_value, &config->rotate_frontend_password_timeout))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->rotate_frontend_password_timeout, ValueInt64);
+      }
+      else if (!strcmp(key, "max_connection_age"))
+      {
+         if (as_int(config_value, &config->max_connection_age))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->max_connection_age, ValueInt64);
+      }
+      else if (!strcmp(key, "validation"))
+      {
+         config->validation = as_validation(config_value);
+         pgagroal_json_put(response, key, (uintptr_t)config->validation, ValueInt64);
+      }
+      else if (!strcmp(key, "background_interval"))
+      {
+         if (as_int(config_value, &config->background_interval))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->background_interval, ValueInt64);
+      }
+      else if (!strcmp(key, "max_retries"))
+      {
+         if (as_int(config_value, &config->max_retries))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->max_retries, ValueInt64);
+      }
+      else if (!strcmp(key, "max_connections"))
+      {
+         if (as_int(config_value, &config->max_connections))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->max_connections, ValueInt64);
+      }
+      else if (!strcmp(key, "allow_unknown_users"))
+      {
+         if (as_bool(config_value, &config->allow_unknown_users))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->allow_unknown_users, ValueBool);
+      }
+      else if (!strcmp(key, "authentication_timeout"))
+      {
+         if (as_int(config_value, &config->common.authentication_timeout))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->common.authentication_timeout, ValueInt64);
+      }
+      else if (!strcmp(key, "pipeline"))
+      {
+         if (as_int(config_value, &config->pipeline))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->pipeline, ValueInt64);
+      }
+      else if (!strcmp(key, "auth_query"))
+      {
+         if (as_bool(config_value, &config->authquery))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->authquery, ValueBool);
+      }
+      else if (!strcmp(key, "failover"))
+      {
+         if (as_bool(config_value, &config->failover))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->failover, ValueBool);
+      }
+      else if (!strcmp(key, "keep_alive"))
+      {
+         if (as_bool(config_value, &config->keep_alive))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->keep_alive, ValueBool);
+      }
+      else if (!strcmp(key, "nodelay"))
+      {
+         if (as_bool(config_value, &config->nodelay))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->nodelay, ValueBool);
+      }
+      else if (!strcmp(key, "non_blocking"))
+      {
+         if (as_bool(config_value, &config->non_blocking))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->non_blocking, ValueBool);
+      }
+      else if (!strcmp(key, "backlog"))
+      {
+         if (as_int(config_value, &config->backlog))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->backlog, ValueInt64);
+      }
+      else if (!strcmp(key, "tracker"))
+      {
+         if (as_bool(config_value, &config->tracker))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->tracker, ValueBool);
+      }
+      else if (!strcmp(key, "track_prepared_statements"))
+      {
+         if (as_bool(config_value, &config->track_prepared_statements))
+         {
+            unknown = true;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->track_prepared_statements, ValueBool);
+      }
+      else if (!strcmp(key, "hugepage"))
+      {
+         config->common.hugepage = as_hugepage(config_value);
+         pgagroal_json_put(response, key, (uintptr_t)config->common.hugepage, ValueInt64);
+      }
+      else if (!strcmp(key, "pidfile"))
+      {
+         max = strlen(config_value);
+         if (max > MISC_LENGTH - 1)
+         {
+            max = MISC_LENGTH - 1;
+         }
+         memcpy(config->pidfile, config_value, max);
+         config->pidfile[max] = '\0';
+         pgagroal_json_put(response, key, (uintptr_t)config->pidfile, ValueString);
+      }
+      else if (!strcmp(key, "failover_script"))
+      {
+         max = strlen(config_value);
+         if (max > MISC_LENGTH - 1)
+         {
+            max = MISC_LENGTH - 1;
+         }
+         memcpy(config->failover_script, config_value, max);
+         config->failover_script[max] = '\0';
+         pgagroal_json_put(response, key, (uintptr_t)config->failover_script, ValueString);
+      }
+      else if (!strcmp(key, "libev"))
+      {
+         max = strlen(config_value);
+         if (max > MISC_LENGTH - 1)
+         {
+            max = MISC_LENGTH - 1;
+         }
+         memcpy(config->libev, config_value, max);
+         config->libev[max] = '\0';
+         pgagroal_json_put(response, key, (uintptr_t)config->libev, ValueString);
+      }
+      else if (!strcmp(key, "update_process_title"))
+      {
+         if (as_update_process_title(config_value, &config->update_process_title, UPDATE_PROCESS_TITLE_VERBOSE))
+         {
+            unknown = false;
+         }
+         pgagroal_json_put(response, key, (uintptr_t)config->update_process_title, ValueInt64);
+      }
+      else
+      {
+         unknown = true;
+      }
+
+      if (unknown)
+      {
+         pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_UNKNOWN_CONFIGURATION_KEY, compression, encryption, payload);
+         pgagroal_log_error("Conf Set: Unknown configuration key found (%d)", MANAGEMENT_ERROR_CONF_SET_UNKNOWN_CONFIGURATION_KEY);
+         goto error;
+      }
+   }
+
+   end_time = time(NULL);
+
+   if (pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload))
+   {
+      pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_NETWORK, compression, encryption, payload);
+      pgagroal_log_error("Conf Set: Error sending response");
+      goto error;
+   }
+
+   elapsed = pgagroal_get_timestamp_string(start_time, end_time, &total_seconds);
+
+   pgagroal_log_info("Conf Set (Elapsed: %s)", elapsed);
+
+   pgagroal_json_destroy(payload);
+
+   pgagroal_disconnect(client_fd);
+
+   pgagroal_stop_logging();
+
+   exit(0);
+error:
+
+   pgagroal_json_destroy(payload);
+
+   pgagroal_disconnect(client_fd);
+
+   pgagroal_stop_logging();
+
+   exit(1);
 
 }

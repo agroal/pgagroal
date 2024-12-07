@@ -67,9 +67,9 @@ extern "C" {
  * Management commands
  */
 #define MANAGEMENT_CANCEL_SHUTDOWN     1
-/* #define MANAGEMENT_CONFIG_GET          2 */
-/* #define MANAGEMENT_CONFIG_LS           3 */
-/* #define MANAGEMENT_CONFIG_SET          4 */
+#define MANAGEMENT_CONFIG_LS           2
+#define MANAGEMENT_CONFIG_GET          3
+#define MANAGEMENT_CONFIG_SET          4
 #define MANAGEMENT_DETAILS             5
 #define MANAGEMENT_DISABLEDB           6
 #define MANAGEMENT_ENABLEDB            7
@@ -92,6 +92,8 @@ extern "C" {
 #define MANAGEMENT_ARGUMENT_CLIENT_VERSION        "ClientVersion"
 #define MANAGEMENT_ARGUMENT_COMMAND               "Command"
 #define MANAGEMENT_ARGUMENT_COMPRESSION           "Compression"
+#define MANAGEMENT_ARGUMENT_CONFIG_KEY            "ConfigKey"
+#define MANAGEMENT_ARGUMENT_CONFIG_VALUE          "ConfigValue"
 #define MANAGEMENT_ARGUMENT_CONNECTIONS           "Connections"
 #define MANAGEMENT_ARGUMENT_DATABASE              "Database"
 #define MANAGEMENT_ARGUMENT_DATABASES             "Databases"
@@ -141,6 +143,18 @@ extern "C" {
 
 #define MANAGEMENT_ERROR_STATUS_DETAILS_NOFORK  800
 #define MANAGEMENT_ERROR_STATUS_DETAILS_NETWORK 801
+
+#define MANAGEMENT_ERROR_CONF_GET_NOFORK   900
+#define MANAGEMENT_ERROR_CONF_GET_NETWORK  901
+#define MANAGEMENT_ERROR_CONF_GET_ERROR    902
+
+#define MANAGEMENT_ERROR_CONF_SET_NOFORK                    1000
+#define MANAGEMENT_ERROR_CONF_SET_NETWORK                   1001
+#define MANAGEMENT_ERROR_CONF_SET_ERROR                     1002
+#define MANAGEMENT_ERROR_CONF_SET_NOREQUEST                 1003
+#define MANAGEMENT_ERROR_CONF_SET_NOCONFIG_KEY_OR_VALUE     1004
+#define MANAGEMENT_ERROR_CONF_SET_UNKNOWN_SERVER            1005
+#define MANAGEMENT_ERROR_CONF_SET_UNKNOWN_CONFIGURATION_KEY 1006
 
 /**
  * Output formats
@@ -350,20 +364,43 @@ pgagroal_management_request_reload(SSL* ssl, int socket, uint8_t compression, ui
 /* int */
 /* pgagroal_management_request_config_set(SSL* ssl, int socket, char* config_key, char* config_value, uint8_t compression, uint8_t encryption, int32_t output_format); */
 
-/* /\** */
-/*  * Entry point for managing the `conf ls` command that */
-/*  * will list all the configuration files used by the running */
-/*  * daemon. */
-/*  * */
-/*  * @param ssl the SSL handler */
-/*  * @param socket the socket file descriptor */
-/*  * @param compression The compress method for wire protocol */
-/*  * @param encryption The encrypt method for wire protocol */
-/*  * @param output_format The output format */
-/*  * @returns 0 on success */
-/*  *\/ */
-/* int */
-/* pgagroal_management_request_conf_ls(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format); */
+/**
+ * Create a conf ls request
+ * @param ssl The SSL connection
+ * @param socket The socket descriptor
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_request_conf_ls(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+
+/**
+ * Create a conf ls request
+ * @param ssl The SSL connection
+ * @param socket The socket descriptor
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_request_conf_get(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+
+/**
+ * Create a conf get request
+ * @param ssl The SSL connection
+ * @param socket The socket descriptor
+ * @param config_key The configuration key
+ * @param config_value The configuration value
+ * @param compression The compress method for wire protocol
+ * @param encryption The encrypt method for wire protocol
+ * @param output_format The output format
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_management_request_conf_set(SSL* ssl, int socket, char* config_key, char* config_value, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
  * Get the frontend password of a user
