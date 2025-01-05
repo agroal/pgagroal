@@ -177,6 +177,42 @@ pgagroal_deque_poll(struct deque* deque, char** tag)
 }
 
 uintptr_t
+pgagroal_deque_poll_last(struct deque* deque, char** tag)
+{
+   struct deque_node* tail = NULL;
+   struct value* val = NULL;
+   uintptr_t data = 0;
+   if (deque == NULL || pgagroal_deque_size(deque) == 0)
+   {
+      return 0;
+   }
+   deque_write_lock(deque);
+   tail = deque->end->prev;
+   if (tail == deque->start)
+   {
+      deque_unlock(deque);
+      return 0;
+   }
+   // remove node
+   deque->end->prev = tail->prev;
+   tail->prev->next = deque->end;
+   deque->size--;
+
+   val = tail->data;
+   if (tag != NULL)
+   {
+      *tag = tail->tag;
+   }
+   free(tail);
+
+   data = pgagroal_value_data(val);
+   free(val);
+
+   deque_unlock(deque);
+   return data;
+}
+
+uintptr_t
 pgagroal_deque_peek(struct deque* deque, char** tag)
 {
    struct deque_node* head = NULL;
@@ -197,6 +233,32 @@ pgagroal_deque_peek(struct deque* deque, char** tag)
    if (tag != NULL)
    {
       *tag = head->tag;
+   }
+   deque_unlock(deque);
+   return pgagroal_value_data(val);
+}
+
+uintptr_t
+pgagroal_deque_peek_last(struct deque* deque, char** tag)
+{
+   struct deque_node* tail = NULL;
+   struct value* val = NULL;
+   if (deque == NULL || pgagroal_deque_size(deque) == 0)
+   {
+      return 0;
+   }
+   deque_read_lock(deque);
+   tail = deque->end->prev;
+   // this should not happen when size is not 0, but just in case
+   if (tail == deque->start)
+   {
+      deque_unlock(deque);
+      return 0;
+   }
+   val = tail->data;
+   if (tag != NULL)
+   {
+      *tag = tail->tag;
    }
    deque_unlock(deque);
    return pgagroal_value_data(val);
