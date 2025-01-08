@@ -25,7 +25,7 @@ The limits are assumed as:
 - *initial number of connections*, that is the effective prefill;
 - *minimum number of connections* to always keep open for the pair username/database.
 
-Assuming you want to configure the prefill for the `mydb` database with the `mysuer` username,
+Assuming you want to configure the prefill for the `mydb` database with the `myuser` username,
 you have to edit the file `/etc/pgagroal/pgagroal_databases.conf` with your editor of choice
 or using `cat` from the command line, as follows:
 
