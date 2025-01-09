@@ -9,10 +9,9 @@ and make it to connect to the pooler machine via *remote management*.
 
 ## Preface
 
-This tutorial assumes that you have already an installation of PostgreSQL 12 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal).
+This tutorial assumes that you have already an installation of [PostgreSQL](https://www.postgresql.org) 13 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal).
 
 In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md).
-
 
 ### Enable remote management
 
@@ -41,6 +40,7 @@ See [the pgagroal configuration settings](https://github.com/agroal/pgagroal/blo
 ### Add remote admin user
 
 Remote management is done via a specific admin user, that has to be created within the pooler vault.
+
 As the [**pgagroal**](https://github.com/agroal/pgagroal) operating system user, run the following command:
 
 ```
@@ -49,20 +49,20 @@ pgagroal-admin -f pgagroal_admins.conf -U admin -P admin1234 add-user
 ```
 
 The above will create the `admin` username with the `admin1234` password.
-**We strongly encourage you to choose non trivial usernames and passwords!**
 
+**We strongly encourage you to choose non trivial usernames and passwords!**
 
 ### Restart pgagroal
 
 In order to make the changes available, and therefore activate the remote management, you have to restart [**pgagroal**](https://github.com/agroal/pgagroal), for example by issuing the following commands from the [**pgagroal**](https://github.com/agroal/pgagroal) operatng system user:
 
 ```
-pgagroal-cli -c /etc/pgagroal/pgagroal.conf shutdown
-pgagroal -c /etc/pgagroal/pgagroal.conf -a /etc/pgagroal/pgagroal_hba.conf -u /etc/pgagroal/pgagroal_users.conf -A /etc/pgagroal/pgagroal_admins.conf
+pgagroal-cli shutdown
+pgagroal -d
 ```
 
-Please note the presence of the `-A` flag that indicates to the pooler which file use to authenticate remote management users.
-If the file has the standard name `/etc/pgagroal/pgagroal_admins.conf` you can omit it from the command line.
+Since the default configuration files are usually searched into the `/etc/pgagroal/` directory, and have well defined names, you can omit the files from the command line
+if you named them `pgagroal.conf`, `pgagroal_hba.conf`, `pgagroal_users.conf` and `pgagroal_admins.conf`.
 
 ### Connect via remote administration interface
 

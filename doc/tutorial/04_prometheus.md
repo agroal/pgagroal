@@ -1,13 +1,13 @@
 ## Prometheus metrics for pgagroal
 
-This tutorial will show you how to do basic  [Prometheus](https://prometheus.io/){:target="_blank"} setup  for [**pgagroal**](https://github.com/agroal/pgagroal).
+This tutorial will show you how to do basic  [Prometheus](https://prometheus.io/) setup  for [**pgagroal**](https://github.com/agroal/pgagroal).
 
 [**pgagroal**](https://github.com/agroal/pgagroal) is able to provide a set of metrics about what it is happening within the pooler,
 so that a Prometheus instance can collect them and help you monitor the pooler.
 
 ### Preface
 
-This tutorial assumes that you have already an installation of PostgreSQL 12 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal).
+This tutorial assumes that you have already an installation of [PostgreSQL](https://www.postgresql.org) 13 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal).
 
 In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md).
 
@@ -39,8 +39,8 @@ In order to apply changes, you need to restart [**pgagroal**](https://github.com
 as the [**pgagroal**](https://github.com/agroal/pgagroal) operating system user:
 
 ```
-pgagroal-cli -c /etc/pgagroal/pgagroal.conf shutdown
-pgagroal -c /etc/pgagroal/pgagroal.conf -a /etc/pgagroal/pgagroal_hba.conf
+pgagroal-cli shutdown
+pgagroal -d
 ```
 
 If you need to specify other configuration files, for example for remote management (see [the related tutorial](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/03_remote_management.md)), add them on the [**pgagroal**](https://github.com/agroal/pgagroal) command line.
@@ -61,7 +61,8 @@ http://localhost:2346/
 ```
 
 ## Prometheus metrics for pgagroal-vault
-This tutorial will show you how to do basic  [Prometheus](https://prometheus.io/){:target="_blank"} setup  for [**pgagroal-vault**](https://github.com/agroal/pgagroal).
+
+This tutorial will show you how to do basic  [Prometheus](https://prometheus.io/) setup  for [**pgagroal-vault**](https://github.com/agroal/pgagroal).
 
 **pgagroal-vault** is able to provide a set of metrics about what it is happening within the vault, so that a Prometheus instance can collect them and help you monitor the vault activities.
 

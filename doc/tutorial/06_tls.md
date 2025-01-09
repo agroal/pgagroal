@@ -17,24 +17,24 @@ because the server will reject the file if its permissions are more liberal than
 
 For the purpose of this tutorial we will assume the client certificate and key same as the server certificate and server key and therefore, these equations always holds -
 
-`</path/to/client.crt>` = `</path/to/server.crt>` \
-`</path/to/client.key>` = `</path/to/server.key>` \
-`</path/to/server_root_ca.crt>` = `</path/to/server.crt>` \
-`</path/to/client_root_ca.crt>` = `</path/to/server_root_ca.crt>`
+* `</path/to/client.crt>` = `</path/to/server.crt>`
+* `</path/to/client.key>` = `</path/to/server.key>`
+* `</path/to/server_root_ca.crt>` = `</path/to/server.crt>`
+* `</path/to/client_root_ca.crt>` = `</path/to/server_root_ca.crt>`
 
 ## TLS in `pgagroal`
 
-This tutorial will show you how to enable tls between `client` and [**pgagroal**](https://github.com/agroal/pgagroal).
+This tutorial will show you how to enable TLS between `client` and [**pgagroal**](https://github.com/agroal/pgagroal).
 
 ### Preface
 
-This tutorial assumes that you have already an installation of PostgreSQL 12 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal).
+This tutorial assumes that you have already an installation of [PostgreSQL](https://www.postgresql.org) 13 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal).
 
 In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md).
 
 ### Modify the `pgagroal` configuration
 
-It is now time to modify the [pgagroal] section of configration file `/etc/pgagroal/pgagroal_vault.conf`, with your editor of choice by adding the following lines in the [pgagroal] section.
+It is now time to modify the [pgagroal] section of configuration file `/etc/pgagroal/pgagroal.conf`, with your editor of choice by adding the following lines in the [pgagroal] section.
 
 ```
 tls = on
@@ -52,10 +52,9 @@ If you wish to do only server authentication the aforementioned configuration su
 PGSSLMODE=verify-full PGSSLROOTCERT=</path/to/server_root_ca.crt> psql -h localhost -p 2345 -U <postgres_user> <postgres_database>
 ```
 
-
 #### Full Client and Server Authentication
 
-TO enable server to request for client certificates add another configuration line below the tls 
+To enable the server to request the client certificates add the following configuration lines
 
 ```
 tls = on
@@ -76,15 +75,16 @@ This tutorial will show you how to enable tls between [**pgagroal-vault**](https
 
 ### Preface
 
-This tutorial assumes that you have already an installation of PostgreSQL 12 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal).
+This tutorial assumes that you have already an installation of [PostgreSQL](https://www.postgresql.org) 13 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal).
 
-This tutorial aslo assumes that you have a functional [**pgagroal-vault**](https://github.com/agroal/pgagroal)
+This tutorial also assumes that you have a functional [**pgagroal-vault**](https://github.com/agroal/pgagroal).
 
-In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md) and the configuration done in [Setup pgagroal-vault](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/07_vault.md).
+In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md) and
+the configuration done in [Setup pgagroal-vault](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/07_vault.md).
 
 ### Modify the `pgagroal-vault` configuration
 
-It is now time to modify the [pgagroal-vault] section of configration file `/etc/pgagroal/pgagroal_vault.conf`, with your editor of choice by adding the following lines in the [pgagroal-vault] section.
+It is now time to modify the [pgagroal-vault] section of configuration file `/etc/pgagroal/pgagroal_vault.conf`, with your editor of choice by adding the following lines in the [pgagroal-vault] section.
 
 ```
 tls = on
@@ -106,7 +106,7 @@ curl --cacert </path/to/server_root_ca.crt> -i https://localhost:2500/users/<fro
 
 #### Full Client and Server Authentication
 
-TO enable server to request for client certificates add another configuration line below the tls 
+To enable the server to request the client certificates add the following configuration lines
 
 ```
 tls = on

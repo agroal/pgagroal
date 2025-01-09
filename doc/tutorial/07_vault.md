@@ -4,7 +4,7 @@ This tutorial will show you how to do setup `pgagroal-vault`.
 
 ### Preface
 
-This tutorial assumes that you have already an installation of PostgreSQL 12 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal) and also assumes that the remote management is enabled in [**pgagroal**](https://github.com/agroal/pgagroal).
+This tutorial assumes that you have already an installation of [PostgreSQL](https://www.postgresql.org) 13 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal) and also assumes that the remote management is enabled in [**pgagroal**](https://github.com/agroal/pgagroal).
 
 In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md).
 
@@ -50,7 +50,7 @@ In order to run `pgagroal-vault`, you need to configure the vault `pgagroal_vaul
 
 #### Create basic configuration
 
-It is now time to create the main `/etc/pgagroal/pgagroal_vault.conf` configration file, with your editor of choice of using `cat` from the command line, create the following content:
+It is now time to create the main `/etc/pgagroal/pgagroal_vault.conf` configuration file, with your editor of choice or using `cat` from the command line, create the following content:
 
 ```
 cd /etc/pgagroal
@@ -59,9 +59,9 @@ cat > pgagroal_vault.conf
 host = localhost
 port = 2500
 
-log_type = console
+log_type = file
 log_level = info
-log_path = 
+log_path = /tmp/pgagroal_vault.log
 
 [main]
 host = localhost
@@ -69,7 +69,7 @@ port = 2347
 user = admin
 ```
 
-and press `Ctrl-D` (if running `cat`) to save the file.
+and press `Ctrl-d` (if running `cat`) to save the file.
 
 #### Add users file
 
@@ -88,7 +88,7 @@ See [the documentation about `pgagroal_vault.conf` for more details](https://git
 It is now time to start `pgagroal-vault`, so as the [**pgagroal**](https://github.com/agroal/pgagroal) operating system user run:
 
 ```
-pgagroal-vault -c /etc/pgagroal/pgagroal_vault.conf -u /etc/pgagroal/pgagroal_vault_users.conf
+pgagroal-vault -d
 ```
 
 **Remember if both pgagroal and vault are operating on same system `pgagroal_vault_users.conf` can be same as `pgagroal_admins.conf`**
@@ -135,7 +135,6 @@ Output
 
 ```
 HTTP/1.1 404 Not Found
-
 ```
 
 A URL of form `http://<hostname>:<port>/users/<frontend_user>` such that `<frontend_user>` does not exist will also give `HTTP 404 ERROR`.
@@ -150,5 +149,4 @@ Output
 
 ```
 HTTP/1.1 404 Not Found
-
 ```
