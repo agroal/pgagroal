@@ -19,7 +19,7 @@ dnf install -y pgagroal
 * [PostgreSQL YUM](https://yum.postgresql.org/howto/)
 * [Linux downloads](https://www.postgresql.org/download/linux/redhat/)
 
-## RHEL 9 / RockyLinux 9
+## RHEL 9 / Rocky Linux 9
 
 ```
 dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
@@ -65,7 +65,7 @@ dnf install git gcc cmake make libev libev-devel \
 Alternative [clang 8+](https://clang.llvm.org/) can be used.
 
 
-### RHEL / RockyLinux
+### RHEL / Rocky Linux
 
 On RHEL / Rocky, before you install the required packages some additional repositoriesneed to be enabled or installed first.
 
@@ -112,7 +112,7 @@ git gcc cmake libev openssl libssh py39-docutils
 
 ### Build
 
-#### Release build
+**Release build**
 
 The following commands will install [**pgagroal**][pgagroal] in the `/usr/local` hierarchy.
 
@@ -128,7 +128,7 @@ sudo make install
 
 See [RPM](https://github.com/agroal/pgagroal/blob/main/doc/RPM.md) for how to build a RPM of [**pgagroal**][pgagroal].
 
-#### Debug build
+**Debug build**
 
 The following commands will create a `DEBUG` version of [**pgagroal**][pgagroal].
 
@@ -170,7 +170,7 @@ mv eisvogel.latex $HOME/.local/share/pandoc/templates
 
 where `$HOME` is your home directory.
 
-#### Generate API guide
+### Generate API guide
 
 This process is optional. If you choose not to generate the API HTML files, you can opt out of downloading these dependencies, and the process will automatically skip the generation.
 

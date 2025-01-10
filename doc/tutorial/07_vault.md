@@ -14,7 +14,7 @@ Moreover refer to [Enable Remote Management](https://github.com/pgagroal/pgagroa
 
 Assuming that the master key is already generated and an admin is already present for remote management with `admin` username and `admin1234` password.
 
-#### Create a user
+**Create a user**
 
 As the [**pgagroal**](https://github.com/agroal/pgagroal) operating system user, add the `myuser` to the pooler:
 
@@ -24,7 +24,7 @@ pgagroal-admin -f /etc/pgagroal/pgagroal_users.conf -U myuser -P mypassword user
 
 The `myuser` and `mypassword` should be the original PostgresSQL's user and its corresponding password.
 
-#### Create a frontend user
+**Create a frontend user**
 
 As the [**pgagroal**](https://github.com/agroal/pgagroal) operating system user, add the `myuser` to the pooler:
 
@@ -48,7 +48,7 @@ rotate_frontend_password_length = 12
 
 In order to run `pgagroal-vault`, you need to configure the vault `pgagroal_vault.conf` configuration file, that will tell the vault how to work, which address to listen, address of management service in [**pgagroal**](https://github.com/agroal/pgagroal) so on, and then `pgagroal_vault_users.conf` that will instrument the vault about the admin username and password of the remote management.
 
-#### Create basic configuration
+**Create basic configuration**
 
 It is now time to create the main `/etc/pgagroal/pgagroal_vault.conf` configuration file, with your editor of choice or using `cat` from the command line, create the following content:
 
@@ -71,7 +71,7 @@ user = admin
 
 and press `Ctrl-d` (if running `cat`) to save the file.
 
-#### Add users file
+**Add users file**
 
 As the [**pgagroal**](https://github.com/agroal/pgagroal) operating system user, run the following command:
 
@@ -99,7 +99,7 @@ This command initializes an HTTP server on localhost port 2500, which is primed 
 
 Since we have deployed an HTTP server we can simply use `curl` to send GET requests
 
-#### Correct requests
+**Correct requests**
 
 If the requested URL is of form `http://<hostname>:<port>/users/<frontend_user>` such that `<frontend_user>` exists, the server will return a header response with `200 status code` and the frontend password corresponding to the `<frontend_user>` in the response body.
 
@@ -119,7 +119,7 @@ Content-Type: text/plain
 password
 ```
 
-#### Incorrect requests
+**Incorrect requests**
 
 All the POST requests will be ignored and the server will send a `HTTP 404 ERROR` as a response.
 

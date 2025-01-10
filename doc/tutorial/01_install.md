@@ -29,7 +29,7 @@ In the case you don't have yet a [PostgreSQL](https://www.postgresql.org) runnin
 
 It is assumed that you run an RPM based distribution, like Fedora or RHEL. Some commands could be in different paths depending on the operating system distribution you are using.
 
-#### Initialize cluster
+**Initialize cluster**
 
 You need to define a `PGDATA` data directory where [PostgreSQL](https://www.postgresql.org) will store the data in.
 In the following, it is assumed that the [PostgreSQL](https://www.postgresql.org) directory is `/postgres/14/data`, then
@@ -44,8 +44,7 @@ initdb -k $PGDATA
 
 (`postgres` user)
 
-
-#### Remove default accesses
+**Remove default accesses**
 
 By default, [PostgreSQL](https://www.postgresql.org) allows trusted accesses from the local machine to any database within the cluster.
 It is better to harden your cluster, thus providing accesses only to who and when it is needed.
@@ -63,7 +62,7 @@ from `/postgres/14/data/pg_hab.conf`
 
 (`postgres` user)
 
-#### Add access for a user and a database
+**Add access for a user and a database**
 
 Assume you will have a database named `mydb` and a user named `myuser` that will be granted access to such database. In order to do so, edit again the `$PGDATA/pg_hba.conf` file and add a couple of lines like the followings:
 
@@ -76,7 +75,7 @@ The first line  grants access to the user `myuser` against the database `mydb` o
 
 Please check the value of the setting `password_encryption` in the configuration file `$PGDATA/postgresql.conf` in order to ensure it matches `scram-sha-256` as the last column in the previous two lines.
 
-#### Start PostgreSQL
+**Start PostgreSQL**
 
 It is now time to run the [PostgreSQL](https://www.postgresql.org) instance, so as the `postgres` operating system user, run:
 
@@ -84,7 +83,7 @@ It is now time to run the [PostgreSQL](https://www.postgresql.org) instance, so 
 pg_ctl -D $PGDATA -l /tmp/logfile start
 ```
 
-#### Create the database and the user
+**Create the database and the user**
 
 It is now time to create the database and the user of the previous step. As operating system user `postgres`, execute:
 
@@ -95,7 +94,7 @@ psql -c "CREATE DATABASE mydb WITH OWNER myuser;"
 
 It is strongly suggested to choose a strong password to protect the database access !
 
-#### Verify access
+**Verify access**
 
 You can check the connectivity of the database user executing, from a shell, as any operating system user, the following command:
 
@@ -111,7 +110,7 @@ In order to run [**pgagroal**](https://github.com/agroal/pgagroal), you need at 
 
 [**pgagroal**](https://github.com/agroal/pgagroal) as a daemon cannot be run by `root` operating system user, it is a good idea to create an unprivileged operating system user to run the pooler.
 
-#### Add a user to run pgagroal
+**Add a user to run pgagroal**
 
 As a privileged operating system user (either `root` or via `sudo` or `doas`), run the followings:
 
@@ -123,7 +122,7 @@ passwd pgagroal
 The above will create an operating system [**pgagroal**](https://github.com/agroal/pgagroal) that is the one that is going to run the pooler.
 
 
-#### Create basic configuration
+**Create basic configuration**
 
 As the [**pgagroal**](https://github.com/agroal/pgagroal) operating system user, add a master key to protect the [**pgagroal**](https://github.com/agroal/pgagroal) vault and then add the `myuser` to the pooler:
 
@@ -172,7 +171,7 @@ to connect to `mydb` using a TCP-IP connection.
 
 See [the documentation about `pgagroal_hba.conf` for more details](https://github.com/agroal/pgagroal/blob/master/doc/CONFIGURATION.md#pgagroal_hba-configuration).
 
-#### Start pgagroal
+**Start pgagroal**
 
 It is now time to start [**pgagroal**](https://github.com/agroal/pgagroal), so as the [**pgagroal**](https://github.com/agroal/pgagroal) operating system user run:
 
@@ -198,7 +197,7 @@ You will not need to specify any command line flag for files that have the stand
 
 There is a minimal shell completion support for `pgagroal-cli` and `pgagroal-admin`. If you are running such commands from a Bash or Zsh, you can take some advantage of command completion.
 
-#### Installing command completions in Bash
+**Installing command completions in Bash**
 
 There is a completion script into `contrib/shell_comp/pgagroal_comp.bash` that can be used
 to help you complete the command line while you are typing.
@@ -212,7 +211,7 @@ source contrib/shell_comp/pgagroal_comp.bash
 
 At this point, the completions should be active, so you can type the name of one the commands between `pgagroal-cli` and `pgagroal-admin` and hit `<TAB>` to help the command line completion.
 
-#### Installing the command completions on Zsh
+**Installing the command completions on Zsh**
 
 In order to enable completion into `zsh` you first need to have `compinit` loaded;
 ensure your `.zshrc` file contains the following lines:

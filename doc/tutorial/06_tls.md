@@ -42,7 +42,7 @@ tls_cert_file = </path/to/server.crt>
 tls_key_file = </path/to/server.key>
 ```
 
-#### Only Server Authentication
+**Only Server Authentication**
 
 If you wish to do only server authentication the aforementioned configuration suffice.
 
@@ -52,7 +52,7 @@ If you wish to do only server authentication the aforementioned configuration su
 PGSSLMODE=verify-full PGSSLROOTCERT=</path/to/server_root_ca.crt> psql -h localhost -p 2345 -U <postgres_user> <postgres_database>
 ```
 
-#### Full Client and Server Authentication
+**Full Client and Server Authentication**
 
 To enable the server to request the client certificates add the following configuration lines
 
@@ -94,7 +94,7 @@ tls_key_file = </path/to/server.key>
 
 This will add TLS support to the server alongside the standard `http` endpoint, allowing clients to make requests to either the `https` or `http` endpoint.
 
-#### Only Server Authentication
+**Only Server Authentication**
 
 If you wish to do only server authentication the aforementioned configuration suffice.
 
@@ -104,7 +104,7 @@ If you wish to do only server authentication the aforementioned configuration su
 curl --cacert </path/to/server_root_ca.crt> -i https://localhost:2500/users/<frontend_user>
 ```
 
-#### Full Client and Server Authentication
+**Full Client and Server Authentication**
 
 To enable the server to request the client certificates add the following configuration lines
 
