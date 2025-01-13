@@ -577,7 +577,7 @@ bind_host(const char* hostname, int port, int** fds, int* length)
    index = 0;
    size = 0;
 
-   sport = calloc(1, 5);
+   sport = calloc(1, 6);
    if (sport == NULL)
    {
       pgagroal_log_fatal("Couldn't allocate memory while binding host");
