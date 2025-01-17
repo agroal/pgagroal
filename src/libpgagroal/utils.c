@@ -316,10 +316,10 @@ pgagroal_read_int32(void* data)
                             *((unsigned char*)(data + 2)),
                             *((unsigned char*)(data + 3))};
 
-   int32_t res = (int32_t)((bytes[0] << 24)) |
-                 ((bytes[1] << 16)) |
-                 ((bytes[2] << 8)) |
-                 ((bytes[3]));
+   int32_t res = (int32_t)(((uint32_t)bytes[0] << 24)) |
+                 (((uint32_t)bytes[1] << 16)) |
+                 (((uint32_t)bytes[2] << 8)) |
+                 (((uint32_t)bytes[3]));
 
    return res;
 }
