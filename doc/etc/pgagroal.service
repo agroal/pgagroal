@@ -1,0 +1,21 @@
+# systemd service unit for pgagroal
+#
+# - Adjust the user running the service in User
+# - Adjust the path in ExecStart
+#
+[Unit]
+Description=High-performance connection pool for PostgreSQL
+Documentation=man:pgagroal(1)
+Documentation=https://agroal.github.io/pgagroal/
+After=network.target
+
+[Service]
+Type=exec
+User=pgagroal
+ExecStart=/usr/bin/pgagroal
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGINT
+#LimitNOFILE=1024
+
+[Install]
+WantedBy=multi-user.target

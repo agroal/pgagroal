@@ -1,0 +1,196 @@
+name: CI
+
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+    branches:
+    - master
+
+jobs:
+  build-linux:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Add PostgreSQL apt repository
+      run: |
+        sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+        sudo wget --quiet --output-document /etc/apt/trusted.gpg.d/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    - name: Update system
+      run: sudo apt update
+    - name: Install libev
+      run: sudo apt install -y libev4 libev-dev
+    - name: Install systemd
+      run: sudo apt install -y libsystemd-dev
+    - name: Install rst2man
+      run: sudo apt install -y python3-docutils
+    - name: Install zstd
+      run: sudo apt install -y libzstd-dev
+    - name: Install lz4
+      run: sudo apt install -y liblz4-dev
+    - name: Install bzip2
+      run: sudo apt install -y libbz2-dev
+    - name: Install graphviz
+      run: sudo apt install graphviz
+    - name: Install doxygen
+      run: sudo apt install doxygen
+    - name: Install clang
+      run: sudo apt install -y clang
+    - name: Install PostgreSQL
+      run: sudo apt install -y postgresql
+    - name: Start postgres
+      run: |
+        version=$(pg_config --version | grep -Eo "[0-9]{1,2}" | head -1)
+        sudo -u postgres /usr/lib/postgresql/${version}/bin/pg_ctl start -D /etc/postgresql/${version}/main/
+    - name: GCC/mkdir
+      run: mkdir build
+      working-directory: /home/runner/work/pgagroal/pgagroal/
+    - name: GCC/cmake
+      run: sudo apt install cmake && export CC=/usr/bin/gcc && cmake -DCMAKE_BUILD_TYPE=Debug ..
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/
+    - name: GCC/make
+      run: make
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/
+    - name: GCC/Run pgagroal & confirm pgagroal is running
+      run: |
+        sudo mkdir -p /etc/pgagroal
+        sudo cp ../../doc/etc/*.conf /etc/pgagroal
+        ./pgagroal >> /dev/null 2>&1 &
+        pid=$!
+        sleep 5
+        ./pgagroal-cli ping
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+    - name: GCC/Stop pgagroal & postgres
+      run: |
+        ./pgagroal-cli shutdown
+        version=$(pg_config --version | grep -Eo "[0-9]{1,2}" | head -1)
+        sudo -u postgres /usr/lib/postgresql/${version}/bin/pg_ctl stop -D /etc/postgresql/${version}/main/
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+    - name: rm -Rf
+      run: rm -Rf build/
+      working-directory: /home/runner/work/pgagroal/pgagroal/
+    - name: Start postgres
+      run: |
+        version=$(pg_config --version | grep -Eo "[0-9]{1,2}" | head -1)
+        sudo -u postgres /usr/lib/postgresql/${version}/bin/pg_ctl start -D /etc/postgresql/${version}/main/
+    - name: CLANG/mkdir
+      run: mkdir build
+      working-directory: /home/runner/work/pgagroal/pgagroal/
+    - name: CLANG/cmake
+      run: export CC=/usr/bin/clang && cmake -DCMAKE_BUILD_TYPE=Debug ..
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/
+    - name: CLANG/make
+      run: make
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/
+    - name: CLANG/Run pgagroal & confirm pgagroal is running
+      run: |
+        sudo mkdir -p /etc/pgagroal
+        sudo cp ../../doc/etc/*.conf /etc/pgagroal
+        ./pgagroal >> /dev/null 2>&1 &
+        pid=$!
+        sleep 5
+        ./pgagroal-cli ping
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+    - name: CLANG/Stop pgagroal & postgres
+      run: |
+        ./pgagroal-cli shutdown
+        version=$(pg_config --version | grep -Eo "[0-9]{1,2}" | head -1)
+        sudo -u postgres /usr/lib/postgresql/${version}/bin/pg_ctl stop -D /etc/postgresql/${version}/main/
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+
+
+
+  build-macos:
+
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Homebrew
+      run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+    - name: Update system
+      run: brew update
+    - name: Install openssl
+      run: brew install openssl
+    - name: Install libev
+      run: brew install libev
+    - name: Install zstd
+      run: brew install zstd
+    - name: Install lz4
+      run: brew install lz4
+    - name: Install bzip2
+      run: brew install bzip2
+    - name: Install rst2man
+      run: brew install docutils
+    - name: Install graphviz
+      run: brew install graphviz
+    - name: Install doxygen
+      run: brew install doxygen
+    - name: Install clang
+      run: brew install llvm
+    - name: Install PostgreSQL
+      run: |
+        latest_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+        brew install ${latest_pg} || true  # `|| true` prevents install errors from breaking the run
+    - name: Start postgres
+      run: |
+        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+        brew services start ${installed_pg}
+    - name: GCC/mkdir
+      run: mkdir build
+      working-directory: /Users/runner/work/pgagroal/pgagroal/
+    - name: GCC/cmake
+      run: export CC=/usr/bin/gcc && export OPENSSL_ROOT_DIR=`brew --prefix openssl` && cmake -DCMAKE_BUILD_TYPE=Debug ..
+      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+    - name: GCC/make
+      run: make
+      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+    - name: GCC/Run pgagroal & confirm pgagroal is running
+      run: |
+         sudo mkdir -p /etc/pgagroal
+         sudo cp ../../doc/etc/*.conf /etc/pgagroal
+         ./pgagroal >> /dev/null 2>&1 &
+         pid=$!
+         sleep 5
+         ./pgagroal-cli ping
+      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+    - name: GCC/Stop pgagroal & postgres
+      run: |
+        ./pgagroal-cli shutdown
+        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+        brew services stop ${installed_pg}
+      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+    - name: rm -Rf
+      run: rm -Rf build/
+      working-directory: /Users/runner/work/pgagroal/pgagroal/
+    - name: Start postgres
+      run: |
+        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+        brew services start ${installed_pg}
+    - name: CLANG/mkdir
+      run: mkdir build
+      working-directory: /Users/runner/work/pgagroal/pgagroal/
+    - name: CLANG/cmake
+      run: export CC=/usr/bin/clang && export OPENSSL_ROOT_DIR=`brew --prefix openssl` && cmake -DCMAKE_BUILD_TYPE=Debug ..
+      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+    - name: CLANG/make
+      run: make
+      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+    - name: CLANG/Run pgagroal & confirm pgagroal is running
+      run: |
+        sudo mkdir -p /etc/pgagroal
+        sudo cp ../../doc/etc/*.conf /etc/pgagroal
+        ./pgagroal >> /dev/null 2>&1 &
+        pid=$!
+        sleep 5
+        ./pgagroal-cli ping
+      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+    - name: CLANG/Stop pgagroal & postgres
+      run: |
+        ./pgagroal-cli shutdown
+        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+        brew services stop ${installed_pg}
+      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/

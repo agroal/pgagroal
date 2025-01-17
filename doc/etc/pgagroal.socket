@@ -1,0 +1,13 @@
+# systemd socket unit for pgagroal
+#
+# See pgagroal.service for more information.
+#
+[Unit]
+Description=Sockets for pgagroal
+
+[Socket]
+ListenStream=/tmp/.s.PGSQL.2345
+#ListenStream=2345
+
+[Install]
+WantedBy=sockets.target
