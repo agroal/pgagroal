@@ -21,6 +21,7 @@ Yihe Lu <t1t4m1un@gmail.com>
 Eugenio Gigante <giganteeugenio2@gmail.com>
 Mohanad Khaled <mohanadkhaled87@gmail.com>
 Haoran Zhang <andrewzhr9911@gmail.com>
+Christian Englert <code@c.roboticbrain.de>
 ```
 
 ## Committers
