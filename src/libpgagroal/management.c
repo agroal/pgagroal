@@ -58,11 +58,6 @@
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 
-static int create_header(int32_t command, uint8_t compression, uint8_t encryption, int32_t output_format, struct json** json);
-static int create_request(struct json* json, struct json** request);
-static int create_outcome_success(struct json* json, time_t start_time, time_t end_time, struct json** outcome);
-static int create_outcome_failure(struct json* json, int32_t error, struct json** outcome);
-
 static int read_uint8(char* prefix, SSL* ssl, int socket, uint8_t* i);
 static int read_string(char* prefix, SSL* ssl, int socket, char** str);
 static int read_complete(SSL* ssl, int socket, void* buf, size_t size);
@@ -78,12 +73,12 @@ pgagroal_management_request_flush(SSL* ssl, int socket, int32_t mode, char* data
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_FLUSH, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_FLUSH, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -113,12 +108,12 @@ pgagroal_management_request_enabledb(SSL* ssl, int socket, char* database, uint8
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_ENABLEDB, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_ENABLEDB, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -147,12 +142,12 @@ pgagroal_management_request_get_password(SSL* ssl, int socket, char* username, u
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_GET_PASSWORD, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_GET_PASSWORD, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -181,12 +176,12 @@ pgagroal_management_request_disabledb(SSL* ssl, int socket, char* database, uint
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_DISABLEDB, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_DISABLEDB, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -215,12 +210,12 @@ pgagroal_management_request_gracefully(SSL* ssl, int socket, uint8_t compression
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_GRACEFULLY, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_GRACEFULLY, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -247,12 +242,12 @@ pgagroal_management_request_shutdown(SSL* ssl, int socket, uint8_t compression, 
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_SHUTDOWN, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_SHUTDOWN, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -279,12 +274,12 @@ pgagroal_management_request_cancel_shutdown(SSL* ssl, int socket, uint8_t compre
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_CANCEL_SHUTDOWN, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_CANCEL_SHUTDOWN, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -311,12 +306,12 @@ pgagroal_management_request_status(SSL* ssl, int socket, uint8_t compression, ui
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_STATUS, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_STATUS, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -343,12 +338,12 @@ pgagroal_management_request_details(SSL* ssl, int socket, uint8_t compression, u
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_DETAILS, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_DETAILS, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -375,12 +370,12 @@ pgagroal_management_request_ping(SSL* ssl, int socket, uint8_t compression, uint
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_PING, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_PING, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -407,12 +402,12 @@ pgagroal_management_request_clear(SSL* ssl, int socket, uint8_t compression, uin
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_CLEAR, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_CLEAR, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -439,12 +434,12 @@ pgagroal_management_request_clear_server(SSL* ssl, int socket, char* server, uin
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_CLEAR_SERVER, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_CLEAR_SERVER, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -473,12 +468,12 @@ pgagroal_management_request_switch_to(SSL* ssl, int socket, char* server, uint8_
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_SWITCH_TO, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_SWITCH_TO, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -507,12 +502,12 @@ pgagroal_management_request_reload(SSL* ssl, int socket, uint8_t compression, ui
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_RELOAD, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_RELOAD, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -539,12 +534,12 @@ pgagroal_management_request_conf_ls(SSL* ssl, int socket, uint8_t compression, u
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_CONFIG_LS, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_CONFIG_LS, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -571,12 +566,12 @@ pgagroal_management_request_conf_get(SSL* ssl, int socket, uint8_t compression, 
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_CONFIG_GET, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_CONFIG_GET, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -603,12 +598,12 @@ pgagroal_management_request_conf_set(SSL* ssl, int socket, char* config_key, cha
    struct json* j = NULL;
    struct json* request = NULL;
 
-   if (create_header(MANAGEMENT_CONFIG_SET, compression, encryption, output_format, &j))
+   if (pgagroal_management_create_header(MANAGEMENT_CONFIG_SET, compression, encryption, output_format, &j))
    {
       goto error;
    }
 
-   if (create_request(j, &request))
+   if (pgagroal_management_create_request(j, &request))
    {
       goto error;
    }
@@ -632,8 +627,8 @@ error:
    return 1;
 }
 
-static int
-create_header(int32_t command, uint8_t compression, uint8_t encryption, int32_t output_format, struct json** json)
+int
+pgagroal_management_create_header(int32_t command, uint8_t compression, uint8_t encryption, int32_t output_format, struct json** json)
 {
    time_t t;
    char timestamp[128];
@@ -680,8 +675,8 @@ error:
    return 1;
 }
 
-static int
-create_request(struct json* json, struct json** request)
+int
+pgagroal_management_create_request(struct json* json, struct json** request)
 {
    struct json* r = NULL;
 
@@ -705,8 +700,8 @@ error:
    return 1;
 }
 
-static int
-create_outcome_success(struct json* json, time_t start_time, time_t end_time, struct json** outcome)
+int
+pgagroal_management_create_outcome_success(struct json* json, time_t start_time, time_t end_time, struct json** outcome)
 {
    int32_t total_seconds = 0;
    char* elapsed = NULL;
@@ -741,8 +736,8 @@ error:
    return 1;
 }
 
-static int
-create_outcome_failure(struct json* json, int32_t error, struct json** outcome)
+int
+pgagroal_management_create_outcome_failure(struct json* json, int32_t error, struct json** outcome)
 {
    struct json* r = NULL;
 
@@ -809,7 +804,7 @@ pgagroal_management_response_ok(SSL* ssl, int socket, time_t start_time, time_t 
 {
    struct json* outcome = NULL;
 
-   if (create_outcome_success(payload, start_time, end_time, &outcome))
+   if (pgagroal_management_create_outcome_success(payload, start_time, end_time, &outcome))
    {
       goto error;
    }
@@ -836,7 +831,7 @@ pgagroal_management_response_error(SSL* ssl, int socket, char* server, int32_t e
 
    config = (struct main_configuration*)shmem;
 
-   if (create_outcome_failure(payload, error, &outcome))
+   if (pgagroal_management_create_outcome_failure(payload, error, &outcome))
    {
       goto error;
    }
