@@ -169,7 +169,6 @@ extern "C" {
 #define MANAGEMENT_OUTPUT_FORMAT_JSON 1
 #define MANAGEMENT_OUTPUT_FORMAT_RAW  2
 
-
 /**
  * Create header for management command
  * @param command The command

@@ -5379,14 +5379,14 @@ add_servers_configuration_response(struct json* res)
       {
          return;
       }
-      
+
       pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_HOST, (uintptr_t)config->servers[i].host, ValueString);
       pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_PORT, (uintptr_t)config->servers[i].port, ValueInt64);
       pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_TLS, (uintptr_t)config->servers[i].tls, ValueBool);
       pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_TLS_CERT_FILE, (uintptr_t)config->servers[i].tls_cert_file, ValueString);
       pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_TLS_KEY_FILE, (uintptr_t)config->servers[i].tls_key_file, ValueString);
       pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_TLS_CA_FILE, (uintptr_t)config->servers[i].tls_ca_file, ValueString);
-      
+
       pgagroal_json_put(res, config->servers[i].name, (uintptr_t)server_conf, ValueJSON);
    }
 }
@@ -5672,7 +5672,7 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
             memcpy(config->common.tls_key_file, config_value, max);
             config->common.tls_key_file[max] = '\0';
             pgagroal_json_put(response, key, (uintptr_t)config->common.tls_key_file, ValueString);
-         }     
+         }
       }
       else if (!strcmp(key, "tls_ca_file"))
       {

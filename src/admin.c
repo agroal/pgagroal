@@ -891,7 +891,6 @@ password:
       goto error;
    }
 
-
    if (create_response(users_path, j, &response))
    {
       goto error;

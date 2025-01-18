@@ -1839,7 +1839,7 @@ accept_mgt_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       else if (pid == 0)
       {
          struct json* pyl = NULL;
-         
+
          shutdown_ports();
 
          pgagroal_json_clone(payload, &pyl);

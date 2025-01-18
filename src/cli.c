@@ -931,7 +931,7 @@ display_helper(char* command)
    else if (!strcmp(command, COMMAND_CONFIG_GET) ||
             !strcmp(command, COMMAND_CONFIG_LS) ||
             !strcmp(command, COMMAND_CONFIG_SET) ||
-      !strcmp(command, COMMAND_RELOAD))
+            !strcmp(command, COMMAND_RELOAD))
    {
       help_conf();
    }
@@ -1329,7 +1329,7 @@ error:
    return 1;
 }
 
-static int 
+static int
 process_ls_result(SSL* ssl, int socket, int32_t output_format)
 {
    struct json* read = NULL;
@@ -1357,7 +1357,7 @@ process_ls_result(SSL* ssl, int socket, int32_t output_format)
       struct json_iterator* iter = NULL;
       pgagroal_json_iterator_create(json_res, &iter);
       while (pgagroal_json_iterator_next(iter))
-      { 
+      {
          char* value = pgagroal_value_to_string(iter->value, FORMAT_TEXT, NULL, 0);
          printf("%s\n", value);
          free(value);
@@ -1696,11 +1696,11 @@ get_conf_path_result(struct json* j, uintptr_t* r)
    {
       pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_ADMIN_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_ADMIN_CONF_PATH), ValueString);
    }
-      if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_MAIN_CONF_PATH))
+   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_MAIN_CONF_PATH))
    {
       pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_MAIN_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_MAIN_CONF_PATH), ValueString);
    }
-      if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_USER_CONF_PATH))
+   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_USER_CONF_PATH))
    {
       pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_USER_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_USER_CONF_PATH), ValueString);
    }
