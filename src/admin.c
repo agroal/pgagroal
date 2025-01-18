@@ -1129,6 +1129,7 @@ list_users(char* users_path, int32_t output_format)
    }
 
    fclose(users_file);
+   users_file = NULL;
 
    end_t = time(NULL);
 
