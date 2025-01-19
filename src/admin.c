@@ -466,6 +466,19 @@ error:
       file = NULL;
    }
 
+   pgagroal_management_create_outcome_failure(j, 1, &outcome);
+
+   if (output_format == MANAGEMENT_OUTPUT_FORMAT_JSON)
+   {
+      pgagroal_json_print(j, FORMAT_JSON);
+   }
+   else
+   {
+      pgagroal_json_print(j, FORMAT_TEXT);
+   }
+
+   pgagroal_json_destroy(j);
+
    return 1;
 }
 
