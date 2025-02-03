@@ -28,6 +28,7 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <ev.h>
 #include <logging.h>
 #include <management.h>
 #include <message.h>
@@ -41,7 +42,7 @@
 
 /* system */
 #include <errno.h>
-#include <ev.h>
+#include <signal.h>
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -295,7 +296,14 @@ session_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    if (wi->client_ssl == NULL)
    {
-      status = pgagroal_read_socket_message(wi->client_fd, &msg);
+      if (config->ev_backend == EV_BACKEND_IO_URING)
+      {
+         status = pgagroal_buffer_to_message(watcher->data, watcher->size, &msg);
+      }
+      else
+      {
+         status = pgagroal_read_socket_message(wi->client_fd, &msg);
+      }
    }
    else
    {
@@ -369,7 +377,7 @@ session_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
       else if (msg->kind == 'X')
       {
          saw_x = true;
-         running = 0;
+         pgagroal_ev_loop_break(loop);
       }
    }
    else if (status == MESSAGE_STATUS_ZERO)
@@ -383,7 +391,6 @@ session_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    client_inactive(wi->slot);
 
-   ev_break(loop, EVBREAK_ONE);
    return;
 
 client_done:
@@ -403,8 +410,7 @@ client_done:
       exit_code = WORKER_SERVER_FAILURE;
    }
 
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+   pgagroal_ev_loop_break(loop);
    return;
 
 client_error:
@@ -417,8 +423,8 @@ client_error:
    client_inactive(wi->slot);
 
    exit_code = WORKER_CLIENT_FAILURE;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+
+   pgagroal_ev_loop_break(loop);
    return;
 
 server_error:
@@ -431,8 +437,8 @@ server_error:
    client_inactive(wi->slot);
 
    exit_code = WORKER_SERVER_FAILURE;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+
+   pgagroal_ev_loop_break(loop);
    return;
 
 failover:
@@ -440,8 +446,8 @@ failover:
    client_inactive(wi->slot);
 
    exit_code = WORKER_FAILOVER;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+
+   pgagroal_ev_loop_break(loop);
    return;
 }
 
@@ -452,7 +458,7 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
    bool fatal = false;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
-   struct main_configuration* config = NULL;
+   struct main_configuration* config = (struct main_configuration*)shmem;
 
    wi = (struct worker_io*)watcher;
 
@@ -460,7 +466,14 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    if (wi->server_ssl == NULL)
    {
-      status = pgagroal_read_socket_message(wi->server_fd, &msg);
+      if (config->ev_backend == EV_BACKEND_IO_URING)
+      {
+         status = pgagroal_buffer_to_message(watcher->data, watcher->size, &msg);
+      }
+      else
+      {
+         status = pgagroal_read_socket_message(wi->server_fd, &msg);
+      }
    }
    else
    {
@@ -535,7 +548,7 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
          if (fatal)
          {
             exit_code = WORKER_SERVER_FATAL;
-            running = 0;
+            pgagroal_ev_loop_break(loop);
          }
       }
    }
@@ -550,11 +563,9 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    client_inactive(wi->slot);
 
-   ev_break(loop, EVBREAK_ONE);
    return;
 
 client_error:
-   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[S] Client error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->client_fd, status);
@@ -564,12 +575,11 @@ client_error:
    client_inactive(wi->slot);
 
    exit_code = WORKER_CLIENT_FAILURE;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+
+   pgagroal_ev_loop_break(loop);
    return;
 
 server_done:
-   config = (struct main_configuration*)shmem;
    pgagroal_log_debug("[S] Server done (slot %d database %s user %s): %s (socket %d status %d)",
                       wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                       strerror(errno), wi->server_fd, status);
@@ -577,12 +587,10 @@ server_done:
 
    client_inactive(wi->slot);
 
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+   pgagroal_ev_loop_break(loop);
    return;
 
 server_error:
-   config = (struct main_configuration*)shmem;
    pgagroal_log_warn("[S] Server error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->server_fd, status);
@@ -592,8 +600,8 @@ server_error:
    client_inactive(wi->slot);
 
    exit_code = WORKER_SERVER_FAILURE;
-   running = 0;
-   ev_break(loop, EVBREAK_ALL);
+
+   pgagroal_ev_loop_break(loop);
    return;
 }
 

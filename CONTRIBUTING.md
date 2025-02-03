@@ -34,7 +34,7 @@ Don't forget to indicate your pgagroal version.
 You can use the follow command, if you are using a [Fedora](https://getfedora.org/) based platform:
 
 ```
-dnf install git gcc cmake make libev libev-devel openssl openssl-devel systemd systemd-devel python3-docutils
+dnf install git gcc cmake make openssl openssl-devel systemd systemd-devel python3-docutils liburing liburing-devel
 ```
 
 in order to get the necessary dependencies.
