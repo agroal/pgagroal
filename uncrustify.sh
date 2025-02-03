@@ -5,6 +5,7 @@ function indent()
     for f in $1
     do
         uncrustify -c uncrustify.cfg -q --replace --no-backup $f
+        rm -f $f.uncrustify
     done
 }
 
