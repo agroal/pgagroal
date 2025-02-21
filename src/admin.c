@@ -609,7 +609,7 @@ password:
 
             password = pgagroal_get_password();
          }
-	       else
+         else
          {
             do_free = false;
             do_verify = false;
@@ -848,7 +848,7 @@ password:
 
                   password = pgagroal_get_password();
                }
-	             else
+               else
                {
                   do_free = false;
                   do_verify = false;
