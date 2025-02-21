@@ -387,28 +387,37 @@ master_key(char* password, bool generate_pwd, int pwd_length, int32_t output_for
 
    if (password == NULL)
    {
-      if (!generate_pwd)
-      {
-         while (password == NULL)
-         {
-            printf("Master key (will not echo): ");
-            password = pgagroal_get_password();
-            printf("\n");
-
-            if (password != NULL && strlen(password) < MIN_PASSWORD_LENGTH)
-            {
-               printf("Invalid key length, must be at least %d chars.\n", MIN_PASSWORD_LENGTH);
-               free(password);
-               password = NULL;
-            }
-         }
-      }
-      else
+      if (generate_pwd)
       {
          if (pgagroal_generate_password(pwd_length, &password))
          {
             do_free = false;
             goto error;
+         }
+      }
+      else
+      {
+         password = secure_getenv("PGAGROAL_PASSWORD");
+
+         if (password == NULL)
+         {
+            while (password == NULL)
+            {
+               printf("Master key (will not echo): ");
+               password = pgagroal_get_password();
+               printf("\n");
+
+               if (password != NULL && strlen(password) < MIN_PASSWORD_LENGTH)
+               {
+                  printf("Invalid key length, must be at least %d chars.\n", MIN_PASSWORD_LENGTH);
+                  free(password);
+                  password = NULL;
+               }
+            }
+         }
+         else
+         {
+            do_free = false;
          }
       }
    }
@@ -586,15 +595,25 @@ password:
       }
       else
       {
-         printf("Password : ");
+         password = secure_getenv("PGAGROAL_PASSWORD");
 
-         if (password != NULL)
+         if (password == NULL)
          {
-            free(password);
-            password = NULL;
-         }
+            printf("Password : ");
 
-         password = pgagroal_get_password();
+            if (password != NULL)
+            {
+               free(password);
+               password = NULL;
+            }
+
+            password = pgagroal_get_password();
+         }
+	       else
+         {
+            do_free = false;
+            do_verify = false;
+         }
       }
       printf("\n");
    }
@@ -815,15 +834,25 @@ password:
             }
             else
             {
-               printf("Password : ");
+               password = secure_getenv("PGAGROAL_PASSWORD");
 
-               if (password != NULL)
+               if (password == NULL)
                {
-                  free(password);
-                  password = NULL;
-               }
+                  printf("Password : ");
 
-               password = pgagroal_get_password();
+                  if (password != NULL)
+                  {
+                     free(password);
+                     password = NULL;
+                  }
+
+                  password = pgagroal_get_password();
+               }
+	             else
+               {
+                  do_free = false;
+                  do_verify = false;
+               }
             }
             printf("\n");
          }

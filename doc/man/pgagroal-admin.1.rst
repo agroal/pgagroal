@@ -60,6 +60,14 @@ user del
 user ls
   List all users
 
+ENVIRONMENT VARIABLES
+=====================
+
+PGAGROAL_PASSWORD
+  Provide either a key for use with the `master-key` command, or a user password for use with the `user add` or `user edit` commands.
+  If provided, `pgagroal-admin` will not ask for the key/password interactively.
+  Note that a password provided using the `--password` command line argument will have precedence over this variable.
+
 REPORTING BUGS
 ==============
 

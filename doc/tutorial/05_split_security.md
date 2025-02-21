@@ -27,7 +27,7 @@ As an example, consider the user `myuser` created in the [Installing pgagroal tu
 To achieve this, as [**pgagroal**](https://github.com/agroal/pgagroal) operating system run the following command:
 
 ```
-pgagroal-admin -f /etc/pgagroal/pgagroal_frontend_users.conf -U myuser -P application_password user add
+PGAGROAL_PASSWORD=application_password pgagroal-admin -f /etc/pgagroal/pgagroal_frontend_users.conf -U myuser user add
 ```
 
 ([**pgagroal**](https://github.com/agroal/pgagroal) user)

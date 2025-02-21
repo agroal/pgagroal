@@ -245,13 +245,17 @@ In order to set the master key for all users you can use
 pgagroal-admin -g master-key
 ```
 
-The master key must be at least 8 characters.
+The master key must be at least 8 characters if provided interactively.
+
+For scripted use, the master key can be provided using the `PGAGROAL_PASSWORD` environment variable.
 
 Then use the other commands to add, update, remove or list the current user names, f.ex.
 
 ```
 pgagroal-admin -f pgagroal_users.conf user add
 ```
+
+For scripted use, the user password can be provided using the `PGAGROAL_PASSWORD` environment variable.
 
 ## Next Steps
 

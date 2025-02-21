@@ -19,7 +19,7 @@ Assuming that the master key is already generated and an admin is already presen
 As the [**pgagroal**](https://github.com/agroal/pgagroal) operating system user, add the `myuser` to the pooler:
 
 ```
-pgagroal-admin -f /etc/pgagroal/pgagroal_users.conf -U myuser -P mypassword user add
+PGAGROAL_PASSWORD=mypassword pgagroal-admin -f /etc/pgagroal/pgagroal_users.conf -U myuser user add
 ```
 
 The `myuser` and `mypassword` should be the original PostgresSQL's user and its corresponding password.
@@ -29,7 +29,7 @@ The `myuser` and `mypassword` should be the original PostgresSQL's user and its 
 As the [**pgagroal**](https://github.com/agroal/pgagroal) operating system user, add the `myuser` to the pooler:
 
 ```
-pgagroal-admin -f /etc/pgagroal/pgagroal_frontend_users.conf -U myuser -P password user add
+PGAGROAL_PASSWORD=password pgagroal-admin -f /etc/pgagroal/pgagroal_frontend_users.conf -U myuser user add
 ```
 
 **Remember the frontend password should be between [8-1024] characters long.**
@@ -76,7 +76,7 @@ and press `Ctrl-d` (if running `cat`) to save the file.
 As the [**pgagroal**](https://github.com/agroal/pgagroal) operating system user, run the following command:
 
 ```
-pgagroal-admin -f /etc/pgagroal/pgagroal_vault_users.conf -U admin -P admin1234 add-user
+PGAGROAL_PASSWORD=admin1234 pgagroal-admin -f /etc/pgagroal/pgagroal_vault_users.conf -U admin user add
 ```
 
 The above will create the `admin` username with the `admin1234` password.Alternately, `/etc/pgagroal/pgagroal_admins.conf` can be provided for vault users information.

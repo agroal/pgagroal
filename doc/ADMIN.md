@@ -32,6 +32,8 @@ Options can be specified either in short or long form, in any position of the co
 The `-f` option is mandatory for every operation that involves user management. If no
 user file is specified, `pgagroal-admin` will silently use the default one (`pgagroal_users.conf`).
 
+The password can be passed using the environment variable `PGAGROAL_PASSWORD` instead of `-P`, however the command line argument will have precedence.
+
 ## Commands
 
 ### user

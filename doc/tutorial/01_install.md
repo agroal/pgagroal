@@ -128,7 +128,7 @@ As the [**pgagroal**](https://github.com/agroal/pgagroal) operating system user,
 
 ```
 pgagroal-admin master-key
-pgagroal-admin -f /etc/pgagroal/pgagroal_users.conf -U myuser -P mypassword user add
+PGAGROAL_PASSWORD=password pgagroal-admin -f /etc/pgagroal/pgagroal_users.conf -U myuser user add
 ```
 
 **You have to choose a password for the master key - remember it !**
