@@ -722,7 +722,7 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
    if (config->ev_backend == EV_BACKEND_INVALID)
    {
       pgagroal_log_warn("Configured event backend is invalid. Default to 'auto'");
-      config->ev_backend = EV_BACKEND_INVALID;
+      config->ev_backend = EV_BACKEND_AUTO;
    }
 
    if (config->ev_backend == EV_BACKEND_EMPTY)
