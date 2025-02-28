@@ -117,7 +117,7 @@ static int __io_uring_setup_more_buffers(struct ev_loop* loop);
 static int __io_uring_periodic_init(struct ev_periodic*, int);
 static int __io_uring_periodic_start(struct ev_loop*, struct ev_periodic*);
 static int __io_uring_periodic_stop(struct ev_loop*, struct ev_periodic*);
-static int __io_uring_signal_handler(struct ev_loop*, int);
+static void __io_uring_signal_handler(int signum, siginfo_t* info, void* p);
 static int __io_uring_signal_start(struct ev_loop*, struct ev_signal*);
 static int __io_uring_signal_stop(struct ev_loop*, struct ev_signal*);
 static int __io_uring_receive_handler(struct ev_loop*, struct ev_io*, struct io_uring_cqe*, void**, bool);
@@ -165,6 +165,9 @@ static int __kqueue_signal_start(struct ev_loop*, struct ev_signal*);
 #endif /* HAVE_LINUX */
 
 /* context globals */
+
+static struct ev_loop * loop;
+static struct ev_signal* watchers[_NSIG] = {0};
 
 static bool multithreading = false;    /* Enable multithreading for a loop */
 
@@ -313,7 +316,6 @@ sigchld_handler(struct ev_loop* loop, struct ev_signal* w, int sig)
 struct ev_loop*
 pgagroal_ev_init(void)
 {
-   struct ev_loop* loop;
    static ev_signal w = {
       .type = EV_SIGNAL,
       .signum = SIGCHLD,
@@ -505,12 +507,6 @@ pgagroal_ev_signal_init(struct ev_signal* w, signal_cb cb, int signum)
 int
 pgagroal_ev_signal_start(struct ev_loop* loop, struct ev_signal* w)
 {
-   sigaddset(&loop->sigset, w->signum);
-   if (sigprocmask(SIG_BLOCK, &loop->sigset, NULL) == -1)
-   {
-      pgagroal_log_fatal("sigprocmask");
-      exit(1);
-   }
    signal_start(loop, w);
    list_add(w, loop->shead.next);
    return EV_OK;
@@ -747,6 +743,16 @@ __io_uring_io_stop(struct ev_loop* loop, struct ev_io* target)
 static int
 __io_uring_signal_start(struct ev_loop* loop, struct ev_signal* w)
 {
+   struct sigaction act;
+   memset(&act, 0, sizeof(act));
+   act.sa_sigaction = &__io_uring_signal_handler;
+   act.sa_flags = SA_SIGINFO | SA_RESTART;
+   if (sigaction(w->signum, &act, NULL) == -1)
+   {
+      pgagroal_log_fatal("sigaction failed for signum %d", w->signum);
+      return EV_ERROR;
+   }
+   watchers[w->signum] = w;
    return EV_OK;
 }
 
@@ -792,7 +798,6 @@ static int
 __io_uring_loop(struct ev_loop* loop)
 {
    int ret;
-   int signum;
    int events;
    int to_wait = 1; /* at first, wait for any 1 event */
    unsigned int head;
@@ -818,24 +823,7 @@ __io_uring_loop(struct ev_loop* loop)
       if (*loop->ring.sq.kflags & IORING_SQ_CQ_OVERFLOW)
       {
          pgagroal_log_error("io_uring overflow");
-         exit(EXIT_FAILURE);
-      }
-
-      /* Check for signals before iterating over cqes */
-      signum = sigtimedwait(&loop->sigset, NULL, &timeout);
-      if (signum > 0)
-      {
-         ret = __io_uring_signal_handler(loop, signum);
-
-         if (ret == EV_ERROR)
-         {
-            pgagroal_log_error("Signal handling error");
-            return EV_ERROR;
-         }
-         if (!is_running(loop))
-         {
-            break;
-         }
+         return EV_FATAL;
       }
 
       events = 0;
@@ -942,19 +930,17 @@ __io_uring_send_handler(struct ev_loop* loop, struct ev_io* w, struct io_uring_c
    return EV_OK;
 }
 
-static int
-__io_uring_signal_handler(struct ev_loop* loop, int signo)
+static void
+__io_uring_signal_handler(int signum, siginfo_t *si, void *p)
 {
    struct ev_signal* w;
-   for_each(w, loop->shead.next)
+   if (!watchers[signum])
    {
-      if (w->signum == signo)
-      {
-         w->cb(loop, w, 0);
-         return EV_OK;
-      }
+      pgagroal_log_error("watcher does not exist");
+      return;
    }
-   return EV_ERROR;
+   w = watchers[signum];
+   w->cb(loop, w, 0);
 }
 
 static int
