@@ -744,7 +744,7 @@ static int
 __io_uring_signal_start(struct ev_loop* loop, struct ev_signal* w)
 {
    struct sigaction act;
-   memset(&act, 0, sizeof(act));
+   sigemptyset(&act.sa_mask);
    act.sa_sigaction = &__io_uring_signal_handler;
    act.sa_flags = SA_SIGINFO | SA_RESTART;
    if (sigaction(w->signum, &act, NULL) == -1)
@@ -805,7 +805,7 @@ __io_uring_loop(struct ev_loop* loop)
    struct __kernel_timespec* ts = NULL;
    struct __kernel_timespec idle_ts = {
       .tv_sec = 0,
-      .tv_nsec = 10000000LL, /* seems best with 10000LL ms for most loads */
+      .tv_nsec = 10000LL, /* seems best with 10000LL ms for most loads */
    };
 
    set_running(loop);
@@ -930,13 +930,14 @@ __io_uring_send_handler(struct ev_loop* loop, struct ev_io* w, struct io_uring_c
    return EV_OK;
 }
 
+/* Do not use logging here, as they are not async safe and can
+ * lead to UAF due to libc freeing tz internally. */
 static void
 __io_uring_signal_handler(int signum, siginfo_t *si, void *p)
 {
    struct ev_signal* w;
    if (!watchers[signum])
    {
-      pgagroal_log_error("watcher does not exist");
       return;
    }
    w = watchers[signum];
@@ -953,8 +954,8 @@ __io_uring_receive_handler(struct ev_loop* loop, struct ev_io* w, struct io_urin
 
    if (cqe->res == -ENOBUFS)
    {
-      pgagroal_log_warn("ev: Not enough buffers");
-      exit(1);
+      pgagroal_log_fatal("ev: Not enough buffers");
+      return EV_REPLENISH_BUFFERS;
       /* TODO return EV_REPLENISH_BUFFERS; */
    }
 
