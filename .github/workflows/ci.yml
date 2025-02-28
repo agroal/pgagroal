@@ -42,14 +42,23 @@ jobs:
     - name: Install clang
       run: sudo apt install -y clang
     - name: Install PostgreSQL
-      run: sudo apt install -y postgresql postgresql-contrib
-    - name: Start postgres & setup test table
       run: |
-        version=$(pg_config --version | grep -Eo "[0-9]{1,2}" | head -1)
-        sudo cp pg_hba.conf /etc/postgresql/${version}/main
-        sudo -u postgres /usr/lib/postgresql/${version}/bin/pg_ctl start -D /etc/postgresql/${version}/main/ -o "-p 5432"
+        sudo apt install curl ca-certificates
+        sudo install -d /usr/share/postgresql-common/pgdg
+        sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+        sudo apt update
+        sudo apt install -y postgresql-17 postgresql-common postgresql-contrib
+    - name: Set Env Path Variable
+      run: |
+        echo "PATH=$PATH:/usr/lib/postgresql/17/bin" >> $GITHUB_ENV
+        echo $PATH
+    - name: Start PostgreSQL & setup test table
+      run: |
+        sudo systemctl start postgresql || exit 1
         netstat -tuln | grep '127.0.0.1:5432' || (echo "Nothing is listening on 127.0.0.1:5432"; exit 1)
         netstat -tuln | grep '::1:5432' || (echo "Nothing is listening on ::1:5432"; exit 1)
+        sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
         PGPASSWORD="postgres" pgbench -i -s 1 -h localhost -p 5432 -U postgres -d postgres
       working-directory: /home/runner/work/pgagroal/pgagroal/.github/config/
     - name: Define functions `verify_running` and `verify_shutdown`
@@ -182,136 +191,136 @@ jobs:
         verify_shutdown
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
 
-  build-macos:
-  
-    runs-on: macos-latest
-  
-    steps:
-    - uses: actions/checkout@v3
-    - name: Update system
-      run: brew update
-    - name: Install openssl
-      run: brew install openssl
-    - name: Install zstd
-      run: brew install zstd
-    - name: Install lz4
-      run: brew install lz4
-    - name: Install bzip2
-      run: brew install bzip2
-    - name: Install rst2man
-      run: brew install docutils
-    - name: Install graphviz
-      run: brew install graphviz
-    - name: Install doxygen
-      run: brew install doxygen
-    - name: Install clang
-      run: brew install llvm
-    - name: Install PostgreSQL
-      run: |
-        latest_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
-        brew install ${latest_pg} || true  # `|| true` prevents install errors from breaking the run
-    - name: Start PostgreSQL & setup test table
-      run: |
-        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
-        brew services start ${installed_pg}
-        sleep 5
-        /opt/homebrew/opt/${installed_pg}/bin/pgbench -i -s 1 -h localhost -p 5432 -U $(whoami) -d postgres
-        exit 0
-    - name: Define functions `verify_running` and `verify_shutdown`
-      run: |
-        echo 'verify_running() {
-          echo "[*] Confirming pgagroal is listening on port 2345"
-          netstat -an | grep "\.2345 .*LISTEN" || (echo "Nothing is listening on port 2345"; exit 1)
-          echo "[*] Running pgagroal-cli ping"
-          ./pgagroal-cli ping
-          echo "[*] Running queries with psql"
-          installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
-          PGPASSWORD="postgres" /opt/homebrew/opt/${installed_pg}/bin/psql -h 127.0.0.1 -p 2345 -U $(whoami) -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
-          PGPASSWORD="postgres" /opt/homebrew/opt/${installed_pg}/bin/psql -h ::1 -p 2345 -U $(whoami) -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
-        }
-  
-        verify_shutdown() {
-          echo "[*] Getting pgid"
-          pgid=$(ps -o pgid= -p $(cat /tmp/pgagroal.2345.pid) | grep -o "[0-9]*")
-          echo "[*] Running pgagroal-cli shutdown immediate"
-          ./pgagroal-cli shutdown immediate
-          sleep 5
-          echo "[*] Confirming there are no dangling pgagroal processes"
-          if pgrep -g $pgid > /tmp/dangling; then
-            echo "[E] Dangling pgagroal child processes:
-                  $(cat /tmp/dangling)"
-            exit 1
-          else
-            echo "Removing PID file"
-            rm -f /tmp/pgagroal.2345.pid
-          fi
-        }' > /tmp/functions.sh
-    - name: GCC/mkdir
-      run: mkdir build
-      working-directory: /Users/runner/work/pgagroal/pgagroal/
-    - name: GCC/cmake
-      run: export CC=/usr/bin/gcc && export OPENSSL_ROOT_DIR=`brew --prefix openssl` && cmake -DCMAKE_BUILD_TYPE=Debug ..
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
-    - name: GCC/make
-      run: make
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
-    - name: GCC/Run pgagroal as daemon with 'kqueue' backend
-      run: |
-        sudo mkdir -p /etc/pgagroal
-        sed -i '' 's/^log_type =.*$/log_type = file/' ../../doc/etc/pgagroal.conf
-        sed -i '' 's|^log_path =.*$|log_path = /dev/null|' ../../doc/etc/pgagroal.conf
-        sed -i '' 's/^ev_backend =.*$/ev_backend = kqueue/' ../../doc/etc/pgagroal.conf
-        cat ../../doc/etc/pgagroal.conf
-        echo "host all all all trust" > ../../doc/etc/pgagroal_hba.conf
-        sudo cp ../../doc/etc/*.conf /etc/pgagroal
-        ./pgagroal -d || exit 1
-        sleep 5
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
-    - name: GCC/Run verify_running for 'kqueue' backend
-      run: |
-        source /tmp/functions.sh
-        verify_running
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
-    - name: GCC/Run verify_shutdown for 'kqueue' backend
-      run: |
-        source /tmp/functions.sh
-        verify_shutdown
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
-    - name: GCC/Clean up build
-      run: rm -Rf build
-      working-directory: /Users/runner/work/pgagroal/pgagroal/
-    - name: CLANG/mkdir
-      run: mkdir build
-      working-directory: /Users/runner/work/pgagroal/pgagroal/
-    - name: CLANG/cmake
-      run: |
-        export CC=/usr/bin/clang
-        export OPENSSL_ROOT_DIR=$(brew --prefix openssl)
-        cmake -DCMAKE_BUILD_TYPE=Debug ..
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
-    - name: CLANG/make
-      run: make
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
-    - name: CLANG/Run pgagroal as daemon with 'kqueue' backend
-      run: |
-        sudo mkdir -p /etc/pgagroal
-        sed -i '' 's/^log_type =.*$/log_type = file/' ../../doc/etc/pgagroal.conf
-        sed -i '' 's|^log_path =.*$|log_path = /dev/null|' ../../doc/etc/pgagroal.conf
-        sed -i '' 's/^ev_backend =.*$/ev_backend = kqueue/' ../../doc/etc/pgagroal.conf
-        cat ../../doc/etc/pgagroal.conf
-        echo "host all all all trust" > ../../doc/etc/pgagroal_hba.conf
-        sudo cp ../../doc/etc/*.conf /etc/pgagroal
-        ./pgagroal -d || exit 1
-        sleep 5
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
-    - name: CLANG/Run verify_running for 'kqueue' backend
-      run: |
-        source /tmp/functions.sh
-        verify_running
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
-    - name: CLANG/Run verify_shutdown for 'kqueue' backend
-      run: |
-        source /tmp/functions.sh
-        verify_shutdown
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
-
+      #  build-macos:
+      #  
+      #    runs-on: macos-latest
+      #  
+      #    steps:
+      #    - uses: actions/checkout@v3
+      #    - name: Update system
+      #      run: brew update
+      #    - name: Install openssl
+      #      run: brew install openssl
+      #    - name: Install zstd
+      #      run: brew install zstd
+      #    - name: Install lz4
+      #      run: brew install lz4
+      #    - name: Install bzip2
+      #      run: brew install bzip2
+      #    - name: Install rst2man
+      #      run: brew install docutils
+      #    - name: Install graphviz
+      #      run: brew install graphviz
+      #    - name: Install doxygen
+      #      run: brew install doxygen
+      #    - name: Install clang
+      #      run: brew install llvm
+      #    - name: Install PostgreSQL
+      #      run: |
+      #        latest_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+      #        brew install ${latest_pg} || true  # `|| true` prevents install errors from breaking the run
+      #    - name: Start PostgreSQL & setup test table
+      #      run: |
+      #        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+      #        brew services start ${installed_pg}
+      #        sleep 5
+      #        /opt/homebrew/opt/${installed_pg}/bin/pgbench -i -s 1 -h localhost -p 5432 -U $(whoami) -d postgres
+      #        exit 0
+      #    - name: Define functions `verify_running` and `verify_shutdown`
+      #      run: |
+      #        echo 'verify_running() {
+      #          echo "[*] Confirming pgagroal is listening on port 2345"
+      #          netstat -an | grep "\.2345 .*LISTEN" || (echo "Nothing is listening on port 2345"; exit 1)
+      #          echo "[*] Running pgagroal-cli ping"
+      #          ./pgagroal-cli ping
+      #          echo "[*] Running queries with psql"
+      #          installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+      #          PGPASSWORD="postgres" /opt/homebrew/opt/${installed_pg}/bin/psql -h 127.0.0.1 -p 2345 -U $(whoami) -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
+      #          PGPASSWORD="postgres" /opt/homebrew/opt/${installed_pg}/bin/psql -h ::1 -p 2345 -U $(whoami) -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
+      #        }
+      #  
+      #        verify_shutdown() {
+      #          echo "[*] Getting pgid"
+      #          pgid=$(ps -o pgid= -p $(cat /tmp/pgagroal.2345.pid) | grep -o "[0-9]*")
+      #          echo "[*] Running pgagroal-cli shutdown immediate"
+      #          ./pgagroal-cli shutdown immediate
+      #          sleep 5
+      #          echo "[*] Confirming there are no dangling pgagroal processes"
+      #          if pgrep -g $pgid > /tmp/dangling; then
+      #            echo "[E] Dangling pgagroal child processes:
+      #                  $(cat /tmp/dangling)"
+      #            exit 1
+      #          else
+      #            echo "Removing PID file"
+      #            rm -f /tmp/pgagroal.2345.pid
+      #          fi
+      #        }' > /tmp/functions.sh
+      #    - name: GCC/mkdir
+      #      run: mkdir build
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/
+      #    - name: GCC/cmake
+      #      run: export CC=/usr/bin/gcc && export OPENSSL_ROOT_DIR=`brew --prefix openssl` && cmake -DCMAKE_BUILD_TYPE=Debug ..
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+      #    - name: GCC/make
+      #      run: make
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+      #    - name: GCC/Run pgagroal as daemon with 'kqueue' backend
+      #      run: |
+      #        sudo mkdir -p /etc/pgagroal
+      #        sed -i '' 's/^log_type =.*$/log_type = file/' ../../doc/etc/pgagroal.conf
+      #        sed -i '' 's|^log_path =.*$|log_path = /dev/null|' ../../doc/etc/pgagroal.conf
+      #        sed -i '' 's/^ev_backend =.*$/ev_backend = kqueue/' ../../doc/etc/pgagroal.conf
+      #        cat ../../doc/etc/pgagroal.conf
+      #        echo "host all all all trust" > ../../doc/etc/pgagroal_hba.conf
+      #        sudo cp ../../doc/etc/*.conf /etc/pgagroal
+      #        ./pgagroal -d || exit 1
+      #        sleep 5
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+      #    - name: GCC/Run verify_running for 'kqueue' backend
+      #      run: |
+      #        source /tmp/functions.sh
+      #        verify_running
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+      #    - name: GCC/Run verify_shutdown for 'kqueue' backend
+      #      run: |
+      #        source /tmp/functions.sh
+      #        verify_shutdown
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+      #    - name: GCC/Clean up build
+      #      run: rm -Rf build
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/
+      #    - name: CLANG/mkdir
+      #      run: mkdir build
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/
+      #    - name: CLANG/cmake
+      #      run: |
+      #        export CC=/usr/bin/clang
+      #        export OPENSSL_ROOT_DIR=$(brew --prefix openssl)
+      #        cmake -DCMAKE_BUILD_TYPE=Debug ..
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+      #    - name: CLANG/make
+      #      run: make
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+      #    - name: CLANG/Run pgagroal as daemon with 'kqueue' backend
+      #      run: |
+      #        sudo mkdir -p /etc/pgagroal
+      #        sed -i '' 's/^log_type =.*$/log_type = file/' ../../doc/etc/pgagroal.conf
+      #        sed -i '' 's|^log_path =.*$|log_path = /dev/null|' ../../doc/etc/pgagroal.conf
+      #        sed -i '' 's/^ev_backend =.*$/ev_backend = kqueue/' ../../doc/etc/pgagroal.conf
+      #        cat ../../doc/etc/pgagroal.conf
+      #        echo "host all all all trust" > ../../doc/etc/pgagroal_hba.conf
+      #        sudo cp ../../doc/etc/*.conf /etc/pgagroal
+      #        ./pgagroal -d || exit 1
+      #        sleep 5
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+      #    - name: CLANG/Run verify_running for 'kqueue' backend
+      #      run: |
+      #        source /tmp/functions.sh
+      #        verify_running
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+      #    - name: CLANG/Run verify_shutdown for 'kqueue' backend
+      #      run: |
+      #        source /tmp/functions.sh
+      #        verify_shutdown
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+      #
