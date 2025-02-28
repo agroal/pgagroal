@@ -172,6 +172,8 @@ static bool multithreading = false;    /* Enable multithreading for a loop */
 static struct io_uring_params params; /* io_uring argument params */
 static int entries;            /* io_uring entries flag */
 static bool use_huge;          /* io_uring use_huge flag */
+static bool sq_poll;           /* io_uring sq_poll flag */
+static bool fast_poll;         /* io_uring fast_poll flag */
 static int buf_size;           /* Size of the ring-mapped buffers */
 static int buf_count;          /* Number of ring-mapped buffers */
 static int br_mask;            /* Buffer ring mask value */
@@ -331,7 +333,30 @@ pgagroal_ev_init(void)
       /* io_uring context */
       entries = 32;
       params.cq_entries = 64;
-      params.flags = IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_CLAMP | IORING_SETUP_CQSIZE;
+
+      use_huge = false;
+      sq_poll = false;
+      fast_poll = false;
+
+      params.flags |= IORING_SETUP_SINGLE_ISSUER;
+      params.flags |= IORING_SETUP_CLAMP;
+      params.flags |= IORING_SETUP_CQSIZE;
+      if (use_huge)
+      {
+         pgagroal_log_fatal("use_huge not implemented");
+         goto error;
+      }
+      /* NOTICE: SQPOLL might create a polling thread for each io_uring loop, which 
+       * might be overkill and hurt performance */
+      if (sq_poll)
+      {
+         params.flags |= IORING_SETUP_SQPOLL;
+      }
+      if (fast_poll)
+      {
+         params.flags |= IORING_FEAT_FAST_POLL;
+      }
+
       buf_count = BUFFER_COUNT;
       buf_size = DEFAULT_BUFFER_SIZE;
       br_mask = (buf_count - 1);
@@ -681,11 +706,6 @@ __io_uring_io_start(struct ev_loop* loop, struct ev_io* w)
          break;
       case EV_RECEIVE:
          io_uring_prep_recv(sqe, w->fd, loop->br.buf, buf_size, 0);
-         if (0)
-         {
-            sqe->ioprio |= IORING_RECV_MULTISHOT;
-         }
-
          sqe->flags |= IOSQE_BUFFER_SELECT;
          sqe->buf_group = 0;
          break;
@@ -714,7 +734,10 @@ __io_uring_io_stop(struct ev_loop* loop, struct ev_io* target)
       {
          break;
       }
-      io_uring_submit(&loop->ring);
+      if (!sq_poll)
+      {
+         io_uring_submit(&loop->ring);
+      }
    }
    while (1);
    io_uring_prep_cancel64(sqe, (uint64_t)target, 0); /* TODO: flags? */
@@ -771,21 +794,17 @@ __io_uring_loop(struct ev_loop* loop)
    int ret;
    int signum;
    int events;
-   int to_wait = 1; /* wait for any 1 */
+   int to_wait = 1; /* at first, wait for any 1 event */
    unsigned int head;
    struct io_uring_cqe* cqe = NULL;
    struct __kernel_timespec* ts = NULL;
    struct __kernel_timespec idle_ts = {
       .tv_sec = 0,
-      .tv_nsec = 10000000LL
-   };
-   struct timespec timeout = {
-      .tv_sec = 0,
-      .tv_nsec = 0,
+      .tv_nsec = 10000000LL, /* seems best with 10000LL ms for most loads */
    };
 
    set_running(loop);
-   while (is_running(loop))
+   while (loop->running)
    {
       ts = &idle_ts;
       io_uring_submit_and_wait_timeout(&loop->ring, &cqe, to_wait, ts, NULL);
@@ -794,7 +813,7 @@ __io_uring_loop(struct ev_loop* loop)
       if (*loop->ring.cq.koverflow)
       {
          pgagroal_log_error("io_uring overflow %u", *loop->ring.cq.koverflow);
-         exit(EXIT_FAILURE);
+         return EV_FATAL;
       }
       if (*loop->ring.sq.kflags & IORING_SQ_CQ_OVERFLOW)
       {
@@ -965,10 +984,6 @@ __io_uring_receive_handler(struct ev_loop* loop, struct ev_io* w, struct io_urin
    w->data = br->buf + (bid * buf_size);
    w->size = total_in_bytes;
    w->cb(loop, w, EV_OK);
-
-   // struct io_uring_sqe* sqe = __io_uring_get_sqe(loop);
-   // io_uring_sqe_set_data(sqe, w);
-   // io_uring_prep_send(sqe, w->sendto->fd, w->data, w->size, 0);
 
    io_uring_buf_ring_add(br->br, w->data, buf_size, bid, br_mask, bid);
    io_uring_buf_ring_advance(br->br, cnt);
