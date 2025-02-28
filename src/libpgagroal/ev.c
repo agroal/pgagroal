@@ -73,7 +73,7 @@
         do {                                                                    \
            for (w = first; *w && *w != target; w = &(*w)->next);                \
            if (!(*w)) {                                                         \
-              pgagroal_log_warn("%s: target watcher not found", __func__);      \
+              pgagroal_log_warn("Target watcher not found");                    \
               ret = EV_ERROR;                                                   \
            } else {                                                             \
               if (!target->next) {                                              \
@@ -345,13 +345,13 @@ pgagroal_ev_init(void)
 
       if (setup_ops(loop))
       {
-         pgagroal_log_fatal("pgagroal: Failed to event backend operations");
+         pgagroal_log_fatal("Failed to event backend operations");
          goto error;
       }
 
       if (loop_init(loop))
       {
-         pgagroal_log_fatal("pgagroal: Failed to initiate loop");
+         pgagroal_log_fatal("Failed to initiate loop");
          goto error;
       }
 
@@ -362,7 +362,7 @@ pgagroal_ev_init(void)
    }
    else if (loop_init(loop))
    {
-      pgagroal_log_fatal("pgagroal: Failed to initiate loop");
+      pgagroal_log_fatal("Failed to initiate loop");
       goto error;
    }
 
@@ -454,12 +454,12 @@ pgagroal_ev_io_stop(struct ev_loop* loop, struct ev_io* target)
    struct ev_io** w;
    if (!loop)
    {
-      pgagroal_log_debug("loop is NULL");
+      pgagroal_log_debug("Loop is NULL");
       return EV_ERROR;
    }
    if (!target)
    {
-      pgagroal_log_fatal("target is NULL");
+      pgagroal_log_fatal("Target is NULL");
       return EV_ERROR;
    }
    io_stop(loop, target);
@@ -500,7 +500,7 @@ pgagroal_ev_signal_stop(struct ev_loop* loop, struct ev_signal* target)
 
    if (!target)
    {
-      pgagroal_log_fatal("target is NULL");
+      pgagroal_log_fatal("Target is NULL");
       exit(1);
    }
 
@@ -535,7 +535,7 @@ pgagroal_ev_periodic_init(struct ev_periodic* w, periodic_cb cb, int msec)
 {
    if (periodic_init(w, msec))
    {
-      pgagroal_log_fatal("periodic_init");
+      pgagroal_log_fatal("Failed to initiate timer event");
       exit(1);
    }
    w->type = EV_PERIODIC;
@@ -559,7 +559,7 @@ pgagroal_ev_periodic_stop(struct ev_loop* loop, struct ev_periodic* target)
    struct ev_periodic** w;
    if (!target)
    {
-      pgagroal_log_error("null pointer provided to stop");
+      pgagroal_log_debug("Target is NULL");
       return EV_ERROR;
    }
    ret = periodic_stop(loop, target);
@@ -637,20 +637,19 @@ __io_uring_init(struct ev_loop* loop)
    ret = io_uring_queue_init_params(entries, &loop->ring, &params);
    if (ret)
    {
-      pgagroal_log_fatal("io_uring_queue_init_params: %s", strerror(-ret));
-      exit(1);
+      pgagroal_log_fatal("io_uring_queue_init_params error: %s", strerror(-ret));
+      return EV_ERROR;
    }
    ret = __io_uring_setup_buffers(loop);
    if (ret)
    {
-      pgagroal_log_fatal("__io_uring_setup_buffers error: %s", strerror(-ret));
-      exit(1);
+      return EV_ERROR;
    }
    ret = io_uring_ring_dontfork(&loop->ring);
    if (ret)
    {
-      pgagroal_log_fatal("error on io_uring_ring_dontfork: %s", strerror(-ret));
-      exit(1);
+      pgagroal_log_fatal("io_uring_ring_dontfork error: %s", strerror(-ret));
+      return EV_ERROR;
    }
    return EV_OK;
 }
@@ -662,7 +661,7 @@ __io_uring_destroy(struct ev_loop* loop)
    struct io_buf_ring* br = &loop->br;
    if (io_uring_free_buf_ring(&loop->ring, br->br, buf_count, bgid))
    {
-      pgagroal_log_fatal("ev: io_uring_free_buf_ring (%s)", strerror(errno));
+      pgagroal_log_fatal("io_uring_free_buf_ring error: %s", strerror(errno));
       exit(1);
    }
    free(br->buf);
@@ -828,10 +827,8 @@ __io_uring_loop(struct ev_loop* loop)
       }
       if (events)
       {
-         io_uring_cq_advance(&loop->ring, events);  /* batch marking as seen */
+         io_uring_cq_advance(&loop->ring, events);
       }
-
-      /* TODO: housekeeping ? */
 
    }
    return ret;
@@ -1032,20 +1029,20 @@ __io_uring_setup_buffers(struct ev_loop* loop)
    struct io_buf_ring* br = &loop->br;
    if (use_huge)
    {
-      pgagroal_log_fatal("io_uring use_huge not implemented yet");
-      exit(1);
+      pgagroal_log_fatal("io_uring use_huge not implemented");
+      return EV_ERROR;
    }
    if (posix_memalign(&br->buf, ALIGNMENT, buf_count * buf_size))
    {
-      pgagroal_log_fatal("posix_memalign");
-      exit(1);
+      pgagroal_log_fatal("posix_memalign error: %s", strerror(errno));
+      return EV_ERROR;
    }
 
    br->br = io_uring_setup_buf_ring(&loop->ring, buf_count, br_bgid, br_flags, &ret);
    if (!br->br)
    {
-      pgagroal_log_fatal("buffer ring register failed %d", strerror(-ret));
-      exit(1);
+      pgagroal_log_fatal("buffer ring register error %s", strerror(-ret));
+      return EV_ERROR;
    }
 
    ptr = br->buf;
@@ -1066,7 +1063,6 @@ __io_uring_setup_more_buffers(struct ev_loop* loop)
    int br_bgid = 0;
    int br_flags = 0;
    void* ptr;
-   exit(1);
 
    struct io_buf_ring* br = &loop->br;
    if (use_huge)
