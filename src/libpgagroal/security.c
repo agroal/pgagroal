@@ -3824,17 +3824,18 @@ salted_password(char* password, char* salt, int salt_length, int iterations, uns
    }
    memcpy(r, &Ui_prev[0], size);
 
+   if (HMAC_CTX_reset(ctx) != 1)
+   {
+      goto error;
+   }
+
+   if (HMAC_Init_ex(ctx, password, password_length, EVP_sha256(), NULL) != 1)
+   {
+      goto error;
+   }
+
    for (int i = 2; i <= iterations; i++)
    {
-      if (HMAC_CTX_reset(ctx) != 1)
-      {
-         goto error;
-      }
-
-      if (HMAC_Init_ex(ctx, password, password_length, EVP_sha256(), NULL) != 1)
-      {
-         goto error;
-      }
 
       if (HMAC_Update(ctx, &Ui_prev[0], size) != 1)
       {

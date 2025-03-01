@@ -23,6 +23,7 @@ Mohanad Khaled <mohanadkhaled87@gmail.com>
 Haoran Zhang <andrewzhr9911@gmail.com>
 Christian Englert <code@c.roboticbrain.de>
 Georg Pfuetzenreuter <georg.pfuetzenreuter@suse.com>
+Yassin ElBedwihy <eng.yassin.elbedwihy@gmail.com>
 ```
 
 ## Committers
