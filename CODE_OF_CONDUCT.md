@@ -33,7 +33,7 @@ projects.
 This code of conduct applies both within project spaces and in public spaces
 when an individual is representing the project or its community.
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting a maintainer of the project, Jesper Pedersen <jesper.pedersen@comcast.net>.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting a maintainer of the project, Jesper Pedersen <jesperpedersen.db@gmail.com>.
 
 ### pgagroal Events Code of Conduct
 

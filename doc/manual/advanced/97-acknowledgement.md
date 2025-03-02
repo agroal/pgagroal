@@ -7,7 +7,7 @@
 [**pgagroal**][pgagroal] was created by the following authors:
 
 ```
-Jesper Pedersen <jesper.pedersen@comcast.net>
+Jesper Pedersen <jesperpedersen.db@gmail.com>
 David Fetter <david@fetter.org>
 Will Leinweber <will@bitfission.com>
 Junduo Dong <andj4cn@gmail.com>
@@ -28,7 +28,7 @@ Georg Pfuetzenreuter <georg.pfuetzenreuter@suse.com>
 ## Committers
 
 ```
-Jesper Pedersen <jesper.pedersen@comcast.net>
+Jesper Pedersen <jesperpedersen.db@gmail.com>
 Luca Ferrari <fluca1978@gmail.com>
 ```
 
