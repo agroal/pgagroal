@@ -388,7 +388,9 @@ pgagroal_connect_unix_socket(const char* directory, const char* file, int* fd)
    if (connect(*fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
    {
       pgagroal_log_trace("pgagroal_connect_unix_socket: connect: %s/%s %s", directory, file, strerror(errno));
+      pgagroal_disconnect(*fd);
       errno = 0;
+      *fd = -1;
       return 1;
    }
 
