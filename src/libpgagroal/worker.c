@@ -51,12 +51,12 @@
 
 volatile int exit_code = WORKER_FAILURE;
 
-static void signal_callback(struct ev_loop* loop, ev_signal* w, int revents);
+static void signal_callback(struct event_loop* loop, struct signal_watcher* w, int revents);
 
 void
 pgagroal_worker(int client_fd, char* address, char** argv)
 {
-   struct ev_loop* loop = NULL;
+   struct event_loop* loop = NULL;
    struct signal_info signal_watcher;
    struct worker_io client_io;
    struct worker_io server_io;
@@ -140,7 +140,8 @@ pgagroal_worker(int client_fd, char* address, char** argv)
          p = session_pipeline();
       }
 
-      pgagroal_ev_io_receive_init(&client_io.io, client_fd, p.client);
+      /* client io_watcher receives from client and sends to server */
+      pgagroal_io_worker_init(&client_io.io, client_fd, config->connections[slot].fd, p.client);
       client_io.client_fd = client_fd;
       client_io.server_fd = config->connections[slot].fd;
       client_io.slot = slot;
@@ -150,7 +151,8 @@ pgagroal_worker(int client_fd, char* address, char** argv)
 
       if (config->pipeline != PIPELINE_TRANSACTION)
       {
-         pgagroal_ev_io_receive_init(&server_io.io, config->connections[slot].fd, p.server);
+         /* server io_watcher receives from server and sends to client */
+         pgagroal_io_worker_init(&server_io.io, config->connections[slot].fd, client_fd, p.server);
          server_io.client_fd = client_fd;
          server_io.server_fd = config->connections[slot].fd;
          server_io.slot = slot;
@@ -159,27 +161,27 @@ pgagroal_worker(int client_fd, char* address, char** argv)
          server_io.io.ssl = (server_ssl != NULL);
       }
 
-      loop = pgagroal_ev_init();
+      loop = pgagroal_event_loop_init();
       if (!loop)
       {
          pgagroal_log_fatal("pgagroal_worker: Unable to create loop");
          exit(1);
       }
 
-      pgagroal_ev_signal_init(&signal_watcher.signal, signal_callback, SIGQUIT);
+      pgagroal_signal_init(&signal_watcher.sig_w, signal_callback, SIGQUIT);
       signal_watcher.slot = slot;
-      pgagroal_ev_signal_start(loop, &signal_watcher.signal);
+      pgagroal_signal_start(loop, &signal_watcher.sig_w);
 
       p.start(loop, &client_io);
       started = true;
 
-      pgagroal_ev_io_start(loop, &client_io.io);
+      pgagroal_io_start(loop, &client_io.io);
       if (config->pipeline != PIPELINE_TRANSACTION)
       {
-         pgagroal_ev_io_start(loop, &server_io.io);
+         pgagroal_io_start(loop, &server_io.io);
       }
 
-      pgagroal_ev_loop(loop);
+      pgagroal_event_loop_run(loop);
 
       if (config->pipeline == PIPELINE_TRANSACTION)
       {
@@ -219,7 +221,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
          p.stop(loop, &client_io);
          if (config->ev_backend == EV_BACKEND_IO_URING)
          {
-            pgagroal_ev_loop_destroy(loop);
+            pgagroal_event_loop_destroy(loop);
             pgagroal_memory_init();
          }
 
@@ -305,7 +307,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
 
    if (config->ev_backend != EV_BACKEND_IO_URING)
    {
-      pgagroal_ev_loop_destroy(loop);
+      pgagroal_event_loop_destroy(loop);
    }
 
    free(address);
@@ -319,15 +321,15 @@ pgagroal_worker(int client_fd, char* address, char** argv)
 }
 
 static void
-signal_callback(struct ev_loop* loop, ev_signal* w, int revents)
+signal_callback(struct event_loop* loop, struct signal_watcher* w, int revents)
 {
    struct signal_info* si;
 
    si = (struct signal_info*)w;
 
-   pgagroal_log_debug("pgagroal: signal %d for slot %d", si->signal.signum, si->slot);
+   pgagroal_log_debug("pgagroal: signal %d for slot %d", si->sig_w.signum, si->slot);
 
    exit_code = WORKER_SHUTDOWN;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
 }

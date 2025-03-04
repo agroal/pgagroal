@@ -51,10 +51,10 @@
 #include <sys/socket.h>
 
 static int  session_initialize(void*, void**, size_t*);
-static void session_start(struct ev_loop* loop, struct worker_io*);
-static void session_client(struct ev_loop* loop, struct ev_io* watcher, int revents);
-static void session_server(struct ev_loop* loop, struct ev_io* watcher, int revents);
-static void session_stop(struct ev_loop* loop, struct worker_io*);
+static void session_start(struct event_loop* loop, struct worker_io*);
+static void session_client(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void session_server(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void session_stop(struct event_loop* loop, struct worker_io*);
 static void session_destroy(void*, size_t);
 static void session_periodic(void);
 
@@ -131,7 +131,7 @@ session_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_si
 }
 
 static void
-session_start(struct ev_loop* loop, struct worker_io* w)
+session_start(struct event_loop* loop, struct worker_io* w)
 {
    struct client_session* client;
    struct main_configuration* config;
@@ -162,7 +162,7 @@ session_start(struct ev_loop* loop, struct worker_io* w)
 }
 
 static void
-session_stop(struct ev_loop* loop, struct worker_io* w)
+session_stop(struct event_loop* loop, struct worker_io* w)
 {
    struct client_session* client;
 
@@ -282,7 +282,7 @@ session_periodic(void)
 }
 
 static void
-session_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
+session_client(struct event_loop* loop, struct io_watcher* watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
@@ -377,7 +377,7 @@ session_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
       else if (msg->kind == 'X')
       {
          saw_x = true;
-         pgagroal_ev_loop_break(loop);
+         pgagroal_event_loop_break(loop);
       }
    }
    else if (status == MESSAGE_STATUS_ZERO)
@@ -410,7 +410,7 @@ client_done:
       exit_code = WORKER_SERVER_FAILURE;
    }
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 client_error:
@@ -424,7 +424,7 @@ client_error:
 
    exit_code = WORKER_CLIENT_FAILURE;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 server_error:
@@ -438,7 +438,7 @@ server_error:
 
    exit_code = WORKER_SERVER_FAILURE;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 failover:
@@ -447,12 +447,12 @@ failover:
 
    exit_code = WORKER_FAILOVER;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 }
 
 static void
-session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
+session_server(struct event_loop* loop, struct io_watcher* watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    bool fatal = false;
@@ -548,7 +548,7 @@ session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
          if (fatal)
          {
             exit_code = WORKER_SERVER_FATAL;
-            pgagroal_ev_loop_break(loop);
+            pgagroal_event_loop_break(loop);
          }
       }
    }
@@ -576,7 +576,7 @@ client_error:
 
    exit_code = WORKER_CLIENT_FAILURE;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 server_done:
@@ -587,7 +587,7 @@ server_done:
 
    client_inactive(wi->slot);
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 server_error:
@@ -601,7 +601,7 @@ server_error:
 
    exit_code = WORKER_SERVER_FAILURE;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 }
 

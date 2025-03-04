@@ -51,16 +51,16 @@
 #include <sys/socket.h>
 
 static int  transaction_initialize(void*, void**, size_t*);
-static void transaction_start(struct ev_loop* loop, struct worker_io*);
-static void transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents);
-static void transaction_server(struct ev_loop* loop, struct ev_io* watcher, int revents);
-static void transaction_stop(struct ev_loop* loop, struct worker_io*);
+static void transaction_start(struct event_loop* loop, struct worker_io*);
+static void transaction_client(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void transaction_server(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void transaction_stop(struct event_loop* loop, struct worker_io*);
 static void transaction_destroy(void*, size_t);
 static void transaction_periodic(void);
 
-static void start_mgt(struct ev_loop* loop);
-static void shutdown_mgt(struct ev_loop* loop);
-static void accept_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
+static void start_mgt(struct event_loop* loop);
+static void shutdown_mgt(struct event_loop* loop);
+static void accept_cb(struct event_loop* loop, struct io_watcher* watcher, int revents);
 
 static int slot;
 static char username[MAX_USERNAME_LENGTH];
@@ -74,7 +74,7 @@ static int deallocate;
 static bool fatal;
 static int fds[MAX_NUMBER_OF_CONNECTIONS];
 static bool saw_x = false;
-static struct ev_io io_mgt;
+static struct io_watcher io_mgt;
 static struct worker_io server_io;
 
 struct pipeline
@@ -100,7 +100,7 @@ transaction_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shme
 }
 
 static void
-transaction_start(struct ev_loop* loop, struct worker_io* w)
+transaction_start(struct event_loop* loop, struct worker_io* w)
 {
    char p[MISC_LENGTH];
    bool is_new;
@@ -152,12 +152,12 @@ transaction_start(struct ev_loop* loop, struct worker_io* w)
 error:
 
    exit_code = WORKER_FAILURE;
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 }
 
 static void
-transaction_stop(struct ev_loop* loop, struct worker_io* w)
+transaction_stop(struct event_loop* loop, struct worker_io* w)
 {
    if (slot != -1)
    {
@@ -172,7 +172,7 @@ transaction_stop(struct ev_loop* loop, struct worker_io* w)
          pgagroal_write_rollback(NULL, config->connections[slot].fd);
       }
 
-      pgagroal_ev_io_stop(loop, (struct ev_io*)&server_io);
+      pgagroal_io_stop(loop, (struct io_watcher*)&server_io);
       pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION_STOP, w->slot);
       pgagroal_return_connection(slot, w->server_ssl, true);
       slot = -1;
@@ -192,7 +192,7 @@ transaction_periodic(void)
 }
 
 static void
-transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
+transaction_client(struct event_loop* loop, struct io_watcher* watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    SSL* s_ssl = NULL;
@@ -219,7 +219,7 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
       memcpy(&config->connections[slot].appname[0], &appname[0], MAX_APPLICATION_NAME);
 
-      pgagroal_ev_io_accept_init((struct ev_io*)&server_io, config->connections[slot].fd, transaction_server);
+      pgagroal_io_worker_init(&server_io.io, config->connections[slot].fd, wi->client_fd, transaction_server);
       server_io.client_fd = wi->client_fd;
       server_io.server_fd = config->connections[slot].fd;
       server_io.slot = slot;
@@ -228,7 +228,7 @@ transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
       fatal = false;
 
-      pgagroal_ev_io_start(loop, (struct ev_io*)&server_io);
+      pgagroal_io_start(loop, &server_io.io);
    }
 
    if (wi->server_ssl == NULL)
@@ -348,7 +348,7 @@ client_done:
       exit_code = WORKER_SERVER_FAILURE;
    }
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 client_error:
@@ -360,7 +360,7 @@ client_error:
 
    exit_code = WORKER_CLIENT_FAILURE;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 server_error:
@@ -372,14 +372,14 @@ server_error:
 
    exit_code = WORKER_SERVER_FAILURE;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 failover:
 
    exit_code = WORKER_FAILOVER;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 get_error:
@@ -387,12 +387,12 @@ get_error:
 
    exit_code = WORKER_SERVER_FAILURE;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 }
 
 static void
-transaction_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
+transaction_server(struct event_loop* loop, struct io_watcher* watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    bool has_z = false;
@@ -499,7 +499,7 @@ transaction_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
       {
          if (has_z && !in_tx && slot != -1)
          {
-            pgagroal_ev_io_stop(loop, (struct ev_io*)&server_io);
+            pgagroal_io_stop(loop, (struct io_watcher*)&server_io);
 
             if (deallocate)
             {
@@ -520,10 +520,10 @@ transaction_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
       {
          if (has_z && !in_tx && slot != -1)
          {
-            pgagroal_ev_io_stop(loop, (struct ev_io*)&server_io);
+            pgagroal_io_stop(loop, (struct io_watcher*)&server_io);
 
             exit_code = WORKER_SERVER_FATAL;
-            pgagroal_ev_loop_break(loop);
+            pgagroal_event_loop_break(loop);
          }
       }
    }
@@ -536,7 +536,7 @@ transaction_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
       goto server_error;
    }
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 client_error:
@@ -548,7 +548,7 @@ client_error:
 
    exit_code = WORKER_CLIENT_FAILURE;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 server_done:
@@ -557,7 +557,7 @@ server_done:
                       strerror(errno), wi->server_fd, status);
    errno = 0;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 server_error:
@@ -569,7 +569,7 @@ server_error:
 
    exit_code = WORKER_SERVER_FAILURE;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 return_error:
@@ -577,20 +577,20 @@ return_error:
 
    exit_code = WORKER_SERVER_FAILURE;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 }
 
 static void
-start_mgt(struct ev_loop* loop)
+start_mgt(struct event_loop* loop)
 {
-   memset(&io_mgt, 0, sizeof(struct ev_io));
-   pgagroal_ev_io_accept_init(&io_mgt, unix_socket, accept_cb);
-   pgagroal_ev_io_start(loop, &io_mgt);
+   memset(&io_mgt, 0, sizeof(struct io_watcher));
+   pgagroal_io_accept_init(&io_mgt, unix_socket, accept_cb);
+   pgagroal_io_start(loop, &io_mgt);
 }
 
 static void
-shutdown_mgt(struct ev_loop* loop)
+shutdown_mgt(struct event_loop* loop)
 {
    char p[MISC_LENGTH];
    struct main_configuration* config = NULL;
@@ -600,7 +600,7 @@ shutdown_mgt(struct ev_loop* loop)
    memset(&p, 0, sizeof(p));
    snprintf(&p[0], sizeof(p), ".s.%d", getpid());
 
-   pgagroal_ev_io_stop(loop, &io_mgt);
+   pgagroal_io_stop(loop, &io_mgt);
    pgagroal_disconnect(unix_socket);
    errno = 0;
    pgagroal_remove_unix_socket(config->unix_socket_dir, &p[0]);
@@ -608,7 +608,7 @@ shutdown_mgt(struct ev_loop* loop)
 }
 
 static void
-accept_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
+accept_cb(struct event_loop* loop, struct io_watcher* watcher, int revents)
 {
    int client_fd = -1;
    int id = -1;
@@ -625,10 +625,10 @@ accept_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       return;
    }
 
-   client_fd = watcher->client_fd;
+   client_fd = watcher->fds.worker.snd_fd;
    if (client_fd == -1)
    {
-      pgagroal_log_debug("accept: %s (%d)", strerror(errno), watcher->fd);
+      pgagroal_log_debug("accept: %s (%d)", strerror(errno), client_fd);
       errno = 0;
       return;
    }
