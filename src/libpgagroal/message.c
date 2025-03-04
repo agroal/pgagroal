@@ -1217,9 +1217,13 @@ read_message_from_buffer(void* data, ssize_t size, struct message** msg)
 {
    struct message* m = NULL;
 
-   if (data == NULL || size <= 0)
+   if (size == 0)
    {
-      pgagroal_log_error("read_message_from_buffer: bad buffer");
+      return MESSAGE_STATUS_ZERO;
+   }
+
+   if (size < 0)
+   {
       return MESSAGE_STATUS_ERROR;
    }
 

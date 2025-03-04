@@ -67,9 +67,9 @@
 
 #define MAX_FDS 64
 
-static void accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
-static void accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents);
-static void shutdown_cb(struct ev_loop* loop, ev_signal* w, int revents);
+static void accept_vault_cb(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void accept_metrics_cb(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void shutdown_cb(struct event_loop* loop, struct signal_watcher* w, int revents);
 static bool accept_fatal(int error);
 static int connect_pgagroal(struct vault_configuration* config, char* username, char* password, SSL** s_ssl, int* client_socket);
 static void route_users(char* username, char** response, SSL* s_ssl, int client_fd);
@@ -81,7 +81,7 @@ static bool is_ssl_request(int client_fd);
 static int get_connection_state(struct vault_configuration* config, int client_fd);
 
 static char** argv_ptr;
-static struct ev_loop* main_loop = NULL;
+static struct event_loop* main_loop = NULL;
 static struct accept_io io_main[MAX_FDS];
 static struct accept_io io_metrics[MAX_FDS];
 static int* metrics_fds = NULL;
@@ -355,10 +355,10 @@ start_vault_io(void)
       int sockfd = *(server_fds + i);
 
       memset(&io_main[i], 0, sizeof(struct accept_io));
-      pgagroal_ev_io_accept_init((struct ev_io*)&io_main[i], sockfd, accept_vault_cb);
+      pgagroal_io_accept_init(&io_main[i].io_w, sockfd, accept_vault_cb);
       io_main[i].socket = sockfd;
       io_main[i].argv = argv_ptr;
-      pgagroal_ev_io_start(main_loop, (struct ev_io*)&io_main[i]);
+      pgagroal_io_start(main_loop, &io_main[i].io_w);
    }
 }
 
@@ -380,10 +380,10 @@ start_metrics(void)
       int sockfd = *(metrics_fds + i);
 
       memset(&io_metrics[i], 0, sizeof(struct accept_io));
-      pgagroal_ev_io_accept_init((struct ev_io*)&io_metrics[i], sockfd, accept_metrics_cb);
+      pgagroal_io_accept_init(&io_metrics[i].io_w, sockfd, accept_metrics_cb);
       io_metrics[i].socket = sockfd;
       io_metrics[i].argv = argv_ptr;
-      pgagroal_ev_io_start(main_loop, (struct ev_io*)&io_metrics[i]);
+      pgagroal_io_start(main_loop, &io_metrics[i].io_w);
    }
 }
 
@@ -613,18 +613,18 @@ read_users_path:
    }
 
    // -- Initialize the watcher and start loop --
-   main_loop = pgagroal_ev_init();
+   main_loop = pgagroal_event_loop_init();
    if (!main_loop)
    {
       errx(1, "pgagroal-vault: No loop implementation");
    }
 
-   pgagroal_ev_signal_init((struct ev_signal*)&signal_watcher[0], shutdown_cb, SIGTERM);
+   pgagroal_signal_init((struct signal_watcher*)&signal_watcher[0], shutdown_cb, SIGTERM);
 
    for (int i = 0; i < 1; i++)
    {
       signal_watcher[i].slot = -1;
-      pgagroal_ev_signal_start(main_loop, (struct ev_signal*)&signal_watcher[i]);
+      pgagroal_signal_start(main_loop, (struct signal_watcher*)&signal_watcher[i]);
    }
 
    start_vault_io();
@@ -666,13 +666,13 @@ read_users_path:
       pgagroal_log_debug("Metrics: %d", *(metrics_fds + i));
    }
 
-   pgagroal_ev_loop(main_loop);
+   pgagroal_event_loop_run(main_loop);
 
    pgagroal_log_info("pgagroal-vault: shutdown");
 
    shutdown_ports();
 
-   pgagroal_ev_loop_destroy(main_loop);
+   pgagroal_event_loop_destroy(main_loop);
 
    // -- Free all memory --
    free(metrics_fds);
@@ -684,15 +684,15 @@ read_users_path:
 }
 
 static void
-shutdown_cb(struct ev_loop* loop, ev_signal* w, int revents)
+shutdown_cb(struct event_loop* loop, struct signal_watcher* w, int revents)
 {
    pgagroal_log_debug("pgagroal-vault: Shutdown requested");
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
 
 }
 
 static void
-accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
+accept_vault_cb(struct event_loop* loop, struct io_watcher* watcher, int revents)
 {
    struct sockaddr_in6 client_addr;
 
@@ -714,13 +714,13 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    memset(&address, 0, sizeof(address));
 
-   client_fd = watcher->client_fd;
+   client_fd = watcher->fds.main.client_fd;
 
    if (client_fd == -1)
    {
-      if (accept_fatal(errno) && pgagroal_ev_loop_is_running(loop))
+      if (accept_fatal(errno) && pgagroal_event_loop_is_running(loop))
       {
-         pgagroal_log_warn("accept_vault_cb: Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
+         pgagroal_log_warn("accept_vault_cb: Restarting listening port due to: %s (%d)", strerror(errno), client_fd);
 
          shutdown_vault_io();
 
@@ -735,7 +735,7 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
          if (!fork())
          {
-            pgagroal_ev_fork(loop);
+            pgagroal_event_loop_fork(loop);
             shutdown_ports();
          }
 
@@ -744,7 +744,7 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       }
       else
       {
-         pgagroal_log_debug("accept: %s (%d)", strerror(errno), watcher->fd);
+         pgagroal_log_debug("accept: %s (%d)", strerror(errno), client_fd);
       }
       errno = 0;
       return;
@@ -771,7 +771,7 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       }
       memcpy(addr, address, strlen(address));
 
-      pgagroal_ev_fork(loop);
+      pgagroal_event_loop_fork(loop);
       shutdown_ports();
 
       // Handle http request
@@ -789,7 +789,7 @@ accept_vault_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 }
 
 static void
-accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
+accept_metrics_cb(struct event_loop* loop, struct io_watcher* watcher, int revents)
 {
    struct sockaddr_in6 client_addr;
    socklen_t client_addr_length;
@@ -806,15 +806,15 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    config = (struct vault_configuration*)shmem;
 
    client_addr_length = sizeof(client_addr);
-   client_fd = accept(watcher->fd, (struct sockaddr*)&client_addr, &client_addr_length);
+   client_fd = accept(watcher->fds.main.listen_fd, (struct sockaddr*)&client_addr, &client_addr_length);
 
    pgagroal_prometheus_self_sockets_add();
 
    if (client_fd == -1)
    {
-      if (accept_fatal(errno) && pgagroal_ev_loop_is_running(main_loop))
+      if (accept_fatal(errno) && pgagroal_event_loop_is_running(main_loop))
       {
-         pgagroal_log_warn("Restarting listening port due to: %s (%d)", strerror(errno), watcher->fd);
+         pgagroal_log_warn("Restarting listening port due to: %s (%d)", strerror(errno), client_fd);
 
          shutdown_metrics();
 
@@ -843,7 +843,7 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
       }
       else
       {
-         pgagroal_log_debug("accept: %s (%d)", strerror(errno), watcher->fd);
+         pgagroal_log_debug("accept: %s (%d)", strerror(errno), client_fd);
       }
       errno = 0;
       return;
@@ -851,7 +851,7 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    if (!fork())
    {
-      pgagroal_ev_fork(loop);
+      pgagroal_event_loop_fork(loop);
       shutdown_ports();
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
       pgagroal_vault_prometheus(client_fd);

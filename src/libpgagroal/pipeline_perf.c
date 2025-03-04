@@ -45,10 +45,10 @@
 #include <sys/socket.h>
 
 static int  performance_initialize(void*, void**, size_t*);
-static void performance_start(struct ev_loop* loop, struct worker_io*);
-static void performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents);
-static void performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents);
-static void performance_stop(struct ev_loop* loop, struct worker_io*);
+static void performance_start(struct event_loop* loop, struct worker_io*);
+static void performance_client(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void performance_server(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void performance_stop(struct event_loop* loop, struct worker_io*);
 static void performance_destroy(void*, size_t);
 static void performance_periodic(void);
 
@@ -77,7 +77,7 @@ performance_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shme
 }
 
 static void
-performance_start(struct ev_loop* loop, struct worker_io* w)
+performance_start(struct event_loop* loop, struct worker_io* w)
 {
    struct main_configuration* config;
 
@@ -95,7 +95,7 @@ performance_start(struct ev_loop* loop, struct worker_io* w)
 }
 
 static void
-performance_stop(struct ev_loop* loop, struct worker_io* w)
+performance_stop(struct event_loop* loop, struct worker_io* w)
 {
 }
 
@@ -110,22 +110,22 @@ performance_periodic(void)
 }
 
 static void
-performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
+performance_client(struct event_loop* loop, struct io_watcher* io_w, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
    struct main_configuration* config = (struct main_configuration*)shmem;
 
-   wi = (struct worker_io*)watcher;
+   wi = (struct worker_io*)io_w;
 
    if (config->ev_backend == EV_BACKEND_IO_URING)
    {
-      status = pgagroal_buffer_to_message(watcher->data, watcher->size, &msg);
+      status = pgagroal_buffer_to_message(io_w->data, io_w->size, &msg);
    }
    else
    {
-      status = pgagroal_read_socket_message(wi->client_fd, &msg);
+      status = pgagroal_read_socket_message(io_w->fds.worker.rcv_fd, &msg);
    }
    if (likely(status == MESSAGE_STATUS_OK))
    {
@@ -133,7 +133,15 @@ performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
       {
          if (wi->server_ssl == NULL)
          {
-            status = pgagroal_write_socket_message(wi->server_fd, msg);
+            if (config->ev_backend == EV_BACKEND_IO_URING)
+            {
+               pgagroal_io_prepare_send(io_w->fds.worker.snd_fd, io_w->data, io_w->size);
+               status = pgagroal_io_check_send(io_w->size);
+            }
+            else
+            {
+               status = pgagroal_write_socket_message(io_w->fds.worker.snd_fd, msg);
+            }
          }
          else
          {
@@ -147,7 +155,11 @@ performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
       else if (msg->kind == 'X')
       {
          saw_x = true;
-         pgagroal_ev_loop_break(loop);
+         pgagroal_event_loop_break(loop);
+        if (config->ev_backend == EV_BACKEND_IO_URING)
+        {
+           pgagroal_io_stop(loop, io_w);
+        }
       }
    }
    else if (status == MESSAGE_STATUS_ZERO)
@@ -176,7 +188,7 @@ client_done:
       exit_code = WORKER_SERVER_FAILURE;
    }
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 client_error:
@@ -187,7 +199,7 @@ client_error:
    errno = 0;
 
    exit_code = WORKER_CLIENT_FAILURE;
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 server_error:
@@ -198,12 +210,12 @@ server_error:
    errno = 0;
 
    exit_code = WORKER_SERVER_FAILURE;
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 }
 
 static void
-performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
+performance_server(struct event_loop* loop, struct io_watcher* io_w, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    bool fatal = false;
@@ -211,17 +223,18 @@ performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
    struct message* msg = NULL;
    struct main_configuration* config = (struct main_configuration*)shmem;
 
-   wi = (struct worker_io*)watcher;
+   wi = (struct worker_io*)io_w;
 
    if (wi->server_ssl == NULL)
    {
       if (config->ev_backend == EV_BACKEND_IO_URING)
       {
-         status = pgagroal_buffer_to_message(watcher->data, watcher->size, &msg);
+         status = pgagroal_buffer_to_message(io_w->data, io_w->size, &msg);
+         pgagroal_io_prepare_send(io_w->fds.worker.snd_fd, io_w->data, io_w->size);
       }
       else
       {
-         status = pgagroal_read_socket_message(wi->server_fd, &msg);
+         status = pgagroal_read_socket_message(io_w->fds.worker.rcv_fd, &msg);
       }
    }
    else
@@ -231,7 +244,14 @@ performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
 
    if (likely(status == MESSAGE_STATUS_OK))
    {
-      status = pgagroal_write_socket_message(wi->client_fd, msg);
+      if (config->ev_backend == EV_BACKEND_IO_URING)
+      {
+         status = pgagroal_io_check_send(io_w->size);
+      }
+      else
+      {
+         status = pgagroal_write_socket_message(io_w->fds.worker.snd_fd, msg);
+      }
       if (unlikely(status != MESSAGE_STATUS_OK))
       {
          goto client_error;
@@ -249,7 +269,7 @@ performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
          if (fatal)
          {
             exit_code = WORKER_SERVER_FATAL;
-            pgagroal_ev_loop_break(loop);
+            pgagroal_event_loop_break(loop);
          }
       }
    }
@@ -259,6 +279,7 @@ performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
    }
    else
    {
+      /* TODO: server error is unreachable */
       goto server_error;
    }
 
@@ -273,7 +294,7 @@ client_error:
 
    exit_code = WORKER_CLIENT_FAILURE;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 server_done:
@@ -282,7 +303,7 @@ server_done:
                       strerror(errno), wi->server_fd, status);
    errno = 0;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 
 server_error:
@@ -294,6 +315,6 @@ server_error:
 
    exit_code = WORKER_SERVER_FAILURE;
 
-   pgagroal_ev_loop_break(loop);
+   pgagroal_event_loop_break(loop);
    return;
 }

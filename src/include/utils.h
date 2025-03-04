@@ -44,7 +44,7 @@ extern "C" {
  */
 struct signal_info
 {
-   struct ev_signal signal; /**< The ev backend base type */
+   struct signal_watcher sig_w; /**< The ev backend base type */
    int slot;                /**< The slot */
 };
 
@@ -53,7 +53,7 @@ struct signal_info
  */
 struct accept_io
 {
-   struct ev_io io; /**< The I/O */
+   struct io_watcher io_w; /**< The I/O */
    int socket;      /**< The socket */
    char** argv;     /**< The argv */
 };

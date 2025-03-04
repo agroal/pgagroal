@@ -75,6 +75,9 @@ pgagroal_read_block_message(SSL* ssl, int socket, struct message** msg);
 int
 pgagroal_read_timeout_message(SSL* ssl, int socket, int timeout, struct message** msg);
 
+int
+pgagroal_message_to_buffer(int socket, struct message* msg);
+
 /**
  * Write a message using a socket
  * @param ssl The SSL struct
