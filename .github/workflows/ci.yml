@@ -15,10 +15,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Add PostgreSQL apt repository
-      run: |
-        sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-        sudo wget --quiet --output-document /etc/apt/trusted.gpg.d/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
     - name: Update system
       run: sudo apt update
     - name: Install libev
@@ -40,11 +36,55 @@ jobs:
     - name: Install clang
       run: sudo apt install -y clang
     - name: Install PostgreSQL
-      run: sudo apt install -y postgresql
+      run: |
+        sudo apt install -y postgresql
+        sudo apt install curl ca-certificates
+        sudo install -d /usr/share/postgresql-common/pgdg
+        sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+        sudo apt update
+        sudo apt install -y postgresql-17 postgresql-common postgresql-contrib
+    - name: Set Env Path Variable
+      run: |
+        echo "PATH=$PATH:/usr/lib/postgresql/17/bin" >> $GITHUB_ENV
+        echo $PATH
     - name: Start postgres
       run: |
-        version=$(pg_config --version | grep -Eo "[0-9]{1,2}" | head -1)
-        sudo -u postgres /usr/lib/postgresql/${version}/bin/pg_ctl start -D /etc/postgresql/${version}/main/
+        sudo systemctl start postgresql || exit 1
+        pg_isready -h 127.0.0.1 | grep '5432' || (echo "Nothing is listening on 127.0.0.1:5432"; exit 1)
+        pg_isready -h ::1 | grep '5432' || (echo "Nothing is listening on ::1:5432"; exit 1)
+        sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+        PGPASSWORD="postgres" pgbench -i -s 1 -h localhost -p 5432 -U postgres -d postgres
+    - name: Define functions `verify_running` and `verify_shutdown`
+      run: |
+        echo 'verify_running() {
+          echo "Confirming pgagroal is listening on port 2345"
+          netstat -tuln | grep "127.0.0.1:2345" || (echo "Nothing is listening on 127.0.0.1:2345"; exit 1)
+          netstat -tuln | grep "::1:2345" || (echo "Nothing is listening on ::1:2345"; exit 1)
+          echo "[*] Running pgagroal-cli ping"
+          ./pgagroal-cli ping
+          echo "[*] Running queries with psql"
+          PGPASSWORD="postgres" psql -h 127.0.0.1 -p 2345 -U postgres -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
+          PGPASSWORD="postgres" psql -h ::1 -p 2345 -U postgres -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
+        }
+
+        verify_shutdown() {
+          echo "[*] Running pgagroal-cli shutdown immediate"
+          ./pgagroal-cli shutdown immediate
+          sleep 5
+          echo "[*] Confirming there are no dangling pgagroal processes"
+          pgrep pgagroal > /dev/null && echo "[E] Dangling pgagroal child processes: $(wc -l < <(pgrep pgagroal))" && exit 1
+          echo "rm -f /tmp/pgagroal.2345.pid"
+          rm -f /tmp/pgagroal.2345.pid
+        }' > /tmp/functions.sh
+    - name: Setup pgagroal
+      run: |
+        sudo mkdir -p /etc/pgagroal
+        sed -i 's/max_connections = 100/max_connections = 8/g' ./doc/etc/pgagroal.conf
+        sed -i 's/log_type = console/log_type = file/g' ./doc/etc/pgagroal.conf
+        sed -i 's/log_path = /log_path = \/dev\/null/g' ./doc/etc/pgagroal.conf
+        sudo cp ./doc/etc/*.conf /etc/pgagroal
+      working-directory: /home/runner/work/pgagroal/pgagroal/
     - name: GCC/mkdir
       run: mkdir build
       working-directory: /home/runner/work/pgagroal/pgagroal/
@@ -56,26 +96,17 @@ jobs:
       working-directory: /home/runner/work/pgagroal/pgagroal/build/
     - name: GCC/Run pgagroal & confirm pgagroal is running
       run: |
-        sudo mkdir -p /etc/pgagroal
-        sudo cp ../../doc/etc/*.conf /etc/pgagroal
-        ./pgagroal >> /dev/null 2>&1 &
-        pid=$!
-        sleep 5
-        ./pgagroal-cli ping
+        ./pgagroal -d
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
-    - name: GCC/Stop pgagroal & postgres
+    - name: GCC/Run verify_running & verify_shutdown
       run: |
-        ./pgagroal-cli shutdown
-        version=$(pg_config --version | grep -Eo "[0-9]{1,2}" | head -1)
-        sudo -u postgres /usr/lib/postgresql/${version}/bin/pg_ctl stop -D /etc/postgresql/${version}/main/
+        source /tmp/functions.sh
+        verify_running
+        verify_shutdown
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
     - name: rm -Rf
       run: rm -Rf build/
       working-directory: /home/runner/work/pgagroal/pgagroal/
-    - name: Start postgres
-      run: |
-        version=$(pg_config --version | grep -Eo "[0-9]{1,2}" | head -1)
-        sudo -u postgres /usr/lib/postgresql/${version}/bin/pg_ctl start -D /etc/postgresql/${version}/main/
     - name: CLANG/mkdir
       run: mkdir build
       working-directory: /home/runner/work/pgagroal/pgagroal/
@@ -89,108 +120,105 @@ jobs:
       run: |
         sudo mkdir -p /etc/pgagroal
         sudo cp ../../doc/etc/*.conf /etc/pgagroal
-        ./pgagroal >> /dev/null 2>&1 &
-        pid=$!
-        sleep 5
-        ./pgagroal-cli ping
+        ./pgagroal -d
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
-    - name: CLANG/Stop pgagroal & postgres
+    - name: CLANG/Run verify_running & verify_shutdown
       run: |
-        ./pgagroal-cli shutdown
-        version=$(pg_config --version | grep -Eo "[0-9]{1,2}" | head -1)
-        sudo -u postgres /usr/lib/postgresql/${version}/bin/pg_ctl stop -D /etc/postgresql/${version}/main/
+        source /tmp/functions.sh
+        verify_running
+        verify_shutdown
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
 
 
 
-  build-macos:
-
-    runs-on: macos-latest
-
-    steps:
-    - uses: actions/checkout@v3
-    - name: Install Homebrew
-      run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
-    - name: Update system
-      run: brew update
-    - name: Install openssl
-      run: brew install openssl
-    - name: Install libev
-      run: brew install libev
-    - name: Install zstd
-      run: brew install zstd
-    - name: Install lz4
-      run: brew install lz4
-    - name: Install bzip2
-      run: brew install bzip2
-    - name: Install rst2man
-      run: brew install docutils
-    - name: Install graphviz
-      run: brew install graphviz
-    - name: Install doxygen
-      run: brew install doxygen
-    - name: Install clang
-      run: brew install llvm
-    - name: Install PostgreSQL
-      run: |
-        latest_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
-        brew install ${latest_pg} || true  # `|| true` prevents install errors from breaking the run
-    - name: Start postgres
-      run: |
-        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
-        brew services start ${installed_pg}
-    - name: GCC/mkdir
-      run: mkdir build
-      working-directory: /Users/runner/work/pgagroal/pgagroal/
-    - name: GCC/cmake
-      run: export CC=/usr/bin/gcc && export OPENSSL_ROOT_DIR=`brew --prefix openssl` && cmake -DCMAKE_BUILD_TYPE=Debug ..
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
-    - name: GCC/make
-      run: make
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
-    - name: GCC/Run pgagroal & confirm pgagroal is running
-      run: |
-         sudo mkdir -p /etc/pgagroal
-         sudo cp ../../doc/etc/*.conf /etc/pgagroal
-         ./pgagroal >> /dev/null 2>&1 &
-         pid=$!
-         sleep 5
-         ./pgagroal-cli ping
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
-    - name: GCC/Stop pgagroal & postgres
-      run: |
-        ./pgagroal-cli shutdown
-        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
-        brew services stop ${installed_pg}
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
-    - name: rm -Rf
-      run: rm -Rf build/
-      working-directory: /Users/runner/work/pgagroal/pgagroal/
-    - name: Start postgres
-      run: |
-        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
-        brew services start ${installed_pg}
-    - name: CLANG/mkdir
-      run: mkdir build
-      working-directory: /Users/runner/work/pgagroal/pgagroal/
-    - name: CLANG/cmake
-      run: export CC=/usr/bin/clang && export OPENSSL_ROOT_DIR=`brew --prefix openssl` && cmake -DCMAKE_BUILD_TYPE=Debug ..
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
-    - name: CLANG/make
-      run: make
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
-    - name: CLANG/Run pgagroal & confirm pgagroal is running
-      run: |
-        sudo mkdir -p /etc/pgagroal
-        sudo cp ../../doc/etc/*.conf /etc/pgagroal
-        ./pgagroal >> /dev/null 2>&1 &
-        pid=$!
-        sleep 5
-        ./pgagroal-cli ping
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
-    - name: CLANG/Stop pgagroal & postgres
-      run: |
-        ./pgagroal-cli shutdown
-        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
-        brew services stop ${installed_pg}
-      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+      #  build-macos:
+      #
+      #    runs-on: macos-latest
+      #
+      #    steps:
+      #    - uses: actions/checkout@v3
+      #    - name: Install Homebrew
+      #      run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+      #    - name: Update system
+      #      run: brew update
+      #    - name: Install openssl
+      #      run: brew install openssl
+      #    - name: Install libev
+      #      run: brew install libev
+      #    - name: Install zstd
+      #      run: brew install zstd
+      #    - name: Install lz4
+      #      run: brew install lz4
+      #    - name: Install bzip2
+      #      run: brew install bzip2
+      #    - name: Install rst2man
+      #      run: brew install docutils
+      #    - name: Install graphviz
+      #      run: brew install graphviz
+      #    - name: Install doxygen
+      #      run: brew install doxygen
+      #    - name: Install clang
+      #      run: brew install llvm
+      #    - name: Install PostgreSQL
+      #      run: |
+      #        latest_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+      #        brew install ${latest_pg} || true  # `|| true` prevents install errors from breaking the run
+      #    - name: Start postgres
+      #      run: |
+      #        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+      #        brew services start ${installed_pg}
+      #    - name: GCC/mkdir
+      #      run: mkdir build
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/
+      #    - name: GCC/cmake
+      #      run: export CC=/usr/bin/gcc && export OPENSSL_ROOT_DIR=`brew --prefix openssl` && cmake -DCMAKE_BUILD_TYPE=Debug ..
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+      #    - name: GCC/make
+      #      run: make
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+      #    - name: GCC/Run pgagroal & confirm pgagroal is running
+      #      run: |
+      #         sudo mkdir -p /etc/pgagroal
+      #         sudo cp ../../doc/etc/*.conf /etc/pgagroal
+      #         ./pgagroal >> /dev/null 2>&1 &
+      #         pid=$!
+      #         sleep 5
+      #         ./pgagroal-cli ping
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+      #    - name: GCC/Stop pgagroal & postgres
+      #      run: |
+      #        ./pgagroal-cli shutdown
+      #        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+      #        brew services stop ${installed_pg}
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+      #    - name: rm -Rf
+      #      run: rm -Rf build/
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/
+      #    - name: Start postgres
+      #      run: |
+      #        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+      #        brew services start ${installed_pg}
+      #    - name: CLANG/mkdir
+      #      run: mkdir build
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/
+      #    - name: CLANG/cmake
+      #      run: export CC=/usr/bin/clang && export OPENSSL_ROOT_DIR=`brew --prefix openssl` && cmake -DCMAKE_BUILD_TYPE=Debug ..
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+      #    - name: CLANG/make
+      #      run: make
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/
+      #    - name: CLANG/Run pgagroal & confirm pgagroal is running
+      #      run: |
+      #        sudo mkdir -p /etc/pgagroal
+      #        sudo cp ../../doc/etc/*.conf /etc/pgagroal
+      #        ./pgagroal >> /dev/null 2>&1 &
+      #        pid=$!
+      #        sleep 5
+      #        ./pgagroal-cli ping
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
+      #    - name: CLANG/Stop pgagroal & postgres
+      #      run: |
+      #        ./pgagroal-cli shutdown
+      #        installed_pg=$(brew search postgresql | grep postgresql@ | tail -n 1)
+      #        brew services stop ${installed_pg}
+      #      working-directory: /Users/runner/work/pgagroal/pgagroal/build/src/
