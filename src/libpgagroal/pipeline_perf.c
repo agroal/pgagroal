@@ -110,22 +110,22 @@ performance_periodic(void)
 }
 
 static void
-performance_client(struct event_loop* loop, struct io_watcher* io_w, int revents)
+performance_client(struct event_loop* loop, struct io_watcher* watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
    struct main_configuration* config = (struct main_configuration*)shmem;
 
-   wi = (struct worker_io*)io_w;
+   wi = (struct worker_io*)watcher;
 
    if (config->ev_backend == EV_BACKEND_IO_URING)
    {
-      status = pgagroal_buffer_to_message(io_w->data, io_w->size, &msg);
+      status = pgagroal_buffer_to_message(watcher->data, watcher->size, &msg);
    }
    else
    {
-      status = pgagroal_read_socket_message(io_w->fds.worker.rcv_fd, &msg);
+      status = pgagroal_read_socket_message(watcher->fds.worker.rcv_fd, &msg);
    }
    if (likely(status == MESSAGE_STATUS_OK))
    {
@@ -135,12 +135,11 @@ performance_client(struct event_loop* loop, struct io_watcher* io_w, int revents
          {
             if (config->ev_backend == EV_BACKEND_IO_URING)
             {
-               pgagroal_io_prepare_send(io_w->fds.worker.snd_fd, io_w->data, io_w->size);
-               status = pgagroal_io_check_send(io_w->size);
+               status = pgagroal_send_message_from_buffer(watcher->fds.worker.snd_fd, watcher->data, watcher->size);
             }
             else
             {
-               status = pgagroal_write_socket_message(io_w->fds.worker.snd_fd, msg);
+               status = pgagroal_write_socket_message(watcher->fds.worker.snd_fd, msg);
             }
          }
          else
@@ -156,10 +155,6 @@ performance_client(struct event_loop* loop, struct io_watcher* io_w, int revents
       {
          saw_x = true;
          pgagroal_event_loop_break(loop);
-        if (config->ev_backend == EV_BACKEND_IO_URING)
-        {
-           pgagroal_io_stop(loop, io_w);
-        }
       }
    }
    else if (status == MESSAGE_STATUS_ZERO)
@@ -215,7 +210,7 @@ server_error:
 }
 
 static void
-performance_server(struct event_loop* loop, struct io_watcher* io_w, int revents)
+performance_server(struct event_loop* loop, struct io_watcher* watcher, int revents)
 {
    int status = MESSAGE_STATUS_ERROR;
    bool fatal = false;
@@ -223,18 +218,17 @@ performance_server(struct event_loop* loop, struct io_watcher* io_w, int revents
    struct message* msg = NULL;
    struct main_configuration* config = (struct main_configuration*)shmem;
 
-   wi = (struct worker_io*)io_w;
+   wi = (struct worker_io*)watcher;
 
    if (wi->server_ssl == NULL)
    {
       if (config->ev_backend == EV_BACKEND_IO_URING)
       {
-         status = pgagroal_buffer_to_message(io_w->data, io_w->size, &msg);
-         pgagroal_io_prepare_send(io_w->fds.worker.snd_fd, io_w->data, io_w->size);
+         status = pgagroal_buffer_to_message(watcher->data, watcher->size, &msg);
       }
       else
       {
-         status = pgagroal_read_socket_message(io_w->fds.worker.rcv_fd, &msg);
+         status = pgagroal_read_socket_message(watcher->fds.worker.rcv_fd, &msg);
       }
    }
    else
@@ -246,11 +240,11 @@ performance_server(struct event_loop* loop, struct io_watcher* io_w, int revents
    {
       if (config->ev_backend == EV_BACKEND_IO_URING)
       {
-         status = pgagroal_io_check_send(io_w->size);
+        status = pgagroal_send_message_from_buffer(watcher->fds.worker.snd_fd, watcher->data, watcher->size);
       }
       else
       {
-         status = pgagroal_write_socket_message(io_w->fds.worker.snd_fd, msg);
+         status = pgagroal_write_socket_message(watcher->fds.worker.snd_fd, msg);
       }
       if (unlikely(status != MESSAGE_STATUS_OK))
       {

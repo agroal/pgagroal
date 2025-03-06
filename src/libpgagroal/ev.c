@@ -495,8 +495,8 @@ pgagroal_periodic_stop(struct event_loop* loop, struct periodic_watcher* target)
 
 #if HAVE_LINUX
 
-void
-pgagroal_io_prepare_send(int fd, void* data, size_t size)
+int
+pgagroal_send_message_from_buffer(int fd, void* data, size_t size)
 {
    struct io_uring_sqe* sqe;
    int bgid = 0;
@@ -516,11 +516,7 @@ pgagroal_io_prepare_send(int fd, void* data, size_t size)
    sqe->buf_group = bgid;
 
    io_uring_submit(&loop->ring);
-}
 
-int
-pgagroal_io_check_send(int size)
-{
    struct io_uring_cqe* cqe = NULL;
    io_uring_wait_cqe(&loop->ring, &cqe);
    if (cqe->res < size)

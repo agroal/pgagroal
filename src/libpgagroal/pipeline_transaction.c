@@ -233,7 +233,14 @@ transaction_client(struct event_loop* loop, struct io_watcher* watcher, int reve
 
    if (wi->server_ssl == NULL)
    {
-      status = pgagroal_buffer_to_message(watcher->data, watcher->size, &msg);
+      if (config->ev_backend == EV_BACKEND_IO_URING)
+      {
+         status = pgagroal_buffer_to_message(watcher->data, watcher->size, &msg);
+      }
+      else
+      {
+         status = pgagroal_read_socket_message(watcher->fds.worker.rcv_fd, &msg);
+      }
    }
    else
    {
@@ -295,7 +302,14 @@ transaction_client(struct event_loop* loop, struct io_watcher* watcher, int reve
 
          if (wi->server_ssl == NULL)
          {
-            status = pgagroal_write_socket_message(wi->server_fd, msg);
+  if (config->ev_backend == EV_BACKEND_IO_URING)
+      {
+        status = pgagroal_send_message_from_buffer(watcher->fds.worker.snd_fd, watcher->data, watcher->size);
+      }
+      else
+      {
+         status = pgagroal_write_socket_message(watcher->fds.worker.snd_fd, msg);
+      }
          }
          else
          {
@@ -420,7 +434,7 @@ transaction_server(struct event_loop* loop, struct io_watcher* watcher, int reve
       }
       else
       {
-         status = pgagroal_read_socket_message(wi->server_fd, &msg);
+         status = pgagroal_read_socket_message(watcher->fds.worker.rcv_fd, &msg);
       }
    }
    else
@@ -476,7 +490,14 @@ transaction_server(struct event_loop* loop, struct io_watcher* watcher, int reve
 
       if (wi->client_ssl == NULL)
       {
-         status = pgagroal_write_socket_message(wi->client_fd, msg);
+        if (config->ev_backend == EV_BACKEND_IO_URING)
+      {
+        status = pgagroal_send_message_from_buffer(watcher->fds.worker.snd_fd, watcher->data, watcher->size);
+      }
+      else
+      {
+         status = pgagroal_write_socket_message(watcher->fds.worker.snd_fd, msg);
+      }
       }
       else
       {

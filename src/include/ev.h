@@ -434,6 +434,6 @@ int pgagroal_io_check_send(int size);
  * @param
  * @return
  */
-void pgagroal_io_prepare_send(int fd, void *data, size_t size);
+int pgagroal_send_message_from_buffer(int fd, void *data, size_t size);
 
 #endif /* EV_H */
