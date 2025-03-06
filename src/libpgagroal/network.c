@@ -49,6 +49,7 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -388,7 +389,9 @@ pgagroal_connect_unix_socket(const char* directory, const char* file, int* fd)
    if (connect(*fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
    {
       pgagroal_log_trace("pgagroal_connect_unix_socket: connect: %s/%s %s", directory, file, strerror(errno));
+      pgagroal_disconnect(*fd);
       errno = 0;
+      *fd = -1;
       return 1;
    }
 
@@ -428,6 +431,7 @@ pgagroal_socket_isvalid(int fd)
 int
 pgagroal_disconnect(int fd)
 {
+   pgagroal_log_trace("%s: fd=%d", __func__, fd);
    if (fd == -1)
    {
       return 1;
