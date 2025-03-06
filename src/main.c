@@ -2311,6 +2311,7 @@ coredump_cb(struct ev_loop* loop, ev_signal* w, int revents)
 {
    pgagroal_log_info("pgagroal: core dump requested");
    pgagroal_pool_status();
+   remove_pidfile();
    abort();
 }
 
