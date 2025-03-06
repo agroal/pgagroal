@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#include <utils.h>
 
 #define PGAGROAL_LOGGING_TYPE_CONSOLE 0
 #define PGAGROAL_LOGGING_TYPE_FILE    1
