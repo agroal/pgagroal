@@ -523,6 +523,18 @@ pgagroal_compare_string(const char* str1, const char* str2);
 char*
 pgagroal_escape_string(char* str);
 
+/**
+ * Resolve path.
+ * The function will resolve the path by expanding environment
+ * variables (e.g., $HOME) in subpaths that are either surrounded
+ * by double quotes (") or not surrounded by any quotes.
+ * @param orig_path The original path
+ * @param new_path Reference to the resolved path
+ * @return 0 if success, otherwise 1
+ */
+int
+pgagroal_resolve_path(char* orig_path, char** new_path);
+
 #ifdef DEBUG
 
 /**
