@@ -30,6 +30,7 @@
 #include <ev.h>
 #include <logging.h>
 #include <message.h>
+#include <memory.h>
 #include <network.h>
 #include <pgagroal.h>
 #include <shmem.h>
@@ -83,8 +84,6 @@ static int ev_io_uring_loop(struct event_loop*);
 static int ev_io_uring_fork(struct event_loop*);
 static int ev_io_uring_io_start(struct event_loop*, struct io_watcher*);
 static int ev_io_uring_io_stop(struct event_loop*, struct io_watcher*);
-static int ev_io_uring_setup_buffers(struct event_loop*);
-static int ev_io_uring_setup_more_buffers(struct event_loop* loop);
 static int ev_io_uring_periodic_init(struct periodic_watcher*, int);
 static int ev_io_uring_periodic_start(struct event_loop*, struct periodic_watcher*);
 static int ev_io_uring_periodic_stop(struct event_loop*, struct periodic_watcher*);
@@ -146,6 +145,7 @@ static bool fast_poll;                /* io_uring fast_poll flag */
 static int buf_size;                  /* Size of the ring-mapped buffers */
 static int buf_count;                 /* Number of ring-mapped buffers */
 static int br_mask;                   /* Buffer ring mask value */
+static bool mshot;
 
 static int epoll_flags;               /* Flags for epoll instance creation */
 
@@ -235,6 +235,7 @@ pgagroal_event_loop_init(void)
       sq_poll = false; /* puts too much pressure on the system or im using it wrong */
       use_huge = false; /* TODO: not implemented */
       fast_poll = false; /* TODO: haven't even been able to init the loop with this yet */
+      mshot = false;
 
       if (use_huge)
       {
@@ -344,8 +345,6 @@ pgagroal_io_accept_init(struct io_watcher* io_w, int listen_fd, io_cb cb)
    io_w->fds.main.client_fd = -1;
    io_w->cb = cb;
    io_w->handler = NULL;
-   io_w->data = NULL;
-   io_w->size = 0;
 
    return EV_OK;
 }
@@ -358,8 +357,6 @@ pgagroal_io_worker_init(struct io_watcher* io_w, int rcv_fd, int snd_fd, io_cb c
    io_w->fds.worker.snd_fd = snd_fd;
    io_w->cb = cb;
    io_w->handler = NULL;
-   io_w->data = NULL;
-   io_w->size = 0;
 
    return EV_OK;
 }
@@ -496,30 +493,20 @@ pgagroal_periodic_stop(struct event_loop* loop, struct periodic_watcher* target)
 #if HAVE_LINUX
 
 int
-pgagroal_send_message_from_buffer(int fd, void* data, size_t size)
+pgagroal_send_message(struct io_watcher *w)
 {
-   struct io_uring_sqe* sqe;
-   int bgid = 0;
+   struct io_uring_sqe* sqe = NULL;
+   struct io_uring_cqe* cqe = NULL;
+   struct message *msg = pgagroal_memory_message();
 
    sqe = io_uring_get_sqe(&loop->ring);
-   sqe->flags |= IOSQE_BUFFER_SELECT;
-   sqe->buf_group = 0;
-   struct io_buf_ring* cbr = &loop->br;
-
    io_uring_sqe_set_data(sqe, 0);
-   io_uring_prep_send(sqe, fd, NULL, 0, MSG_WAITALL | MSG_NOSIGNAL);
-
-   /* TODO: DOCUMENT: why do I have to re-add the buffer here? */
-   io_uring_buf_ring_add(cbr->br, data, size, bgid, br_mask, 1);
-   io_uring_buf_ring_advance(cbr->br, 1);
-   sqe->flags |= IOSQE_BUFFER_SELECT;
-   sqe->buf_group = bgid;
+   io_uring_prep_send(sqe, w->fds.worker.snd_fd, msg->data, msg->length, MSG_WAITALL | MSG_NOSIGNAL);
 
    io_uring_submit(&loop->ring);
-
-   struct io_uring_cqe* cqe = NULL;
+   
    io_uring_wait_cqe(&loop->ring, &cqe);
-   if (cqe->res < size)
+   if (cqe->res < msg->length)
    {
       return MESSAGE_STATUS_ERROR;
    }
@@ -527,36 +514,34 @@ pgagroal_send_message_from_buffer(int fd, void* data, size_t size)
 }
 
 static inline void __attribute__((unused))
-__io_uring_rearm_receive(struct event_loop* loop, struct io_watcher* w)
+ev_io_uring_rearm_receive(struct event_loop* loop, struct io_watcher* w)
 {
    struct io_uring_sqe* sqe = io_uring_get_sqe(&loop->ring);
    io_uring_sqe_set_data(sqe, w);
    io_uring_prep_recv_multishot(sqe, w->fds.worker.rcv_fd, NULL, 0, 0);
-   sqe->flags |= IOSQE_BUFFER_SELECT;
-   sqe->buf_group = 0;
 }
 
-static inline int __attribute__((unused))
-__io_uring_replenish_buffers(struct event_loop* loop, struct io_buf_ring* br,
-                             int bid_start, int bid_end)
-{
-   int count;
-   if (bid_end >= bid_start)
-   {
-      count = (bid_end - bid_start);
-   }
-   else
-   {
-      count = (bid_end + buf_count - bid_start);
-   }
-   for (int i = bid_start; i != bid_end; i = (i + 1) & (buf_count - 1))
-   {
-      io_uring_buf_ring_add(br->br, (void*)br->br->bufs[i].addr, buf_size, i,
-                            br_mask, 0);
-   }
-   io_uring_buf_ring_advance(br->br, count);
-   return EV_OK;
-}
+// static inline int __attribute__((unused))
+// __io_uring_replenish_buffers(struct event_loop* loop, struct io_buf_ring* br,
+//                              int bid_start, int bid_end)
+// {
+//    int count;
+//    if (bid_end >= bid_start)
+//    {
+//       count = (bid_end - bid_start);
+//    }
+//    else
+//    {
+//       count = (bid_end + buf_count - bid_start);
+//    }
+//    for (int i = bid_start; i != bid_end; i = (i + 1) & (buf_count - 1))
+//    {
+//       io_uring_buf_ring_add(br->br, (void*)br->br->bufs[i].addr, buf_size, i,
+//                             br_mask, 0);
+//    }
+//    io_uring_buf_ring_advance(br->br, count);
+//    return EV_OK;
+// }
 
 static int
 ev_io_uring_init(struct event_loop* loop)
@@ -568,7 +553,6 @@ ev_io_uring_init(struct event_loop* loop)
       pgagroal_log_fatal("io_uring_queue_init_params error: %s", strerror(-ret));
       return EV_ERROR;
    }
-   ret = ev_io_uring_setup_buffers(loop);
    if (ret)
    {
       return EV_ERROR;
@@ -585,14 +569,6 @@ ev_io_uring_init(struct event_loop* loop)
 static int
 ev_io_uring_destroy(struct event_loop* loop)
 {
-   const int bgid = 0; /* const for now */
-   struct io_buf_ring* br = &loop->br;
-   if (io_uring_free_buf_ring(&loop->ring, br->br, buf_count, bgid))
-   {
-      pgagroal_log_fatal("io_uring_free_buf_ring error: %s", strerror(errno));
-      exit(1);
-   }
-   free(br->buf);
    io_uring_queue_exit(&loop->ring);
    return EV_OK;
 }
@@ -601,6 +577,7 @@ static int
 ev_io_uring_io_start(struct event_loop* loop, struct io_watcher* w)
 {
    struct io_uring_sqe* sqe = io_uring_get_sqe(&loop->ring);
+   struct message* msg = pgagroal_memory_message();
    io_uring_sqe_set_data(sqe, w);
    switch (w->type)
    {
@@ -608,9 +585,12 @@ ev_io_uring_io_start(struct event_loop* loop, struct io_watcher* w)
          io_uring_prep_multishot_accept(sqe, w->fds.main.listen_fd, NULL, NULL, 0);
          break;
       case EV_WORKER:
-         io_uring_prep_recv(sqe, w->fds.worker.rcv_fd, loop->br.buf, buf_size, 0);
-         sqe->buf_group = 0;
-         sqe->flags |= IOSQE_BUFFER_SELECT;
+         if (mshot) {
+                io_uring_prep_recv_multishot(sqe, w->fds.worker.rcv_fd, msg->data, buf_size, 0);
+         }
+         else {
+                io_uring_prep_recv(sqe, w->fds.worker.rcv_fd, msg->data, buf_size, 0);
+         }
          break;
       default:
          pgagroal_log_fatal("unknown event type: %d", w->type);
@@ -760,14 +740,16 @@ retry:
             case EV_CONNECTION_CLOSED: /* connection closed */
                break;
             case EV_ERROR:
-               break;
-            case EV_REPLENISH_BUFFERS:
-               if (ev_io_uring_setup_more_buffers(loop))
-               {
-                  return EV_ERROR;
-               }
+               pgagroal_log_info("retrying...");
                goto retry;
                break;
+            // case EV_REPLENISH_BUFFERS:
+            //    if (ev_io_uring_setup_more_buffers(loop))
+            //    {
+            //       return EV_ERROR;
+            //    }
+            //    goto retry;
+            //    break;
          }
          break;
       default:
@@ -807,155 +789,142 @@ ev_io_uring_receive_handler(struct event_loop* loop, struct io_watcher* w,
                            struct io_uring_cqe* cqe, void** _unused,
                            bool __unused)
 {
-   int bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
-   struct io_buf_ring* br = &loop->br;
-   int total_in_bytes = cqe->res;
-   int cnt = 1;
-
-   if (cqe->res == -ENOBUFS)
-   {
-      pgagroal_log_error("Not enough buffers");
-      return EV_REPLENISH_BUFFERS;
+   int ret;
+   struct message* msg = pgagroal_memory_message();
+   if (!(cqe->flags & IORING_CQE_F_BUFFER) && !(cqe->res)) {
+      pgagroal_log_info("Connection closed");
+      msg->data = NULL;
+      msg->length = 0;
+      ret = EV_CONNECTION_CLOSED;
+   } else {
+      msg->length = cqe->res;
+      ret = EV_OK;
    }
+   w->cb(loop, w, ret);
 
-   if (!(cqe->flags & IORING_CQE_F_BUFFER) && !(cqe->res))
-   {
-      pgagroal_log_debug("Connection closed");
-      w->data = NULL;
-      w->size = 0;
-      w->cb(loop, w, EV_OK);
-      return EV_OK;
-   }
-
-   w->data = br->buf + (bid * buf_size);
-   w->size = total_in_bytes;
-   w->cb(loop, w, EV_OK);
-
-   io_uring_buf_ring_add(br->br, w->data, buf_size, bid, br_mask, bid);
-   io_uring_buf_ring_advance(br->br, cnt);
-
+   /* restart worker watcher */
    ev_io_uring_io_start(loop, w);
 
-   return EV_OK;
+   return ret;
 }
 
-static int __attribute__((unused))
-__io_uring_receive_multishot_handler(struct event_loop* loop, struct io_watcher* w,
-                                     struct io_uring_cqe* cqe, void** unused,
-                                     bool is_proxy)
-{
-   struct io_buf_ring* br = &loop->br;
-   int bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
-   int total_in_bytes = cqe->res;
-   int cnt = 1;
+// static int __attribute__((unused))
+// __io_uring_receive_multishot_handler(struct event_loop* loop, struct io_watcher* w,
+//                                      struct io_uring_cqe* cqe, void** unused,
+//                                      bool is_proxy)
+// {
+//    struct io_buf_ring* br = &loop->br;
+//    int bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+//    int total_in_bytes = cqe->res;
+//    int cnt = 1;
+// 
+//    if (cqe->res == -ENOBUFS)
+//    {
+//       pgagroal_log_warn("ev: Not enough buffers");
+//       return EV_REPLENISH_BUFFERS;
+//    }
+// 
+//    if (!(cqe->flags & IORING_CQE_F_BUFFER) && !(cqe->res))
+//    {
+//       pgagroal_log_debug("ev: Connection closed");
+//       return EV_CONNECTION_CLOSED;
+//    }
+//    else if (!(cqe->flags & IORING_CQE_F_MORE))
+//    {
+//       /* do not rearm receive. In fact, disarm anything so pgagroal can deal with
+//        * read / write from sockets
+//        */
+//       w->data = NULL;
+//       w->size = 0;
+//       w->cb(loop, w, EV_ERROR);
+//       return EV_CONNECTION_CLOSED;
+//    }
+// 
+//    w->data = br->buf + (bid * buf_size);
+//    w->size = total_in_bytes;
+//    w->cb(loop, w, EV_OK);
+//    io_uring_buf_ring_add(br->br, w->data, buf_size, bid, br_mask, bid);
+//    io_uring_buf_ring_advance(br->br, cnt);
+// 
+//    return EV_OK;
+// }
 
-   if (cqe->res == -ENOBUFS)
-   {
-      pgagroal_log_warn("ev: Not enough buffers");
-      return EV_REPLENISH_BUFFERS;
-   }
+// static int
+// ev_io_uring_setup_buffers(struct event_loop* loop)
+// {
+//    int ret;
+//    int br_bgid = 0;
+//    int br_flags = 0;
+//    void* ptr;
+// 
+//    struct io_buf_ring* br = &loop->br;
+//    if (use_huge)
+//    {
+//       pgagroal_log_fatal("io_uring use_huge not implemented");
+//       return EV_ERROR;
+//    }
+//    if (posix_memalign(&br->buf, ALIGNMENT, buf_count * buf_size))
+//    {
+//       pgagroal_log_fatal("posix_memalign error: %s", strerror(errno));
+//       return EV_ERROR;
+//    }
+// 
+//    br->br = io_uring_setup_buf_ring(&loop->ring, buf_count, br_bgid, br_flags, &ret);
+//    if (!br->br)
+//    {
+//       pgagroal_log_fatal("buffer ring register error %s", strerror(-ret));
+//       return EV_ERROR;
+//    }
+// 
+//    ptr = br->buf;
+//    for (int i = 0; i < buf_count; i++)
+//    {
+//       io_uring_buf_ring_add(br->br, ptr, buf_size, i, br_mask, i);
+//       ptr += buf_size;
+//    }
+//    io_uring_buf_ring_advance(br->br, buf_count);
+// 
+//    return EV_OK;
+// }
 
-   if (!(cqe->flags & IORING_CQE_F_BUFFER) && !(cqe->res))
-   {
-      pgagroal_log_debug("ev: Connection closed");
-      return EV_CONNECTION_CLOSED;
-   }
-   else if (!(cqe->flags & IORING_CQE_F_MORE))
-   {
-      /* do not rearm receive. In fact, disarm anything so pgagroal can deal with
-       * read / write from sockets
-       */
-      w->data = NULL;
-      w->size = 0;
-      w->cb(loop, w, EV_ERROR);
-      return EV_CONNECTION_CLOSED;
-   }
-
-   w->data = br->buf + (bid * buf_size);
-   w->size = total_in_bytes;
-   w->cb(loop, w, EV_OK);
-   io_uring_buf_ring_add(br->br, w->data, buf_size, bid, br_mask, bid);
-   io_uring_buf_ring_advance(br->br, cnt);
-
-   return EV_OK;
-}
-
-static int
-ev_io_uring_setup_buffers(struct event_loop* loop)
-{
-   int ret;
-   int br_bgid = 0;
-   int br_flags = 0;
-   void* ptr;
-
-   struct io_buf_ring* br = &loop->br;
-   if (use_huge)
-   {
-      pgagroal_log_fatal("io_uring use_huge not implemented");
-      return EV_ERROR;
-   }
-   if (posix_memalign(&br->buf, ALIGNMENT, buf_count * buf_size))
-   {
-      pgagroal_log_fatal("posix_memalign error: %s", strerror(errno));
-      return EV_ERROR;
-   }
-
-   br->br = io_uring_setup_buf_ring(&loop->ring, buf_count, br_bgid, br_flags, &ret);
-   if (!br->br)
-   {
-      pgagroal_log_fatal("buffer ring register error %s", strerror(-ret));
-      return EV_ERROR;
-   }
-
-   ptr = br->buf;
-   for (int i = 0; i < buf_count; i++)
-   {
-      io_uring_buf_ring_add(br->br, ptr, buf_size, i, br_mask, i);
-      ptr += buf_size;
-   }
-   io_uring_buf_ring_advance(br->br, buf_count);
-
-   return EV_OK;
-}
-
-static int
-ev_io_uring_setup_more_buffers(struct event_loop* loop)
-{
-   int ret = EV_OK;
-   int br_bgid = 0;
-   int br_flags = 0;
-   void* ptr;
-
-   struct io_buf_ring* br = &loop->br;
-   if (use_huge)
-   {
-      pgagroal_log_fatal("io_uring use_huge not implemented yet");
-      exit(1);
-   }
-   if (posix_memalign(&br->buf, ALIGNMENT, buf_count * buf_size))
-   {
-      pgagroal_log_fatal("posix_memalign");
-      return EV_FATAL;
-   }
-
-   br->br =
-      io_uring_setup_buf_ring(&loop->ring, buf_count, br_bgid, br_flags, &ret);
-   if (!br->br)
-   {
-      pgagroal_log_fatal("buffer ring register failed %d", strerror(-ret));
-      return EV_FATAL;
-   }
-
-   ptr = br->buf;
-   for (int i = 0; i < buf_count; i++)
-   {
-      io_uring_buf_ring_add(br->br, ptr, buf_size, i, br_mask, i);
-      ptr += buf_size;
-   }
-   io_uring_buf_ring_advance(br->br, buf_count);
-
-   return EV_OK;
-}
+// static int
+// ev_io_uring_setup_more_buffers(struct event_loop* loop)
+// {
+//    int ret = EV_OK;
+//    int br_bgid = 0;
+//    int br_flags = 0;
+//    void* ptr;
+// 
+//    struct io_buf_ring* br = &loop->br;
+//    if (use_huge)
+//    {
+//       pgagroal_log_fatal("io_uring use_huge not implemented yet");
+//       exit(1);
+//    }
+//    if (posix_memalign(&br->buf, ALIGNMENT, buf_count * buf_size))
+//    {
+//       pgagroal_log_fatal("posix_memalign");
+//       return EV_FATAL;
+//    }
+// 
+//    br->br =
+//       io_uring_setup_buf_ring(&loop->ring, buf_count, br_bgid, br_flags, &ret);
+//    if (!br->br)
+//    {
+//       pgagroal_log_fatal("buffer ring register failed %d", strerror(-ret));
+//       return EV_FATAL;
+//    }
+// 
+//    ptr = br->buf;
+//    for (int i = 0; i < buf_count; i++)
+//    {
+//       io_uring_buf_ring_add(br->br, ptr, buf_size, i, br_mask, i);
+//       ptr += buf_size;
+//    }
+//    io_uring_buf_ring_advance(br->br, buf_count);
+// 
+//    return EV_OK;
+// }
 
 void
 _next_bid(struct event_loop* loop, int* bid)

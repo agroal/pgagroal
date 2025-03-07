@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #include <pgagroal.h>
+#include <ev.h>
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -404,7 +405,7 @@ pgagroal_read_socket_message(int socket, struct message** msg);
  * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
  */
 int
-pgagroal_buffer_to_message(void* data, ssize_t size, struct message** msg);
+pgagroal_recv_message(struct io_watcher *w, struct message** msg);
 
 /**
  * Write a message using a socket

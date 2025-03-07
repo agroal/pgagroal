@@ -124,10 +124,10 @@ static void
 start_mgt(void)
 {
    memset(&io_mgt, 0, sizeof(struct accept_io));
-   pgagroal_io_accept_init(&io_mgt.io_w, unix_management_socket, accept_mgt_cb);
+   pgagroal_io_accept_init(&io_mgt.watcher, unix_management_socket, accept_mgt_cb);
    io_mgt.socket = unix_management_socket;
    io_mgt.argv = argv_ptr;
-   pgagroal_io_start(main_loop, &io_mgt.io_w);
+   pgagroal_io_start(main_loop, &io_mgt.watcher);
 }
 
 static void
@@ -147,10 +147,10 @@ static void
 start_transfer(void)
 {
    memset(&io_transfer, 0, sizeof(struct accept_io));
-   pgagroal_io_accept_init(&io_transfer.io_w, unix_transfer_socket, accept_transfer_cb);
+   pgagroal_io_accept_init(&io_transfer.watcher, unix_transfer_socket, accept_transfer_cb);
    io_transfer.socket = unix_transfer_socket;
    io_transfer.argv = argv_ptr;
-   pgagroal_io_start(main_loop, &io_transfer.io_w);
+   pgagroal_io_start(main_loop, &io_transfer.watcher);
 }
 
 static void
@@ -170,10 +170,10 @@ static void
 start_uds(void)
 {
    memset(&io_uds, 0, sizeof(struct accept_io));
-   pgagroal_io_accept_init(&io_uds.io_w, unix_pgsql_socket, accept_main_cb);
+   pgagroal_io_accept_init(&io_uds.watcher, unix_pgsql_socket, accept_main_cb);
    io_uds.socket = unix_pgsql_socket;
    io_uds.argv = argv_ptr;
-   pgagroal_io_start(main_loop, &io_uds.io_w);
+   pgagroal_io_start(main_loop, &io_uds.watcher);
 }
 
 static void
@@ -201,10 +201,10 @@ start_io(void)
       int sockfd = *(main_fds + i);
 
       memset(&io_main[i], 0, sizeof(struct accept_io));
-      pgagroal_io_accept_init(&io_main[i].io_w, sockfd, accept_main_cb);
+      pgagroal_io_accept_init(&io_main[i].watcher, sockfd, accept_main_cb);
       io_main[i].socket = sockfd;
       io_main[i].argv = argv_ptr;
-      pgagroal_io_start(main_loop, &io_main[i].io_w);
+      pgagroal_io_start(main_loop, &io_main[i].watcher);
    }
 }
 
@@ -226,10 +226,10 @@ start_metrics(void)
       int sockfd = *(metrics_fds + i);
 
       memset(&io_metrics[i], 0, sizeof(struct accept_io));
-      pgagroal_io_accept_init(&io_metrics[i].io_w, sockfd, accept_metrics_cb);
+      pgagroal_io_accept_init(&io_metrics[i].watcher, sockfd, accept_metrics_cb);
       io_metrics[i].socket = sockfd;
       io_metrics[i].argv = argv_ptr;
-      pgagroal_io_start(main_loop, &io_metrics[i].io_w);
+      pgagroal_io_start(main_loop, &io_metrics[i].watcher);
    }
 }
 
@@ -251,10 +251,10 @@ start_management(void)
       int sockfd = *(management_fds + i);
 
       memset(&io_management[i], 0, sizeof(struct accept_io));
-      pgagroal_io_accept_init(&io_management[i].io_w, sockfd, accept_management_cb);
+      pgagroal_io_accept_init(&io_management[i].watcher, sockfd, accept_management_cb);
       io_management[i].socket = sockfd;
       io_management[i].argv = argv_ptr;
-      pgagroal_io_start(main_loop, &io_management[i].io_w);
+      pgagroal_io_start(main_loop, &io_management[i].watcher);
    }
 }
 
@@ -1922,7 +1922,7 @@ accept_transfer_cb(struct event_loop* loop, struct io_watcher* watcher, int reve
 
    if (revents != EV_OK)
    {
-      pgagroal_log_trace("accept_mgt_cb: got invalid event: %s", strerror(errno));
+      pgagroal_log_trace("accept_transfer_cb: got invalid event: %s", strerror(errno));
       return;
    }
 
