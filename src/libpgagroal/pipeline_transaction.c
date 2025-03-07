@@ -235,7 +235,7 @@ transaction_client(struct event_loop* loop, struct io_watcher* watcher, int reve
    {
       if (config->ev_backend == EV_BACKEND_IO_URING)
       {
-         status = pgagroal_buffer_to_message(watcher->data, watcher->size, &msg);
+         status = pgagroal_recv_message(watcher, &msg);
       }
       else
       {
@@ -304,7 +304,7 @@ transaction_client(struct event_loop* loop, struct io_watcher* watcher, int reve
          {
   if (config->ev_backend == EV_BACKEND_IO_URING)
       {
-        status = pgagroal_send_message_from_buffer(watcher->fds.worker.snd_fd, watcher->data, watcher->size);
+        status = pgagroal_send_message(watcher);
       }
       else
       {
@@ -430,7 +430,7 @@ transaction_server(struct event_loop* loop, struct io_watcher* watcher, int reve
    {
       if (config->ev_backend == EV_BACKEND_IO_URING)
       {
-         status = pgagroal_buffer_to_message(watcher->data, watcher->size, &msg);
+         status = pgagroal_recv_message(watcher, &msg);
       }
       else
       {
@@ -492,7 +492,7 @@ transaction_server(struct event_loop* loop, struct io_watcher* watcher, int reve
       {
         if (config->ev_backend == EV_BACKEND_IO_URING)
       {
-        status = pgagroal_send_message_from_buffer(watcher->fds.worker.snd_fd, watcher->data, watcher->size);
+        status = pgagroal_send_message(watcher);
       }
       else
       {

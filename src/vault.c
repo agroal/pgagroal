@@ -355,10 +355,10 @@ start_vault_io(void)
       int sockfd = *(server_fds + i);
 
       memset(&io_main[i], 0, sizeof(struct accept_io));
-      pgagroal_io_accept_init(&io_main[i].io_w, sockfd, accept_vault_cb);
+      pgagroal_io_accept_init(&io_main[i].watcher, sockfd, accept_vault_cb);
       io_main[i].socket = sockfd;
       io_main[i].argv = argv_ptr;
-      pgagroal_io_start(main_loop, &io_main[i].io_w);
+      pgagroal_io_start(main_loop, &io_main[i].watcher);
    }
 }
 
@@ -380,10 +380,10 @@ start_metrics(void)
       int sockfd = *(metrics_fds + i);
 
       memset(&io_metrics[i], 0, sizeof(struct accept_io));
-      pgagroal_io_accept_init(&io_metrics[i].io_w, sockfd, accept_metrics_cb);
+      pgagroal_io_accept_init(&io_metrics[i].watcher, sockfd, accept_metrics_cb);
       io_metrics[i].socket = sockfd;
       io_metrics[i].argv = argv_ptr;
-      pgagroal_io_start(main_loop, &io_metrics[i].io_w);
+      pgagroal_io_start(main_loop, &io_metrics[i].watcher);
    }
 }
 

@@ -42,7 +42,7 @@
 #include <openssl/ssl.h>
 #include <sys/time.h>
 
-static int read_message_from_buffer(void* data, ssize_t size, struct message** msg);
+static int read_message_from_buffer(struct io_watcher *watcher, struct message** msg_p);
 static int read_message(int socket, bool block, int timeout, struct message** msg);
 static int write_message(int socket, struct message* msg);
 
@@ -89,9 +89,9 @@ pgagroal_read_socket_message(int socket, struct message** msg)
 }
 
 int
-pgagroal_buffer_to_message(void* data, ssize_t size, struct message** msg)
+pgagroal_recv_message(struct io_watcher *watcher, struct message** msg)
 {
-   return read_message_from_buffer(data, size, msg);
+   return read_message_from_buffer(watcher, msg);
 }
 
 int
@@ -1213,28 +1213,26 @@ pgagroal_log_message(struct message* msg)
 }
 
 static int
-read_message_from_buffer(void* data, ssize_t size, struct message** msg)
+read_message_from_buffer(struct io_watcher *watcher, struct message** msg_p)
 {
-   struct message* m = NULL;
+   struct message *msg = pgagroal_memory_message();
 
-   if (size == 0)
+   printf(">>>>>>> msg->length=%ld\n", msg->length);
+   for (int i = 0; i < msg->length; i++)
+           printf("%c", ((char*)msg->data)[i]);
+   printf("\n");
+   if (msg->length == 0)
    {
       return MESSAGE_STATUS_ZERO;
    }
 
-   if (size < 0)
+   if (msg->length < 0)
    {
       return MESSAGE_STATUS_ERROR;
    }
 
-   m = pgagroal_memory_message();
-
-   m->data = data;
-   m->length = size;
-
-   m->kind = (signed char)(*((char*)m->data));
-   *msg = m;
-
+   msg->kind = (signed char)(*((char*)msg->data));
+   *msg_p = msg;
    return MESSAGE_STATUS_OK;
 }
 

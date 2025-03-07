@@ -219,12 +219,6 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       if (started)
       {
          p.stop(loop, &client_io);
-         if (config->ev_backend == EV_BACKEND_IO_URING)
-         {
-            pgagroal_event_loop_destroy(loop);
-            pgagroal_memory_init();
-         }
-
          pgagroal_prometheus_session_time(difftime(time(NULL), start_time));
       }
 

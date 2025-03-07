@@ -33,8 +33,6 @@ jobs:
       run: sudo apt install -y graphviz
     - name: Install doxygen
       run: sudo apt install -y doxygen
-    - name: Install crudini
-      run: sudo apt install -y crudini
     - name: Install clang
       run: sudo apt install -y clang
     - name: Install PostgreSQL
@@ -49,7 +47,6 @@ jobs:
     - name: Set Env Path Variable
       run: |
         echo "PATH=$PATH:/usr/lib/postgresql/17/bin" >> $GITHUB_ENV
-        echo $PATH
     - name: Start postgres & setup test table
       run: |
         sudo systemctl start postgresql || exit 1
@@ -59,32 +56,57 @@ jobs:
         PGPASSWORD="postgres" pgbench -i -s 1 -h localhost -p 5432 -U postgres -d postgres
     - name: Define functions `verify_running` and `verify_shutdown`
       run: |
-        echo 'verify_running() {
-          echo "Confirming pgagroal is listening on port 2345"
-          netstat -tuln | grep "127.0.0.1:2345" || (echo "Nothing is listening on 127.0.0.1:2345"; exit 1)
-          netstat -tuln | grep "::1:2345" || (echo "Nothing is listening on ::1:2345"; exit 1)
-          echo "[*] Running pgagroal-cli ping"
-          ./pgagroal-cli ping
-          echo "[*] Running queries with psql"
-          PGPASSWORD="postgres" psql -h 127.0.0.1 -p 2345 -U postgres -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
-          PGPASSWORD="postgres" psql -h ::1 -p 2345 -U postgres -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
-        }
+        echo '  
+             verify_running() {
+                echo -n "[*] Confirming pgagroal is listening on port 2345 (IPv4)... "
+                netstat -tuln | grep "127.0.0.1:2345" > /dev/null || (echo "Nothing is listening on 127.0.0.1:2345"; exit 1)
+                echo "Passed!"
+                
+                echo -n "[*] Running pgagroal-cli ping... "
+                ./pgagroal-cli ping > /dev/null
+                echo "Passed!"
+    
+                echo -n "[*] Confirming pgagroal backend readiness... "
+                PGPASSWORD="postgres" pg_isready -h 127.0.0.1 -p 2345 -U postgres -d postgres > /dev/null 2>&1 || (echo "[E] pgagroal backend is not ready"; exit 1)
+                PGPASSWORD="postgres" pg_isready -h ::1 -p 2345 -U postgres -d postgres > /dev/null 2>&1 || (echo "[E] pgagroal backend is not ready"; exit 1)
+                echo "Passed!"
+    
+                echo -n "[*] Running simple queries with pgbench... "
+                PGPASSWORD="postgres" pgbench -h 127.0.0.1 -p 2345 -U postgres postgres
+                PGPASSWORD="postgres" pgbench -h ::1 -p 2345 -U postgres postgres
+                echo "Passed!"
 
-        verify_shutdown() {
-          echo "[*] Running pgagroal-cli shutdown immediate"
-          ./pgagroal-cli shutdown immediate
-          sleep 5
-          echo "[*] Confirming there are no dangling pgagroal processes"
-          pgrep pgagroal > /dev/null && echo "[E] Dangling pgagroal child processes: $(wc -l < <(pgrep pgagroal))" && exit 1
-          echo "rm -f /tmp/pgagroal.2345.pid"
-          rm -f /tmp/pgagroal.2345.pid
-        }' > /tmp/functions.sh
+                echo -n "[*] Running simple queries with psql... "
+                PGPASSWORD="postgres" psql -X -v ON_ERROR_STOP=1 -P pager=off \
+                            -h 127.0.0.1 -p 2345 -U postgres -d postgres \
+                            -c "SELECT * FROM pgbench_accounts LIMIT 50;" 2>&1
+                PGPASSWORD="postgres" psql -X -v ON_ERROR_STOP=1 -P pager=off \
+                            -h ::1 -p 2345 -U postgres -d postgres \
+                            -c "SELECT * FROM pgbench_accounts LIMIT 50;" 2>&1
+                echo "Passed!"
+
+
+              }
+
+              verify_shutdown() {
+                echo -n "[*] Running pgagroal-cli shutdown immediate... "
+                ./pgagroal-cli shutdown immediate
+                echo "Passed!"
+                sleep 5
+                echo -n "[*] Confirming there are no dangling pgagroal processes... "
+                pgrep pgagroal > /dev/null && echo "[E] Dangling pgagroal child processes: $(wc -l < <(pgrep pgagroal))" && exit 1
+                echo "Passed!"
+                echo -n "[*] Checking if PID file was correctly removed..."
+                rm -f /tmp/pgagroal.2345.pid
+                echo "Passed!"
+              }' > /tmp/functions.sh
+
     - name: Setup pgagroal & create build directory
       run: |
         sudo mkdir -p /etc/pgagroal
         sed -i 's/max_connections = 100/max_connections = 8/g' ./doc/etc/pgagroal.conf
         sed -i 's/log_type = console/log_type = file/g' ./doc/etc/pgagroal.conf
-        sed -i 's/log_path = /log_path = \/dev\/null/g' ./doc/etc/pgagroal.conf
+        sed -i 's/log_path = /log_path = \/tmp\/pgagroal.log/g' ./doc/etc/pgagroal.conf
         sudo cp ./doc/etc/*.conf /etc/pgagroal
         mkdir build
       working-directory: /home/runner/work/pgagroal/pgagroal/
@@ -106,19 +128,16 @@ jobs:
         ./pgagroal -d || exit 1
         sleep 2
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
-    - name: GCC/Run verify_running for 'io_uring' backend
+    - name: GCC/Run verify_running & verify_shutdown for 'io_uring' backend
       run: |
         source /tmp/functions.sh
         verify_running
-      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
-    - name: GCC/Run verify_shutdown for 'io_uring' backend
-      run: |
-        source /tmp/functions.sh
         verify_shutdown
+        run: cat /tmp/pgagroal.log || echo "No pgagroal log found"
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
     - name: GCC/Setup 'epoll' backend
       run: |
-        sed -i 's/^ev_backend =.*$/ev_backend = epoll/' ../../doc/etc/pgagroal.conf
+        sed -i 's/^ev_backend =.*$/ev_backend = epoll/' ./doc/etc/pgagroal.conf
         echo "host all all all trust" > ./doc/etc/pgagroal_hba.conf
         sudo cp ./doc/etc/*.conf /etc/pgagroal
       working-directory: /home/runner/work/pgagroal/pgagroal/
@@ -127,14 +146,10 @@ jobs:
         ./pgagroal -d || exit 1
         sleep 2
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
-    - name: GCC/Run verify_running for 'epoll' backend
+    - name: GCC/Run verify_running & verify_shutdown for 'epoll' backend
       run: |
         source /tmp/functions.sh
         verify_running
-      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
-    - name: GCC/Run verify_shutdown for 'epoll' backend
-      run: |
-        source /tmp/functions.sh
         verify_shutdown
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
     - name: Clean previous build

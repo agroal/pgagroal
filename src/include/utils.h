@@ -53,7 +53,7 @@ struct signal_info
  */
 struct accept_io
 {
-   struct io_watcher io_w; /**< The I/O */
+   struct io_watcher watcher; /**< The I/O */
    int socket;      /**< The socket */
    char** argv;     /**< The argv */
 };

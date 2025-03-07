@@ -132,6 +132,23 @@ union sockaddr_u {
 
 struct event_loop;
 
+#if HAVE_LINUX
+/**
+ * @struct io_buf_ring
+ * @brief Represents a buffer ring for I/O operations with io_uring.
+ *
+ * The io_buf_ring structure holds pointers to an io_uring buffer ring and
+ * a generic buffer, along with a buffer group ID (bgid).
+ */
+struct io_buf_ring {
+  struct io_uring_buf_ring *br;   /**< Pointer to the io_uring buffer ring internal structure. */
+  void *buf; /**< Pointer to the buffer used for I/O operations. */
+  int sz;                                                             /**< Size of the data buffer. */
+};
+#endif /* HAVE_LINUX */
+
+
+
 /**
  * @struct io_watcher
  * @brief I/O watcher for the event loop
@@ -151,8 +168,7 @@ struct io_watcher {
     } worker;
     int __fds[2];
   } fds;                                                                /**< TODO. */
-  int size;                                                             /**< Size of the data buffer. */
-  void *data;                                                           /**< Pointer to received data. */
+  // struct io_buf_ring br;
   bool ssl;                                                             /**< Indicates if SSL/TLS is used on this connection. */
   struct io_watcher *next;                                              /**< Pointer to the next watcher in the linked list. */
   int bgid;                                                             /**< TODO: will be used */
@@ -205,21 +221,6 @@ union watcher {
   struct periodic_watcher *periodic; /**< Pointer to a periodic watcher. */
 };
 
-#if HAVE_LINUX
-/**
- * @struct io_buf_ring
- * @brief Represents a buffer ring for I/O operations with io_uring.
- *
- * The io_buf_ring structure holds pointers to an io_uring buffer ring and
- * a generic buffer, along with a buffer group ID (bgid).
- */
-struct io_buf_ring {
-  struct io_uring_buf_ring
-      *br;   /**< Pointer to the io_uring buffer ring internal structure. */
-  void *buf; /**< Pointer to the buffer used for I/O operations. */
-};
-#endif /* HAVE_LINUX */
-
 /**
  * @struct ev_ops
  * @brief Event loop backend operations
@@ -258,7 +259,6 @@ struct event_loop {
 #if HAVE_LINUX
   struct io_uring_cqe *cqe;
   struct io_uring ring;
-  struct io_buf_ring br;
   int bid;                       /**< io_uring: Next buffer id. */
   /**
    * TODO: Implement iovecs.
@@ -434,6 +434,6 @@ int pgagroal_io_check_send(int size);
  * @param
  * @return
  */
-int pgagroal_send_message_from_buffer(int fd, void *data, size_t size);
+int pgagroal_send_message(struct io_watcher *w);
 
 #endif /* EV_H */
