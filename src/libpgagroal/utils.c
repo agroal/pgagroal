@@ -46,6 +46,7 @@
 #include <openssl/pem.h>
 #include <sys/types.h>
 #include <err.h>
+#include <sys/utsname.h>
 
 #ifndef EVBACKEND_LINUXAIO
 #define EVBACKEND_LINUXAIO 0x00000040U
@@ -1301,4 +1302,35 @@ pgagroal_escape_string(char* str)
    translated_ec_string[idx] = '\0'; // terminator
 
    return translated_ec_string;
+}
+
+int
+pgagroal_linux_version(int* major, int* minor, int* patch)
+{
+   *major = 0;
+   *minor = 0;
+   *patch = 0;
+
+#if defined(HAVE_LINUX)
+   struct utsname buffer;
+
+   if (uname(&buffer) != 0)
+   {
+      pgagroal_log_warn("Failed to retrieve Linux kernel version.");
+      return -1;   // Error retrieving system info
+   }
+
+   if (sscanf(buffer.release, "%d.%d.%d", major, minor, patch) < 2)
+   {
+      pgagroal_log_warn("Failed to parse Linux kernel version.");
+      return -1;   // Parsing error
+   }
+
+   pgagroal_log_info("Linux Kernel version: %d.%d.%d", *major, *minor, *patch);
+
+#else
+   pgagroal_log_info("Kernel version not available (non-Linux system)");
+#endif
+
+   return 0;
 }
