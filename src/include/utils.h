@@ -586,6 +586,16 @@ pgagroal_server_state_as_string(signed char state);
 char*
 pgagroal_connection_state_as_string(signed char state);
 
+/**
+ * Get the Linux kernel version
+ * @param major Pointer to store major version
+ * @param minor Pointer to store minor version
+ * @param patch Pointer to store patch version
+ * @return 0 if success, -1 if error
+ */
+int
+pgagroal_linux_version(int* major, int* minor, int* patch);
+
 #ifdef __cplusplus
 }
 #endif
