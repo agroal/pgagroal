@@ -59,6 +59,7 @@
 #define LINE_LENGTH 512
 
 static int extract_key_value(char* str, char** key, char** value);
+static int extract_syskey_value(char* str, char** key, char** value);
 static int as_int(char* str, int* i);
 static int as_bool(char* str, bool* b);
 static int as_logging_type(char* str);
@@ -276,7 +277,14 @@ pgagroal_read_configuration(void* shm, char* filename, bool emit_warnings)
          }
          else
          {
-            extract_key_value(line, &key, &value);
+            if (pgagroal_starts_with(line, "log_path"))
+            {
+               extract_syskey_value(line, &key, &value);
+            }
+            else
+            {
+               extract_key_value(line, &key, &value);
+            }
 
             if (key && value)
             {
@@ -2144,6 +2152,90 @@ extract_key_value(char* str, char** key, char** value)
             goto error;
          }
          memcpy(v, str + offset, (c - offset));
+         *value = v;
+         return 0;
+      }
+   }
+error:
+   return 1;
+}
+
+/**
+ * Given a line of text extracts the key part and the value.
+ * Valid lines must have the form <key> = <value>.
+ *
+ * The key must be unquoted and cannot have any spaces
+ * in front of it.
+ *
+ * The value will be extracted as it is without trailing and leading spaces.
+ * 
+ * Comments on the right side of a value are allowed.
+ *
+ * Example of valid lines are:
+ * <code>
+ * foo = bar
+ * foo=bar
+ * foo=  bar
+ * foo = "bar"
+ * foo = 'bar'
+ * foo = "#bar"
+ * foo = '#bar'
+ * foo = bar # bar set!
+ * foo = bar# bar set!
+ * </code>
+ *
+ * @param str the line of text incoming from the configuration file
+ * @param key the pointer to where to store the key extracted from the line
+ * @param value the pointer to where to store the value (as it is)
+ * @returns 1 if unable to parse the line, 0 if everything is ok
+ */
+static int
+extract_syskey_value(char* str, char** key, char** value)
+{
+   int c = 0;
+   int offset = 0;
+   int length = strlen(str);
+   int d = length-1;
+   char* k;
+   char* v;
+
+   // the key does not allow spaces and is whatever is
+   // on the left of the '='
+   while (str[c] != ' ' && str[c] != '=' && c < length)
+      c++;
+
+   if (c < length)
+   {
+      k = calloc(1, c + 1);
+      if (k == NULL)
+      {
+         goto error;
+      }
+      memcpy(k, str, c);
+      *key = k;
+
+      while ((str[c] == ' ' || str[c] == '\t' || str[c] == '=' || str[c] == '\r' || str[c] == '\n') && c < length)
+         c++;
+
+      // empty value
+      if(c == length)
+      {
+         return 0;
+      }
+
+      offset = c;
+
+      while ((str[c] == ' ' || str[c] == '\t' ||str[c] == '\r' || str[c] == '\n') && d > c)
+         d--;
+
+      if (c <= length)
+      {
+         v = calloc(1, (d - offset) + 1);
+         if (v == NULL)
+         {
+            goto error;
+         }
+         memcpy(v, str + offset, (d - offset));
          *value = v;
          return 0;
       }
