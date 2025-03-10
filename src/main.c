@@ -344,6 +344,9 @@ main(int argc, char** argv)
    struct main_configuration* config = NULL;
    int ret;
    int c;
+   char* os = NULL;
+
+   int kernel_major, kernel_minor, kernel_patch;
    bool conf_file_mandatory;
    char message[MISC_LENGTH]; // a generic message used for errors
    argv_ptr = argv;
@@ -917,6 +920,10 @@ read_superuser_path:
    pgagroal_initialize_random();
 
    pgagroal_set_proc_title(argc, argv, "main", NULL);
+
+   pgagroal_os_kernel_version(&os, &kernel_major, &kernel_minor, &kernel_patch);
+
+   free(os);
 
    /* Bind Unix Domain Socket: Main */
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, &unix_management_socket))
