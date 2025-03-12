@@ -1318,7 +1318,7 @@ pgagroal_os_kernel_version(char** os, int* kernel_major, int* kernel_minor, int*
 
    if (uname(&buffer) != 0)
    {
-      pgagroal_log_debug("Failed to retrieve system information.\n");
+      pgagroal_log_debug("Failed to retrieve system information.");
       goto error;
    }
 
@@ -1326,7 +1326,7 @@ pgagroal_os_kernel_version(char** os, int* kernel_major, int* kernel_minor, int*
    *os = pgagroal_append(NULL, buffer.sysname);
    if (*os == NULL)
    {
-      pgagroal_log_debug("Failed to allocate memory for OS name.\n");
+      pgagroal_log_debug("Failed to allocate memory for OS name.");
       goto error;
    }
 
@@ -1334,20 +1334,20 @@ pgagroal_os_kernel_version(char** os, int* kernel_major, int* kernel_minor, int*
 #if defined(HAVE_LINUX)
    if (sscanf(buffer.release, "%d.%d.%d", kernel_major, kernel_minor, kernel_patch) < 2)
    {
-      pgagroal_log_debug("Failed to parse Linux kernel version.\n");
+      pgagroal_log_debug("Failed to parse Linux kernel version.");
       goto error;
    }
 #elif defined(HAVE_FREEBSD) || defined(HAVE_OPENBSD)
    if (sscanf(buffer.release, "%d.%d", kernel_major, kernel_minor) < 2)
    {
-      pgagroal_log_debug("Failed to parse BSD OS kernel version.\n");
+      pgagroal_log_debug("Failed to parse BSD OS kernel version.");
       goto error;
    }
    *kernel_patch = 0; // BSD doesn't use patch version
 #elif defined(HAVE_OSX)
    if (sscanf(buffer.release, "%d.%d.%d", kernel_major, kernel_minor, kernel_patch) < 2)
    {
-      pgagroal_log_debug("Failed to parse macOS kernel version.\n");
+      pgagroal_log_debug("Failed to parse macOS kernel version.");
       goto error;
    }
 #endif
@@ -1366,10 +1366,10 @@ error:
    *os = pgagroal_append(NULL, "Unknown");
    if (*os == NULL)
    {
-      pgagroal_log_debug("Failed to allocate memory for unknown OS name.\n");
+      pgagroal_log_debug("Failed to allocate memory for unknown OS name.");
    }
 
-   pgagroal_log_debug("Unable to retrieve OS and kernel version.\n");
+   pgagroal_log_debug("Unable to retrieve OS and kernel version.");
 
    *kernel_major = 0;
    *kernel_minor = 0;
@@ -1380,10 +1380,10 @@ error:
    *os = pgagroal_append(NULL, "Unknown");
    if (*os == NULL)
    {
-      pgagroal_log_debug("Failed to allocate memory for unknown OS name.\n");
+      pgagroal_log_debug("Failed to allocate memory for unknown OS name.");
    }
 
-   pgagroal_log_debug("Kernel version not available.\n");
+   pgagroal_log_debug("Kernel version not available.");
    return 1;
 #endif
 }
