@@ -1345,6 +1345,7 @@ pgagroal_os_kernel_version(char** os, int* kernel_major, int* kernel_minor, int*
       goto error;
    }
    *kernel_patch = 0; // BSD doesn't use patch version
+   bsd = true;
 #elif defined(HAVE_OSX)
    if (sscanf(buffer.release, "%d.%d.%d", kernel_major, kernel_minor, kernel_patch) < 2)
    {
