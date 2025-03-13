@@ -1308,6 +1308,7 @@ int
 pgagroal_os_kernel_version(char** os, int* kernel_major, int* kernel_minor, int* kernel_patch)
 {
 
+   bool bsd = false;
    *os = NULL;
    *kernel_major = 0;
    *kernel_minor = 0;
@@ -1352,7 +1353,15 @@ pgagroal_os_kernel_version(char** os, int* kernel_major, int* kernel_minor, int*
    }
 #endif
 
-   pgagroal_log_debug("OS: %s | Kernel Version: %d.%d.%d\n", *os, *kernel_major, *kernel_minor, *kernel_patch);
+   if (!bsd)
+   {
+      pgagroal_log_debug("OS: %s | Kernel Version: %d.%d.%d", *os, *kernel_major, *kernel_minor, *kernel_patch);
+   }
+   else
+   {
+      pgagroal_log_debug("OS: %s | Version: %d.%d", *os, *kernel_major, *kernel_minor);
+   }
+
    return 0;
 
 error:
