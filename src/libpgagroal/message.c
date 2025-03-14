@@ -42,6 +42,7 @@
 #include <openssl/ssl.h>
 #include <sys/time.h>
 
+static int read_message_from_buffer(struct io_watcher *watcher, struct message** msg_p);
 static int read_message(int socket, bool block, int timeout, struct message** msg);
 static int write_message(int socket, struct message* msg);
 
@@ -85,6 +86,12 @@ int
 pgagroal_read_socket_message(int socket, struct message** msg)
 {
    return read_message(socket, false, 0, msg);
+}
+
+int
+pgagroal_recv_message(struct io_watcher *watcher, struct message** msg)
+{
+   return read_message_from_buffer(watcher, msg);
 }
 
 int
@@ -1203,6 +1210,26 @@ pgagroal_log_message(struct message* msg)
    {
       pgagroal_log_mem(msg->data, msg->length);
    }
+}
+
+static int
+read_message_from_buffer(struct io_watcher *watcher, struct message** msg_p)
+{
+   struct message *msg = pgagroal_memory_message();
+
+   if (msg->length == 0)
+   {
+      return MESSAGE_STATUS_ZERO;
+   }
+
+   if (msg->length < 0)
+   {
+      return MESSAGE_STATUS_ERROR;
+   }
+
+   msg->kind = (signed char)(*((char*)msg->data));
+   *msg_p = msg;
+   return MESSAGE_STATUS_OK;
 }
 
 static int
