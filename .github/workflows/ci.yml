@@ -128,6 +128,30 @@ jobs:
         verify_running
         verify_shutdown
       working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+    - name: rm -Rf
+      run: rm -Rf build/
+      working-directory: /home/runner/work/pgagroal/pgagroal/
+    - name: CLANG/Release/mkdir
+      run: mkdir build
+      working-directory: /home/runner/work/pgagroal/pgagroal/
+    - name: CLANG/Release/cmake
+      run: export CC=/usr/bin/clang && cmake -DCMAKE_BUILD_TYPE=Release ..
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/
+    - name: CLANG/Release/make
+      run: make
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/
+    - name: CLANG/Release/Run pgagroal & confirm pgagroal is running
+      run: |
+        sudo mkdir -p /etc/pgagroal
+        sudo cp ../../doc/etc/*.conf /etc/pgagroal
+        ./pgagroal -d
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
+    - name: CLANG/Release/Run verify_running & verify_shutdown
+      run: |
+        source /tmp/functions.sh
+        verify_running
+        verify_shutdown
+      working-directory: /home/runner/work/pgagroal/pgagroal/build/src/
 
 
 
