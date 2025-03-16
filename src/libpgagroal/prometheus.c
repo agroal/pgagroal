@@ -88,6 +88,7 @@ static void client_information(int client_fd);
 static void internal_information(int client_fd);
 static void internal_vault_information(int client_fd);
 static void connection_awaiting_information(int client_fd);
+static void write_os_kernel_version(int client_fd);
 
 static int send_chunk(int client_fd, char* data);
 
@@ -1534,6 +1535,22 @@ home_page(int client_fd)
    data = pgagroal_append(data, "  <p>\n");
    data = pgagroal_append(data, "   Number of sockets used by pgagroal itself\n");
    data = pgagroal_append(data, "  </p>\n");
+   #if defined(HAVE_LINUX)
+   data = pgagroal_append(data, "  <h2>pgagroal_os_linux</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "  Reports the kernel version of the Linux system where pgagroal is running, including major, minor, and patch versions.\n");
+   data = pgagroal_append(data, "  </p>\n");
+   #elif defined(HAVE_OPENBSD) || defined(HAVE_FREEBSD)
+   data = pgagroal_append(data, "  <h2>pgagroal_os_bsd</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "  Reports the operating system version of the BSD system where pgagroal is running, including major and minor versions (patch version is not available).\n");
+   data = pgagroal_append(data, "  </p>\n");
+   #elif defined(HAVE_OSX)
+   data = pgagroal_append(data, "  <h2>pgagroal_os_macos</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "  Reports the kernel version of the macOS system where pgagroal is running, including major, minor, and patch versions.\n");
+   data = pgagroal_append(data, "  </p>\n");
+   #endif
    data = pgagroal_append(data, "  <p>\n");
    data = pgagroal_append(data, "   <a href=\"https://agroal.github.io/pgagroal/\">agroal.github.io/pgagroal/</a>\n");
    data = pgagroal_append(data, "  </p>\n");
@@ -1741,6 +1758,7 @@ retry_cache_locking:
          client_information(client_fd);
          internal_information(client_fd);
          connection_awaiting_information(client_fd);
+         write_os_kernel_version(client_fd);
 
          /* Footer */
          data = pgagroal_append(data, "0\r\n\r\n");
@@ -2483,6 +2501,76 @@ session_information(int client_fd)
    metrics_cache_append(data);
    free(data);
    data = NULL;
+}
+
+static void
+write_os_kernel_version(int client_fd)
+{
+   char* os = NULL;
+   int major = 0, minor = 0, patch = 0;
+   char* data = NULL;
+
+   int status = pgagroal_os_kernel_version(&os, &major, &minor, &patch);
+
+   /* If retrieval fails, log and return without sending a metric */
+   if (status != 0)
+   {
+      pgagroal_log_error("Failed to retrieve OS kernel version; not sending metric");
+      goto error;
+   }
+
+#if defined(HAVE_LINUX)
+   data = pgagroal_append(data, "# HELP pgagroal_os_linux Kernel version as major.minor.patch\n");
+   data = pgagroal_append(data, "# TYPE pgagroal_os_linux gauge\n");
+   data = pgagroal_append(data, "pgagroal_os_linux{os=\"");
+
+#elif defined(HAVE_OPENBSD) || defined(HAVE_FREEBSD)
+   data = pgagroal_append(data, "# HELP pgagroal_os_bsd operating system version as major.minor\n");
+   data = pgagroal_append(data, "# TYPE pgagroal_os_bsd gauge\n");
+   data = pgagroal_append(data, "pgagroal_os_bsd{os=\"");
+
+#elif defined(HAVE_OSX)
+   data = pgagroal_append(data, "# HELP pgagroal_os_macos Kernel version as major.minor.patch\n");
+   data = pgagroal_append(data, "# TYPE pgagroal_os_macos gauge\n");
+   data = pgagroal_append(data, "pgagroal_os_macos{os=\"");
+
+#else
+   // For unsupported platforms
+   pgagroal_log_error("OS not supported for kernel version metrics");
+   goto error;
+
+#endif
+
+   data = pgagroal_append(data, os);
+   data = pgagroal_append(data, "\", major=\"");
+   data = pgagroal_append_int(data, major);
+   data = pgagroal_append(data, "\", minor=\"");
+   data = pgagroal_append_int(data, minor);
+
+#if defined(HAVE_LINUX) || defined(HAVE_OSX)
+   // Include patch version for Linux and macOS
+   data = pgagroal_append(data, "\", patch=\"");
+   data = pgagroal_append_int(data, patch);
+#endif
+
+   data = pgagroal_append(data, "\"} ");
+   data = pgagroal_append_int(data, 1); // 1 indicates success
+   data = pgagroal_append(data, "\n");
+
+   send_chunk(client_fd, data);
+   metrics_cache_append(data);
+
+   /* Clean up */
+   free(data);
+   free(os);
+   return;
+
+error:
+
+   free(os);
+   os = NULL;
+   return;
+
 }
 
 static void

@@ -921,8 +921,6 @@ read_superuser_path:
 
    pgagroal_set_proc_title(argc, argv, "main", NULL);
 
-   pgagroal_os_kernel_version(&os, &kernel_major, &kernel_minor, &kernel_patch);
-
    free(os);
 
    /* Bind Unix Domain Socket: Main */
@@ -1175,6 +1173,9 @@ read_superuser_path:
    pgagroal_log_debug("Known frontend users: %d", config->number_of_frontend_users);
    pgagroal_log_debug("Known admins: %d", config->number_of_admins);
    pgagroal_log_debug("Known superuser: %s", strlen(config->superuser.username) > 0 ? "Yes" : "No");
+
+   /* Retrieve and log the OS kernel version; this has no effect on Pgagroal's operation */
+   pgagroal_os_kernel_version(&os, &kernel_major, &kernel_minor, &kernel_patch);
 
    if (!config->allow_unknown_users && config->number_of_users == 0)
    {
