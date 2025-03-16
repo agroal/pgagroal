@@ -17,6 +17,9 @@ endif(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
 
 project(pgagroal VERSION ${VERSION_STRING} LANGUAGES  C)
 
+include(CTest)
+enable_testing()
+
 set(CPACK_PACKAGE_VERSION_MAJOR ${VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${VERSION_PATCH})
@@ -33,6 +36,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 message(STATUS "pgagroal ${VERSION_STRING}")
 
 set(generation TRUE)
+set(check TRUE)
 
 include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
@@ -57,6 +61,18 @@ endif ()
 CHECK_C_COMPILER_FLAG("-std=c17" COMPILER_SUPPORTS_C17)
 if(NOT COMPILER_SUPPORTS_C17)
   message(FATAL_ERROR "The compiler ${CMAKE_C_COMPILER} has no C17 support. Please use a different C compiler.")
+endif()
+
+find_package(Check)
+if (CHECK_FOUND)
+  message(STATUS "check found")
+  add_library(Check::check SHARED IMPORTED)
+  set_target_properties(Check::check PROPERTIES
+    IMPORTED_LOCATION ${CHECK_LIBRARY}
+    INTERFACE_INCLUDE_DIRECTORIES ${CHECK_INCLUDE_DIR})
+else ()
+  message(STATUS "check needed. The testsuite process will be skipped.")
+  set(check FALSE)
 endif()
 
 find_package(ZLIB)
@@ -158,3 +174,4 @@ file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/src/")
 
 add_subdirectory(doc)
 add_subdirectory(src)
+add_subdirectory(test)

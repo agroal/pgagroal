@@ -35,6 +35,7 @@ jobs:
             libzstd-dev \
             liblz4-dev \
             libbz2-dev \
+            check \
             graphviz \
             doxygen \
             clang \
@@ -63,60 +64,60 @@ jobs:
           echo "PATH=$PATH:/usr/lib/postgresql/17/bin" >> $GITHUB_ENV
           echo $PATH
 
-      - name: Start PostgreSQL
-        run: |
-          sudo systemctl start postgresql || exit 1
-          pg_isready -h 127.0.0.1 | grep '5432' || (echo "Nothing is listening on 127.0.0.1:5432" && exit 1)
-          pg_isready -h ::1 | grep '5432' || (echo "Nothing is listening on ::1:5432" && exit 1)
-          sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
-          PGPASSWORD="postgres" pgbench -i -s 1 -h localhost -p 5432 -U postgres -d postgres
+      # - name: Start PostgreSQL
+      #   run: |
+      #     sudo systemctl start postgresql || exit 1
+      #     pg_isready -h 127.0.0.1 | grep '5432' || (echo "Nothing is listening on 127.0.0.1:5432" && exit 1)
+      #     pg_isready -h ::1 | grep '5432' || (echo "Nothing is listening on ::1:5432" && exit 1)
+      #     sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+      #     PGPASSWORD="postgres" pgbench -i -s 1 -h localhost -p 5432 -U postgres -d postgres
 
-      - name: Define verify functions
-        run: |
-          echo 'verify_running() {
-            echo "Confirming pgagroal is listening on port 2345"
-            netstat -tuln | grep "127.0.0.1:2345" || (echo "Nothing is listening on 127.0.0.1:2345" && exit 1)
-            netstat -tuln | grep "::1:2345" || (echo "Nothing is listening on ::1:2345" && exit 1)
-            echo "[*] Running pgagroal-cli ping"
-            ./pgagroal-cli ping
-            echo "[*] Running queries with psql"
-            PGPASSWORD="postgres" psql -h 127.0.0.1 -p 2345 -U postgres -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
-            PGPASSWORD="postgres" psql -h ::1 -p 2345 -U postgres -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
-          }
+      # - name: Define verify functions
+      #   run: |
+      #     echo 'verify_running() {
+      #       echo "Confirming pgagroal is listening on port 2345"
+      #       netstat -tuln | grep "127.0.0.1:2345" || (echo "Nothing is listening on 127.0.0.1:2345" && exit 1)
+      #       netstat -tuln | grep "::1:2345" || (echo "Nothing is listening on ::1:2345" && exit 1)
+      #       echo "[*] Running pgagroal-cli ping"
+      #       ./pgagroal-cli ping
+      #       echo "[*] Running queries with psql"
+      #       PGPASSWORD="postgres" psql -h 127.0.0.1 -p 2345 -U postgres -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
+      #       PGPASSWORD="postgres" psql -h ::1 -p 2345 -U postgres -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
+      #     }
 
-          verify_shutdown() {
-            echo "[*] Running pgagroal-cli shutdown immediate"
-            ./pgagroal-cli shutdown immediate
-            sleep 5
-            echo "[*] Confirming there are no dangling pgagroal processes"
-            pgrep pgagroal > /dev/null && echo "[E] Dangling pgagroal child processes: $(wc -l < <(pgrep pgagroal))" && exit 1
-            echo "rm -f /tmp/pgagroal.2345.pid"
-            rm -f /tmp/pgagroal.2345.pid
-          }' > /tmp/functions.sh
+      #     verify_shutdown() {
+      #       echo "[*] Running pgagroal-cli shutdown immediate"
+      #       ./pgagroal-cli shutdown immediate
+      #       sleep 5
+      #       echo "[*] Confirming there are no dangling pgagroal processes"
+      #       pgrep pgagroal > /dev/null && echo "[E] Dangling pgagroal child processes: $(wc -l < <(pgrep pgagroal))" && exit 1
+      #       echo "rm -f /tmp/pgagroal.2345.pid"
+      #       rm -f /tmp/pgagroal.2345.pid
+      #     }' > /tmp/functions.sh
 
-      - name: Setup pgagroal
-        run: |
-            sudo mkdir -p /etc/pgagroal
-            sudo cp ./doc/etc/*.conf /etc/pgagroal
-            sudo bash -c 'tee /etc/pgagroal/pgagroal.conf > /dev/null <<EOF
-            [pgagroal]
-            host = *
-            port = 2345
+      # - name: Setup pgagroal
+      #   run: |
+      #       sudo mkdir -p /etc/pgagroal
+      #       sudo cp ./doc/etc/*.conf /etc/pgagroal
+      #       sudo bash -c 'tee /etc/pgagroal/pgagroal.conf > /dev/null <<EOF
+      #       [pgagroal]
+      #       host = *
+      #       port = 2345
 
-            log_type = file
-            log_level = debug5
-            log_path = /tmp/pgagroal.log
+      #       log_type = file
+      #       log_level = debug5
+      #       log_path = /tmp/pgagroal.log
 
-            max_connections = 100
-            idle_timeout = 600
-            validation = off
-            unix_socket_dir = /tmp/
+      #       max_connections = 100
+      #       idle_timeout = 600
+      #       validation = off
+      #       unix_socket_dir = /tmp/
 
-            [primary]
-            host = localhost
-            port = 5432
-            EOF'
-        working-directory: /home/runner/work/pgagroal/pgagroal/
+      #       [primary]
+      #       host = localhost
+      #       port = 5432
+      #       EOF'
+      #   working-directory: /home/runner/work/pgagroal/pgagroal/
 
       - name: Build Project
         run: |
@@ -132,14 +133,29 @@ jobs:
            make -j$(nproc)
         working-directory: /home/runner/work/pgagroal/pgagroal/
 
-      - name: Run pgagroal & verify (GCC/Debug or Clang/Debug & Release)
+      - name: Testsuite
+        id: test
         run: |
-          cd build/src
-          ./pgagroal -d
-          source /tmp/functions.sh
-          verify_running
-          verify_shutdown
-        working-directory: /home/runner/work/pgagroal/pgagroal/
+          if [ "${{ matrix.compiler }}" = "gcc" ] && [ "${{ matrix.build_type }}" = "Debug" ]; then
+            ASAN_LIB=$(gcc -print-file-name=libasan.so)
+            if [ -n "$ASAN_LIB" ] && [ -f "$ASAN_LIB" ]; then
+              echo "Using GCC AddressSanitizer preload for Debug build"
+              export ASAN_OPTIONS=verify_asan_link_order=0
+              export LD_PRELOAD=$ASAN_LIB
+              export ASAN_OPTIONS=detect_leaks=0,verify_asan_link_order=0
+            fi
+          fi
+          $(which bash) ./testsuite.sh run-configs
+        working-directory: /home/runner/work/pgagroal/pgagroal/build
+
+      # - name: Run pgagroal & verify (GCC/Debug or Clang/Debug & Release)
+      #   run: |
+      #     cd build/src
+      #     ./pgagroal -d
+      #     source /tmp/functions.sh
+      #     verify_running
+      #     verify_shutdown
+      #   working-directory: /home/runner/work/pgagroal/pgagroal/
 
       - name: Upload Build and Run Logs as Artifacts
         if: always()
@@ -148,6 +164,10 @@ jobs:
           name: logs-${{ matrix.compiler }}-${{ matrix.build_type }}
           path:  /tmp/pgagroal.log
           retention-days: 90
+
+      - name: Testsuite Clean
+        run: $(which bash) ./testsuite.sh clean
+        working-directory: /home/runner/work/pgagroal/pgagroal/build
 
       - name: Upload Generated Documentation Artifact
         if: matrix.compiler == 'gcc' && matrix.build_type == 'Release'
@@ -159,7 +179,10 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
-
+    env:
+      PGAGROAL_ROOT: ${{ github.workspace }}
+      BUILD_DIR: ${{ github.workspace }}/build
+      POSTGRESQL_VERSION: "@17"
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -174,21 +197,25 @@ jobs:
       - name: Install dependencies
         run: |
           brew update
-          brew install openssl libev zstd lz4 bzip2 docutils graphviz doxygen
-          brew install postgresql@17
-
-      - name: Start PostgreSQL
+          brew install openssl libev zstd lz4 libssh bzip2 docutils check graphviz doxygen
+          brew install postgresql${POSTGRESQL_VERSION}
+          
+      - name: Add PostgreSQL to Path
         run: |
-          brew services start postgresql@17
-          # Wait for PostgreSQL to start
-          for i in {1..30}; do
-            if pg_isready; then
-              echo "PostgreSQL is ready"
-              break
-            fi
-            echo "Waiting for PostgreSQL to start..."
-            sleep 1
-          done
+          echo "$(brew --prefix postgresql${POSTGRESQL_VERSION})/bin" >> $GITHUB_PATH
+
+      # - name: Start PostgreSQL
+      #   run: |
+      #     brew services start postgresql@17
+      #     # Wait for PostgreSQL to start
+      #     for i in {1..30}; do
+      #       if pg_isready; then
+      #         echo "PostgreSQL is ready"
+      #         break
+      #       fi
+      #       echo "Waiting for PostgreSQL to start..."
+      #       sleep 1
+      #     done
 
       - name: Configure and build with clang
         run: |
@@ -197,27 +224,52 @@ jobs:
           cd build
           cmake -DCMAKE_BUILD_TYPE=Debug ..
           make -j$(sysctl -n hw.ncpu)
+      
+      - name: Run tests with Clang build
+        working-directory: ${{ env.BUILD_DIR }}
+        run: $(which bash) ./testsuite.sh
+  
+      - name: Clean up after Clang tests
+        working-directory: ${{ env.BUILD_DIR }}
+        run: $(which bash) ./testsuite.sh clean
 
-      - name: Run pgagroal and test
+      - name: Show logs on failure
+        if: failure()
+        working-directory: ${{ env.BUILD_DIR }}
         run: |
-          sudo mkdir -p /etc/pgagroal
-          sudo cp doc/etc/*.conf /etc/pgagroal
-          cd build/src
-          ./pgagroal > /dev/null 2>&1 &
-          # Give pgagroal time to start
-          sleep 5
-          # Test if pgagroal is running
-          if ! ./pgagroal-cli ping; then
-            echo "pgagroal failed to start"
-            exit 1
-          fi
-          # Shutdown pgagroal
-          ./pgagroal-cli shutdown
+          cat ./log/logfile || echo "logfile not found"
+          cat ./log/pgagroal.log || echo "pgagroal.log not found"
 
-      - name: Stop PostgreSQL
-        run: |
-          brew services stop postgresql@14
-        if: always()
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build-logs
+          path: |
+            ${{ env.BUILD_DIR }}/log/
+            /tmp/*.log
+          retention-days: 7
+
+      # - name: Run pgagroal and test
+      #   run: |
+      #     sudo mkdir -p /etc/pgagroal
+      #     sudo cp doc/etc/*.conf /etc/pgagroal
+      #     cd build/src
+      #     ./pgagroal > /dev/null 2>&1 &
+      #     # Give pgagroal time to start
+      #     sleep 5
+      #     # Test if pgagroal is running
+      #     if ! ./pgagroal-cli ping; then
+      #       echo "pgagroal failed to start"
+      #       exit 1
+      #     fi
+      #     # Shutdown pgagroal
+      #     ./pgagroal-cli shutdown
+
+      # - name: Stop PostgreSQL
+      #   run: |
+      #     brew services stop postgresql@14
+      #   if: always()
 
   build-freebsd:
     runs-on: ubuntu-latest
@@ -280,88 +332,6 @@ jobs:
               texlive-texmf \
               graphviz
 
-      - name: Configure PostgreSQL
-        shell: freebsd {0}
-        run: |
-          if ! id postgres >/dev/null 2>&1; then
-            pw groupadd -n postgres -g 770
-            pw useradd -n postgres -u 770 -g postgres -d /var/db/postgres -s /bin/sh
-          fi
-          rm -rf /var/db/postgres/data17  # Delete the broken directory
-          mkdir -p /var/db/postgres/data17
-          chown -R postgres:postgres /var/db/postgres
-          su - postgres -c "/usr/local/bin/initdb -D /var/db/postgres/data17 -E UTF8"
-          sysrc postgresql_enable=YES
-          service postgresql start
-
-          psql -U postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"
-
-          createdb testdb -U postgres
-          PGPASSWORD="postgres" pgbench -i -s 1 -U postgres -d testdb
-      - name : Define verify functions
-        shell: freebsd {0}
-        run: |
-          echo 'verify_running() {
-           echo "DEBUG: GITHUB_WORKSPACE=${GITHUB_WORKSPACE}" >&2
-           ls -la "${GITHUB_WORKSPACE}/build/src/pgagroal-cli" >&2
-
-            echo "Confirming pgagroal is listening on port 2345"
-            sockstat -4l | grep ".2345" || (echo "Nothing is listening on port 2345" && exit 1)
-
-            echo "[*] Running pgagroal-cli ping"
-            ${GITHUB_WORKSPACE}/build/src/pgagroal-cli -c /etc/pgagroal/pgagroal.conf ping
-
-            echo "[*] Running queries with psql"
-            PGPASSWORD="postgres" psql -h 127.0.0.1 -p 2345 -U postgres -d testdb -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
-          }
-
-          verify_shutdown() {
-            echo "[*] Running pgagroal-cli shutdown immediate"
-            ${GITHUB_WORKSPACE}/build/src/pgagroal-cli -c /etc/pgagroal/pgagroal.conf shutdown immediate
-            sleep 5
-            echo "[*] Checking for dangling pgagroal processes"
-            if pgrep pgagroal > /dev/null; then
-              echo "[W] Found dangling pgagroal processes, killing them"
-              pkill -9 pgagroal
-              sleep 2
-            fi
-            echo "[*] Confirming there are no dangling pgagroal processes"
-            pgrep pgagroal > /dev/null && echo "[E] Dangling pgagroal child processes: $(pgrep pgagroal | wc -l)" && exit 1
-            echo "[*] rm -f /tmp/pgagroal.2345.pid"
-            rm -f /tmp/pgagroal.2345.pid
-          }' > /tmp/functions.sh
-      - name: Setup pgagroal
-        shell: freebsd {0}
-        run: |
-          mkdir -p /etc/pgagroal
-          cp ./doc/etc/*.conf /etc/pgagroal
-
-          cat > /etc/pgagroal/pgagroal.conf <<EOF
-          [pgagroal]
-          host = *
-          port = 2345
-
-          log_type = file
-          log_level = debug5
-          log_path = /tmp/pgagroal.log
-
-          max_connections = 100
-          idle_timeout = 600
-          validation = off
-          unix_socket_dir = /tmp/
-
-          [primary]
-          host = 127.0.0.1
-          port = 5432
-          EOF
-
-          cat > /etc/pgagroal/pgagroal_hba.conf <<EOF
-          #
-          # TYPE  DATABASE USER  ADDRESS  METHOD
-          #
-          host    all      all   all      all
-          EOF
-
       - name: Build Project
         shell: freebsd {0}
         run: |
@@ -373,11 +343,21 @@ jobs:
       - name: Debug Testsuite Path
         shell: freebsd {0}
         run: |
-          cd "${GITHUB_WORKSPACE}/build/src"
-          su - postgres -c "${GITHUB_WORKSPACE}/build/src/pgagroal -c /etc/pgagroal/pgagroal.conf -a /etc/pgagroal/pgagroal_hba.conf -d"
-          sleep 2
-          RUN_CMD=". /tmp/functions.sh && export GITHUB_WORKSPACE='${GITHUB_WORKSPACE}' && verify_running"
-          SHUTDOWN_CMD=". /tmp/functions.sh && export GITHUB_WORKSPACE='${GITHUB_WORKSPACE}' && verify_shutdown"
+          cd "${GITHUB_WORKSPACE}/build"
+          bash ./testsuite.sh
 
-          su - postgres -c "$RUN_CMD"
-          su - postgres -c "$SHUTDOWN_CMD"
+      - name: Clean Testsuite
+        shell: freebsd {0}
+        run: |
+          cd ${GITHUB_WORKSPACE}/build
+          bash ./testsuite.sh clean
+
+      - name: Upload Build Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freebsd-${{ matrix.compiler }}-${{ matrix.build_type }}-logs
+          path: |
+            $GITHUB_WORKSPACE/build/log/*
+            /tmp/*.log
+          retention-days: 7
