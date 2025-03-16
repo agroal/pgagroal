@@ -66,7 +66,6 @@ static int as_logging_level(char* str);
 static int as_logging_mode(char* str);
 
 static int as_logging_rotation_size(char* str, unsigned int* size);
-static int as_logging_rotation_age(char* str, unsigned int* age);
 static int as_validation(char* str);
 static int as_pipeline(char* str);
 static int as_hugepage(char* str);
@@ -3052,11 +3051,6 @@ as_logging_rotation_size(char* str, unsigned int* size)
  * Returns 1 for errors, 0 for correct parsing.
  *
  */
-static int
-as_logging_rotation_age(char* str, unsigned int* age)
-{
-   return as_seconds(str, age, PGAGROAL_LOGGING_ROTATION_DISABLED);
-}
 
 void
 pgagroal_init_pidfile_if_needed(void)
@@ -4625,10 +4619,11 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    }
    else if (key_in_section("log_rotation_age", section, key, true, &unknown))
    {
-      if (as_logging_rotation_age(value, &config->common.log_rotation_age))
+      if (as_seconds(value, &config->common.log_rotation_age, PGAGROAL_LOGGING_ROTATION_DISABLED))
       {
          unknown = true;
       }
+
    }
    else if (key_in_section("log_line_prefix", section, key, true, &unknown))
    {
@@ -4901,7 +4896,7 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
    }
    else if (key_in_section("log_rotation_age", section, key, true, &unknown))
    {
-      if (as_logging_rotation_age(value, &config->common.log_rotation_age))
+      if (as_seconds(value, &config->common.log_rotation_age, PGAGROAL_LOGGING_ROTATION_DISABLED))
       {
          unknown = true;
       }
@@ -5766,7 +5761,7 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
       }
       else if (!strcmp(key, "log_rotation_age"))
       {
-         if (as_logging_rotation_age(config_value, &config->common.log_rotation_age))
+         if (as_seconds(config_value, &config->common.log_rotation_age, PGAGROAL_LOGGING_ROTATION_DISABLED))
          {
             unknown = true;
          }
