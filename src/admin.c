@@ -384,7 +384,7 @@ master_key(char* password, bool generate_pwd, int pwd_length, int32_t output_for
       warnx("Could not write to master key file <%s>", &buf[0]);
       goto error;
    }
-   
+
    #if defined(HAVE_OSX)
       #define PGAGROAL_GETENV(name) getenv(name)
    #else
