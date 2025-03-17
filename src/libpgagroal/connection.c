@@ -65,7 +65,7 @@ pgagroal_connection_get(int* client_fd)
 
    if (pgagroal_connect_unix_socket(config->unix_socket_dir, TRANSFER_UDS, &fd))
    {
-      pgagroal_log_warn("pgagroal_management_transfer_connection: connect: %d", fd);
+      pgagroal_log_warn("pgagroal_management_transfer_connection: get connect: %d", fd);
       errno = 0;
       goto error;
    }
@@ -95,7 +95,7 @@ pgagroal_connection_get_pid(pid_t pid, int* client_fd)
 
    if (pgagroal_connect_unix_socket(config->unix_socket_dir, f, &fd))
    {
-      pgagroal_log_warn("pgagroal_management_transfer_connection: connect: %d", fd);
+      pgagroal_log_warn("pgagroal_management_transfer_connection: get_pid connect = %d, pid = %d, f = [%s]", fd, pid, f);
       errno = 0;
       goto error;
    }
