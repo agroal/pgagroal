@@ -390,6 +390,21 @@ void
 pgagroal_log_message(struct message* msg);
 
 /**
+ * Read a message from a buffer
+ * @param buffer The buffer to "copy" from
+ * @param msg The resulting message
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
+ */
+int
+pgagroal_recv_message(struct io_watcher* watcher, struct message** msg);
+
+/**
+ * TODO
+ */
+int
+pgagroal_send_message(struct io_watcher* watcher, struct message* msg);
+
+/**
  * Read a message using a socket
  * @param socket The socket descriptor
  * @param msg The resulting message
@@ -397,15 +412,6 @@ pgagroal_log_message(struct message* msg);
  */
 int
 pgagroal_read_socket_message(int socket, struct message** msg);
-
-/**
- * Read a message from a buffer
- * @param buffer The buffer to "copy" from
- * @param msg The resulting message
- * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
- */
-int
-pgagroal_recv_message(struct io_watcher *w, struct message** msg);
 
 /**
  * Write a message using a socket

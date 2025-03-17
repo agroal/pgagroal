@@ -172,7 +172,7 @@ transaction_stop(struct event_loop* loop, struct worker_io* w)
          pgagroal_write_rollback(NULL, config->connections[slot].fd);
       }
 
-      pgagroal_io_stop(loop, (struct io_watcher*)&server_io);
+      pgagroal_io_stop((struct io_watcher*)&server_io);
       pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION_STOP, w->slot);
       pgagroal_return_connection(slot, w->server_ssl, true);
       slot = -1;
@@ -231,21 +231,8 @@ transaction_client(struct event_loop* loop, struct io_watcher* watcher, int reve
       pgagroal_io_start(loop, &server_io.io);
    }
 
-   if (wi->server_ssl == NULL)
-   {
-      if (config->ev_backend == EV_BACKEND_IO_URING)
-      {
-         status = pgagroal_recv_message(watcher, &msg);
-      }
-      else
-      {
-         status = pgagroal_read_socket_message(watcher->fds.worker.rcv_fd, &msg);
-      }
-   }
-   else
-   {
-      status = pgagroal_read_ssl_message(wi->client_ssl, &msg);
-   }
+   status = pgagroal_recv_message(watcher, &msg);
+
    if (likely(status == MESSAGE_STATUS_OK))
    {
       pgagroal_prometheus_network_sent_add(msg->length);
@@ -300,21 +287,8 @@ transaction_client(struct event_loop* loop, struct io_watcher* watcher, int reve
             }
          }
 
-         if (wi->server_ssl == NULL)
-         {
-  if (config->ev_backend == EV_BACKEND_IO_URING)
-      {
-        status = pgagroal_send_message(watcher);
-      }
-      else
-      {
-         status = pgagroal_write_socket_message(watcher->fds.worker.snd_fd, msg);
-      }
-         }
-         else
-         {
-            status = pgagroal_write_ssl_message(wi->server_ssl, msg);
-         }
+         status = pgagroal_send_message(watcher, msg);
+
          if (unlikely(status == MESSAGE_STATUS_ERROR))
          {
             if (config->failover)
@@ -426,21 +400,8 @@ transaction_server(struct event_loop* loop, struct io_watcher* watcher, int reve
       goto client_error;
    }
 
-   if (wi->server_ssl == NULL)
-   {
-      if (config->ev_backend == EV_BACKEND_IO_URING)
-      {
-         status = pgagroal_recv_message(watcher, &msg);
-      }
-      else
-      {
-         status = pgagroal_read_socket_message(watcher->fds.worker.rcv_fd, &msg);
-      }
-   }
-   else
-   {
-      status = pgagroal_read_ssl_message(wi->server_ssl, &msg);
-   }
+   status = pgagroal_recv_message(watcher, &msg);
+
    if (likely(status == MESSAGE_STATUS_OK))
    {
       pgagroal_prometheus_network_received_add(msg->length);
@@ -488,21 +449,8 @@ transaction_server(struct event_loop* loop, struct io_watcher* watcher, int reve
          }
       }
 
-      if (wi->client_ssl == NULL)
-      {
-        if (config->ev_backend == EV_BACKEND_IO_URING)
-      {
-        status = pgagroal_send_message(watcher);
-      }
-      else
-      {
-         status = pgagroal_write_socket_message(watcher->fds.worker.snd_fd, msg);
-      }
-      }
-      else
-      {
-         status = pgagroal_write_ssl_message(wi->client_ssl, msg);
-      }
+      status = pgagroal_send_message(watcher, msg);
+
       if (unlikely(status != MESSAGE_STATUS_OK))
       {
          goto client_error;
@@ -520,7 +468,7 @@ transaction_server(struct event_loop* loop, struct io_watcher* watcher, int reve
       {
          if (has_z && !in_tx && slot != -1)
          {
-            pgagroal_io_stop(loop, (struct io_watcher*)&server_io);
+            pgagroal_io_stop((struct io_watcher*)&server_io);
 
             if (deallocate)
             {
@@ -541,7 +489,7 @@ transaction_server(struct event_loop* loop, struct io_watcher* watcher, int reve
       {
          if (has_z && !in_tx && slot != -1)
          {
-            pgagroal_io_stop(loop, (struct io_watcher*)&server_io);
+            pgagroal_io_stop((struct io_watcher*)&server_io);
 
             exit_code = WORKER_SERVER_FATAL;
             pgagroal_event_loop_break(loop);
@@ -621,7 +569,7 @@ shutdown_mgt(struct event_loop* loop)
    memset(&p, 0, sizeof(p));
    snprintf(&p[0], sizeof(p), ".s.%d", getpid());
 
-   pgagroal_io_stop(loop, &io_mgt);
+   pgagroal_io_stop(&io_mgt);
    pgagroal_disconnect(unix_socket);
    errno = 0;
    pgagroal_remove_unix_socket(config->unix_socket_dir, &p[0]);

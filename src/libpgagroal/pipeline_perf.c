@@ -119,33 +119,14 @@ performance_client(struct event_loop* loop, struct io_watcher* watcher, int reve
 
    wi = (struct worker_io*)watcher;
 
-   if (config->ev_backend == EV_BACKEND_IO_URING)
-   {
-      status = pgagroal_recv_message(watcher, &msg);
-   }
-   else
-   {
-      status = pgagroal_read_socket_message(watcher->fds.worker.rcv_fd, &msg);
-   }
+   status = pgagroal_recv_message(watcher, &msg);
+
    if (likely(status == MESSAGE_STATUS_OK))
    {
       if (likely(msg->kind != 'X'))
       {
-         if (wi->server_ssl == NULL)
-         {
-            if (config->ev_backend == EV_BACKEND_IO_URING)
-            {
-               status = pgagroal_send_message(watcher);
-            }
-            else
-            {
-               status = pgagroal_write_socket_message(watcher->fds.worker.snd_fd, msg);
-            }
-         }
-         else
-         {
-            status = pgagroal_write_ssl_message(wi->server_ssl, msg);
-         }
+         status = pgagroal_send_message(watcher, msg);
+
          if (unlikely(status != MESSAGE_STATUS_OK))
          {
             goto server_error;
@@ -154,7 +135,6 @@ performance_client(struct event_loop* loop, struct io_watcher* watcher, int reve
       else if (msg->kind == 'X')
       {
          saw_x = true;
-         pgagroal_event_loop_break(loop);
       }
    }
    else if (status == MESSAGE_STATUS_ZERO)
@@ -168,18 +148,10 @@ performance_client(struct event_loop* loop, struct io_watcher* watcher, int reve
 
    errno = 0;
 
-   if (saw_x)
-   {
-           exit_code = WORKER_SUCCESS;
-   }
-   else {
-           exit_code = WORKER_SERVER_FAILURE;
-   }
-
    return;
 
 client_done:
-   pgagroal_log_info("[C] Client done (slot %d database %s user %s): %s (socket %d status %d)",
+   pgagroal_log_debug("[C] Client done (slot %d database %s user %s): %s (socket %d status %d)",
                       wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                       strerror(errno), wi->client_fd, status);
    errno = 0;
@@ -197,7 +169,7 @@ client_done:
    return;
 
 client_error:
-   pgagroal_log_info("[C] Client error (slot %d database %s user %s): %s (socket %d status %d)",
+   pgagroal_log_warn("[C] Client error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->client_fd, status);
    pgagroal_log_message(msg);
@@ -230,32 +202,13 @@ performance_server(struct event_loop* loop, struct io_watcher* watcher, int reve
 
    wi = (struct worker_io*)watcher;
 
-   if (wi->server_ssl == NULL)
-   {
-      if (config->ev_backend == EV_BACKEND_IO_URING)
-      {
-         status = pgagroal_recv_message(watcher, &msg);
-      }
-      else
-      {
-         status = pgagroal_read_socket_message(watcher->fds.worker.rcv_fd, &msg);
-      }
-   }
-   else
-   {
-      status = pgagroal_read_ssl_message(wi->server_ssl, &msg);
-   }
+   status = pgagroal_recv_message(watcher, &msg);
 
    if (likely(status == MESSAGE_STATUS_OK))
    {
-      if (config->ev_backend == EV_BACKEND_IO_URING)
-      {
-        status = pgagroal_send_message(watcher);
-      }
-      else
-      {
-         status = pgagroal_write_socket_message(watcher->fds.worker.snd_fd, msg);
-      }
+
+      status = pgagroal_send_message(watcher, msg);
+
       if (unlikely(status != MESSAGE_STATUS_OK))
       {
          goto client_error;
@@ -274,6 +227,9 @@ performance_server(struct event_loop* loop, struct io_watcher* watcher, int reve
          {
             exit_code = WORKER_SERVER_FATAL;
             pgagroal_event_loop_break(loop);
+            pgagroal_log_warn("[C] Server Fatal (slot %d database %s user %s): %s (socket %d status %d)",
+                              wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
+                              strerror(errno), wi->client_fd, status);
          }
       }
    }
@@ -290,7 +246,7 @@ performance_server(struct event_loop* loop, struct io_watcher* watcher, int reve
    return;
 
 client_error:
-   pgagroal_log_info("[S] Client error (slot %d database %s user %s): %s (socket %d status %d)",
+   pgagroal_log_warn("[S] Client error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->client_fd, status);
    pgagroal_log_message(msg);
@@ -302,7 +258,7 @@ client_error:
    return;
 
 server_done:
-   pgagroal_log_info("[S] Server done (slot %d database %s user %s): %s (socket %d status %d)",
+   pgagroal_log_debug("[S] Server done (slot %d database %s user %s): %s (socket %d status %d)",
                       wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                       strerror(errno), wi->server_fd, status);
    errno = 0;
@@ -311,7 +267,7 @@ server_done:
    return;
 
 server_error:
-   pgagroal_log_info("[S] Server error (slot %d database %s user %s): %s (socket %d status %d)",
+   pgagroal_log_warn("[S] Server error (slot %d database %s user %s): %s (socket %d status %d)",
                      wi->slot, config->connections[wi->slot].database, config->connections[wi->slot].username,
                      strerror(errno), wi->server_fd, status);
    pgagroal_log_message(msg);

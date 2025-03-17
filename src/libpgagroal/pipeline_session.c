@@ -294,21 +294,8 @@ session_client(struct event_loop* loop, struct io_watcher* watcher, int revents)
 
    client_active(wi->slot);
 
-   if (wi->client_ssl == NULL)
-   {
-      if (config->ev_backend == EV_BACKEND_IO_URING)
-      {
-         status = pgagroal_recv_message(watcher, &msg);
-      }
-      else
-      {
-        status = pgagroal_read_socket_message(watcher->fds.worker.rcv_fd, &msg);
-      }
-   }
-   else
-   {
-      status = pgagroal_read_ssl_message(wi->client_ssl, &msg);
-   }
+   status = pgagroal_recv_message(watcher, &msg);
+
    if (likely(status == MESSAGE_STATUS_OK))
    {
       pgagroal_prometheus_network_sent_add(msg->length);
@@ -350,21 +337,8 @@ session_client(struct event_loop* loop, struct io_watcher* watcher, int revents)
             }
          }
 
-         if (wi->server_ssl == NULL)
-         {
-            if (config->ev_backend == EV_BACKEND_IO_URING)
-            {
-               status = pgagroal_send_message(watcher);
-            }
-            else
-            {
-               status = pgagroal_write_socket_message(watcher->fds.worker.snd_fd, msg);
-            }
-         }
-         else
-         {
-            status = pgagroal_write_ssl_message(wi->server_ssl, msg);
-         }
+         status = pgagroal_send_message(watcher, msg);
+
          if (unlikely(status == MESSAGE_STATUS_ERROR))
          {
             if (config->failover)
@@ -471,21 +445,8 @@ session_server(struct event_loop* loop, struct io_watcher* watcher, int revents)
 
    client_active(wi->slot);
 
-   if (wi->server_ssl == NULL)
-   {
-      if (config->ev_backend == EV_BACKEND_IO_URING)
-      {
-         status = pgagroal_recv_message(watcher, &msg);
-      }
-      else
-      {
-        status = pgagroal_read_socket_message(watcher->fds.worker.rcv_fd, &msg);
-      }
-   }
-   else
-   {
-      status = pgagroal_read_ssl_message(wi->server_ssl, &msg);
-   }
+   status = pgagroal_recv_message(watcher, &msg);
+
    if (likely(status == MESSAGE_STATUS_OK))
    {
       pgagroal_prometheus_network_received_add(msg->length);
@@ -530,21 +491,9 @@ session_server(struct event_loop* loop, struct io_watcher* watcher, int revents)
             next_server_message -= offset;
          }
       }
-      if (wi->client_ssl == NULL)
-      {
-            if (config->ev_backend == EV_BACKEND_IO_URING)
-            {
-               status = pgagroal_send_message(watcher);
-            }
-            else
-            {
-               status = pgagroal_write_socket_message(watcher->fds.worker.snd_fd, msg);
-            }
-      }
-      else
-      {
-         status = pgagroal_write_ssl_message(wi->client_ssl, msg);
-      }
+
+      status = pgagroal_send_message(watcher, msg);
+
       if (unlikely(status != MESSAGE_STATUS_OK))
       {
          goto client_error;

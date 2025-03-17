@@ -1050,35 +1050,35 @@ read_superuser_path:
    if (config->idle_timeout > 0)
    {
       pgagroal_periodic_init (&idle_timeout, idle_timeout_cb,
-                                 1000 * MAX(1. * config->idle_timeout / 2., 5.));
+                              1000 * MAX(1. * config->idle_timeout / 2., 5.));
       pgagroal_periodic_start (main_loop, &idle_timeout);
    }
 
    if (config->max_connection_age > 0)
    {
       pgagroal_periodic_init (&max_connection_age, max_connection_age_cb,
-                                 1000 * MAX(1. * config->max_connection_age / 2., 5.));
+                              1000 * MAX(1. * config->max_connection_age / 2., 5.));
       pgagroal_periodic_start (main_loop, &max_connection_age);
    }
 
    if (config->validation == VALIDATION_BACKGROUND)
    {
       pgagroal_periodic_init (&validation, validation_cb,
-                                 1000 * MAX(1. * config->background_interval, 5.));
+                              1000 * MAX(1. * config->background_interval, 5.));
       pgagroal_periodic_start (main_loop, &validation);
    }
 
    if (config->disconnect_client > 0)
    {
       pgagroal_periodic_init (&disconnect_client, disconnect_client_cb,
-                                 1000 * MIN(300., MAX(1. * config->disconnect_client / 2., 1.)));
+                              1000 * MIN(300., MAX(1. * config->disconnect_client / 2., 1.)));
       pgagroal_periodic_start (main_loop, &disconnect_client);
    }
 
    if (config->rotate_frontend_password_timeout > 0)
    {
       pgagroal_periodic_init (&rotate_frontend_password, rotate_frontend_password_cb,
-                                 1000 * config->rotate_frontend_password_timeout);
+                              1000 * config->rotate_frontend_password_timeout);
       pgagroal_periodic_start (main_loop, &rotate_frontend_password);
    }
 
@@ -2324,8 +2324,6 @@ sigchld_cb(struct event_loop* loop, struct signal_watcher* w, int sig)
       ;
 #endif
 }
-
-
 
 static void
 idle_timeout_cb(struct event_loop* loop, struct periodic_watcher* w, int revents)

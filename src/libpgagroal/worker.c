@@ -164,7 +164,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       loop = pgagroal_event_loop_init();
       if (!loop)
       {
-         pgagroal_log_fatal("pgagroal_worker: Unable to create loop");
+         pgagroal_log_fatal("pgagroal_worker: Failed to create loop");
          exit(1);
       }
 
@@ -299,10 +299,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
    pgagroal_pool_status();
    pgagroal_log_debug("After client: PID %d Slot %d (%d)", getpid(), slot, exit_code);
 
-   if (config->ev_backend != EV_BACKEND_IO_URING)
-   {
-      pgagroal_event_loop_destroy(loop);
-   }
+   pgagroal_event_loop_destroy(loop);
 
    free(address);
 

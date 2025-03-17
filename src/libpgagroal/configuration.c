@@ -163,7 +163,7 @@ pgagroal_init_configuration(void* shm)
    config->tracker = false;
    config->track_prepared_statements = false;
 
-   config->ev_backend = EV_BACKEND_AUTO;
+   config->ev_backend = PGAGROAL_EVENT_BACKEND_AUTO;
 
    config->common.log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->common.log_level = PGAGROAL_LOGGING_LEVEL_INFO;
@@ -719,24 +719,24 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
       }
    }
 
-   if (config->ev_backend == EV_BACKEND_INVALID)
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_INVALID)
    {
       pgagroal_log_warn("Configured event backend is invalid. Default to 'auto'");
-      config->ev_backend = EV_BACKEND_AUTO;
+      config->ev_backend = PGAGROAL_EVENT_BACKEND_AUTO;
    }
 
-   if (config->ev_backend == EV_BACKEND_EMPTY)
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_EMPTY)
    {
       pgagroal_log_warn("ev_backend configuration is empty. Default to 'auto'");
-      config->ev_backend = EV_BACKEND_AUTO;
+      config->ev_backend = PGAGROAL_EVENT_BACKEND_AUTO;
    }
 
-   if (config->ev_backend == EV_BACKEND_AUTO || !is_supported_backend(config->ev_backend))
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_AUTO || !is_supported_backend(config->ev_backend))
    {
-      config->ev_backend = DEFAULT_EV_BACKEND;
+      config->ev_backend = DEFAULT_EVENT_BACKEND;
    }
 
-   if (config->ev_backend == EV_BACKEND_IO_URING)
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_IO_URING)
    {
       /* check if io_uring is enabled or works for supported configuration, else fallback to next backend */
       fd = open("/proc/sys/kernel/io_uring_disabled", O_RDONLY);
@@ -2913,7 +2913,7 @@ is_supported_backend(ev_backend_t backend)
    int bi, backends;
    ev_backend_t supported_backends[] = {
 #if HAVE_LINUX
-      EV_BACKEND_IO_URING,
+      PGAGROAL_EVENT_BACKEND_IO_URING,
       EV_BACKEND_EPOLL,
 #else
       EV_BACKEND_KQUEUE,
@@ -4425,15 +4425,15 @@ to_backend_type(char* str)
 {
    if (is_empty_string(str))
    {
-      return EV_BACKEND_EMPTY;
+      return PGAGROAL_EVENT_BACKEND_EMPTY;
    }
    if (!strncmp(str, "auto", MISC_LENGTH))
    {
-      return EV_BACKEND_AUTO;
+      return PGAGROAL_EVENT_BACKEND_AUTO;
    }
    if (!strncmp(str, "io_uring", MISC_LENGTH))
    {
-      return EV_BACKEND_IO_URING;
+      return PGAGROAL_EVENT_BACKEND_IO_URING;
    }
    if (!strncmp(str, "epoll", MISC_LENGTH))
    {
@@ -4444,7 +4444,7 @@ to_backend_type(char* str)
       return EV_BACKEND_KQUEUE;
    }
 
-   return EV_BACKEND_INVALID;
+   return PGAGROAL_EVENT_BACKEND_INVALID;
 }
 
 /**
@@ -4464,9 +4464,9 @@ to_backend_str(ev_backend_t value)
 
    switch (value)
    {
-      case EV_BACKEND_AUTO:
+      case PGAGROAL_EVENT_BACKEND_AUTO:
          return "auto";
-      case EV_BACKEND_IO_URING:
+      case PGAGROAL_EVENT_BACKEND_IO_URING:
          return "io_uring";
       case EV_BACKEND_EPOLL:
          return "epoll";

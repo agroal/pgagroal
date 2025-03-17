@@ -67,37 +67,37 @@ extern "C" {
  */
 
 typedef enum ev_backend {
-  EV_BACKEND_INVALID = -2,
-  EV_BACKEND_EMPTY = -1,
-  EV_BACKEND_AUTO = 0,
-  EV_BACKEND_IO_URING,
-  EV_BACKEND_EPOLL,
-  EV_BACKEND_KQUEUE,
+   PGAGROAL_EVENT_BACKEND_INVALID = -2,
+   PGAGROAL_EVENT_BACKEND_EMPTY = -1,
+   PGAGROAL_EVENT_BACKEND_AUTO = 0,
+   PGAGROAL_EVENT_BACKEND_IO_URING,
+   EV_BACKEND_EPOLL,
+   EV_BACKEND_KQUEUE,
 } ev_backend_t;
 
 #if HAVE_LINUX
-#define DEFAULT_EV_BACKEND EV_BACKEND_IO_URING
+#define DEFAULT_EVENT_BACKEND PGAGROAL_EVENT_BACKEND_IO_URING
 #else
-#define DEFAULT_EV_BACKEND EV_BACKEND_KQUEUE
+#define DEFAULT_EVENT_BACKEND PGAGROAL_EV_BACKEND_KQUEUE
 #endif
 
 enum ev_type {
-  EV_INVALID = 0,
-  EV_ACCEPT = 1,
-  EV_WORKER = 2,
-  EV_SEND,
-  EV_SIGNAL,
-  EV_PERIODIC,
+   EV_INVALID = 0,
+   EV_ACCEPT = 1,
+   EV_WORKER = 2,
+   EV_SEND,
+   EV_SIGNAL,
+   EV_PERIODIC,
 };
 
 enum ev_return_codes {
-  EV_OK = 0,
-  EV_ERROR,
-  EV_FATAL,
-  EV_CONNECTION_CLOSED,
-  EV_REPLENISH_BUFFERS,
-  EV_REARMED,
-  EV_ALLOC_ERROR,
+   EV_OK = 0,
+   EV_ERROR,
+   EV_FATAL,
+   EV_CONNECTION_CLOSED,
+   EV_REPLENISH_BUFFERS,
+   EV_REARMED,
+   EV_ALLOC_ERROR,
 };
 
 #define for_each(w, head) for (w = head.next; w; w = w->next)
@@ -112,11 +112,11 @@ enum ev_return_codes {
         do {                                                                   \
            for (w = head.next; *w && *w != target; w = &(*w)->next)            \
            ;                                                                   \
-              if (!target->next) {                                             \
-                 *w = NULL;                                                    \
-              } else {                                                         \
-                 *w = target->next;                                            \
-              }                                                                \
+           if (!target->next) {                                             \
+              *w = NULL;                                                    \
+           } else {                                                         \
+              *w = target->next;                                            \
+           }                                                                \
         } while (0)
 
 /**
@@ -125,9 +125,10 @@ enum ev_return_codes {
  *
  * Stores either an IPv4 or IPv6 socket address
  */
-union sockaddr_u {
-  struct sockaddr_in addr4;  /**< IPv4 socket address structure. */
-  struct sockaddr_in6 addr6; /**< IPv6 socket address structure. */
+union sockaddr_u
+{
+   struct sockaddr_in addr4; /**< IPv4 socket address structure. */
+   struct sockaddr_in6 addr6; /**< IPv6 socket address structure. */
 };
 
 struct event_loop;
@@ -140,14 +141,13 @@ struct event_loop;
  * The io_buf_ring structure holds pointers to an io_uring buffer ring and
  * a generic buffer, along with a buffer group ID (bgid).
  */
-struct io_buf_ring {
-  struct io_uring_buf_ring *br;   /**< Pointer to the io_uring buffer ring internal structure. */
-  void *buf; /**< Pointer to the buffer used for I/O operations. */
-  int sz;                                                             /**< Size of the data buffer. */
+struct io_buf_ring
+{
+   struct io_uring_buf_ring* br;  /**< Pointer to the io_uring buffer ring internal structure. */
+   void* buf; /**< Pointer to the buffer used for I/O operations. */
+   int sz;                                                            /**< Size of the data buffer. */
 };
 #endif /* HAVE_LINUX */
-
-
 
 /**
  * @struct io_watcher
@@ -155,25 +155,29 @@ struct io_buf_ring {
  *
  * Monitors file descriptors for I/O readiness events (e.g., read or write)
  */
-struct io_watcher {
-  enum ev_type type;                                                    /**< Event type. */
-  union {
-    struct {
-        int client_fd;                                                  /**< TODO. */
-        int listen_fd;                                                  /**< TODO. */
-    } main;
-    struct {
-      int rcv_fd;                                                       /**< TODO. */
-      int snd_fd;                                                       /**< TODO. */
-    } worker;
-    int __fds[2];
-  } fds;                                                                /**< TODO. */
-  // struct io_buf_ring br;
-  bool ssl;                                                             /**< Indicates if SSL/TLS is used on this connection. */
-  struct io_watcher *next;                                              /**< Pointer to the next watcher in the linked list. */
-  int bgid;                                                             /**< TODO: will be used */
-  void (*cb)(struct event_loop *, struct io_watcher *watcher, int err); /**< Event callback. */
-  void (*handler)(struct io_watcher *watcher);                          /**< TODO: might be used */
+struct io_watcher
+{
+   enum ev_type type;                                                   /**< Event type. */
+   union
+   {
+      struct
+      {
+         int client_fd;                                                 /**< TODO. */
+         int listen_fd;                                                 /**< TODO. */
+      } main;
+      struct
+      {
+         int rcv_fd;                                                    /**< TODO. */
+         int snd_fd;                                                    /**< TODO. */
+      } worker;
+      int __fds[2];
+   } fds;                                                               /**< TODO. */
+   // struct io_buf_ring br;
+   bool ssl;                                                            /**< Indicates if SSL/TLS is used on this connection. */
+   struct io_watcher* next;                                             /**< Pointer to the next watcher in the linked list. */
+   int bgid;                                                            /**< TODO: will be used */
+   void (*cb)(struct event_loop*, struct io_watcher* watcher, int err); /**< Event callback. */
+   void (*handler)(struct io_watcher* watcher);                         /**< TODO: might be used */
 };
 
 /**
@@ -182,12 +186,13 @@ struct io_watcher {
  *
  * Monitors and handles specific signals received by the process
  */
-struct signal_watcher {
-  enum ev_type type;                                                        /**< Event type. */
-  int signum;                                                               /**< Signal number to watch for. */
-  struct signal_watcher *next;                                              /**< Pointer to the next signal watcher. */
-  void (*cb)(struct event_loop *, struct signal_watcher *watcher, int err); /**< Event callback. */
-  void (*handler)(struct event_loop *, struct io_watcher *watcher);         /**< TODO: might be used */
+struct signal_watcher
+{
+   enum ev_type type;                                                       /**< Event type. */
+   int signum;                                                              /**< Signal number to watch for. */
+   struct signal_watcher* next;                                             /**< Pointer to the next signal watcher. */
+   void (*cb)(struct event_loop*, struct signal_watcher* watcher, int err); /**< Event callback. */
+   void (*handler)(struct event_loop*, struct io_watcher* watcher);         /**< TODO: might be used */
 };
 
 /**
@@ -196,30 +201,36 @@ struct signal_watcher {
  *
  * Triggers callbacks at regular intervals specified in milliseconds
  */
-struct periodic_watcher {
-  enum ev_type type; /**< Event type. */
+struct periodic_watcher
+{
+   enum ev_type type; /**< Event type. */
 #if HAVE_LINUX
-  struct __kernel_timespec ts; /**< Timespec struct for io_uring loop. */
-  int fd; /**< File descriptor for epoll-based periodic watcher. */
+   struct __kernel_timespec ts; /**< Timespec struct for io_uring loop. */
+   int fd; /**< File descriptor for epoll-based periodic watcher. */
 #else
-  int interval; /**< Interval for kqueue timer. */
+   int interval; /**< Interval for kqueue timer. */
 #endif                           /* HAVE_LINUX */
-  struct periodic_watcher *next; /**< Pointer to the next periodic watcher. */
-  void (*cb)(struct event_loop *, struct periodic_watcher *watcher,
-             int err); /**< Event callback. */
-  void (*handler)(struct event_loop *,
-                  struct io_watcher *watcher); /**< TODO: might be used */
+   struct periodic_watcher* next; /**< Pointer to the next periodic watcher. */
+   void (*cb)(struct event_loop*, struct periodic_watcher* watcher,
+              int err); /**< Event callback. */
+   void (*handler)(struct event_loop*,
+                   struct io_watcher* watcher); /**< TODO: might be used */
 };
 
 /**
- * @union watcher
+ * @struct event_watcher
  * @brief General watcher union for the event loop
  */
-union watcher {
-  struct io_watcher *io;             /**< Pointer to an I/O watcher. */
-  struct signal_watcher *signal;     /**< Pointer to a signal watcher. */
-  struct periodic_watcher *periodic; /**< Pointer to a periodic watcher. */
-};
+typedef struct event_watcher
+{
+   int type;                                 /**<Type of the watcher. */
+   union
+   {
+      struct io_watcher* io;                 /**< Pointer to an I/O watcher. */
+      struct signal_watcher* signal;         /**< Pointer to a signal watcher. */
+      struct periodic_watcher* periodic;     /**< Pointer to a periodic watcher. */
+   } watcher;                                /**< Union used to access watcher inside event_watcher_t */
+} event_watcher_t;
 
 /**
  * @struct ev_ops
@@ -228,17 +239,18 @@ union watcher {
  * Contains function pointers for initializing and controlling the event loop,
  * allowing for different backend implementations.
  */
-struct ev_ops {
-  int (*init)(struct event_loop *loop); /**< Initializes the event loop backend. */
-  int (*loop)(struct event_loop *loop); /**< Runs the event loop, processing events. */
-  int (*io_start)(struct event_loop *loop, struct io_watcher *watcher); /**< Starts an I/O watcher in the event loop. */
-  int (*io_stop)(struct event_loop *loop, struct io_watcher *watcher); /**< Stops an I/O watcher in the event loop. */
-  int (*signal_init)(struct event_loop *loop, struct signal_watcher *watcher); /**< Initializes a signal watcher. */
-  int (*signal_start)(struct event_loop *loop, struct signal_watcher *watcher); /**< Starts a signal watcher in the event loop. */
-  int (*signal_stop)(struct event_loop *loop, struct signal_watcher *watcher); /**< Stops a signal watcher in the event loop. */
-  int (*periodic_init)(struct event_loop *loop, struct periodic_watcher *watcher); /**< Initializes a periodic watcher. */
-  int (*periodic_start)(struct event_loop *loop, struct periodic_watcher *watcher); /**< Starts a periodic watcher in the event loop. */
-  int (*periodic_stop)(struct event_loop *loop, struct periodic_watcher *watcher); /**< Stops a periodic watcher in the event loop. */
+struct ev_ops
+{
+   int (*init)(struct event_loop* loop); /**< Initializes the event loop backend. */
+   int (*loop)(struct event_loop* loop); /**< Runs the event loop, processing events. */
+   int (*io_start)(struct event_loop* loop, struct io_watcher* watcher); /**< Starts an I/O watcher in the event loop. */
+   int (*io_stop)(struct event_loop* loop, struct io_watcher* watcher); /**< Stops an I/O watcher in the event loop. */
+   int (*signal_init)(struct event_loop* loop, struct signal_watcher* watcher); /**< Initializes a signal watcher. */
+   int (*signal_start)(struct event_loop* loop, struct signal_watcher* watcher); /**< Starts a signal watcher in the event loop. */
+   int (*signal_stop)(struct event_loop* loop, struct signal_watcher* watcher); /**< Stops a signal watcher in the event loop. */
+   int (*periodic_init)(struct event_loop* loop, struct periodic_watcher* watcher); /**< Initializes a periodic watcher. */
+   int (*periodic_start)(struct event_loop* loop, struct periodic_watcher* watcher); /**< Starts a periodic watcher in the event loop. */
+   int (*periodic_stop)(struct event_loop* loop, struct periodic_watcher* watcher); /**< Stops a periodic watcher in the event loop. */
 };
 
 /**
@@ -248,55 +260,57 @@ struct ev_ops {
  * Handles the execution and coordination of events using the specified
  * backend.
  */
-struct event_loop {
-  volatile bool running;         /**< Flag indicating if the event loop is running. */
-  atomic_bool atomic_running;    /**< Atomic flag for thread-safe running state. */
-  struct io_watcher ihead;       /**< Head of the I/O watchers linked list. */
-  struct signal_watcher shead;   /**< Head of the signal watchers linked list. */
-  struct periodic_watcher phead; /**< Head of the signal watchers linked list. */
-  sigset_t sigset;               /**< Signal set used for handling signals in the event loop. */
-  struct ev_ops ops;             /**< Backend operations for the event loop. */
+struct event_loop
+{
+   volatile bool cleanup;        /**< Flag indicating if the event loop is during cleanup. TODO: can be removed */
+   volatile bool running;        /**< Flag indicating if the event loop is running. */
+   atomic_bool atomic_running;   /**< Atomic flag for thread-safe running state. */
+   struct io_watcher ihead;      /**< Head of the I/O watchers linked list. */
+   struct signal_watcher shead;  /**< Head of the signal watchers linked list. */
+   struct periodic_watcher phead; /**< Head of the signal watchers linked list. */
+   sigset_t sigset;              /**< Signal set used for handling signals in the event loop. */
+   struct ev_ops ops;            /**< Backend operations for the event loop. */
 #if HAVE_LINUX
-  struct io_uring_cqe *cqe;
-  struct io_uring ring;
-  int bid;                       /**< io_uring: Next buffer id. */
-  /**
-   * TODO: Implement iovecs.
-   *   int iovecs_nr;
-   *   struct iovec *iovecs;
-   */
-  int epollfd; /**< File descriptor for the epoll instance (used with epoll
-                  backend). */
-#else
-  int kqueuefd; /**< File descriptor for the kqueue instance (used with kqueue
+   struct io_uring_cqe* cqe;
+   struct io_uring ring;
+   int bid;                      /**< io_uring: Next buffer id. */
+   /**
+    * TODO: Implement iovecs.
+    *   int iovecs_nr;
+    *   struct iovec *iovecs;
+    */
+   int epollfd; /**< File descriptor for the epoll instance (used with epoll
                    backend). */
+#else
+   int kqueuefd; /**< File descriptor for the kqueue instance (used with kqueue
+                    backend). */
 #endif          /* HAVE_LINUX */
-  void *buffer; /**< Pointer to a buffer used to read in bytes. */
+   void* buffer; /**< Pointer to a buffer used to read in bytes. */
 };
 
-typedef void (*io_cb)(struct event_loop *, struct io_watcher *watcher, int err);
-typedef void (*signal_cb)(struct event_loop *, struct signal_watcher *watcher, int err);
-typedef void (*periodic_cb)(struct event_loop *, struct periodic_watcher *watcher, int err);
+typedef void (*io_cb)(struct event_loop*, struct io_watcher* watcher, int err);
+typedef void (*signal_cb)(struct event_loop*, struct signal_watcher* watcher, int err);
+typedef void (*periodic_cb)(struct event_loop*, struct periodic_watcher* watcher, int err);
 
 /**
  * Initialize a new event loop
  * @param config Pointer to the configuration struct
  * @return Pointer to the initialized event loop
  */
-struct event_loop *pgagroal_event_loop_init(void);
+struct event_loop*pgagroal_event_loop_init(void);
 
 /**
  * Start the main event loop
  * @param loop Pointer to the event loop struct
  * @return Return code
  */
-int pgagroal_event_loop_run(struct event_loop *loop);
+int pgagroal_event_loop_run(struct event_loop* loop);
 
 /**
  * Break the event loop, stopping its execution
  * @param loop Pointer to the event loop struct
  */
-void pgagroal_event_loop_break(struct event_loop *loop);
+void pgagroal_event_loop_break(struct event_loop* loop);
 
 /**
  * Destroy the event loop, freeing only the strictly necessary resources that
@@ -305,7 +319,7 @@ void pgagroal_event_loop_break(struct event_loop *loop);
  * @param loop Pointer to the event loop struct
  * @return Return code
  */
-int pgagroal_event_loop_destroy(struct event_loop *loop);
+int pgagroal_event_loop_destroy(struct event_loop* loop);
 
 /**
  * Closes the file descriptors used by the loop of the parent process.
@@ -313,14 +327,14 @@ int pgagroal_event_loop_destroy(struct event_loop *loop);
  * @param loop Pointer to the loop that should be freed by the child process
  * @return Return code
  */
-int pgagroal_event_loop_fork(struct event_loop *loop);
+int pgagroal_event_loop_fork(struct event_loop* loop);
 
 /**
  * Check if the event loop is currently running
  * @param loop Pointer to the event loop struct
  * @return True if the loop is running, false otherwise
  */
-bool pgagroal_event_loop_is_running(struct event_loop *loop);
+bool pgagroal_event_loop_is_running(struct event_loop* loop);
 
 /**
  * Initialize the watcher for accept event
@@ -329,7 +343,7 @@ bool pgagroal_event_loop_is_running(struct event_loop *loop);
  * @param cb Callback executed when event completes
  * @return Return code
  */
-int pgagroal_io_accept_init(struct io_watcher *w, int accept_fd, io_cb cb);
+int pgagroal_io_accept_init(struct io_watcher* w, int accept_fd, io_cb cb);
 
 /**
  * Initialize the watcher for receive events
@@ -338,7 +352,7 @@ int pgagroal_io_accept_init(struct io_watcher *w, int accept_fd, io_cb cb);
  * @param cb Callback executed when event completes
  * @return Return code
  */
-int pgagroal_io_worker_init(struct io_watcher *w, int snd_fd, int rcv_fd, io_cb cb);
+int pgagroal_io_worker_init(struct io_watcher* w, int snd_fd, int rcv_fd, io_cb cb);
 
 /**
  * Initialize the watcher for sending IO operations
@@ -358,7 +372,7 @@ int pgagroal_io_worker_init(struct io_watcher *w, int snd_fd, int rcv_fd, io_cb 
  * @param w Pointer to the io event watcher struct
  * @return Return code
  */
-int pgagroal_io_start(struct event_loop *loop, struct io_watcher *w);
+int pgagroal_io_start(struct event_loop* loop, struct io_watcher* w);
 
 /**
  * Stop the watcher for an IO event in the event loop
@@ -366,7 +380,12 @@ int pgagroal_io_start(struct event_loop *loop, struct io_watcher *w);
  * @param w Pointer to the io event watcher struct
  * @return Return code
  */
-int pgagroal_io_stop(struct event_loop *loop, struct io_watcher *w);
+#define pgagroal_event_stop(w) \
+        do { __pgagroal_event_stop(&((event_watcher_t){ .type = w.type, .watcher = {&w} })); } while (0)
+
+int __pgagroal_event_stop(event_watcher_t* w);
+
+int pgagroal_io_stop(struct io_watcher* w);
 
 /**
  * Initialize the watcher for periodic timeout events
@@ -375,7 +394,7 @@ int pgagroal_io_stop(struct event_loop *loop, struct io_watcher *w);
  * @param msec Interval in milliseconds for the periodic event
  * @return Return code
  */
-int pgagroal_periodic_init(struct periodic_watcher *w, periodic_cb cb, int msec);
+int pgagroal_periodic_init(struct periodic_watcher* w, periodic_cb cb, int msec);
 
 /**
  * Start the watcher for a periodic timeout in the event loop
@@ -383,7 +402,7 @@ int pgagroal_periodic_init(struct periodic_watcher *w, periodic_cb cb, int msec)
  * @param w Pointer to the periodic event watcher struct
  * @return Return code
  */
-int pgagroal_periodic_start(struct event_loop *loop, struct periodic_watcher *w);
+int pgagroal_periodic_start(struct event_loop* loop, struct periodic_watcher* w);
 
 /**
  * Stop the watcher for a periodic timeout in the event loop
@@ -391,7 +410,7 @@ int pgagroal_periodic_start(struct event_loop *loop, struct periodic_watcher *w)
  * @param w Pointer to the periodic event watcher struct
  * @return Return code
  */
-int pgagroal_periodic_stop(struct event_loop *loop, struct periodic_watcher *w);
+int pgagroal_periodic_stop(struct periodic_watcher* w);
 
 /**
  * Initialize the watcher for signal events
@@ -400,7 +419,7 @@ int pgagroal_periodic_stop(struct event_loop *loop, struct periodic_watcher *w);
  * @param signum Signal number to watch
  * @return Return code
  */
-int pgagroal_signal_init(struct signal_watcher *w, signal_cb cb, int signum);
+int pgagroal_signal_init(struct signal_watcher* w, signal_cb cb, int signum);
 
 /**
  * Start the watcher for a signal in the event loop
@@ -408,7 +427,7 @@ int pgagroal_signal_init(struct signal_watcher *w, signal_cb cb, int signum);
  * @param w Pointer to the signal event watcher struct
  * @return Return code
  */
-int pgagroal_signal_start(struct event_loop *loop, struct signal_watcher *w);
+int pgagroal_signal_start(struct event_loop* loop, struct signal_watcher* w);
 
 /**
  * Stop the watcher for a signal in the event loop
@@ -416,7 +435,7 @@ int pgagroal_signal_start(struct event_loop *loop, struct signal_watcher *w);
  * @param w Pointer to the signal event watcher struct
  * @return Return code
  */
-int pgagroal_signal_stop(struct event_loop *loop, struct signal_watcher *w);
+int pgagroal_signal_stop(struct signal_watcher* w);
 
 /**
  * TODO
@@ -427,6 +446,8 @@ int pgagroal_signal_stop(struct event_loop *loop, struct signal_watcher *w);
  */
 int pgagroal_io_check_send(int size);
 
+struct message;
+
 /**
  * TODO
  * @param
@@ -434,6 +455,49 @@ int pgagroal_io_check_send(int size);
  * @param
  * @return
  */
-int pgagroal_send_message(struct io_watcher *w);
+int
+pgagroal_event_prep_submit_send(struct io_watcher* w, struct message* msg);
+
+/**
+ * TODO
+ * @param
+ * @param
+ * @param
+ * @return
+ */
+int
+pgagroal_event_prep_submit_recv(struct io_watcher* w, struct message* msg);
+
+int
+pgagroal_event_prep_submit_send_outside_loop(struct io_watcher* w, struct message* msg);
+/**
+ * TODO
+ * @param
+ * @param
+ * @param
+ * @return
+ */
+int
+pgagroal_event_prep_submit_recv_outside_loop(struct io_watcher* watcher, struct message* msg);
+
+/**
+ * TODO
+ * @param
+ * @param
+ * @param
+ * @return
+ */
+int
+pgagroal_prep_send_recv(struct io_watcher* w, struct message* msg);
+
+/**
+ * TODO
+ * @param
+ * @param
+ * @param
+ * @return
+ */
+int
+pgagroal_wait_recv(struct io_watcher* w, struct message* msg);
 
 #endif /* EV_H */
