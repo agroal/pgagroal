@@ -384,6 +384,12 @@ master_key(char* password, bool generate_pwd, int pwd_length, int32_t output_for
       warnx("Could not write to master key file <%s>", &buf[0]);
       goto error;
    }
+   
+   #if defined(HAVE_OSX)
+      #define PGAGROAL_GETENV(name) getenv(name)
+   #else
+      #define PGAGROAL_GETENV(name) secure_getenv(name)
+   #endif
 
    if (password == NULL)
    {
@@ -397,7 +403,7 @@ master_key(char* password, bool generate_pwd, int pwd_length, int32_t output_for
       }
       else
       {
-         password = secure_getenv("PGAGROAL_PASSWORD");
+         password = PGAGROAL_GETENV("PGAGROAL_PASSWORD");
 
          if (password == NULL)
          {
@@ -595,7 +601,7 @@ password:
       }
       else
       {
-         password = secure_getenv("PGAGROAL_PASSWORD");
+         password = PGAGROAL_GETENV("PGAGROAL_PASSWORD");
 
          if (password == NULL)
          {
@@ -834,7 +840,7 @@ password:
             }
             else
             {
-               password = secure_getenv("PGAGROAL_PASSWORD");
+               password = PGAGROAL_GETENV("PGAGROAL_PASSWORD");
 
                if (password == NULL)
                {
