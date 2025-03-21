@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #include <pgagroal.h>
+#include <ev.h>
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -74,6 +75,9 @@ pgagroal_read_block_message(SSL* ssl, int socket, struct message** msg);
  */
 int
 pgagroal_read_timeout_message(SSL* ssl, int socket, int timeout, struct message** msg);
+
+int
+pgagroal_message_to_buffer(int socket, struct message* msg);
 
 /**
  * Write a message using a socket
@@ -384,6 +388,21 @@ pgagroal_connection_isvalid(int socket);
  */
 void
 pgagroal_log_message(struct message* msg);
+
+/**
+ * Read a message from a buffer
+ * @param buffer The buffer to "copy" from
+ * @param msg The resulting message
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
+ */
+int
+pgagroal_recv_message(struct io_watcher* watcher, struct message** msg);
+
+/**
+ * TODO
+ */
+int
+pgagroal_send_message(struct io_watcher* watcher, struct message* msg);
 
 /**
  * Read a message using a socket
