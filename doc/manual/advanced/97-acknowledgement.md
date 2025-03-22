@@ -24,6 +24,7 @@ Haoran Zhang <andrewzhr9911@gmail.com>
 Christian Englert <code@c.roboticbrain.de>
 Georg Pfuetzenreuter <georg.pfuetzenreuter@suse.com>
 Tejas Tyagi <tejastyagi.tt@gmail.com>
+Vanes Angelo <k124k3n@gmail.com>
 ```
 
 ## Committers
