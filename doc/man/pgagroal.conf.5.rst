@@ -40,9 +40,7 @@ metrics
   The metrics port. Default is 0 (disabled)
 
 metrics_cache_max_age
-  The number of seconds to keep in cache a Prometheus (metrics) response.
-  If set to zero, the caching will be disabled. Can be a string with a suffix, like ``2m`` to indicate 2 minutes.
-  Default is 0 (disabled)
+Specifies how long to cache a Prometheus (metrics) response, in seconds. A value of 0 disables caching. Supports time suffixes: s (seconds), m (minutes), h (hours), d (days), and w (weeks). For example, 2m means 2 minutes. Default is 0 (disabled).
 
 metrics_cache_max_size
   The maximum amount of data to keep in cache when serving Prometheus responses. Changes require restart.
@@ -67,9 +65,7 @@ log_path
   The log file location. Default is pgagroal.log. Can be a strftime(3) compatible string
 
 log_rotation_age
-  The age that will trigger a log file rotation. If expressed as a positive number, is managed as seconds.
-  Supports suffixes: ``S`` (seconds, the default), ``M`` (minutes), ``H`` (hours), ``D`` (days), ``W`` (weeks).
-  A value of ``0`` disables. Default is 0 (disabled)
+Specifies the time interval that triggers a log file rotation, in seconds. Supports time suffixes: s (seconds, the default), m (minutes), h (hours), d (days), and w (weeks). For example, 2h means 2 hours. A value of 0 disables log rotation. Default is 0 (disabled).
 
 log_rotation_size
   The size of the log file that will trigger a log rotation. Supports suffixes: ``B`` (bytes), the default if omitted,
