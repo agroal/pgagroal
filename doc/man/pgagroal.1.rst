@@ -39,6 +39,9 @@ OPTIONS
 -S, --superuser SUPERUSER_FILE
   Set the path to the pgagroal_superuser.conf file
 
+-D, --directory DIRECTORY_PATH
+  Set the path to load configuration files
+
 -d, --daemon
   Run as a daemon
 

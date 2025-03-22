@@ -256,3 +256,41 @@ The `pgagroal_superuser` configuration defines the superuser known to the system
 the `pgagroal-admin` tool. It may only have one user defined.
 
 The configuration is loaded from either the path specified by the `-S` flag or `/etc/pgagroal/pgagroal_superuser.conf`.
+
+## Configuration Directory
+
+You can specify a directory for all configuration files using the `-D` flag (or `--directory`).  
+Alternatively, you can set the `PGAGROAL_CONFIG_DIR` environment variable to define the configuration directory.
+
+**Behavior:**
+- When the directory flag (`-D`) is set, pgagroal will look for all configuration files in the specified directory.
+- If a required file is not found in the specified directory, pgagroal will look for it in its default location (e.g., `/etc/pgagroal/pgagroal.conf`).
+- If the file is not found in either location:
+  - If the file is mandatory, pgagroal will log an error and fail to start.
+  - If the file is optional, pgagroal will log a warning and continue without it.
+- All file lookup attempts and missing files are logged for troubleshooting.
+
+**Precedence Rules:**
+- Individual file flags (such as `-c`, `-a`, `-l`, etc.) always take precedence over the directory flag and environment variable for their respective files.
+- The directory flag (`-D`) takes precedence over the environment variable (`PGAGROAL_CONFIG_DIR`).
+- If neither the directory flag nor individual file flags are set, pgagroal uses the default locations for all configuration files.
+
+**Using the Environment Variable:**
+1. Set the environment variable before starting pgagroal:
+   ```
+   export PGAGROAL_CONFIG_DIR=/path/to/config_dir
+   pgagroal -d
+   ```
+2. If both the environment variable and the `-D` flag are set, the flag takes precedence.
+
+**Example:**
+```
+pgagroal -D /custom/config/dir -d
+```
+or
+```
+export PGAGROAL_CONFIG_DIR=/custom/config/dir
+pgagroal -d
+```
+
+Refer to logs for details about which configuration files were loaded and from which locations.

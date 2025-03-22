@@ -621,6 +621,17 @@ pgagroal_os_kernel_version(char** os, int* kernel_major, int* kernel_minor, int*
 char*
 pgagroal_remove_all_whitespace(char* orig);
 
+/**
+ * Check and set directory path using caller-provided buffer
+ * @param directory_path Directory to search for path
+ * @param filename Filename to append
+ * @param path_buffer Buffer to store the resulting path
+ * @param buffer_size Size of the path_buffer
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_normalize_path(char* directory_path, char* filename, char* default_path, char* path_buffer, size_t buffer_size);
+
 #ifdef __cplusplus
 }
 #endif

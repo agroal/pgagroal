@@ -1569,3 +1569,92 @@ pgagroal_remove_all_whitespace(char* orig)
 
    return result;
 }
+
+int
+pgagroal_normalize_path(char* directory_path, char* filename, char* default_path, char* path_buffer, size_t buffer_size)
+{
+   char* temp_path = NULL;
+
+   if (path_buffer == NULL || buffer_size == 0 || filename == NULL)
+   {
+      return 1;    // Invalid input
+   }
+
+   memset(path_buffer, 0, buffer_size);
+
+   // If directory_path is provided, try to find the file there first
+   if (directory_path != NULL)
+   {
+      temp_path = pgagroal_append(NULL, directory_path);
+      if (temp_path == NULL)
+      {
+         return 1;
+      }
+
+      // Add "/" if needed
+      if (directory_path[strlen(directory_path) - 1] != '/')
+      {
+         temp_path = pgagroal_append(temp_path, "/");
+         if (temp_path == NULL)
+         {
+            return 1;
+         }
+      }
+
+      // Add filename
+      temp_path = pgagroal_append(temp_path, filename);
+      if (temp_path == NULL)
+      {
+         return 1;
+      }
+
+      // Check if the result fits in our buffer
+      if (strlen(temp_path) >= buffer_size)
+      {
+         pgagroal_log_error("Configuration directory path is too long: %s (maximum %zu characters)",
+                            temp_path, buffer_size - 1);
+         free(temp_path);
+         return 1;
+      }
+
+      // Check if file exists in the specified directory
+      if (access(temp_path, F_OK) == 0)
+      {
+         pgagroal_log_debug("Using config file: %s", temp_path);
+         strcpy(path_buffer, temp_path);
+         free(temp_path);
+         return 0;
+      }
+      else
+      {
+         pgagroal_log_info("Config file %s not found in directory %s", filename, directory_path);
+         free(temp_path);
+      }
+   }
+
+   // Now check if default file exists
+   if (default_path != NULL)
+   {
+      if (access(default_path, F_OK) == 0)
+      {
+         if (strlen(default_path) >= buffer_size)
+         {
+            pgagroal_log_error("Default configuration path is too long: %s (maximum %zu characters)",
+                               default_path, buffer_size - 1);
+            return 1;
+         }
+         pgagroal_log_info("Using default config file: %s", default_path);
+         strcpy(path_buffer, default_path);
+         return 0;     // Default file exists and is being used
+      }
+      else
+      {
+         pgagroal_log_info("Default config file %s not found, continuing without %s", default_path, filename);
+         return 0;     // Default doesn't exist, but that's okay for optional files
+      }
+   }
+
+   // No directory specified and no default path provided
+   pgagroal_log_warn("No path specified for config file %s", filename);
+   return 1;
+}

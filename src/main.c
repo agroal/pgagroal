@@ -303,6 +303,9 @@ usage(void)
    printf("                                     Default: %s\n", PGAGROAL_DEFAULT_ADMINS_FILE);
    printf("  -S, --superuser SUPERUSER_FILE     Set the path to the pgagroal_superuser.conf file\n");
    printf("                                     Default: %s\n", PGAGROAL_DEFAULT_SUPERUSER_FILE);
+   printf("  -D, --directory DIRECTORY_PATH     Set the directory path to load configuration files\n");
+   printf("                                     Default: %s\n", PGAGROAL_DEFAULT_CONFIGURATION_PATH);
+   printf("                                     Can also be set via PGAGROAL_CONFIG_DIR environment variable\n");
    printf("  -d, --daemon                       Run as a daemon\n");
    printf("  -V, --version                      Display version information\n");
    printf("  -?, --help                         Display help\n");
@@ -321,8 +324,16 @@ main(int argc, char** argv)
    char* frontend_users_path = NULL;
    char* admins_path = NULL;
    char* superuser_path = NULL;
+   char* directory_path = NULL;
    bool daemon = false;
    pid_t pid, sid;
+   char config_path_buffer[MAX_PATH];
+   char hba_path_buffer[MAX_PATH];
+   char limit_path_buffer[MAX_PATH];
+   char users_path_buffer[MAX_PATH];
+   char frontend_users_path_buffer[MAX_PATH];
+   char admins_path_buffer[MAX_PATH];
+   char superuser_path_buffer[MAX_PATH];
 #ifdef HAVE_SYSTEMD
    int sds;
 #endif
@@ -351,6 +362,9 @@ main(int argc, char** argv)
    char message[MISC_LENGTH]; // a generic message used for errors
    argv_ptr = argv;
 
+   struct stat path_stat = {0};
+   char* adjusted_dir_path = NULL;
+
    while (1)
    {
       static struct option long_options[] =
@@ -362,13 +376,14 @@ main(int argc, char** argv)
          {"frontend", required_argument, 0, 'F'},
          {"admins", required_argument, 0, 'A'},
          {"superuser", required_argument, 0, 'S'},
+         {"directory", required_argument, 0, 'D'},
          {"daemon", no_argument, 0, 'd'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "dV?a:c:l:u:F:A:S:",
+      c = getopt_long (argc, argv, "dV?a:c:l:u:F:A:S:D:",
                        long_options, &option_index);
 
       if (c == -1)
@@ -398,6 +413,9 @@ main(int argc, char** argv)
             break;
          case 'S':
             superuser_path = optarg;
+            break;
+         case 'D':
+            directory_path = optarg;
             break;
          case 'd':
             daemon = true;
@@ -436,6 +454,106 @@ main(int argc, char** argv)
 
    memset(&known_fds, 0, sizeof(known_fds));
    memset(message, 0, MISC_LENGTH);
+
+   if (directory_path == NULL)
+   {
+      // Check for environment variable if no -D flag provided
+      directory_path = getenv("PGAGROAL_CONFIG_DIR");
+      if (directory_path != NULL)
+      {
+         pgagroal_log_info("Configuration directory set via PGAGROAL_CONFIG_DIR environment variable: %s", directory_path);
+      }
+   }
+
+   if (directory_path != NULL)
+   {
+      if (!strcmp(directory_path, PGAGROAL_DEFAULT_CONFIGURATION_PATH))
+      {
+         pgagroal_log_warn("Using the default configuration directory %s, -D can be omitted.", directory_path);
+      }
+
+      if (access(directory_path, F_OK) != 0)
+      {
+#ifdef HAVE_SYSTEMD
+         sd_notify(0, "STATUS=Configuration directory not found: %s", directory_path);
+#endif
+         pgagroal_log_error("Configuration directory not found: %s", directory_path);
+         exit(1);
+      }
+
+      if (stat(directory_path, &path_stat) == 0)
+      {
+         if (!S_ISDIR(path_stat.st_mode))
+         {
+#ifdef HAVE_SYSTEMD
+            sd_notify(0, "STATUS=Path is not a directory: %s", directory_path);
+#endif
+            pgagroal_log_error("Path is not a directory: %s", directory_path);
+            exit(1);
+         }
+      }
+
+      if (access(directory_path, R_OK | X_OK) != 0)
+      {
+#ifdef HAVE_SYSTEMD
+         sd_notifyf(0, "STATUS=Insufficient permissions for directory: %s", directory_path);
+#endif
+         pgagroal_log_error("Insufficient permissions for directory: %s", directory_path);
+         exit(1);
+      }
+
+      if (directory_path[strlen(directory_path) - 1] != '/')
+      {
+         adjusted_dir_path = pgagroal_append(strdup(directory_path), "/");
+      }
+      else
+      {
+         adjusted_dir_path = strdup(directory_path);
+      }
+
+      if (adjusted_dir_path == NULL)
+      {
+         pgagroal_log_error("Memory allocation failed while copying directory path.");
+         exit(1);
+      }
+
+      if (!configuration_path && pgagroal_normalize_path(adjusted_dir_path, "pgagroal.conf", PGAGROAL_DEFAULT_CONF_FILE, config_path_buffer, sizeof(config_path_buffer)) == 0 && strlen(config_path_buffer) > 0)
+      {
+         configuration_path = config_path_buffer;
+      }
+
+      if (!hba_path && pgagroal_normalize_path(adjusted_dir_path, "pgagroal_hba.conf", PGAGROAL_DEFAULT_HBA_FILE, hba_path_buffer, sizeof(hba_path_buffer)) == 0 && strlen(hba_path_buffer) > 0)
+      {
+         hba_path = hba_path_buffer;
+      }
+
+      if (!limit_path && pgagroal_normalize_path(adjusted_dir_path, "pgagroal_databases.conf", PGAGROAL_DEFAULT_LIMIT_FILE, limit_path_buffer, sizeof(limit_path_buffer)) == 0 && strlen(limit_path_buffer) > 0)
+      {
+         limit_path = limit_path_buffer;
+      }
+
+      if (!users_path && pgagroal_normalize_path(adjusted_dir_path, "pgagroal_users.conf", PGAGROAL_DEFAULT_USERS_FILE, users_path_buffer, sizeof(users_path_buffer)) == 0 && strlen(users_path_buffer) > 0)
+      {
+         users_path = users_path_buffer;
+      }
+
+      if (!frontend_users_path && pgagroal_normalize_path(adjusted_dir_path, "pgagroal_frontend_users.conf", PGAGROAL_DEFAULT_FRONTEND_USERS_FILE, frontend_users_path_buffer, sizeof(frontend_users_path_buffer)) == 0 && strlen(frontend_users_path_buffer) > 0)
+      {
+         frontend_users_path = frontend_users_path_buffer;
+      }
+
+      if (!admins_path && pgagroal_normalize_path(adjusted_dir_path, "pgagroal_admins.conf", PGAGROAL_DEFAULT_ADMINS_FILE, admins_path_buffer, sizeof(admins_path_buffer)) == 0 && strlen(admins_path_buffer) > 0)
+      {
+         admins_path = admins_path_buffer;
+      }
+
+      if (!superuser_path && pgagroal_normalize_path(adjusted_dir_path, "pgagroal_superuser.conf", PGAGROAL_DEFAULT_SUPERUSER_FILE, superuser_path_buffer, sizeof(superuser_path_buffer)) == 0 && strlen(superuser_path_buffer) > 0)
+      {
+         superuser_path = superuser_path_buffer;
+      }
+
+      free(adjusted_dir_path);
+   }
 
    // the main configuration file is mandatory!
    configuration_path = configuration_path != NULL ? configuration_path : PGAGROAL_DEFAULT_CONF_FILE;
