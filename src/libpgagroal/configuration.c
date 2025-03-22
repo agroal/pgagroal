@@ -179,6 +179,46 @@ pgagroal_init_configuration(void* shm)
 }
 
 /**
+ *
+ */
+void
+pgagroal_check_directory_path(char** path, const char* directory_path, const char* default_path, const char* fallback_path)
+{
+   char temp_path[MAX_PATH];
+
+   snprintf(temp_path, MAX_PATH, "%s/%s", directory_path, default_path + strlen(PGAGROAL_DEFAULT_CONFIGURATION_PATH));
+   if (*path == NULL && access(temp_path, F_OK) == 0)
+   {
+      *path = strdup(temp_path);
+      return;
+   }
+
+   snprintf(temp_path, MAX_PATH, "%s/%s", directory_path, fallback_path + strlen(PGAGROAL_FALLBACK_CONFIGURATION_PATH));
+   if (*path == NULL && access(temp_path, F_OK) == 0)
+   {
+      *path = strdup(temp_path);
+   }
+}
+
+/**
+ *
+ */
+char*
+pgagroal_check_path(char* path, char* default_path, char* fallback_path)
+{
+   if (path == NULL)
+   {
+      if (access(default_path, F_OK) == 0)
+      {
+         return default_path;
+      }
+
+      return fallback_path;
+   }
+   return path;
+}
+
+/**
  * This struct is going to store the metadata
  * about which sections have been parsed during
  * the configuration read.

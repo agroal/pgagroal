@@ -40,9 +40,9 @@ extern "C" {
 
 #define MAX_PREFIX_LEN 10
 
-typedef int (*art_callback)(void* data, const unsigned char* key, uint32_t key_len, struct value* value);
+typedef int (* art_callback)(void* data, const unsigned char* key, uint32_t key_len, struct value* value);
 
-typedef void (*value_destroy_callback)(void* value);
+typedef void (* value_destroy_callback)(void* value);
 
 /** @struct art
  * The ART tree

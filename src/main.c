@@ -303,6 +303,8 @@ usage(void)
    printf("                                     Default: %s\n", PGAGROAL_DEFAULT_ADMINS_FILE);
    printf("  -S, --superuser SUPERUSER_FILE     Set the path to the pgagroal_superuser.conf file\n");
    printf("                                     Default: %s\n", PGAGROAL_DEFAULT_SUPERUSER_FILE);
+   printf("  -D, --directory DIRECTORY_PATH     Set the directory path to load configuration files\n");
+   printf("                                     Default: %s\n", PGAGROAL_DEFAULT_CONFIGURATION_PATH);
    printf("  -d, --daemon                       Run as a daemon\n");
    printf("  -V, --version                      Display version information\n");
    printf("  -?, --help                         Display help\n");
@@ -321,6 +323,7 @@ main(int argc, char** argv)
    char* frontend_users_path = NULL;
    char* admins_path = NULL;
    char* superuser_path = NULL;
+   char* directory_path = NULL;
    bool daemon = false;
    pid_t pid, sid;
 #ifdef HAVE_LINUX
@@ -362,13 +365,14 @@ main(int argc, char** argv)
          {"frontend", required_argument, 0, 'F'},
          {"admins", required_argument, 0, 'A'},
          {"superuser", required_argument, 0, 'S'},
+         {"directory", required_argument, 0, 'D'},
          {"daemon", no_argument, 0, 'd'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "dV?a:c:l:u:F:A:S:",
+      c = getopt_long (argc, argv, "dV?a:c:l:u:F:A:S:D:",
                        long_options, &option_index);
 
       if (c == -1)
@@ -398,6 +402,9 @@ main(int argc, char** argv)
             break;
          case 'S':
             superuser_path = optarg;
+            break;
+         case 'D':
+            directory_path = optarg;
             break;
          case 'd':
             daemon = true;
@@ -437,8 +444,40 @@ main(int argc, char** argv)
    memset(&known_fds, 0, sizeof(known_fds));
    memset(message, 0, MISC_LENGTH);
 
+   if (directory_path != NULL)
+   {
+      if (strcmp(directory_path, PGAGROAL_DEFAULT_CONFIGURATION_PATH) == 0)
+      {
+         pgagroal_log_warn("Using the default configuration directory %s, -D can be omitted.", directory_path);
+      }
+      if (access(directory_path, F_OK) != 0)
+      {
+         snprintf(message, MISC_LENGTH, "Configuration directory not found");
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=%s: %s", message, directory_path);
+#endif
+         errx(1, "%s: %s", message, directory_path);
+      }
+      if (access(directory_path, R_OK | X_OK) != 0)
+      {
+         snprintf(message, MISC_LENGTH, "Insufficient permissions for directory");
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=%s: %s", message, directory_path);
+#endif
+         errx(1, "%s: %s", message, directory_path);
+      }
+
+      pgagroal_check_directory_path(&configuration_path, directory_path, PGAGROAL_DEFAULT_CONF_FILE, PGAGROAL_FALLBACK_CONF_FILE);
+      pgagroal_check_directory_path(&hba_path, directory_path, PGAGROAL_DEFAULT_HBA_FILE, PGAGROAL_FALLBACK_HBA_FILE);
+      pgagroal_check_directory_path(&limit_path, directory_path, PGAGROAL_DEFAULT_LIMIT_FILE, PGAGROAL_FALLBACK_LIMIT_FILE);
+      pgagroal_check_directory_path(&users_path, directory_path, PGAGROAL_DEFAULT_USERS_FILE, PGAGROAL_FALLBACK_USERS_FILE);
+      pgagroal_check_directory_path(&frontend_users_path, directory_path, PGAGROAL_DEFAULT_FRONTEND_USERS_FILE, PGAGROAL_FALLBACK_FRONTEND_USERS_FILE);
+      pgagroal_check_directory_path(&admins_path, directory_path, PGAGROAL_DEFAULT_ADMINS_FILE, PGAGROAL_FALLBACK_ADMINS_FILE);
+      pgagroal_check_directory_path(&superuser_path, directory_path, PGAGROAL_DEFAULT_SUPERUSER_FILE, PGAGROAL_FALLBACK_SUPERUSER_FILE);
+   }
+
    // the main configuration file is mandatory!
-   configuration_path = configuration_path != NULL ? configuration_path : PGAGROAL_DEFAULT_CONF_FILE;
+   configuration_path = pgagroal_check_path(configuration_path, PGAGROAL_DEFAULT_CONF_FILE, PGAGROAL_FALLBACK_CONF_FILE);
    if ((ret = pgagroal_read_configuration(shmem, configuration_path, true)) != PGAGROAL_CONFIGURATION_STATUS_OK)
    {
       // the configuration has some problem, build up a descriptive message
@@ -470,7 +509,7 @@ main(int argc, char** argv)
    memcpy(&config->common.configuration_path[0], configuration_path, MIN(strlen(configuration_path), MAX_PATH - 1));
 
    // the HBA file is mandatory!
-   hba_path = hba_path != NULL ? hba_path : PGAGROAL_DEFAULT_HBA_FILE;
+   hba_path = pgagroal_check_path(hba_path, PGAGROAL_DEFAULT_HBA_FILE, PGAGROAL_FALLBACK_HBA_FILE);
    memset(message, 0, MISC_LENGTH);
    ret = pgagroal_read_hba_configuration(shmem, hba_path);
    if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
@@ -527,8 +566,8 @@ read_limit_path:
    else
    {
       // the user did not specify a file on the command line
-      // so try the default one and allow it to be missing
-      limit_path = PGAGROAL_DEFAULT_LIMIT_FILE;
+      // so try the default one, then the fallback one and allow it to be missing
+      limit_path = pgagroal_check_path(limit_path, PGAGROAL_DEFAULT_LIMIT_FILE, PGAGROAL_FALLBACK_LIMIT_FILE);
       conf_file_mandatory = false;
       goto read_limit_path;
    }
@@ -576,8 +615,8 @@ read_users_path:
    else
    {
       // the user did not specify a file on the command line
-      // so try the default one and allow it to be missing
-      users_path = PGAGROAL_DEFAULT_USERS_FILE;
+      // so try the default one, then the fallback one and allow it to be missing
+      users_path = pgagroal_check_path(users_path, PGAGROAL_DEFAULT_USERS_FILE, PGAGROAL_FALLBACK_USERS_FILE);
       conf_file_mandatory = false;
       goto read_users_path;
    }
@@ -622,8 +661,8 @@ read_frontend_users_path:
    else
    {
       // the user did not specify a file on the command line
-      // so try the default one and allow it to be missing
-      frontend_users_path = PGAGROAL_DEFAULT_FRONTEND_USERS_FILE;
+      // so try the default one, then the fallback one and allow it to be missing
+      frontend_users_path = pgagroal_check_path(frontend_users_path, PGAGROAL_DEFAULT_FRONTEND_USERS_FILE, PGAGROAL_FALLBACK_FRONTEND_USERS_FILE);
       conf_file_mandatory = false;
       goto read_frontend_users_path;
    }
@@ -667,8 +706,8 @@ read_admins_path:
    else
    {
       // the user did not specify a file on the command line
-      // so try the default one and allow it to be missing
-      admins_path = PGAGROAL_DEFAULT_ADMINS_FILE;
+      // so try the default one, then the fallback one and allow it to be missing
+      admins_path = pgagroal_check_path(admins_path, PGAGROAL_DEFAULT_ADMINS_FILE, PGAGROAL_FALLBACK_ADMINS_FILE);
       conf_file_mandatory = false;
       goto read_admins_path;
    }
@@ -710,8 +749,8 @@ read_superuser_path:
    else
    {
       // the user did not specify a file on the command line
-      // so try the default one and allow it to be missing
-      superuser_path = PGAGROAL_DEFAULT_SUPERUSER_FILE;
+      // so try the default one, then the fallback one and allow it to be missing
+      superuser_path = pgagroal_check_path(superuser_path, PGAGROAL_DEFAULT_SUPERUSER_FILE, PGAGROAL_FALLBACK_SUPERUSER_FILE);
       conf_file_mandatory = false;
       goto read_superuser_path;
    }

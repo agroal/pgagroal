@@ -132,6 +132,26 @@ int
 pgagroal_init_configuration(void* shmem);
 
 /**
+ * Check and set directory path
+ * @param path Pointer to the path to be set
+ * @param directory_path Directory to search for path
+ * @param default_path Default path
+ * @param fallback_path Fallback path if default not found
+ */
+void
+pgagroal_check_directory_path(char** path, const char* directory_path, const char* default_path, const char* fallback_path);
+
+/**
+ * Check and set directory path
+ * @param path Path to check
+ * @param default_path Default path to return if path is NULL
+ * @param fallback_path Fallback path if default not found
+ * @return The valid path or the fallback path
+ */
+char*
+pgagroal_check_path(char* path, char* default_path, char* fallback_path);
+
+/**
  * Initialize the vault configuration structure
  * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1

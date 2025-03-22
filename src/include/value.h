@@ -36,8 +36,8 @@ extern "C" {
 #include <inttypes.h>
 #include <stdbool.h>
 
-typedef void (*data_destroy_cb)(uintptr_t data);
-typedef char* (*data_to_string_cb)(uintptr_t data, int32_t format, char* tag, int indent);
+typedef void (* data_destroy_cb)(uintptr_t data);
+typedef char* (* data_to_string_cb)(uintptr_t data, int32_t format, char* tag, int indent);
 
 enum value_type {
    ValueInt8,
