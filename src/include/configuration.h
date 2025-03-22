@@ -132,6 +132,16 @@ int
 pgagroal_init_configuration(void* shmem);
 
 /**
+ * Check and set directory path
+ * @param directory_path Directory to search for path
+ * @param default_path Default path to file
+ * @param path Pointer to the path to be set
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_normalize_path(char* directory_path, char* default_path, char** path);
+
+/**
  * Initialize the vault configuration structure
  * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1

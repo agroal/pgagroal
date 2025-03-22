@@ -19,6 +19,7 @@ Options:
   -F, --frontend FRONTEND_USERS_FILE Set the path to the pgagroal_frontend_users.conf file
   -A, --admins ADMINS_FILE           Set the path to the pgagroal_admins.conf file
   -S, --superuser SUPERUSER_FILE     Set the path to the pgagroal_superuser.conf file
+  -D, --directory DIRECTORY_PATH     Set the path to load configuration files
   -d, --daemon                       Run as a daemon
   -V, --version                      Display version information
   -?, --help                         Display help

@@ -177,6 +177,59 @@ pgagroal_init_configuration(void* shm)
    return 0;
 }
 
+int
+pgagroal_normalize_path(char* directory_path, char* default_path, char** path)
+{
+   char* dir_copy = NULL;
+   char* temp_path = NULL;
+   char* local_path = NULL;
+
+   if (*path != NULL || default_path == NULL)
+   {
+      return 0;
+   }
+
+   dir_copy = strdup(directory_path);
+   if (dir_copy == NULL)
+   {
+      goto error;
+   }
+
+   temp_path = pgagroal_append(dir_copy, default_path + strlen(PGAGROAL_DEFAULT_CONFIGURATION_PATH));
+   if (temp_path == NULL)
+   {
+      goto error;
+   }
+
+   if (access(temp_path, F_OK) == 0)
+   {
+      local_path = strdup(temp_path);
+
+      if (local_path == NULL)
+      {
+         goto error;
+      }
+
+      *path = local_path;
+   }
+   else
+   {
+      pgagroal_log_warn("pgagroal: %s not found", temp_path);
+   }
+
+   free(temp_path);
+   return 0;
+
+error:
+   if (temp_path == NULL)
+   {
+      free(dir_copy);
+   }
+   free(temp_path);
+   free(local_path);
+   return 1;
+}
+
 /**
  * This struct is going to store the metadata
  * about which sections have been parsed during

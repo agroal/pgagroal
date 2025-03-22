@@ -303,6 +303,8 @@ usage(void)
    printf("                                     Default: %s\n", PGAGROAL_DEFAULT_ADMINS_FILE);
    printf("  -S, --superuser SUPERUSER_FILE     Set the path to the pgagroal_superuser.conf file\n");
    printf("                                     Default: %s\n", PGAGROAL_DEFAULT_SUPERUSER_FILE);
+   printf("  -D, --directory DIRECTORY_PATH     Set the directory path to load configuration files\n");
+   printf("                                     Default: %s\n", PGAGROAL_DEFAULT_CONFIGURATION_PATH);
    printf("  -d, --daemon                       Run as a daemon\n");
    printf("  -V, --version                      Display version information\n");
    printf("  -?, --help                         Display help\n");
@@ -321,6 +323,7 @@ main(int argc, char** argv)
    char* frontend_users_path = NULL;
    char* admins_path = NULL;
    char* superuser_path = NULL;
+   char* directory_path = NULL;
    bool daemon = false;
    pid_t pid, sid;
 #ifdef HAVE_LINUX
@@ -351,6 +354,25 @@ main(int argc, char** argv)
    char message[MISC_LENGTH]; // a generic message used for errors
    argv_ptr = argv;
 
+   struct stat path_stat = {0};
+   char* adjusted_dir_path = NULL;
+
+   char** config_paths[] = {
+      &configuration_path, &hba_path, &limit_path,
+      &users_path, &frontend_users_path, &admins_path, &superuser_path
+   };
+
+   char* default_files[] = {
+      PGAGROAL_DEFAULT_CONF_FILE, PGAGROAL_DEFAULT_HBA_FILE, PGAGROAL_DEFAULT_LIMIT_FILE,
+      PGAGROAL_DEFAULT_USERS_FILE, PGAGROAL_DEFAULT_FRONTEND_USERS_FILE,
+      PGAGROAL_DEFAULT_ADMINS_FILE, PGAGROAL_DEFAULT_SUPERUSER_FILE
+   };
+
+   const char* config_names[] = {
+      "configuration_path", "hba_path", "limit_path",
+      "users_path", "frontend_users_path", "admins_path", "superuser_path"
+   };
+
    while (1)
    {
       static struct option long_options[] =
@@ -362,13 +384,14 @@ main(int argc, char** argv)
          {"frontend", required_argument, 0, 'F'},
          {"admins", required_argument, 0, 'A'},
          {"superuser", required_argument, 0, 'S'},
+         {"directory", required_argument, 0, 'D'},
          {"daemon", no_argument, 0, 'd'},
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "dV?a:c:l:u:F:A:S:",
+      c = getopt_long (argc, argv, "dV?a:c:l:u:F:A:S:D:",
                        long_options, &option_index);
 
       if (c == -1)
@@ -398,6 +421,9 @@ main(int argc, char** argv)
             break;
          case 'S':
             superuser_path = optarg;
+            break;
+         case 'D':
+            directory_path = optarg;
             break;
          case 'd':
             daemon = true;
@@ -436,6 +462,67 @@ main(int argc, char** argv)
 
    memset(&known_fds, 0, sizeof(known_fds));
    memset(message, 0, MISC_LENGTH);
+
+   if (directory_path != NULL)
+   {
+      if (!strcmp(directory_path, PGAGROAL_DEFAULT_CONFIGURATION_PATH))
+      {
+         pgagroal_log_warn("Using the default configuration directory %s, -D can be omitted.", directory_path);
+      }
+      if (access(directory_path, F_OK) != 0)
+      {
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=Configuration directory not found: %s", directory_path);
+#endif
+         pgagroal_log_error("Configuration directory not found: %s", directory_path);
+         exit(1);
+      }
+      if (stat(directory_path, &path_stat) == 0)
+      {
+         if (!S_ISDIR(path_stat.st_mode))
+         {
+#ifdef HAVE_LINUX
+            sd_notifyf(0, "STATUS=Path is not a directory: %s", directory_path);
+#endif
+            pgagroal_log_error("Path is not a directory: %s", directory_path);
+            exit(1);
+         }
+      }
+      if (access(directory_path, R_OK | X_OK) != 0)
+      {
+#ifdef HAVE_LINUX
+         sd_notifyf(0, "STATUS=Insufficient permissions for directory: %s", directory_path);
+#endif
+         pgagroal_log_error("Insufficient permissions for directory: %s", directory_path);
+         exit(1);
+      }
+      if (directory_path[strlen(directory_path) - 1] != '/')
+      {
+         adjusted_dir_path = pgagroal_append(strdup(directory_path), "/");
+      }
+      else
+      {
+         adjusted_dir_path = strdup(directory_path);
+      }
+      if (adjusted_dir_path == NULL)
+      {
+         pgagroal_log_error("Memory allocation failed while copying directory path.");
+         exit(1);
+      }
+
+      for (int i = 0; i < 7; i++)
+      {
+         if (pgagroal_normalize_path(adjusted_dir_path, default_files[i], config_paths[i]) != 0)
+         {
+#ifdef HAVE_LINUX
+            sd_notifyf(0, "STATUS=Failed to normalize path: %s%s", adjusted_dir_path, config_names[i]);
+#endif
+            pgagroal_log_error("Failed to normalize path: %s%s", adjusted_dir_path, config_names[i]);
+            exit(1);
+         }
+      }
+      free(adjusted_dir_path);
+   }
 
    // the main configuration file is mandatory!
    configuration_path = configuration_path != NULL ? configuration_path : PGAGROAL_DEFAULT_CONF_FILE;
