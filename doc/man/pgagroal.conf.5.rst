@@ -40,8 +40,9 @@ metrics
   The metrics port. Default is 0 (disabled)
 
 metrics_cache_max_age
-  The number of seconds to keep in cache a Prometheus (metrics) response.
-  If set to zero, the caching will be disabled. Can be a string with a suffix, like ``2m`` to indicate 2 minutes.
+  The amount of time to keep a Prometheus (metrics) response in cache. If this value is specified without units,
+  it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes,
+  'H' for hours, 'D' for days, and 'W' for weeks.
   Default is 0 (disabled)
 
 metrics_cache_max_size
@@ -67,9 +68,9 @@ log_path
   The log file location. Default is pgagroal.log. Can be a strftime(3) compatible string
 
 log_rotation_age
-  The age that will trigger a log file rotation. If expressed as a positive number, is managed as seconds.
-  Supports suffixes: ``S`` (seconds, the default), ``M`` (minutes), ``H`` (hours), ``D`` (days), ``W`` (weeks).
-  A value of ``0`` disables. Default is 0 (disabled)
+  The amount of time after which log file rotation is triggered. If this value is specified without units, it is taken as seconds.
+  It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days, and 'W' for weeks.
+  Default is 0 (disabled)
 
 log_rotation_size
   The size of the log file that will trigger a log rotation. Supports suffixes: ``B`` (bytes), the default if omitted,
@@ -90,25 +91,38 @@ log_disconnections
   Log disconnects. Default is off
 
 blocking_timeout
-  The number of seconds the process will be blocking for a connection (disable = 0). Default is 30
+  The amount of time the process will be blocking for a connection. If this value is specified without units,
+  it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes,
+  'H' for hours, 'D' for days, and 'W' for weeks.
+  (disable = 0) Default is 30
 
 idle_timeout
-  The number of seconds a connection is been kept alive (disable = 0). Default is 0
+  The amount of time a connection is kept alive. If this value is specified without units, it is taken as seconds.
+  It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days,
+  and 'W' for weeks. Default is 0 (disabled)
 
 rotate_frontend_password_timeout 
-  The number of seconds after which the passwords of frontend users are updated periodically (disable = 0). Default is 0
+  The amount of time after which the passwords of frontend users are updated periodically. If this value is specified without units,
+  it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours,
+  'D' for days, and 'W' for weeks.
+  Default is 0 (disabled)
 
 rotate_frontend_password_length 
   The length of randomized frontend passwords. Default is 8
 
 max_connection_age
-  The maximum number of seconds that a connection will live (disable = 0). Default is 0
+  The maximum amount of time that a connection will live. If this value is specified without units, it is taken as seconds.
+  It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days, and
+  'W' for weeks.
+  Default is 0 (disabled)
 
 validation
   Should connection validation be performed. Valid options: off, foreground and background. Default is off
 
 background_interval
-  The interval between background validation scans in seconds. Default is 300
+  The interval between background validation scans. If this value is specified without units, it is taken as seconds.
+  It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days,
+  and 'W' for weeks. Default is 300
 
 max_retries
   The maximum number of iterations to obtain a connection. Default is 5
@@ -120,7 +134,9 @@ allow_unknown_users
   Allow unknown users to connect. Default is true
 
 authentication_timeout
-  The number of seconds the process will wait for valid credentials. Default is 5
+  The amount of time the process will wait for valid credentials. If this value is specified without units,
+  it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes,
+  'H' for hours, 'D' for days, and 'W' for weeks. Default is 5
 
 pipeline
   The pipeline type. Valid options are auto, performance, session and transaction. Default is auto

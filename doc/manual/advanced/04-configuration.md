@@ -29,29 +29,29 @@ The available keys and their accepted values are reported in the table below.
 | port | | Int | Yes | The bind port for pgagroal |
 | unix_socket_dir | | String | Yes | The Unix Domain Socket location |
 | metrics | 0 | Int | No | The metrics port (disable = 0) |
-| metrics_cache_max_age | 0 | String | No | The number of seconds to keep in cache a Prometheus (metrics) response. If set to zero, the caching will be disabled. Can be a string with a suffix, like `2m` to indicate 2 minutes |
+| metrics_cache_max_age | 0 | String | No | The amount of time to keep a Prometheus (metrics) response in cache. If this value is specified without units, it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days, and 'W' for weeks. (disable = 0) |
 | metrics_cache_max_size | 256k | String | No | The maximum amount of data to keep in cache when serving Prometheus responses. Changes require restart. This parameter determines the size of memory allocated for the cache even if `metrics_cache_max_age` or `metrics` are disabled. Its value, however, is taken into account only if `metrics_cache_max_age` is set to a non-zero value. Supports suffixes: 'B' (bytes), the default if omitted, 'K' or 'KB' (kilobytes), 'M' or 'MB' (megabytes), 'G' or 'GB' (gigabytes).|
 | management | 0 | Int | No | The remote management port (disable = 0) |
 | log_type | console | String | No | The logging type (console, file, syslog) |
 | log_level | info | String | No | The logging level, any of the (case insensitive) strings `FATAL`, `ERROR`, `WARN`, `INFO` and `DEBUG` (that can be more specific as `DEBUG1` thru `DEBUG5`). Debug level greater than 5 will be set to `DEBUG5`. Not recognized values will make the log_level be `INFO` |
 | log_path | pgagroal.log | String | No | The log file location. Can be a strftime(3) compatible string. |
-| log_rotation_age | 0 | String | No | The age that will trigger a log file rotation. If expressed as a positive number, is managed as seconds. Supports suffixes: 'S' (seconds, the default), 'M' (minutes), 'H' (hours), 'D' (days), 'W' (weeks). A value of `0` disables. |
+| log_rotation_age | 0 | String | No | The amount of time after which log file rotation is triggered. If this value is specified without units, it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days, and 'W' for weeks. (disable = 0) |
 | log_rotation_size | 0 | String | No | The size of the log file that will trigger a log rotation. Supports suffixes: 'B' (bytes), the default if omitted, 'K' or 'KB' (kilobytes), 'M' or 'MB' (megabytes), 'G' or 'GB' (gigabytes). A value of `0` (with or without suffix) disables. |
 | log_line_prefix | %Y-%m-%d %H:%M:%S | String | No | A strftime(3) compatible string to use as prefix for every log line. Must be quoted if contains spaces. |
 | log_mode | append | String | No | Append to or create the log file (append, create) |
 | log_connections | `off` | Bool | No | Log connects |
 | log_disconnections | `off` | Bool | No | Log disconnects |
-| blocking_timeout | 30 | Int | No | The number of seconds the process will be blocking for a connection (disable = 0) |
-| idle_timeout | 0 | Int | No | The number of seconds a connection is been kept alive (disable = 0) |
-| rotate_frontend_password_timeout | 0 | Int | No | The number of seconds after which the passwords of frontend users are updated periodically (disable = 0) |
+| blocking_timeout | 30 | String | No | The amount of time the process will be blocking for a connection. If this value is specified without units, it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days, and 'W' for weeks. (disable = 0) |
+| idle_timeout | 0 | String | No | The amount of time a connection is kept alive. If this value is specified without units, it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days, and 'W' for weeks. (disable = 0) |
+| rotate_frontend_password_timeout | 0 | String | No | The amount of time after which the passwords of frontend users are updated periodically. If this value is specified without units, it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days, and 'W' for weeks. (disable = 0) |
 | rotate_frontend_password_length | 8 | Int | No | The length of the randomized frontend password |
-| max_connection_age | 0 | Int | No | The maximum number of seconds that a connection will live (disable = 0) |
+| max_connection_age | 0 | String | No | The maximum amount of time that a connection will live. If this value is specified without units, it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days, and 'W' for weeks. (disable = 0) |
 | validation | `off` | String | No | Should connection validation be performed. Valid options: `off`, `foreground` and `background` |
-| background_interval | 300 | Int | No | The interval between background validation scans in seconds |
+| background_interval | 300 | String | No | The interval between background validation scans. If this value is specified without units, it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days, and 'W' for weeks. |
 | max_retries | 5 | Int | No | The maximum number of iterations to obtain a connection |
 | max_connections | 100 | Int | No | The maximum number of connections to PostgreSQL (max 10000) |
 | allow_unknown_users | `true` | Bool | No | Allow unknown users to connect |
-| authentication_timeout | 5 | Int | No | The number of seconds the process will wait for valid credentials |
+| authentication_timeout | 5 | String | No | The amount of time the process will wait for valid credentials. If this value is specified without units, it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days, and 'W' for weeks. |
 | pipeline | `auto` | String | No | The pipeline type (`auto`, `performance`, `session`, `transaction`) |
 | auth_query | `off` | Bool | No | Enable authentication query |
 | failover | `off` | Bool | No | Enable failover support |

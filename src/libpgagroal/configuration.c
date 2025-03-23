@@ -66,7 +66,6 @@ static int as_logging_level(char* str);
 static int as_logging_mode(char* str);
 
 static int as_logging_rotation_size(char* str, unsigned int* size);
-static int as_logging_rotation_age(char* str, unsigned int* age);
 static int as_validation(char* str);
 static int as_pipeline(char* str);
 static int as_hugepage(char* str);
@@ -137,15 +136,15 @@ pgagroal_init_configuration(void* shm)
    config->gracefully = false;
    config->pipeline = PIPELINE_AUTO;
    config->authquery = false;
-   config->blocking_timeout = 30;
-   config->idle_timeout = 0;
-   config->rotate_frontend_password_timeout = 0;
+   config->blocking_timeout = DEFAULT_BLOCKING_TIMEOUT;
+   config->idle_timeout = DEFAULT_IDLE_TIMEOUT;
+   config->rotate_frontend_password_timeout = DEFAULT_ROTATE_FRONTEND_PASSWORD_TIMEOUT;
    config->rotate_frontend_password_length = MIN_PASSWORD_LENGTH;
-   config->max_connection_age = 0;
+   config->max_connection_age = DEFAULT_MAX_CONNECTION_AGE;
    config->validation = VALIDATION_OFF;
-   config->background_interval = 300;
+   config->background_interval = DEFAULT_BACKGROUND_INTERVAL;
    config->max_retries = 5;
-   config->common.authentication_timeout = 5;
+   config->common.authentication_timeout = DEFAULT_AUTHENTICATION_TIMEOUT;
    config->disconnect_client = 0;
    config->disconnect_client_force = false;
 
@@ -426,7 +425,7 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
 
    if (config->common.authentication_timeout <= 0)
    {
-      config->common.authentication_timeout = 5;
+      config->common.authentication_timeout = DEFAULT_AUTHENTICATION_TIMEOUT;
    }
 
    if (config->disconnect_client <= 0)
@@ -734,7 +733,7 @@ pgagroal_vault_init_configuration(void* shm)
    config->vault_server.server.port = 0;
    config->vault_server.server.tls = false;
    config->number_of_users = 0;
-   config->common.authentication_timeout = 5;
+   config->common.authentication_timeout = DEFAULT_AUTHENTICATION_TIMEOUT;
    config->common.hugepage = HUGEPAGE_TRY;
    config->common.log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->common.log_level = PGAGROAL_LOGGING_LEVEL_INFO;
@@ -920,7 +919,7 @@ pgagroal_vault_validate_configuration (void* shm)
 
    if (config->common.authentication_timeout < 0)
    {
-      config->common.authentication_timeout = 5;
+      config->common.authentication_timeout = DEFAULT_AUTHENTICATION_TIMEOUT;
    }
 
    if (strlen(config->vault_server.server.host) == 0)
@@ -3038,26 +3037,6 @@ as_logging_rotation_size(char* str, unsigned int* size)
    return as_bytes(str, size, PGAGROAL_LOGGING_ROTATION_DISABLED);
 }
 
-/**
- * Parses the log_rotation_age string.
- * The string accepts
- * - s for seconds
- * - m for minutes
- * - h for hours
- * - d for days
- * - w for weeks
- *
- * The default is expressed in seconds.
- * The function sets the number of rotationg age as minutes.
- * Returns 1 for errors, 0 for correct parsing.
- *
- */
-static int
-as_logging_rotation_age(char* str, unsigned int* age)
-{
-   return as_seconds(str, age, PGAGROAL_LOGGING_ROTATION_DISABLED);
-}
-
 void
 pgagroal_init_pidfile_if_needed(void)
 {
@@ -4511,21 +4490,21 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    else if (key_in_section("blocking_timeout", section, key, true, &unknown))
    {
 
-      if (as_int(value, &config->blocking_timeout))
+      if (as_seconds(value, &config->blocking_timeout, DEFAULT_BLOCKING_TIMEOUT))
       {
          unknown = true;
       }
    }
    else if (key_in_section("idle_timeout", section, key, true, &unknown))
    {
-      if (as_int(value, &config->idle_timeout))
+      if (as_seconds(value, &config->idle_timeout, DEFAULT_IDLE_TIMEOUT))
       {
          unknown = true;
       }
    }
    else if (key_in_section("rotate_frontend_password_timeout", section, key, true, &unknown))
    {
-      if (as_int(value, &config->rotate_frontend_password_timeout))
+      if (as_seconds(value, &config->rotate_frontend_password_timeout, DEFAULT_ROTATE_FRONTEND_PASSWORD_TIMEOUT))
       {
          unknown = true;
       }
@@ -4539,7 +4518,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    }
    else if (key_in_section("max_connection_age", section, key, true, &unknown))
    {
-      if (as_int(value, &config->max_connection_age))
+      if (as_seconds(value, &config->max_connection_age, DEFAULT_MAX_CONNECTION_AGE))
       {
          unknown = true;
       }
@@ -4550,7 +4529,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    }
    else if (key_in_section("background_interval", section, key, true, &unknown))
    {
-      if (as_int(value, &config->background_interval))
+      if (as_seconds(value, &config->background_interval, DEFAULT_BACKGROUND_INTERVAL))
       {
          unknown = true;
       }
@@ -4564,7 +4543,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    }
    else if (key_in_section("authentication_timeout", section, key, true, &unknown))
    {
-      if (as_int(value, &config->common.authentication_timeout))
+      if (as_seconds(value, &config->common.authentication_timeout, DEFAULT_AUTHENTICATION_TIMEOUT))
       {
          unknown = true;
       }
@@ -4625,7 +4604,7 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    }
    else if (key_in_section("log_rotation_age", section, key, true, &unknown))
    {
-      if (as_logging_rotation_age(value, &config->common.log_rotation_age))
+      if (as_seconds(value, &config->common.log_rotation_age, PGAGROAL_LOGGING_ROTATION_DISABLED))
       {
          unknown = true;
       }
@@ -4870,7 +4849,7 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
    }
    else if (key_in_section("authentication_timeout", section, key, true, &unknown))
    {
-      if (as_int(value, &config->common.authentication_timeout))
+      if (as_seconds(value, &config->common.authentication_timeout, DEFAULT_AUTHENTICATION_TIMEOUT))
       {
          unknown = true;
       }
@@ -4901,7 +4880,7 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
    }
    else if (key_in_section("log_rotation_age", section, key, true, &unknown))
    {
-      if (as_logging_rotation_age(value, &config->common.log_rotation_age))
+      if (as_seconds(value, &config->common.log_rotation_age, PGAGROAL_LOGGING_ROTATION_DISABLED))
       {
          unknown = true;
       }
@@ -5766,7 +5745,7 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
       }
       else if (!strcmp(key, "log_rotation_age"))
       {
-         if (as_logging_rotation_age(config_value, &config->common.log_rotation_age))
+         if (as_seconds(config_value, &config->common.log_rotation_age, PGAGROAL_LOGGING_ROTATION_DISABLED))
          {
             unknown = true;
          }
@@ -5814,7 +5793,7 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
       }
       else if (!strcmp(key, "blocking_timeout"))
       {
-         if (as_int(config_value, &config->blocking_timeout))
+         if (as_seconds(config_value, &config->blocking_timeout, DEFAULT_BLOCKING_TIMEOUT))
          {
             unknown = true;
          }
@@ -5822,7 +5801,7 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
       }
       else if (!strcmp(key, "idle_timeout"))
       {
-         if (as_int(config_value, &config->idle_timeout))
+         if (as_seconds(config_value, &config->idle_timeout, DEFAULT_IDLE_TIMEOUT))
          {
             unknown = true;
          }
@@ -5838,7 +5817,7 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
       }
       else if (!strcmp(key, "rotate_frontend_password_timeout"))
       {
-         if (as_int(config_value, &config->rotate_frontend_password_timeout))
+         if (as_seconds(config_value, &config->rotate_frontend_password_timeout, DEFAULT_ROTATE_FRONTEND_PASSWORD_TIMEOUT))
          {
             unknown = true;
          }
@@ -5846,7 +5825,7 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
       }
       else if (!strcmp(key, "max_connection_age"))
       {
-         if (as_int(config_value, &config->max_connection_age))
+         if (as_seconds(config_value, &config->max_connection_age, DEFAULT_MAX_CONNECTION_AGE))
          {
             unknown = true;
          }
@@ -5859,7 +5838,7 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
       }
       else if (!strcmp(key, "background_interval"))
       {
-         if (as_int(config_value, &config->background_interval))
+         if (as_seconds(config_value, &config->background_interval, DEFAULT_BACKGROUND_INTERVAL))
          {
             unknown = true;
          }
@@ -5891,7 +5870,7 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
       }
       else if (!strcmp(key, "authentication_timeout"))
       {
-         if (as_int(config_value, &config->common.authentication_timeout))
+         if (as_seconds(config_value, &config->common.authentication_timeout, DEFAULT_AUTHENTICATION_TIMEOUT))
          {
             unknown = true;
          }

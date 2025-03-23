@@ -37,8 +37,9 @@ metrics
   The metrics port. Default is 0 (disabled)
 
 metrics_cache_max_age
-  The number of seconds to keep in cache a Prometheus (metrics) response.
-  If set to zero, the caching will be disabled. Can be a string with a suffix, like ``2m`` to indicate 2 minutes.
+  The amount of time to keep a Prometheus (metrics) response in cache. If this value is specified without units,
+  it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes,
+  'H' for hours, 'D' for days, and 'W' for weeks.
   Default is 0 (disabled)
 
 metrics_cache_max_size
@@ -61,9 +62,9 @@ log_path
   The log file location. Default is pgagroal-vault.log. Can be a strftime(3) compatible string
 
 log_rotation_age
-  The age that will trigger a log file rotation. If expressed as a positive number, is managed as seconds.
-  Supports suffixes: ``S`` (seconds, the default), ``M`` (minutes), ``H`` (hours), ``D`` (days), ``W`` (weeks).
-  A value of ``0`` disables. Default is 0 (disabled)
+  The amount of time after which log file rotation is triggered. If this value is specified without units, it is taken as seconds.
+  It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days, and 'W' for weeks.
+  Default is 0 (disabled)
 
 log_rotation_size
   The size of the log file that will trigger a log rotation. Supports suffixes: ``B`` (bytes), the default if omitted,
@@ -84,7 +85,9 @@ log_disconnections
   Log disconnects. Default is off
 
 authentication_timeout
-  The number of seconds the process will wait for valid credentials. Default is 5
+  The amount of time the process will wait for valid credentials. If this value is specified without units,
+  it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes,
+  'H' for hours, 'D' for days, and 'W' for weeks. Default is 5
 
 hugepage
   Huge page support. Default is try

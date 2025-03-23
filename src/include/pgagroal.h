@@ -72,6 +72,13 @@ extern "C" {
 #define SECURITY_BUFFER_SIZE   1024
 #define HTTP_BUFFER_SIZE       1024
 
+#define DEFAULT_BLOCKING_TIMEOUT                 30
+#define DEFAULT_IDLE_TIMEOUT                      0
+#define DEFAULT_ROTATE_FRONTEND_PASSWORD_TIMEOUT  0
+#define DEFAULT_MAX_CONNECTION_AGE                0
+#define DEFAULT_BACKGROUND_INTERVAL             300
+#define DEFAULT_AUTHENTICATION_TIMEOUT            5
+
 #define MAX_USERNAME_LENGTH    128
 #define MAX_DATABASE_LENGTH    256
 #define MAX_TYPE_LENGTH         16
@@ -470,10 +477,10 @@ struct vault_prometheus
  */
 struct configuration
 {
-   char configuration_path[MAX_PATH]; /**< The configuration path */
-   char host[MISC_LENGTH];            /**< The host */
-   int port;                          /**< The port */
-   int authentication_timeout;        /**< The authentication timeout in seconds */
+   char configuration_path[MAX_PATH];     /**< The configuration path */
+   char host[MISC_LENGTH];                /**< The host */
+   int port;                              /**< The port */
+   unsigned int authentication_timeout;   /**< The authentication timeout in seconds */
 
    // Logging
    int log_type;                       /**< The logging type */
@@ -543,17 +550,17 @@ struct main_configuration
    int max_connections;              /**< The maximum number of connections */
    bool allow_unknown_users;         /**< Allow unknown users */
 
-   int blocking_timeout;         /**< The blocking timeout in seconds */
-   int idle_timeout;             /**< The idle timeout in seconds */
-   int rotate_frontend_password_timeout;  /**< The rotation frontend password timeout in seconds */
-   int rotate_frontend_password_length;   /**< Length of randomised passwords */
-   int max_connection_age;       /**< The max connection age in seconds */
-   int validation;               /**< Validation mode */
-   int background_interval;      /**< Background validation timer in seconds */
-   int max_retries;              /**< The maximum number of retries */
-   int disconnect_client;        /**< Disconnect client if idle for more than the specified seconds */
-   bool disconnect_client_force; /**< Force a disconnect client if active for more than the specified seconds */
-   char pidfile[MAX_PATH];       /**< File containing the PID */
+   unsigned int blocking_timeout;                  /**< The blocking timeout in seconds */
+   unsigned int idle_timeout;                      /**< The idle timeout in seconds */
+   unsigned int rotate_frontend_password_timeout;  /**< The rotation frontend password timeout in seconds */
+   int rotate_frontend_password_length;            /**< Length of randomised passwords */
+   unsigned int max_connection_age;                /**< The max connection age in seconds */
+   int validation;                                 /**< Validation mode */
+   unsigned int background_interval;               /**< Background validation timer in seconds */
+   int max_retries;                                /**< The maximum number of retries */
+   int disconnect_client;                          /**< Disconnect client if idle for more than the specified seconds */
+   bool disconnect_client_force;                   /**< Force a disconnect client if active for more than the specified seconds */
+   char pidfile[MAX_PATH];                         /**< File containing the PID */
 
    char libev[MISC_LENGTH]; /**< Name of libev mode */
    bool keep_alive;         /**< Use keep alive */
