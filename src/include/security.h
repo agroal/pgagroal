@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #include <pgagroal.h>
+#include <deque.h>
 
 #include <stdlib.h>
 
@@ -141,6 +142,16 @@ accept_ssl_vault(struct vault_configuration* config, int client_fd, SSL** c_ssl)
  */
 void
 pgagroal_initialize_random(void);
+
+/**
+ * Extract server parameters received during the latest authentication
+ * @param slot The connection slot
+ * @param server_parameters The resulting non-thread-safe deque
+ * @return 0 on success, otherwise 1
+ */
+int
+pgagroal_extract_server_parameters(int slot, struct deque** server_parameters);
+
 #ifdef __cplusplus
 }
 #endif

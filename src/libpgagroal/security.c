@@ -5629,3 +5629,50 @@ pgagroal_generate_password(int pwd_length, char** password)
    *password = pwd;
    return 0;
 }
+
+int
+pgagroal_extract_server_parameters(int slot, struct deque** server_parameters)
+{
+   int i;
+   char* data = NULL;
+   ssize_t data_length;
+   size_t offset;
+   char* name = NULL;
+   char* value = NULL;
+   struct message* msg;
+   struct deque* sp = NULL;
+   struct main_configuration* config;
+
+   *server_parameters = NULL;
+   config = (struct main_configuration*)shmem;
+
+   if (pgagroal_deque_create(false, &sp))
+   {
+      return 1;
+   }
+
+   for (i = 0; i < NUMBER_OF_SECURITY_MESSAGES; ++i)
+   {
+      if ((data_length = config->connections[slot].security_lengths[i]) > 0)
+      {
+         data = config->connections[slot].security_messages[i];
+         offset = 0;
+
+         while (offset < data_length)
+         {
+            offset = pgagroal_extract_message_offset(offset, data, &msg);
+            if (msg->kind == 'S')
+            {
+               name = pgagroal_read_string(msg->data + 5);
+               value = pgagroal_read_string(msg->data + strlen(name) + 6);
+               pgagroal_deque_add(sp, name, (uintptr_t) value, ValueString);
+            }
+            pgagroal_free_message(msg);
+         }
+      }
+   }
+
+   *server_parameters = sp;
+   return 0;
+
+}

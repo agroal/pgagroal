@@ -206,6 +206,33 @@ pgagroal_extract_message(char type, struct message* msg, struct message** extrac
    return 1;
 }
 
+size_t
+pgagroal_extract_message_offset(size_t offset, void* data, struct message** extracted)
+{
+   char type;
+   int m_length;
+   void* m_data;
+   struct message* result = NULL;
+
+   *extracted = NULL;
+
+   type = (char) pgagroal_read_byte(data + offset);
+   m_length = pgagroal_read_int32(data + offset + 1);
+
+   result = (struct message*)malloc(sizeof(struct message));
+   m_data = (void*)malloc(1 + m_length);
+
+   memcpy(m_data, data + offset, 1 + m_length);
+
+   result->kind = type;
+   result->length = 1 + m_length;
+   result->data = m_data;
+
+   *extracted = result;
+
+   return offset + 1 + m_length;
+}
+
 int
 pgagroal_extract_error_message(struct message* msg, char** error)
 {

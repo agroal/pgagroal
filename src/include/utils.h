@@ -148,6 +148,16 @@ int
 pgagroal_extract_message(char type, struct message* msg, struct message** extracted);
 
 /**
+ * Extract a message based on an offset
+ * @param offset  The offset
+ * @param data The data segment
+ * @param extracted The resulting message
+ * @return The next offset
+ */
+size_t
+pgagroal_extract_message_offset(size_t offset, void* data, struct message** extracted);
+
+/**
  * Extract an error message from a message
  * @param msg The message
  * @param error The error

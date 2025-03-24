@@ -292,6 +292,8 @@ struct server
    char name[MISC_LENGTH];          /**< The name of the server */
    char host[MISC_LENGTH];          /**< The host name of the server */
    int port;                        /**< The port of the server */
+   int version;                     /**< The major version of the server */
+   int minor_version;               /**< The minor version of the server */
    bool tls;                        /**< Use TLS if possible */
    char tls_cert_file[MISC_LENGTH]; /**< TLS certificate path */
    char tls_key_file[MISC_LENGTH];  /**< TLS key path */

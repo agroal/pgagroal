@@ -25,6 +25,7 @@ Christian Englert <code@c.roboticbrain.de>
 Georg Pfuetzenreuter <georg.pfuetzenreuter@suse.com>
 Tejas Tyagi <tejastyagi.tt@gmail.com>
 Aryan Arora <aryanarora.w1@gmail.com>
+Sangkeun J.C. Kim <jchrys@me.com>
 ```
 
 ## Committers

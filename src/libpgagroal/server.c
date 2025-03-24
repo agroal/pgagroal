@@ -28,11 +28,14 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <deque.h>
 #include <logging.h>
 #include <message.h>
 #include <pool.h>
+#include <security.h>
 #include <server.h>
 #include <utils.h>
+#include <value.h>
 
 /* system */
 #include <errno.h>
@@ -44,6 +47,7 @@
 #include <sys/wait.h>
 
 static int failover(int old_primary);
+static int process_server_parameters(int server, struct deque* server_parameters);
 
 int
 pgagroal_get_primary(int* server)
@@ -114,6 +118,7 @@ pgagroal_update_server_state(int slot, int socket, SSL* ssl)
    char is_recovery[size];
    struct message qmsg;
    struct message* tmsg = NULL;
+   struct deque* server_parameters = NULL;
    struct main_configuration* config;
 
    config = (struct main_configuration*)shmem;
@@ -156,6 +161,19 @@ pgagroal_update_server_state(int slot, int socket, SSL* ssl)
       atomic_store(&config->servers[server].state, SERVER_REPLICA);
    }
 
+   if (pgagroal_extract_server_parameters(slot, &server_parameters))
+   {
+      pgagroal_log_trace("Unable to extract server_parameters for %s", config->servers[server].name);
+      goto error;
+   }
+
+   if (process_server_parameters(server, server_parameters))
+   {
+      pgagroal_log_trace("uanble to process server_parameters for %s", config->servers[server].name);
+      goto error;
+   }
+
+   pgagroal_deque_destroy(server_parameters);
    pgagroal_free_message(tmsg);
 
    return 0;
@@ -163,6 +181,7 @@ pgagroal_update_server_state(int slot, int socket, SSL* ssl)
 error:
    pgagroal_log_trace("pgagroal_update_server_state: slot (%d) status (%d)", slot, status);
 
+   pgagroal_deque_destroy(server_parameters);
    pgagroal_free_message(tmsg);
 
    return 1;
@@ -418,4 +437,48 @@ failover(int old_primary)
 error:
 
    return 1;
+}
+
+static int
+process_server_parameters(int server, struct deque* server_parameters)
+{
+   int status = 0;
+   int major = 0;
+   int minor = 0;
+   struct deque_iterator* iter = NULL;
+   struct main_configuration* config;
+
+   config = (struct main_configuration*) shmem;
+
+   config->servers[server].version = 0;
+   config->servers[server].minor_version = 0;
+
+   pgagroal_deque_iterator_create(server_parameters, &iter);
+   while (pgagroal_deque_iterator_next(iter))
+   {
+      pgagroal_log_trace("%s/process server_parameter '%s'", config->servers[server].name, iter->tag);
+      char* value = pgagroal_value_to_string(iter->value, FORMAT_TEXT, NULL, 0);
+      free(value);
+      if (!strcmp("server_version", iter->tag))
+      {
+         char* server_version = pgagroal_value_to_string(iter->value, FORMAT_TEXT, NULL, 0);
+         if (sscanf(server_version, "%d.%d", &major, &minor) == 2)
+         {
+            config->servers[server].version = major;
+            config->servers[server].minor_version = minor;
+         }
+         else
+         {
+            pgagroal_log_error("Unable to parse server_version '%s' for %s",
+                               server_version, config->servers[server].name);
+            status = 1;
+         }
+         free(server_version);
+         pgagroal_log_trace("%s/processed version: %d", config->servers[server].name, config->servers[server].version);
+         pgagroal_log_trace("%s/processed minor_version: %d", config->servers[server].name, config->servers[server].minor_version);
+      }
+   }
+
+   pgagroal_deque_iterator_destroy(iter);
+   return status;
 }
