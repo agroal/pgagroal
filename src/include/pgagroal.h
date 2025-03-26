@@ -33,7 +33,6 @@
 extern "C" {
 #endif
 
-#include <ev.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -68,7 +67,7 @@ extern "C" {
 
 #define MAX_PROCESS_TITLE_LENGTH 256
 
-#define DEFAULT_BUFFER_SIZE  131072
+#define DEFAULT_BUFFER_SIZE    4096
 #define SECURITY_BUFFER_SIZE   1024
 #define HTTP_BUFFER_SIZE       1024
 
@@ -564,7 +563,7 @@ struct main_configuration
    bool disconnect_client_force;                   /**< Force a disconnect client if active for more than the specified seconds */
    char pidfile[MAX_PATH];                         /**< File containing the PID */
 
-   char libev[MISC_LENGTH]; /**< Name of libev mode */
+   int ev_backend;          /**< Selected ev backend */
    bool keep_alive;         /**< Use keep alive */
    bool nodelay;            /**< Use NODELAY */
    bool non_blocking;       /**< Use non blocking */

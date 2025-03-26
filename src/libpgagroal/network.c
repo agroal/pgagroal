@@ -49,6 +49,7 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -430,6 +431,7 @@ pgagroal_socket_isvalid(int fd)
 int
 pgagroal_disconnect(int fd)
 {
+   pgagroal_log_trace("%s: fd=%d", __func__, fd);
    if (fd == -1)
    {
       return 1;

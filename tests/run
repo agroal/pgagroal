@@ -1,0 +1,155 @@
+#!/bin/bash
+#
+# Copyright (C) 2025 the pgagroal community
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list
+# of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice, this
+# list of conditions and the following disclaimer in the documentation and/or other
+# materials provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its contributors may
+# be used to endorse or promote products derived from this software without specific
+# prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+# THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+# OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+# TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+set -euo pipefail
+
+source utils.sh
+source config.sh
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS] <test_script>
+Options:
+  -c <config_number>   Specify a configuration number (can be repeated for multiple configurations)
+  -C <compiler>        Specify a compiler: GNU or Clangd 
+  -h                   Display this help message
+
+Example:
+  $(basename "$0") -c 1 -c 2 simple
+EOF
+}
+
+configs=()
+
+while getopts "hc:C:" opt; do
+    case $opt in
+        c)
+            configs+=("$OPTARG")
+            ;;
+        C)
+            compiler_id="$OPTARG"
+            ;;
+        h)
+            usage
+            exit 0
+            ;;
+        \?)
+            error "Invalid option: -$OPTARG"
+            usage
+            exit 1
+            ;;
+        :)
+            error "Option -$OPTARG requires an argument"
+            usage
+            exit 1
+            ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [[ $# -lt 1 ]]; then
+    error "No test script specified."
+    usage
+    exit 1
+fi
+
+echo "=== Configuration ==="
+echo "PROJECT_ROOT:  $PROJECT_ROOT"
+echo "PG_BENCH_IP:   $PG_BENCH_IP (SSH Port: $PG_BENCH_SSH_PORT)"
+echo "PGAGROAL_IP:   $PGAGROAL_IP"
+echo "PGAGROAL_PORT: $PGAGROAL_PORT"
+echo "POSTGRES_IP:   $POSTGRES_IP (Port: $POSTGRES_PORT)"
+echo "POSTGRES_PORT: $POSTGRES_PORT"
+echo ""
+
+test_script="$1"
+info "Chosen test: $test_script"
+
+if [[ "$test_script" == "stress" ]]; then
+    build_type="Release"
+else 
+    build_type="Debug"
+fi
+info "Build type: $build_type"
+
+test_script="$SCRIPTS_DIR/${test_script}.sh"
+if [[ ! -f "$test_script" ]]; then
+    die "Test script not found: $test_script"
+fi
+
+if [[ ${#configs[@]} -eq 0 ]]; then
+    error "No configuration specified. Choose a configuration from $CONFIGS_DIR directory."
+    info "Available configurations:"
+    print_avail_configs
+    exit 1
+fi
+
+for i in "${!configs[@]}"; do
+    config="${configs[$i]}"
+    if ! [[ "$config" =~ ^[0-9]+$ ]]; then
+        die "Invalid configuration number: '$config'"
+    fi
+
+    padded_config=$(printf "%02d" "$config")
+    if [[ ! -d "$CONFIGS_DIR/$padded_config" ]]; then
+        error "Configuration directory not found: $CONFIGS_DIR/$padded_config"
+        info "Available configurations:"
+        print_avail_configs
+        exit 1
+    fi
+    configs[$i]="$padded_config"
+    info "Chosen configuration: $padded_config"
+done
+
+if [[ -d "$BUILD_DIR" ]]; then
+    warn "Build directory exists: $BUILD_DIR. Skipping build step."
+else
+    info "Compiling pgagroal..."
+    build_pgagroal "$build_type"
+fi
+
+setup_postgres
+
+echo "STARTING TESTS"
+echo "=============="
+for config in "${configs[@]}"; do
+    info "Running test: $test_script with configuration: $config..."
+    config_dir="$CONFIGS_DIR/$config"
+    
+    start_pgagroal "$config_dir"
+    test_startup "$config_dir"
+    
+    chmod +x "$test_script"
+    bash "$test_script"
+    
+    shutdown_pgagroal "$config_dir"
+    test_shutdown
+done
+echo "=============="
+

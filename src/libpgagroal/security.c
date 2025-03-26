@@ -58,6 +58,7 @@
 #include <openssl/ssl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 static int get_auth_type(struct message* msg, int* auth_type);

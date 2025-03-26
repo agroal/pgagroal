@@ -1,0 +1,206 @@
+[
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/aes.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/aes.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/aes.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/aes.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/art.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/art.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/art.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/art.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/bzip2_compression.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/bzip2_compression.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/bzip2_compression.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/bzip2_compression.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/configuration.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/configuration.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/configuration.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/configuration.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/connection.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/connection.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/connection.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/connection.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/deque.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/deque.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/deque.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/deque.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/ev.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/ev.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/ev.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/ev.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/gzip_compression.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/gzip_compression.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/gzip_compression.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/gzip_compression.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/json.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/json.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/json.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/json.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/logging.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/logging.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/logging.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/logging.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/lz4_compression.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/lz4_compression.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/lz4_compression.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/lz4_compression.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/management.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/management.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/management.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/management.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/memory.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/memory.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/memory.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/memory.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/message.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/message.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/message.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/message.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/network.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/network.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/network.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/network.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/pipeline_perf.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/pipeline_perf.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/pipeline_perf.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/pipeline_perf.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/pipeline_session.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/pipeline_session.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/pipeline_session.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/pipeline_session.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/pipeline_transaction.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/pipeline_transaction.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/pipeline_transaction.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/pipeline_transaction.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/pool.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/pool.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/pool.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/pool.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/prometheus.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/prometheus.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/prometheus.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/prometheus.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/remote.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/remote.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/remote.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/remote.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/security.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/security.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/security.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/security.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/server.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/server.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/server.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/server.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/shmem.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/shmem.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/shmem.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/shmem.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/status.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/status.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/status.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/status.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/tracker.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/tracker.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/tracker.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/tracker.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/utils.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/utils.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/utils.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/utils.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/value.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/value.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/value.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/value.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/worker.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/worker.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/worker.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/worker.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc -Dpgagroal_EXPORTS -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -fPIC -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal.dir/libpgagroal/zstandard_compression.c.o -c /home/hc/projects/pgagroal/src/libpgagroal/zstandard_compression.c",
+  "file": "/home/hc/projects/pgagroal/src/libpgagroal/zstandard_compression.c",
+  "output": "src/CMakeFiles/pgagroal.dir/libpgagroal/zstandard_compression.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc  -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal-bin.dir/main.c.o -c /home/hc/projects/pgagroal/src/main.c",
+  "file": "/home/hc/projects/pgagroal/src/main.c",
+  "output": "src/CMakeFiles/pgagroal-bin.dir/main.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc  -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal-cli-bin.dir/cli.c.o -c /home/hc/projects/pgagroal/src/cli.c",
+  "file": "/home/hc/projects/pgagroal/src/cli.c",
+  "output": "src/CMakeFiles/pgagroal-cli-bin.dir/cli.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc  -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal-admin-bin.dir/admin.c.o -c /home/hc/projects/pgagroal/src/admin.c",
+  "file": "/home/hc/projects/pgagroal/src/admin.c",
+  "output": "src/CMakeFiles/pgagroal-admin-bin.dir/admin.c.o"
+},
+{
+  "directory": "/home/hc/projects/pgagroal/build/src",
+  "command": "/bin/cc  -I/home/hc/projects/pgagroal/src/include  -fPIC -fstack-protector-strong -g -Wformat -Wformat-security -fstack-protector-strong -fno-omit-frame-pointer -DHAVE_LINUX -D_POSIX_C_SOURCE=200809L -g -Wall -Werror -std=c17 -D__USE_ISOC11 -D_GNU_SOURCE -Wno-deprecated -Wno-deprecated-declarations -DPGAGROAL_MAJOR_VERSION=2 -DPGAGROAL_MINOR_VERSION=0 -DPGAGROAL_PATCH_VERSION=0 -DPGAGROAL_VERSION=\\\"2.0.0\\\" -Wstrict-prototypes -O0 -DDEBUG -o CMakeFiles/pgagroal-vault-bin.dir/vault.c.o -c /home/hc/projects/pgagroal/src/vault.c",
+  "file": "/home/hc/projects/pgagroal/src/vault.c",
+  "output": "src/CMakeFiles/pgagroal-vault-bin.dir/vault.c.o"
+}
+]
