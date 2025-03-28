@@ -279,6 +279,9 @@ There are a few short tutorials available to help you better understand and conf
 - [Enabling remote management](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/03_remote_management.md)
 - [Enabling Prometheus metrics](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/04_prometheus.md)
 - [Enabling split security](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/05_split_security.md)
+- [Enabling TLS](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/06_tls.md)
+- [Vault](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/07_vault.md)
+- [Dockerizing](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/08_docker.md)
 
 ## Closing
 

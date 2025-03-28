@@ -66,6 +66,9 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/03_remote_management.md %{buildroot}%{_docdir}/%{name}/tutorial/03_remote_management.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/04_prometheus.md %{buildroot}%{_docdir}/%{name}/tutorial/04_prometheus.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/05_split_security.md %{buildroot}%{_docdir}/%{name}/tutorial/05_split_security.md
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/06_tls.md %{buildroot}%{_docdir}/%{name}/tutorial/06_tls.md
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/07_vault.md %{buildroot}%{_docdir}/%{name}/tutorial/07_vault.md
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/08_docker.md %{buildroot}%{_docdir}/%{name}/tutorial/08_docker.md
 
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/etc/pgagroal.conf %{buildroot}%{_sysconfdir}/pgagroal/pgagroal.conf
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/etc/pgagroal_hba.conf %{buildroot}%{_sysconfdir}/pgagroal/pgagroal_hba.conf
@@ -126,6 +129,9 @@ cd %{buildroot}%{_libdir}/
 %{_docdir}/%{name}/tutorial/03_remote_management.md
 %{_docdir}/%{name}/tutorial/04_prometheus.md
 %{_docdir}/%{name}/tutorial/05_split_security.md
+%{_docdir}/%{name}/tutorial/06_tls.md
+%{_docdir}/%{name}/tutorial/07_vault.md
+%{_docdir}/%{name}/tutorial/08_docker.md
 %{_mandir}/man1/pgagroal.1*
 %{_mandir}/man1/pgagroal-admin.1*
 %{_mandir}/man1/pgagroal-cli.1*

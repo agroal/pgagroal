@@ -35,6 +35,9 @@
   [t_remote_management]: https://github.com/agroal/pgagroal/blob/master/doc/tutorial/03_remote_management.md
   [t_prometheus]: https://github.com/agroal/pgagroal/blob/master/doc/tutorial/04_prometheus.md
   [t_split_security]: https://github.com/agroal/pgagroal/blob/master/doc/tutorial/05_split_security.md
+  [t_tls]: https://github.com/agroal/pgagroal/blob/master/doc/tutorial/06_tls.md
+  [t_vault]: https://github.com/agroal/pgagroal/blob/master/doc/tutorial/07_vault.md
+  [t_docker]: https://github.com/agroal/pgagroal/blob/master/doc/tutorial/08_docker.md
 <!-- doc/etc -->
   [sample]: https://github.com/agroal/pgagroal/blob/main/doc/etc/pgagroal.conf
 
