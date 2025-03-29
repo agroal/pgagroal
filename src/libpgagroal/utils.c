@@ -35,7 +35,6 @@
 /* system */
 #include <err.h>
 #include <ev.h>
-#include <execinfo.h>
 #include <pwd.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -47,7 +46,9 @@
 #include <sys/types.h>
 #include <err.h>
 #include <sys/utsname.h>
-
+#ifdef HAVE_SYSTEMD
+#include <execinfo.h>
+#endif
 #ifndef EVBACKEND_LINUXAIO
 #define EVBACKEND_LINUXAIO 0x00000040U
 #endif
@@ -1064,7 +1065,7 @@ pgagroal_append_ullong(char* orig, unsigned long long l)
 int
 pgagroal_backtrace(void)
 {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
    void* array[100];
    size_t size;
    char** strings;

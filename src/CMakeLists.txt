@@ -21,7 +21,6 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${LIBEV_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
-    ${SYSTEMD_INCLUDE_DIRS}
     ${THREAD_INCLUDE_DIRS}
     ${ZLIB_INCLUDE_DIRS}
     ${BZIP2_INCLUDE_DIRS}
@@ -36,7 +35,6 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     ${LIBEV_LIBRARIES}
     ${OPENSSL_CRYPTO_LIBRARY}
     ${OPENSSL_SSL_LIBRARY}
-    ${SYSTEMD_LIBRARIES}
     ${LIBATOMIC_LIBRARY}
     ${THREAD_LIBRARY}
     ${ZLIB_LIBRARIES}
@@ -109,6 +107,13 @@ else()
     add_compile_options(-DHAVE_OPENBSD)
   elseif (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
      add_compile_options(-DHAVE_FREEBSD)
+  endif()
+
+  if (SYSTEMD_FOUND)
+  add_compile_options(-DHAVE_SYSTEMD)
+
+  include_directories(${SYSTEMD_INCLUDE_DIRS})
+  link_libraries(${SYSTEMD_LIBRARIES})
   endif()
 
   #

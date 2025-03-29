@@ -66,7 +66,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
 #include <systemd/sd-daemon.h>
 #endif
 
@@ -323,7 +323,7 @@ main(int argc, char** argv)
    char* superuser_path = NULL;
    bool daemon = false;
    pid_t pid, sid;
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
    int sds;
 #endif
    bool has_unix_socket = false;
@@ -416,7 +416,7 @@ main(int argc, char** argv)
 
    if (getuid() == 0)
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notify(0, "STATUS=Using the root account is not allowed");
 #endif
       errx(1, "Using the root account is not allowed");
@@ -425,7 +425,7 @@ main(int argc, char** argv)
    shmem_size = sizeof(struct main_configuration);
    if (pgagroal_create_shared_memory(shmem_size, HUGEPAGE_OFF, &shmem))
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=Error in creating shared memory");
 #endif
       errx(1, "Error in creating shared memory");
@@ -461,7 +461,7 @@ main(int argc, char** argv)
                   ret > 1 ? 's' : ' ');
       }
 
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=%s: %s", message, configuration_path);
 #endif
       errx(1, "%s (file <%s>)", message, configuration_path);
@@ -476,7 +476,7 @@ main(int argc, char** argv)
    if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
    {
       snprintf(message, MISC_LENGTH, "HBA configuration file not found");
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=%s: %s", message, hba_path);
 #endif
       errx(1, "%s (file <%s>)", message, hba_path);
@@ -484,7 +484,7 @@ main(int argc, char** argv)
    else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
    {
       snprintf(message, MISC_LENGTH, "HBA too many entries (max %d)", NUMBER_OF_HBAS);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=%s: %s", message, hba_path);
 #endif
 
@@ -508,7 +508,7 @@ read_limit_path:
 
          snprintf(message, MISC_LENGTH, "LIMIT configuration file not found");
          printf("pgagroal: %s (file <%s>)\n", message, limit_path);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s: %s", message, limit_path);
 #endif
          exit(1);
@@ -517,7 +517,7 @@ read_limit_path:
       {
 
          snprintf(message, MISC_LENGTH, "Too many limit entries");
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s: %s", message, limit_path);
 #endif
          errx(1, "%s (file <%s>)", message, limit_path);
@@ -547,7 +547,7 @@ read_users_path:
       {
 
          snprintf(message, MISC_LENGTH, "USERS configuration file not found");
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s : %s", message, users_path);
 #endif
          errx(1, "%s  (file <%s>)", message, users_path);
@@ -557,7 +557,7 @@ read_users_path:
       {
 
          snprintf(message, MISC_LENGTH, "Invalid master key file");
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s: <%s>", message, users_path);
 #endif
          errx(1, "%s (file <%s>)", message, users_path);
@@ -567,7 +567,7 @@ read_users_path:
 
          snprintf(message, MISC_LENGTH, "USERS: too many users defined (%d, max %d)", config->number_of_users, NUMBER_OF_USERS);
 
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s: %s", message, users_path);
 #endif
          errx(1, "%s (file <%s>)", message, users_path);
@@ -591,7 +591,7 @@ read_frontend_users_path:
       {
          memset(message, 0, MISC_LENGTH);
          snprintf(message, MISC_LENGTH, "FRONTEND USERS configuration file not found");
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s: %s", message, frontend_users_path);
 #endif
          errx(1, "%s (file <%s>)", message, frontend_users_path);
@@ -599,7 +599,7 @@ read_frontend_users_path:
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT
                || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Invalid master key file: <%s>", frontend_users_path);
 #endif
          errx(1, "%s (file <%s>)", message, frontend_users_path);
@@ -609,7 +609,7 @@ read_frontend_users_path:
          memset(message, 0, MISC_LENGTH);
          snprintf(message, MISC_LENGTH, "FRONTEND USERS: Too many users defined %d (max %d)",
                   config->number_of_frontend_users, NUMBER_OF_USERS);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s: %s", message, frontend_users_path);
 #endif
          errx(1, "%s (file <%s>)", message, frontend_users_path);
@@ -638,7 +638,7 @@ read_admins_path:
       {
 
          snprintf(message, MISC_LENGTH, "ADMINS configuration file not found");
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s: %s", message, admins_path);
 #endif
          errx(1, "%s (file <%s>)", message, admins_path);
@@ -646,7 +646,7 @@ read_admins_path:
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT
                || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Invalid master key file: <%s>", admins_path);
 #endif
          errx(1, "Invalid master key file (file <%s>)", admins_path);
@@ -654,7 +654,7 @@ read_admins_path:
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
          snprintf(message, MISC_LENGTH, "Too many admins defined %d (max %d)", config->number_of_admins, NUMBER_OF_ADMINS);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s %s", message, admins_path);
 #endif
          errx(1, "%s (file <%s>)", message, admins_path);
@@ -682,14 +682,14 @@ read_superuser_path:
       if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND && conf_file_mandatory)
       {
          snprintf(message, MISC_LENGTH, "SUPERUSER configuration file not found");
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s: %s", message, superuser_path);
 #endif
          errx(1, "%s (file <%s>)", message, superuser_path);
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Invalid master key file: <%s>", superuser_path);
 #endif
          errx(1, "Invalid master key file (file <%s>)", superuser_path);
@@ -697,7 +697,7 @@ read_superuser_path:
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
          snprintf(message, MISC_LENGTH, "SUPERUSER: Too many superusers defined (max 1)");
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s: %s", message, superuser_path);
 #endif
          errx(1, "%s (file <%s>)", message, superuser_path);
@@ -717,7 +717,7 @@ read_superuser_path:
    }
 
    /* systemd sockets */
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
    sds = sd_listen_fds(0);
    if (sds > 0)
    {
@@ -761,7 +761,7 @@ read_superuser_path:
 
    if (pgagroal_init_logging())
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notify(0, "STATUS=Failed to init logging");
 #endif
       exit(1);
@@ -769,7 +769,7 @@ read_superuser_path:
 
    if (pgagroal_start_logging())
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notify(0, "STATUS=Failed to start logging");
 #endif
       errx(1, "Failed to start logging");
@@ -779,7 +779,7 @@ read_superuser_path:
    {
       if (pgagroal_init_prometheus(&prometheus_shmem_size, &prometheus_shmem))
       {
-   #ifdef HAVE_LINUX
+   #ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Error in creating and initializing prometheus shared memory");
    #endif
          errx(1, "Error in creating and initializing prometheus shared memory");
@@ -787,7 +787,7 @@ read_superuser_path:
 
       if (pgagroal_init_prometheus_cache(&prometheus_cache_shmem_size, &prometheus_cache_shmem))
       {
-   #ifdef HAVE_LINUX
+   #ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Error in creating and initializing prometheus cache shared memory");
    #endif
          errx(1, "Error in creating and initializing prometheus cache shared memory");
@@ -796,7 +796,7 @@ read_superuser_path:
 
    if (pgagroal_validate_configuration(shmem, has_unix_socket, has_main_sockets))
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notify(0, "STATUS=Invalid configuration");
 #endif
       errx(1, "Invalid configuration");
@@ -806,35 +806,35 @@ read_superuser_path:
 
    if (pgagroal_validate_hba_configuration(shmem))
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notify(0, "STATUS=Invalid HBA configuration");
 #endif
       errx(1, "Invalid HBA configuration");
    }
    if (pgagroal_validate_limit_configuration(shmem))
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notify(0, "STATUS=Invalid LIMIT configuration");
 #endif
       errx(1, "Invalid LIMIT configuration");
    }
    if (pgagroal_validate_users_configuration(shmem))
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notify(0, "STATUS=Invalid USERS configuration");
 #endif
       errx(1, "Invalid USERS configuration");
    }
    if (pgagroal_validate_frontend_users_configuration(shmem))
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notify(0, "STATUS=Invalid FRONTEND USERS configuration");
 #endif
       errx(1, "Invalid FRONTEND USERS configuration");
    }
    if (pgagroal_validate_admins_configuration(shmem))
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notify(0, "STATUS=Invalid ADMINS configuration");
 #endif
       errx(1, "Invalid ADMINS configuration");
@@ -842,14 +842,14 @@ read_superuser_path:
 
    if (pgagroal_resize_shared_memory(shmem_size, shmem, &tmp_size, &tmp_shmem))
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=Error in creating shared memory");
 #endif
       errx(1, "Error in creating shared memory");
    }
    if (pgagroal_destroy_shared_memory(shmem, shmem_size) == -1)
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=Error in destroying shared memory");
 #endif
       errx(1, "Error in destroying shared memory");
@@ -862,7 +862,7 @@ read_superuser_path:
 
    if (getrlimit(RLIMIT_NOFILE, &flimit) == -1)
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=Unable to find limit due to %s", strerror(errno));
 #endif
       err(1, "Unable to find limit");
@@ -871,7 +871,7 @@ read_superuser_path:
    /* We are "reserving" 30 file descriptors for pgagroal main */
    if (config->max_connections > (flimit.rlim_cur - 30))
    {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0,
                  "STATUS=max_connections is larger than the file descriptor limit (%ld available)",
                  (long)(flimit.rlim_cur - 30));
@@ -883,7 +883,7 @@ read_superuser_path:
    {
       if (config->common.log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
       {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notify(0, "STATUS=Daemon mode can't be used with console logging");
 #endif
          errx(1, "Daemon mode can't be used with console logging");
@@ -893,7 +893,7 @@ read_superuser_path:
 
       if (pid < 0)
       {
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notify(0, "STATUS=Daemon mode failed");
 #endif
          errx(1, "Daemon mode failed");
@@ -927,7 +927,7 @@ read_superuser_path:
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, MAIN_UDS, &unix_management_socket))
    {
       pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, MAIN_UDS);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, MAIN_UDS);
 #endif
       goto error;
@@ -937,7 +937,7 @@ read_superuser_path:
    if (pgagroal_bind_unix_socket(config->unix_socket_dir, TRANSFER_UDS, &unix_transfer_socket))
    {
       pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, TRANSFER_UDS);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, TRANSFER_UDS);
 #endif
       goto error;
@@ -953,7 +953,7 @@ read_superuser_path:
       if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], &unix_pgsql_socket))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, &pgsql[0]);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Could not bind to %s/%s", config->unix_socket_dir, &pgsql[0]);
 #endif
          goto error;
@@ -966,7 +966,7 @@ read_superuser_path:
       if (pgagroal_bind(config->common.host, config->common.port, &main_fds, &main_fds_length, config->non_blocking, config->nodelay, config->backlog))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.port);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->common.host, config->common.port);
 #endif
          goto error;
@@ -976,7 +976,7 @@ read_superuser_path:
    if (main_fds_length > MAX_FDS)
    {
       pgagroal_log_fatal("pgagroal: Too many descriptors %d", main_fds_length);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=Too many descriptors %d", main_fds_length);
 #endif
       goto error;
@@ -988,7 +988,7 @@ read_superuser_path:
    {
       pgagroal_log_fatal("pgagroal: No loop implementation (%x) (%x)",
                          pgagroal_libev(config->libev), ev_supported_backends());
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=No loop implementation (%x) (%x)", pgagroal_libev(config->libev), ev_supported_backends());
 #endif
       goto error;
@@ -1016,7 +1016,7 @@ read_superuser_path:
       if (pgagroal_tls_valid())
       {
          pgagroal_log_fatal("pgagroal: Invalid TLS configuration");
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notify(0, "STATUS=Invalid TLS configuration");
 #endif
          goto error;
@@ -1029,7 +1029,7 @@ read_superuser_path:
       if (pgagroal_tls_valid())
       {
          pgagroal_log_fatal("pgagroal: Invalid TLS configuration");
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notify(0, "STATUS=Invalid TLS configuration");
 #endif
          goto error;
@@ -1040,7 +1040,7 @@ read_superuser_path:
    else
    {
       pgagroal_log_fatal("pgagroal: Unknown pipeline identifier (%d)", config->pipeline);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=Unknown pipeline identifier (%d)", config->pipeline);
 #endif
       goto error;
@@ -1049,7 +1049,7 @@ read_superuser_path:
    if (main_pipeline.initialize(shmem, &pipeline_shmem, &pipeline_shmem_size))
    {
       pgagroal_log_fatal("pgagroal: Pipeline initialize error (%d)", config->pipeline);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=Pipeline initialize error (%d)", config->pipeline);
 #endif
       goto error;
@@ -1101,7 +1101,7 @@ read_superuser_path:
       if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, config->nodelay, config->backlog))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->common.host, config->common.metrics);
 #endif
          goto error;
@@ -1110,7 +1110,7 @@ read_superuser_path:
       if (metrics_fds_length > MAX_FDS)
       {
          pgagroal_log_fatal("pgagroal: Too many descriptors %d", metrics_fds_length);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Too many descriptors %d", metrics_fds_length);
 #endif
          goto error;
@@ -1125,7 +1125,7 @@ read_superuser_path:
       if (pgagroal_bind(config->common.host, config->management, &management_fds, &management_fds_length, config->non_blocking, config->nodelay, config->backlog))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->management);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->common.host, config->management);
 #endif
          goto error;
@@ -1134,7 +1134,7 @@ read_superuser_path:
       if (management_fds_length > MAX_FDS)
       {
          pgagroal_log_fatal("pgagroal: Too many descriptors %d", management_fds_length);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Too many descriptors %d", management_fds_length);
 #endif
          goto error;
@@ -1191,7 +1191,7 @@ read_superuser_path:
       }
    }
 
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
    sd_notifyf(0,
               "READY=1\n"
               "STATUS=Running\n"
@@ -1204,7 +1204,7 @@ read_superuser_path:
    }
 
    pgagroal_log_info("pgagroal: shutdown");
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
    sd_notify(0, "STOPPING=1");
 #endif
    pgagroal_pool_shutdown();

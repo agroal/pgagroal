@@ -52,7 +52,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <err.h>
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
 #include <systemd/sd-daemon.h>
 #endif
 
@@ -2580,7 +2580,7 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
 {
    bool changed = false;
 
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
    sd_notify(0, "RELOADING=1");
 #endif
 
@@ -2779,7 +2779,7 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    /* prometheus */
    /* connections[] */
 
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
    sd_notify(0, "READY=1");
 #endif
 

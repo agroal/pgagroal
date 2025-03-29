@@ -54,7 +54,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
 #include <systemd/sd-daemon.h>
 #endif
 
@@ -541,7 +541,7 @@ main(int argc, char** argv)
    {
       if (pgagroal_vault_init_prometheus(&prometheus_shmem_size, &prometheus_shmem))
       {
-   #ifdef HAVE_LINUX
+   #ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Error in creating and initializing prometheus shared memory");
    #endif
          errx(1, "Error in creating and initializing prometheus shared memory");
@@ -549,7 +549,7 @@ main(int argc, char** argv)
 
       if (pgagroal_init_prometheus_cache(&prometheus_cache_shmem_size, &prometheus_cache_shmem))
       {
-   #ifdef HAVE_LINUX
+   #ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Error in creating and initializing prometheus cache shared memory");
    #endif
          errx(1, "Error in creating and initializing prometheus cache shared memory");
@@ -607,7 +607,7 @@ read_users_path:
    if (server_fds_length > MAX_FDS)
    {
       pgagroal_log_fatal("pgagroal: Too many descriptors %d", server_fds_length);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
       sd_notifyf(0, "STATUS=Too many descriptors %d", server_fds_length);
 #endif
       exit(1);
@@ -637,7 +637,7 @@ read_users_path:
       if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, false, false, -1))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Could not bind to %s:%d", config->common.host, config->common.metrics);
 #endif
          exit(1);
@@ -646,7 +646,7 @@ read_users_path:
       if (metrics_fds_length > MAX_FDS)
       {
          pgagroal_log_fatal("pgagroal: Too many descriptors %d", metrics_fds_length);
-#ifdef HAVE_LINUX
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Too many descriptors %d", metrics_fds_length);
 #endif
          exit(1);
