@@ -126,7 +126,7 @@ make
 sudo make install
 ```
 
-See [RPM](https://github.com/agroal/pgagroal/blob/main/doc/RPM.md) for how to build a RPM of [**pgagroal**][pgagroal].
+See [RPM](https://github.com/agroal/pgagroal/blob/master/doc/RPM.md) for how to build a RPM of [**pgagroal**][pgagroal].
 
 **Debug build**
 

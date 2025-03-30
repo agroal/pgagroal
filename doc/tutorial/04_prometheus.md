@@ -9,7 +9,7 @@ so that a Prometheus instance can collect them and help you monitor the pooler.
 
 This tutorial assumes that you have already an installation of [PostgreSQL](https://www.postgresql.org) 13 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal).
 
-In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md).
+In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/01_install.md).
 
 ### Change the pgagroal configuration
 
@@ -43,7 +43,7 @@ pgagroal-cli shutdown
 pgagroal -d
 ```
 
-If you need to specify other configuration files, for example for remote management (see [the related tutorial](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/03_remote_management.md)), add them on the [**pgagroal**](https://github.com/agroal/pgagroal) command line.
+If you need to specify other configuration files, for example for remote management (see [the related tutorial](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/03_remote_management.md)), add them on the [**pgagroal**](https://github.com/agroal/pgagroal) command line.
 If the cofiguration files have standard names, you can omit them.
 
 ### Get Prometheus metrics

@@ -6,9 +6,9 @@ This tutorial will show you how to do setup `pgagroal-vault`.
 
 This tutorial assumes that you have already an installation of [PostgreSQL](https://www.postgresql.org) 13 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal) and also assumes that the remote management is enabled in [**pgagroal**](https://github.com/agroal/pgagroal).
 
-In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md).
+In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/01_install.md).
 
-Moreover refer to [Enable Remote Management](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/03_remote_management.md) to enable remote management and add remote admin user.
+Moreover refer to [Enable Remote Management](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/03_remote_management.md) to enable remote management and add remote admin user.
 
 ### `pgagroal` users setup
 

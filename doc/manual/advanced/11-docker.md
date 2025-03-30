@@ -59,7 +59,7 @@ sudo systemctl restart postgresql
 
 ## Step 2: Clone the Repository
 ```sh
-git clone https://github.com/pgagroal/pgagroal.git
+git clone https://github.com/agroal/pgagroal.git
 cd pgagroal
 ```
 
@@ -196,6 +196,6 @@ cd /etc/pgagroal
 /usr/local/bin/pgagroal-cli -c pgagroal.conf shutdown
 ```
 
-See [this](https://github.com/pgagroal/pgagroal/blob/main/doc/manual/user-10-cli.md) for more cli commands.
+See [this](https://github.com/agroal/pgagroal/blob/main/doc/manual/user-10-cli.md) for more cli commands.
 
 You can access the three binaries at `/usr/local/bin`

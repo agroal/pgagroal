@@ -30,7 +30,7 @@ This tutorial will show you how to enable TLS between `client` and [**pgagroal**
 
 This tutorial assumes that you have already an installation of [PostgreSQL](https://www.postgresql.org) 13 (or higher) and [**pgagroal**](https://github.com/agroal/pgagroal).
 
-In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md).
+In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/01_install.md).
 
 ### Modify the `pgagroal` configuration
 
@@ -79,8 +79,8 @@ This tutorial assumes that you have already an installation of [PostgreSQL](http
 
 This tutorial also assumes that you have a functional [**pgagroal-vault**](https://github.com/agroal/pgagroal).
 
-In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/01_install.md) and
-the configuration done in [Setup pgagroal-vault](https://github.com/pgagroal/pgagroal/blob/master/doc/tutorial/07_vault.md).
+In particular, this tutorial refers to the configuration done in [Install pgagroal](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/01_install.md) and
+the configuration done in [Setup pgagroal-vault](https://github.com/agroal/pgagroal/blob/master/doc/tutorial/07_vault.md).
 
 ### Modify the `pgagroal-vault` configuration
 
