@@ -59,6 +59,7 @@
 #define LINE_LENGTH 512
 
 static int extract_key_value(char* str, char** key, char** value);
+static int extract_syskey_value(char* str, char** key, char** value);
 static int as_int(char* str, int* i);
 static int as_bool(char* str, bool* b);
 static int as_logging_type(char* str);
@@ -275,7 +276,16 @@ pgagroal_read_configuration(void* shm, char* filename, bool emit_warnings)
          }
          else
          {
-            extract_key_value(line, &key, &value);
+            if (pgagroal_starts_with(line, "log_path") || pgagroal_starts_with(line, "unix_socket_dir")
+                || pgagroal_starts_with(line, "tls_cert_file") || pgagroal_starts_with(line, "tls_key_file")
+                || pgagroal_starts_with(line, "tls_ca_file") || pgagroal_starts_with(line, "pidfile"))
+            {
+               extract_syskey_value(line, &key, &value);
+            }
+            else
+            {
+               extract_key_value(line, &key, &value);
+            }
 
             if (key && value)
             {
@@ -2147,6 +2157,93 @@ extract_key_value(char* str, char** key, char** value)
          return 0;
       }
    }
+error:
+   return 1;
+}
+
+/**
+ * Given a line of text extracts the key part and the value.
+ * Valid lines must have the form <key> = <value>.
+ *
+ * The key must be unquoted and cannot have any spaces
+ * in front of it.
+ *
+ * The value will be extracted as it is without trailing and leading spaces.
+ *
+ * Comments on the right side of a value are allowed.
+ *
+ * Example of valid lines are:
+ * <code>
+ * foo = bar
+ * foo=bar
+ * foo=  bar
+ * foo = "bar"
+ * foo = 'bar'
+ * foo = "#bar"
+ * foo = '#bar'
+ * foo = bar # bar set!
+ * foo = bar# bar set!
+ * </code>
+ *
+ * @param str the line of text incoming from the configuration file
+ * @param key the pointer to where to store the key extracted from the line
+ * @param value the pointer to where to store the value (as it is)
+ * @returns 1 if unable to parse the line, 0 if everything is ok
+ */
+static int
+extract_syskey_value(char* str, char** key, char** value)
+{
+   int c = 0;
+   int offset = 0;
+   int length = strlen(str);
+   int d = length - 1;
+   char* k = NULL;
+   char* v = NULL;
+
+   // the key does not allow spaces and is whatever is
+   // on the left of the '='
+   while (str[c] != ' ' && str[c] != '=' && c < length)
+   {
+      c++;
+   }
+
+   if (c >= length)
+   {
+      goto error;
+   }
+   
+   for (int i = 0; i < c; i++)
+   {
+      k = pgagroal_append_char(k, str[i]);
+   }
+
+   while (c < length && (str[c] == ' ' || str[c] == '\t' || str[c] == '=' || str[c] == '\r' || str[c] == '\n'))
+   {
+      c++;
+   }
+
+   // empty value
+   if (c == length)
+   {
+      return 0;
+   }
+
+   offset = c;
+
+   while ((str[d] == ' ' || str[d] == '\t' || str[d] == '\r' || str[d] == '\n') && d > c)
+   {
+      d--;
+   }
+
+   for (int i = offset; i <= d; i++)
+   {
+      v = pgagroal_append_char(v, str[i]);
+   }
+
+   *key = k;
+   *value = v;
+   return 0;
+
 error:
    return 1;
 }

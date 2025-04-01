@@ -33,6 +33,8 @@
 extern "C" {
 #endif
 
+#include <utils.h>
+
 #include <stdlib.h>
 
 #define PGAGROAL_LOGGING_TYPE_CONSOLE 0

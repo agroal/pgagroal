@@ -984,6 +984,16 @@ pgagroal_version_ge(unsigned int major, unsigned int minor, unsigned int patch)
 }
 
 bool
+pgagroal_starts_with(char* str, char* prefix)
+{
+   if (str == NULL)
+   {
+      return false;
+   }
+   return strncmp(prefix, str, strlen(prefix)) == 0;
+}
+
+bool
 pgagroal_ends_with(char* str, char* suffix)
 {
    int str_len = strlen(str);
@@ -1424,4 +1434,117 @@ error:
    pgagroal_log_debug("Kernel version not available.");
    return 1;
 #endif
+}
+
+int
+pgagroal_resolve_path(char* orig_path, char** new_path)
+{
+   #if defined(HAVE_DARWIN) || defined(HAVE_OSX)
+      #define GET_ENV(name) getenv(name)
+   #else
+      #define GET_ENV(name) secure_getenv(name)
+   #endif
+
+   char* res = NULL;
+   char* env_res = NULL;
+   int len = strlen(orig_path);
+   int res_len = 0;
+   bool double_quote = false;
+   bool single_quote = false;
+   bool in_env = false;
+
+   *new_path = NULL;
+
+   if (orig_path == NULL)
+   {
+      goto error;
+   }
+
+   for (int idx = 0; idx < len; idx++)
+   {
+      char* ch = NULL;
+
+      bool valid_env_char = orig_path[idx] == '_'
+                            || (orig_path[idx] >= 'A' && orig_path[idx] <= 'Z')
+                            || (orig_path[idx] >= 'a' && orig_path[idx] <= 'z')
+                            || (orig_path[idx] >= '0' && orig_path[idx] <= '9');
+      if (in_env && !valid_env_char)
+      {
+         in_env = false;
+         if (env_res == NULL)
+         {
+            return 1;
+         }
+         char* env_value = GET_ENV(env_res);
+         free(env_res);
+         if (env_value == NULL)
+         {
+            return 1;
+         }
+         res = pgagroal_append(res, env_value);
+         res_len += strlen(env_value);
+         env_res = NULL;
+      }
+
+      if (orig_path[idx] == '\"' && !single_quote)
+      {
+         double_quote = !double_quote;
+         continue;
+      }
+      else if (orig_path[idx] == '\'' && !double_quote)
+      {
+         single_quote = !single_quote;
+         continue;
+      }
+
+      if (orig_path[idx] == '\\')
+      {
+         if (idx + 1 < len)
+         {
+            ch = pgagroal_append_char(ch, orig_path[idx + 1]);
+            idx++;
+         }
+         else
+         {
+            return 1;
+         }
+      }
+      else if (orig_path[idx] == '$')
+      {
+         if (single_quote)
+         {
+            ch = pgagroal_append_char(ch, '$');
+         }
+         else
+         {
+            in_env = true;
+         }
+      }
+      else
+      {
+         ch = pgagroal_append_char(ch, orig_path[idx]);
+      }
+
+      if (in_env)
+      {
+         env_res = pgagroal_append(env_res, ch);
+      }
+      else
+      {
+         res = pgagroal_append(res, ch);
+         ++res_len;
+      }
+
+      free(ch);
+   }
+
+   if (res_len > MAX_PATH)
+   {
+      goto error;
+   }
+   *new_path = res;
+   return 0;
+
+error:
+   return 1;
 }
