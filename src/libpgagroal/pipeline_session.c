@@ -265,7 +265,7 @@ session_periodic(void)
                                     i, config->connections[i].pid, config->connections[i].fd);
                   kill(config->connections[i].pid, SIGQUIT);
 
-                  pgagroal_free_copy_message(cancel_msg);
+                  pgagroal_free_message(cancel_msg);
                   cancel_msg = NULL;
                }
                else

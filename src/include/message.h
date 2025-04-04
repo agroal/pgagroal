@@ -96,11 +96,11 @@ int
 pgagroal_create_message(void* data, ssize_t length, struct message** msg);
 
 /**
- * Free a message
+ * Clear a message
  * @param msg The resulting message
  */
 void
-pgagroal_free_message(struct message* msg);
+pgagroal_clear_message(struct message* msg);
 
 /**
  * Copy a message
@@ -111,11 +111,11 @@ struct message*
 pgagroal_copy_message(struct message* msg);
 
 /**
- * Free a copy message
+ * Free a message
  * @param msg The resulting message
  */
 void
-pgagroal_free_copy_message(struct message* msg);
+pgagroal_free_message(struct message* msg);
 
 /**
  * Write an empty message

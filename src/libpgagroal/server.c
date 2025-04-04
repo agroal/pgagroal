@@ -150,7 +150,7 @@ pgagroal_update_server_state(int slot, int socket, SSL* ssl)
    /* Read directly from the D message fragment */
    state = pgagroal_read_byte(tmsg->data + 54);
 
-   pgagroal_free_message(tmsg);
+   pgagroal_clear_message(tmsg);
 
    if (state == 'f')
    {
@@ -174,7 +174,7 @@ pgagroal_update_server_state(int slot, int socket, SSL* ssl)
    }
 
    pgagroal_deque_destroy(server_parameters);
-   pgagroal_free_message(tmsg);
+   pgagroal_clear_message(tmsg);
 
    return 0;
 
@@ -182,7 +182,7 @@ error:
    pgagroal_log_trace("pgagroal_update_server_state: slot (%d) status (%d)", slot, status);
 
    pgagroal_deque_destroy(server_parameters);
-   pgagroal_free_message(tmsg);
+   pgagroal_clear_message(tmsg);
 
    return 1;
 }

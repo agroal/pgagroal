@@ -134,7 +134,7 @@ pgagroal_create_message(void* data, ssize_t length, struct message** msg)
 }
 
 void
-pgagroal_free_message(struct message* msg)
+pgagroal_clear_message(struct message* msg)
 {
    pgagroal_memory_free();
 }
@@ -173,7 +173,7 @@ pgagroal_copy_message(struct message* msg)
 }
 
 void
-pgagroal_free_copy_message(struct message* msg)
+pgagroal_free_message(struct message* msg)
 {
    if (msg)
    {
@@ -512,14 +512,14 @@ pgagroal_write_deallocate_all(SSL* ssl, int socket)
       goto error;
    }
 
-   pgagroal_free_message(reply);
+   pgagroal_clear_message(reply);
 
    return 0;
 
 error:
    if (reply)
    {
-      pgagroal_free_message(reply);
+      pgagroal_clear_message(reply);
    }
 
    return 1;
@@ -577,14 +577,14 @@ pgagroal_write_discard_all(SSL* ssl, int socket)
       goto error;
    }
 
-   pgagroal_free_message(reply);
+   pgagroal_clear_message(reply);
 
    return 0;
 
 error:
    if (reply)
    {
-      pgagroal_free_message(reply);
+      pgagroal_clear_message(reply);
    }
 
    return 1;
@@ -715,14 +715,14 @@ pgagroal_write_rollback(SSL* ssl, int socket)
    {
       goto error;
    }
-   pgagroal_free_message(reply);
+   pgagroal_clear_message(reply);
 
    return 0;
 
 error:
    if (reply)
    {
-      pgagroal_free_message(reply);
+      pgagroal_clear_message(reply);
    }
 
    return 1;
@@ -1175,14 +1175,14 @@ pgagroal_connection_isvalid(int socket)
       goto error;
    }
 
-   pgagroal_free_message(reply);
+   pgagroal_clear_message(reply);
 
    return true;
 
 error:
    if (reply)
    {
-      pgagroal_free_message(reply);
+      pgagroal_clear_message(reply);
    }
 
    return false;

@@ -204,7 +204,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
 
          goto error;
       }
-      pgagroal_free_message(msg);
+      pgagroal_clear_message(msg);
 
       pgagroal_disconnect(server_fd);
 
@@ -220,7 +220,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
       {
          goto error;
       }
-      pgagroal_free_message(msg);
+      pgagroal_clear_message(msg);
 
       status = pgagroal_read_timeout_message(NULL, client_fd, config->common.authentication_timeout, &msg);
       if (status != MESSAGE_STATUS_OK)
@@ -261,7 +261,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
          {
             goto error;
          }
-         pgagroal_free_message(msg);
+         pgagroal_clear_message(msg);
 
          status = SSL_accept(c_ssl);
          if (status != 1)
@@ -287,7 +287,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
          {
             goto error;
          }
-         pgagroal_free_message(msg);
+         pgagroal_clear_message(msg);
 
          status = pgagroal_read_timeout_message(NULL, client_fd, config->common.authentication_timeout, &msg);
          if (status != MESSAGE_STATUS_OK)
@@ -386,7 +386,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
       if (config->connections[*slot].has_security != SECURITY_INVALID)
       {
          pgagroal_log_debug("authenticate: getting pooled connection");
-         pgagroal_free_message(msg);
+         pgagroal_clear_message(msg);
 
          ret = use_pooled_connection(c_ssl, client_fd, *slot, username, database, hba_method, server_ssl);
          if (ret == AUTH_BAD_PASSWORD)
@@ -417,7 +417,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
          pgagroal_log_debug("authenticate: created pooled connection (%d)", *slot);
       }
 
-      pgagroal_free_copy_message(request_msg);
+      pgagroal_free_message(request_msg);
       free(username);
       free(database);
       free(appname);
@@ -440,8 +440,8 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
    }
 
 bad_password:
-   pgagroal_free_message(msg);
-   pgagroal_free_copy_message(request_msg);
+   pgagroal_clear_message(msg);
+   pgagroal_free_message(request_msg);
 
    free(username);
    free(database);
@@ -453,8 +453,8 @@ bad_password:
    return AUTH_BAD_PASSWORD;
 
 error:
-   pgagroal_free_message(msg);
-   pgagroal_free_copy_message(request_msg);
+   pgagroal_clear_message(msg);
+   pgagroal_free_message(request_msg);
 
    free(username);
    free(database);
@@ -593,8 +593,8 @@ pgagroal_prefill_auth(char* username, char* password, char* database, int* slot,
    pgagroal_log_trace("prefill_auth: has_security %d", config->connections[*slot].has_security);
    pgagroal_log_debug("prefill_auth: SUCCESS");
 
-   pgagroal_free_copy_message(startup_msg);
-   pgagroal_free_message(msg);
+   pgagroal_free_message(startup_msg);
+   pgagroal_clear_message(msg);
 
    return AUTH_SUCCESS;
 
@@ -611,8 +611,8 @@ error:
    *slot = -1;
    *server_ssl = NULL;
 
-   pgagroal_free_copy_message(startup_msg);
-   pgagroal_free_message(msg);
+   pgagroal_free_message(startup_msg);
+   pgagroal_clear_message(msg);
 
    return AUTH_ERROR;
 }
@@ -675,7 +675,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
          {
             goto error;
          }
-         pgagroal_free_message(msg);
+         pgagroal_clear_message(msg);
 
          status = SSL_accept(c_ssl);
          if (status != 1)
@@ -701,7 +701,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
          {
             goto error;
          }
-         pgagroal_free_message(msg);
+         pgagroal_clear_message(msg);
 
          status = pgagroal_read_timeout_message(NULL, client_fd, config->common.authentication_timeout, &msg);
          if (status != MESSAGE_STATUS_OK)
@@ -787,7 +787,7 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
          goto error;
       }
 
-      pgagroal_free_copy_message(request_msg);
+      pgagroal_free_message(request_msg);
       free(username);
       free(database);
       free(appname);
@@ -808,8 +808,8 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
    }
 
 bad_password:
-   pgagroal_free_message(msg);
-   pgagroal_free_copy_message(request_msg);
+   pgagroal_clear_message(msg);
+   pgagroal_free_message(request_msg);
 
    free(username);
    free(database);
@@ -819,8 +819,8 @@ bad_password:
    return AUTH_BAD_PASSWORD;
 
 error:
-   pgagroal_free_message(msg);
-   pgagroal_free_copy_message(request_msg);
+   pgagroal_clear_message(msg);
+   pgagroal_free_message(request_msg);
 
    free(username);
    free(database);
@@ -1123,13 +1123,13 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
    free(server_signature_received);
    free(server_signature_calc);
 
-   pgagroal_free_message(msg);
-   pgagroal_free_copy_message(sslrequest_msg);
-   pgagroal_free_copy_message(startup_msg);
-   pgagroal_free_copy_message(sasl_response);
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_continue_response);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_clear_message(msg);
+   pgagroal_free_message(sslrequest_msg);
+   pgagroal_free_message(startup_msg);
+   pgagroal_free_message(sasl_response);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_continue_response);
+   pgagroal_free_message(sasl_final);
 
    pgagroal_memory_destroy();
 
@@ -1149,13 +1149,13 @@ bad_password:
    free(server_signature_received);
    free(server_signature_calc);
 
-   pgagroal_free_message(msg);
-   pgagroal_free_copy_message(sslrequest_msg);
-   pgagroal_free_copy_message(startup_msg);
-   pgagroal_free_copy_message(sasl_response);
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_continue_response);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_clear_message(msg);
+   pgagroal_free_message(sslrequest_msg);
+   pgagroal_free_message(startup_msg);
+   pgagroal_free_message(sasl_response);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_continue_response);
+   pgagroal_free_message(sasl_final);
 
    pgagroal_memory_destroy();
 
@@ -1175,13 +1175,13 @@ error:
    free(server_signature_received);
    free(server_signature_calc);
 
-   pgagroal_free_message(msg);
-   pgagroal_free_copy_message(sslrequest_msg);
-   pgagroal_free_copy_message(startup_msg);
-   pgagroal_free_copy_message(sasl_response);
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_continue_response);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_clear_message(msg);
+   pgagroal_free_message(sslrequest_msg);
+   pgagroal_free_message(startup_msg);
+   pgagroal_free_message(sasl_response);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_continue_response);
+   pgagroal_free_message(sasl_final);
 
    pgagroal_memory_destroy();
 
@@ -1349,7 +1349,7 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char*
       {
          goto error;
       }
-      pgagroal_free_copy_message(auth_msg);
+      pgagroal_free_message(auth_msg);
       auth_msg = NULL;
 
       /* Password or MD5 */
@@ -1373,7 +1373,7 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char*
             goto error;
          }
 
-         pgagroal_free_copy_message(auth_msg);
+         pgagroal_free_message(auth_msg);
          auth_msg = NULL;
 
          pgagroal_create_message(&config->connections[slot].security_messages[2],
@@ -1385,7 +1385,7 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char*
          {
             goto error;
          }
-         pgagroal_free_copy_message(auth_msg);
+         pgagroal_free_message(auth_msg);
          auth_msg = NULL;
       }
    }
@@ -1504,7 +1504,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    {
       goto error;
    }
-   pgagroal_free_message(msg);
+   pgagroal_clear_message(msg);
 
    /* Keep response, and send response to client */
    pgagroal_log_trace("authenticate: server auth request (%d)", server_fd);
@@ -1631,13 +1631,13 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
 
    pgagroal_log_trace("authenticate: has_security %d", config->connections[slot].has_security);
 
-   pgagroal_free_copy_message(auth_msg);
+   pgagroal_free_message(auth_msg);
 
    return AUTH_SUCCESS;
 
 bad_password:
 
-   pgagroal_free_copy_message(auth_msg);
+   pgagroal_free_message(auth_msg);
 
    if (pgagroal_socket_isvalid(client_fd))
    {
@@ -1652,7 +1652,7 @@ bad_password:
 
 error:
 
-   pgagroal_free_copy_message(auth_msg);
+   pgagroal_free_message(auth_msg);
 
    pgagroal_log_trace("use_unpooled_connection: failed for slot %d", slot);
 
@@ -1723,19 +1723,19 @@ retry:
       goto bad_password;
    }
 
-   pgagroal_free_message(msg);
+   pgagroal_clear_message(msg);
 
    return AUTH_SUCCESS;
 
 bad_password:
 
-   pgagroal_free_message(msg);
+   pgagroal_clear_message(msg);
 
    return AUTH_BAD_PASSWORD;
 
 error:
 
-   pgagroal_free_message(msg);
+   pgagroal_clear_message(msg);
 
    return AUTH_ERROR;
 }
@@ -1827,7 +1827,7 @@ retry:
       goto bad_password;
    }
 
-   pgagroal_free_message(msg);
+   pgagroal_clear_message(msg);
 
    free(pwdusr);
    free(shadow);
@@ -1838,7 +1838,7 @@ retry:
 
 bad_password:
 
-   pgagroal_free_message(msg);
+   pgagroal_clear_message(msg);
 
    free(pwdusr);
    free(shadow);
@@ -1849,7 +1849,7 @@ bad_password:
 
 error:
 
-   pgagroal_free_message(msg);
+   pgagroal_clear_message(msg);
 
    free(pwdusr);
    free(shadow);
@@ -1951,7 +1951,7 @@ retry:
 
    sasl_continue = pgagroal_copy_message(msg);
 
-   pgagroal_free_copy_message(msg);
+   pgagroal_free_message(msg);
    msg = NULL;
 
    status = pgagroal_write_message(c_ssl, client_fd, sasl_continue);
@@ -2010,7 +2010,7 @@ retry:
 
    sasl_final = pgagroal_copy_message(msg);
 
-   pgagroal_free_copy_message(msg);
+   pgagroal_free_message(msg);
    msg = NULL;
 
    status = pgagroal_write_message(c_ssl, client_fd, sasl_final);
@@ -2035,8 +2035,8 @@ retry:
    free(server_signature_calc);
    free(base64_server_signature_calc);
 
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_final);
 
    return AUTH_SUCCESS;
 
@@ -2055,8 +2055,8 @@ bad_password:
    free(server_signature_calc);
    free(base64_server_signature_calc);
 
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_final);
 
    return AUTH_BAD_PASSWORD;
 
@@ -2075,8 +2075,8 @@ error:
    free(server_signature_calc);
    free(base64_server_signature_calc);
 
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_final);
 
    return AUTH_ERROR;
 }
@@ -2188,7 +2188,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
    {
       goto error;
    }
-   pgagroal_free_message(msg);
+   pgagroal_clear_message(msg);
 
    /* Non-trust clients */
    if (auth_type != SECURITY_TRUST)
@@ -2216,7 +2216,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
       {
          goto error;
       }
-      pgagroal_free_message(msg);
+      pgagroal_clear_message(msg);
 
       status = pgagroal_read_block_message(NULL, server_fd, &msg);
       if (status != MESSAGE_STATUS_OK)
@@ -2242,7 +2242,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
          {
             goto error;
          }
-         pgagroal_free_message(msg);
+         pgagroal_clear_message(msg);
 
          status = pgagroal_read_timeout_message(c_ssl, client_fd, config->common.authentication_timeout, &msg);
          if (status != MESSAGE_STATUS_OK)
@@ -2266,7 +2266,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
          {
             goto error;
          }
-         pgagroal_free_message(msg);
+         pgagroal_clear_message(msg);
 
          status = pgagroal_read_block_message(NULL, server_fd, &msg);
          if (status != MESSAGE_STATUS_OK)
@@ -2299,7 +2299,7 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
       {
          goto error;
       }
-      pgagroal_free_message(msg);
+      pgagroal_clear_message(msg);
 
       if (auth_response != 0)
       {
@@ -2342,15 +2342,15 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
       }
    }
 
-   pgagroal_free_copy_message(smsg);
-   pgagroal_free_copy_message(kmsg);
+   pgagroal_free_message(smsg);
+   pgagroal_free_message(kmsg);
 
    return 0;
 
 error:
 
-   pgagroal_free_copy_message(smsg);
-   pgagroal_free_copy_message(kmsg);
+   pgagroal_free_message(smsg);
+   pgagroal_free_message(kmsg);
 
    return 1;
 }
@@ -2427,8 +2427,8 @@ server_authenticate(struct message* msg, int auth_type, char* username, char* pa
       }
    }
 
-   pgagroal_free_copy_message(smsg);
-   pgagroal_free_copy_message(kmsg);
+   pgagroal_free_message(smsg);
+   pgagroal_free_message(kmsg);
 
    return ret;
 
@@ -2436,8 +2436,8 @@ error:
 
    pgagroal_log_error("server_authenticate: %d", auth_type);
 
-   pgagroal_free_copy_message(smsg);
-   pgagroal_free_copy_message(kmsg);
+   pgagroal_free_message(smsg);
+   pgagroal_free_message(kmsg);
 
    return AUTH_ERROR;
 }
@@ -2518,8 +2518,8 @@ server_password(char* username, char* password, int slot, SSL* server_ssl)
       goto bad_password;
    }
 
-   pgagroal_free_copy_message(password_msg);
-   pgagroal_free_message(auth_msg);
+   pgagroal_free_message(password_msg);
+   pgagroal_clear_message(auth_msg);
 
    return AUTH_SUCCESS;
 
@@ -2527,15 +2527,15 @@ bad_password:
 
    pgagroal_log_warn("Wrong password for user: %s", username);
 
-   pgagroal_free_copy_message(password_msg);
-   pgagroal_free_message(auth_msg);
+   pgagroal_free_message(password_msg);
+   pgagroal_clear_message(auth_msg);
 
    return AUTH_BAD_PASSWORD;
 
 error:
 
-   pgagroal_free_copy_message(password_msg);
-   pgagroal_free_message(auth_msg);
+   pgagroal_free_message(password_msg);
+   pgagroal_clear_message(auth_msg);
 
    return AUTH_ERROR;
 }
@@ -2643,8 +2643,8 @@ server_md5(char* username, char* password, int slot, SSL* server_ssl)
    free(md5);
    free(salt);
 
-   pgagroal_free_copy_message(md5_msg);
-   pgagroal_free_message(auth_msg);
+   pgagroal_free_message(md5_msg);
+   pgagroal_clear_message(auth_msg);
 
    return AUTH_SUCCESS;
 
@@ -2658,8 +2658,8 @@ bad_password:
    free(md5);
    free(salt);
 
-   pgagroal_free_copy_message(md5_msg);
-   pgagroal_free_message(auth_msg);
+   pgagroal_free_message(md5_msg);
+   pgagroal_clear_message(auth_msg);
 
    return AUTH_BAD_PASSWORD;
 
@@ -2671,8 +2671,8 @@ error:
    free(md5);
    free(salt);
 
-   pgagroal_free_copy_message(md5_msg);
-   pgagroal_free_message(auth_msg);
+   pgagroal_free_message(md5_msg);
+   pgagroal_clear_message(auth_msg);
 
    return AUTH_ERROR;
 }
@@ -2857,10 +2857,10 @@ server_scram256(char* username, char* password, int slot, SSL* server_ssl)
    free(server_signature_received);
    free(server_signature_calc);
 
-   pgagroal_free_copy_message(sasl_response);
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_continue_response);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_free_message(sasl_response);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_continue_response);
+   pgagroal_free_message(sasl_final);
 
    return AUTH_SUCCESS;
 
@@ -2880,10 +2880,10 @@ bad_password:
    free(server_signature_received);
    free(server_signature_calc);
 
-   pgagroal_free_copy_message(sasl_response);
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_continue_response);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_free_message(sasl_response);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_continue_response);
+   pgagroal_free_message(sasl_final);
 
    return AUTH_BAD_PASSWORD;
 
@@ -2901,10 +2901,10 @@ error:
    free(server_signature_received);
    free(server_signature_calc);
 
-   pgagroal_free_copy_message(sasl_response);
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_continue_response);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_free_message(sasl_response);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_continue_response);
+   pgagroal_free_message(sasl_final);
 
    return AUTH_ERROR;
 }
@@ -4643,9 +4643,9 @@ retry:
 
    pgagroal_prometheus_connection_unawaiting(-1);
 
-   pgagroal_free_copy_message(startup_msg);
-   pgagroal_free_copy_message(startup_response_msg);
-   pgagroal_free_message(msg);
+   pgagroal_free_message(startup_msg);
+   pgagroal_free_message(startup_response_msg);
+   pgagroal_clear_message(msg);
 
    return AUTH_SUCCESS;
 
@@ -4662,9 +4662,9 @@ bad_password:
 
    free(error);
 
-   pgagroal_free_copy_message(startup_msg);
-   pgagroal_free_copy_message(startup_response_msg);
-   pgagroal_free_message(msg);
+   pgagroal_free_message(startup_msg);
+   pgagroal_free_message(startup_response_msg);
+   pgagroal_clear_message(msg);
 
    return AUTH_BAD_PASSWORD;
 
@@ -4681,9 +4681,9 @@ error:
 
    free(error);
 
-   pgagroal_free_copy_message(startup_msg);
-   pgagroal_free_copy_message(startup_response_msg);
-   pgagroal_free_message(msg);
+   pgagroal_free_message(startup_msg);
+   pgagroal_free_message(startup_response_msg);
+   pgagroal_clear_message(msg);
 
    return AUTH_ERROR;
 
@@ -4696,9 +4696,9 @@ timeout:
 
    free(error);
 
-   pgagroal_free_copy_message(startup_msg);
-   pgagroal_free_copy_message(startup_response_msg);
-   pgagroal_free_message(msg);
+   pgagroal_free_message(startup_msg);
+   pgagroal_free_message(startup_response_msg);
+   pgagroal_clear_message(msg);
 
    return AUTH_TIMEOUT;
 }
@@ -4790,8 +4790,8 @@ auth_query_server_md5(struct message* startup_response_msg, char* username, char
    free(md5);
    free(salt);
 
-   pgagroal_free_copy_message(md5_msg);
-   pgagroal_free_message(auth_msg);
+   pgagroal_free_message(md5_msg);
+   pgagroal_clear_message(auth_msg);
 
    return AUTH_SUCCESS;
 
@@ -4805,8 +4805,8 @@ bad_password:
    free(md5);
    free(salt);
 
-   pgagroal_free_copy_message(md5_msg);
-   pgagroal_free_message(auth_msg);
+   pgagroal_free_message(md5_msg);
+   pgagroal_clear_message(auth_msg);
 
    return AUTH_BAD_PASSWORD;
 
@@ -4818,8 +4818,8 @@ error:
    free(md5);
    free(salt);
 
-   pgagroal_free_copy_message(md5_msg);
-   pgagroal_free_message(auth_msg);
+   pgagroal_free_message(md5_msg);
+   pgagroal_clear_message(auth_msg);
 
    return AUTH_ERROR;
 }
@@ -4988,10 +4988,10 @@ auth_query_server_scram256(char* username, char* password, int socket, SSL* serv
    free(server_signature_received);
    free(server_signature_calc);
 
-   pgagroal_free_copy_message(sasl_response);
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_continue_response);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_free_message(sasl_response);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_continue_response);
+   pgagroal_free_message(sasl_final);
 
    return AUTH_SUCCESS;
 
@@ -5012,10 +5012,10 @@ bad_password:
    free(server_signature_received);
    free(server_signature_calc);
 
-   pgagroal_free_copy_message(sasl_response);
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_continue_response);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_free_message(sasl_response);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_continue_response);
+   pgagroal_free_message(sasl_final);
 
    return AUTH_BAD_PASSWORD;
 
@@ -5034,10 +5034,10 @@ error:
    free(server_signature_received);
    free(server_signature_calc);
 
-   pgagroal_free_copy_message(sasl_response);
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_continue_response);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_free_message(sasl_response);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_continue_response);
+   pgagroal_free_message(sasl_final);
 
    return AUTH_ERROR;
 }
@@ -5095,8 +5095,8 @@ auth_query_get_password(int socket, SSL* server_ssl, char* username, char* datab
    *password = result;
 
    free(aq);
-   pgagroal_free_message(tmsg);
-   pgagroal_free_copy_message(dmsg);
+   pgagroal_clear_message(tmsg);
+   pgagroal_free_message(dmsg);
 
    return 0;
 
@@ -5117,8 +5117,8 @@ error:
    }
 
    free(aq);
-   pgagroal_free_message(tmsg);
-   pgagroal_free_copy_message(dmsg);
+   pgagroal_clear_message(tmsg);
+   pgagroal_free_message(dmsg);
 
    return 1;
 }
@@ -5195,7 +5195,7 @@ retry:
       goto bad_password;
    }
 
-   pgagroal_free_message(msg);
+   pgagroal_clear_message(msg);
 
    free(md5_req);
    free(md5);
@@ -5204,7 +5204,7 @@ retry:
 
 bad_password:
 
-   pgagroal_free_message(msg);
+   pgagroal_clear_message(msg);
 
    free(md5_req);
    free(md5);
@@ -5213,7 +5213,7 @@ bad_password:
 
 error:
 
-   pgagroal_free_message(msg);
+   pgagroal_clear_message(msg);
 
    free(md5_req);
    free(md5);
@@ -5413,8 +5413,8 @@ retry:
    free(server_signature_calc);
    free(base64_server_signature_calc);
 
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_final);
 
    return AUTH_SUCCESS;
 
@@ -5434,8 +5434,8 @@ bad_password:
    free(server_signature_calc);
    free(base64_server_signature_calc);
 
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_final);
 
    return AUTH_BAD_PASSWORD;
 
@@ -5455,8 +5455,8 @@ error:
    free(server_signature_calc);
    free(base64_server_signature_calc);
 
-   pgagroal_free_copy_message(sasl_continue);
-   pgagroal_free_copy_message(sasl_final);
+   pgagroal_free_message(sasl_continue);
+   pgagroal_free_message(sasl_final);
 
    return AUTH_ERROR;
 }
@@ -5497,15 +5497,15 @@ establish_client_tls_connection(int server, int fd, SSL** ssl)
       }
    }
 
-   pgagroal_free_copy_message(ssl_msg);
-   pgagroal_free_message(msg);
+   pgagroal_free_message(ssl_msg);
+   pgagroal_clear_message(msg);
 
    return AUTH_SUCCESS;
 
 error:
 
-   pgagroal_free_copy_message(ssl_msg);
-   pgagroal_free_message(msg);
+   pgagroal_free_message(ssl_msg);
+   pgagroal_clear_message(msg);
 
    return AUTH_ERROR;
 }
@@ -5667,7 +5667,7 @@ pgagroal_extract_server_parameters(int slot, struct deque** server_parameters)
                value = pgagroal_read_string(msg->data + strlen(name) + 6);
                pgagroal_deque_add(sp, name, (uintptr_t) value, ValueString);
             }
-            pgagroal_free_copy_message(msg);
+            pgagroal_free_message(msg);
          }
       }
    }
