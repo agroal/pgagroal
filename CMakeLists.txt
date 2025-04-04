@@ -36,6 +36,7 @@ set(generation TRUE)
 
 include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
+include(CheckIncludeFile)
 include(CheckLinkerFlag)
 include(FindPackageHandleStandardArgs)
 include(GNUInstallDirs)
