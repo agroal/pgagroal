@@ -45,7 +45,9 @@
 #include <openssl/pem.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
+#ifdef HAVE_EXECINFO_H
 #include <execinfo.h>
+#endif
 #include <errno.h>
 
 #ifndef EVBACKEND_LINUXAIO
@@ -1063,7 +1065,7 @@ __attribute__((unused))
 static bool
 calculate_offset(uint64_t addr, uint64_t* offset, char** filepath)
 {
-#ifdef HAVE_LINUX
+#ifdef HAVE_EXECINFO_H
    char line[256];
    char* start, * end, * base_offset, * filepath_ptr;
    uint64_t start_addr, end_addr, base_offset_value;
@@ -1128,7 +1130,7 @@ error:
 int
 pgagroal_backtrace(void)
 {
-#ifdef HAVE_LINUX
+#ifdef HAVE_EXECINFO_H
    void* bt[1024];
    char* log_str = NULL;
    size_t bt_size;
