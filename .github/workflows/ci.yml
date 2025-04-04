@@ -221,4 +221,167 @@ jobs:
         run: |
           brew services stop postgresql@14
         if: always()
- 
+
+  build-freebsd:
+    runs-on: ubuntu-latest
+    name: FreeBSD Build and Test
+    strategy:
+      matrix:
+        compiler: [clang]
+        build_type: [Debug, Release]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QEMU dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            qemu-system-x86 \
+            qemu-utils \
+            libvirt-daemon-system \
+            libvirt-clients \
+            bridge-utils
+          sudo systemctl start libvirtd
+
+      - name: Setup FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        id: freebsd-vm
+        with:
+          release: "14.2"
+          usesh: true
+          envs: "PATH,GITHUB_ENV,GITHUB_WORKSPACE,GITHUB_OUTPUT"
+          mem: 6144
+          sync: rsync
+          copyback: true
+          prepare: |
+            # System bootstrap
+            ASSUME_ALWAYS_YES=yes pkg bootstrap
+            pkg update
+            pkg upgrade -y
+
+            # Base dependencies
+            pkg install -y \
+              bash \
+              sudo \
+              libev \
+              cmake \
+              llvm11 \
+              postgresql17-server \
+              postgresql17-contrib \
+              zstd \
+              liblz4 \
+              bzip2 \
+              libssh \
+              libarchive \
+              check \
+              py311-docutils \
+              curl \
+              doxygen \
+              hs-pandoc \
+              texlive-base \
+              texlive-texmf \
+              graphviz 
+
+      - name: Configure PostgreSQL
+        shell: freebsd {0}
+        run: |
+          if ! id postgres >/dev/null 2>&1; then
+            pw groupadd -n postgres -g 770
+            pw useradd -n postgres -u 770 -g postgres -d /var/db/postgres -s /bin/sh
+          fi
+          rm -rf /var/db/postgres/data17  # Delete the broken directory
+          mkdir -p /var/db/postgres/data17
+          chown -R postgres:postgres /var/db/postgres
+          su - postgres -c "/usr/local/bin/initdb -D /var/db/postgres/data17 -E UTF8"
+          sysrc postgresql_enable=YES
+          service postgresql start
+
+          psql -U postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+
+          createdb testdb -U postgres
+          PGPASSWORD="postgres" pgbench -i -s 1 -U postgres -d testdb
+      - name : Define verify functions
+        shell: freebsd {0}
+        run: |
+          echo 'verify_running() {
+           echo "DEBUG: GITHUB_WORKSPACE=${GITHUB_WORKSPACE}" >&2
+           ls -la "${GITHUB_WORKSPACE}/build/src/pgagroal-cli" >&2
+
+            echo "Confirming pgagroal is listening on port 2345"
+            sockstat -4l | grep ".2345" || (echo "Nothing is listening on port 2345" && exit 1)
+
+            echo "[*] Running pgagroal-cli ping"
+            ${GITHUB_WORKSPACE}/build/src/pgagroal-cli -c /etc/pgagroal/pgagroal.conf ping
+
+            echo "[*] Running queries with psql"
+            PGPASSWORD="postgres" psql -h 127.0.0.1 -p 2345 -U postgres -d testdb -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
+          }
+
+          verify_shutdown() {
+            echo "[*] Running pgagroal-cli shutdown immediate"
+            ${GITHUB_WORKSPACE}/build/src/pgagroal-cli -c /etc/pgagroal/pgagroal.conf shutdown immediate
+            sleep 5
+            echo "[*] Checking for dangling pgagroal processes"
+            if pgrep pgagroal > /dev/null; then
+              echo "[W] Found dangling pgagroal processes, killing them"
+              pkill -9 pgagroal
+              sleep 2
+            fi          
+            echo "[*] Confirming there are no dangling pgagroal processes"
+            pgrep pgagroal > /dev/null && echo "[E] Dangling pgagroal child processes: $(pgrep pgagroal | wc -l)" && exit 1
+            echo "[*] rm -f /tmp/pgagroal.2345.pid"
+            rm -f /tmp/pgagroal.2345.pid
+          }' > /tmp/functions.sh
+      - name: Setup pgagroal
+        shell: freebsd {0}
+        run: |
+          mkdir -p /etc/pgagroal
+          cp ./doc/etc/*.conf /etc/pgagroal
+
+          cat > /etc/pgagroal/pgagroal.conf <<EOF
+          [pgagroal]
+          host = *
+          port = 2345
+
+          log_type = file
+          log_level = debug5
+          log_path = /tmp/pgagroal.log 
+
+          max_connections = 100
+          idle_timeout = 600
+          validation = off
+          unix_socket_dir = /tmp/
+
+          [primary]
+          host = 127.0.0.1
+          port = 5432
+          EOF
+
+          cat > /etc/pgagroal/pgagroal_hba.conf <<EOF
+          #
+          # TYPE  DATABASE USER  ADDRESS  METHOD
+          #
+          host    all      all   all      all
+          EOF
+
+      - name: Build Project
+        shell: freebsd {0}
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/build
+          cd $GITHUB_WORKSPACE/build
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} "$GITHUB_WORKSPACE"
+          make -j$(sysctl -n hw.ncpu)
+        
+
+      - name: Debug Testsuite Path
+        shell: freebsd {0}
+        run: |
+          cd "${GITHUB_WORKSPACE}/build/src"
+          su - postgres -c "${GITHUB_WORKSPACE}/build/src/pgagroal -c /etc/pgagroal/pgagroal.conf -a /etc/pgagroal/pgagroal_hba.conf -d"
+          sleep 2
+          RUN_CMD=". /tmp/functions.sh && export GITHUB_WORKSPACE='${GITHUB_WORKSPACE}' && verify_running"
+          SHUTDOWN_CMD=". /tmp/functions.sh && export GITHUB_WORKSPACE='${GITHUB_WORKSPACE}' && verify_shutdown"
+
+          su - postgres -c "$RUN_CMD"
+          su - postgres -c "$SHUTDOWN_CMD"
