@@ -1233,6 +1233,7 @@ read_superuser_path:
 
    ev_loop_destroy(main_loop);
 
+   free(os);
    free(main_fds);
    free(metrics_fds);
    free(management_fds);
@@ -1251,6 +1252,8 @@ read_superuser_path:
    return 0;
 
 error:
+
+   free(os);
    remove_pidfile();
    exit(1);
 }
