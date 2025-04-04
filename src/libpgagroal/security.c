@@ -5667,7 +5667,7 @@ pgagroal_extract_server_parameters(int slot, struct deque** server_parameters)
                value = pgagroal_read_string(msg->data + strlen(name) + 6);
                pgagroal_deque_add(sp, name, (uintptr_t) value, ValueString);
             }
-            pgagroal_free_message(msg);
+            pgagroal_free_copy_message(msg);
          }
       }
    }
