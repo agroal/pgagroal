@@ -220,7 +220,6 @@ log_file_open(void)
    struct configuration* config;
    time_t htime;
    struct tm* tm;
-   char* resolved_path = NULL;
 
    config = (struct configuration*)shmem;
 
@@ -240,14 +239,6 @@ log_file_open(void)
          return 1;
       }
 
-      if (pgagroal_resolve_path(config->log_path, &resolved_path))
-      {
-         log_file = NULL;
-         return 1;
-      }
-
-      memcpy(config->log_path, resolved_path, strlen(resolved_path) + 1);
-      free(resolved_path);
       if (strftime(current_log_path, sizeof(current_log_path), config->log_path, tm) <= 0)
       {
          // cannot parse the format string, fallback to default logging
