@@ -15,6 +15,7 @@
 * [zstd](http://www.zstd.net)
 * [lz4](https://lz4.github.io/lz4/)
 * [bzip2](http://sourceware.org/bzip2/)
+* [binutils](https://www.gnu.org/software/binutils/)
 * on Linux platforms, there is also the need for
   * [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
 
@@ -34,7 +35,8 @@ dnf install git gcc cmake make    \
             zlib zlib-devel       \
             libzstd libzstd-devel \
             lz4 lz4-devel         \
-            bzip2 bzip2-devel
+            bzip2 bzip2-devel     \
+            binutils
 ```
 
 Please note that, on Rocky Linux, in order to install the `python3-docutils`
@@ -55,5 +57,6 @@ pkg install cmake          	\
             lzlib           \
             liblz4          \
             lbizp2          \
-            texlive-formats
+            texlive-formats \
+            binutils
 ```

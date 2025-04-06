@@ -50,6 +50,7 @@ We recommend using Fedora to test and run [**pgagroal**][pgagroal], but other Li
 * [zstd](http://www.zstd.net)
 * [lz4](https://lz4.github.io/lz4/)
 * [bzip2](http://sourceware.org/bzip2/)
+* [binutils](https://www.gnu.org/software/binutils/)
 
 ```sh
 dnf install git gcc cmake make libev libev-devel \
@@ -59,7 +60,8 @@ dnf install git gcc cmake make libev libev-devel \
             zlib zlib-devel \
             libzstd libzstd-devel \
             lz4 lz4-devel \
-            bzip2 bzip2-devel
+            bzip2 bzip2-devel \
+            binutils
 ```
 
 Alternative [clang 8+](https://clang.llvm.org/) can be used.
