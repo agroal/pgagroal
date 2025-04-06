@@ -19,7 +19,6 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   #
   include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${LIBEV_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
     ${THREAD_INCLUDE_DIRS}
     ${ZLIB_INCLUDE_DIRS}
@@ -32,7 +31,6 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   # Library directories
   #
   link_libraries(
-    ${LIBEV_LIBRARIES}
     ${OPENSSL_CRYPTO_LIBRARY}
     ${OPENSSL_SSL_LIBRARY}
     ${LIBATOMIC_LIBRARY}
@@ -42,6 +40,16 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     ${ZSTD_LIBRARIES}
     ${LZ4_LIBRARIES}
   )
+
+  #
+  # Event library backend
+  #
+  if (NOT LIBURING_FOUND)
+    message(FATAL_ERROR "liburing was not found")
+  endif()
+
+  include_directories(${LIBURING_INCLUDE_DIRS})
+  link_libraries(${LIBURING_LIBRARY})
 
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
@@ -75,7 +83,6 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
   #
   include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${LIBEV_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIRS}
     ${THREAD_INCLUDE_DIRS}
     ${ZLIB_INCLUDE_DIRS}
@@ -88,7 +95,6 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
   # Library directories
   #
   link_libraries(
-    ${LIBEV_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     ${THREAD_LIBRARY}
     ${ZLIB_LIBRARIES}
@@ -121,7 +127,6 @@ else()
   #
   include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${LIBEV_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIRS}
     ${THREAD_INCLUDE_DIRS}
     ${ZLIB_INCLUDE_DIRS}
@@ -134,7 +139,6 @@ else()
   # Library directories
   #
   link_libraries(
-    ${LIBEV_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     ${THREAD_LIBRARY}
     ${ZLIB_LIBRARIES}
@@ -247,6 +251,7 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
   if (HAS_NO_OMIT_FRAME_POINTER)
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer")
   endif()
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -g")
 endif()
 
 if (CMAKE_BUILD_TYPE MATCHES Release OR CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)

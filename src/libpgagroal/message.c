@@ -28,11 +28,14 @@
 
 /* pgagroal */
 #include <pgagroal.h>
+#include <ev.h>
 #include <logging.h>
 #include <memory.h>
 #include <message.h>
 #include <network.h>
+#include <shmem.h>
 #include <utils.h>
+#include <worker.h>
 
 #include <assert.h>
 #include <errno.h>
@@ -91,6 +94,107 @@ int
 pgagroal_write_socket_message(int socket, struct message* msg)
 {
    return write_message(socket, msg);
+}
+
+static int
+read_message_from_buffer(struct io_watcher* watcher, struct message** msg_p)
+{
+   struct message* msg = pgagroal_memory_message();
+
+   if (msg->length == 0)
+   {
+      return MESSAGE_STATUS_ZERO;
+   }
+
+   if (msg->length < 0)
+   {
+      return MESSAGE_STATUS_ERROR;
+   }
+
+   msg->kind = (signed char)(*((char*)msg->data));
+   *msg_p = msg;
+   return MESSAGE_STATUS_OK;
+}
+
+static int
+write_message_from_buffer(struct io_watcher* watcher, struct message* msg)
+{
+   int sent_bytes = pgagroal_event_prep_submit_send(watcher, msg);
+
+   if (msg->length == 0)
+   {
+      return MESSAGE_STATUS_ZERO;
+   }
+   if (sent_bytes < msg->length)
+   {
+      return MESSAGE_STATUS_ERROR;
+   }
+   return MESSAGE_STATUS_OK;
+}
+
+static int __attribute__((unused))
+send_recv_from_buffer(struct io_watcher* watcher, struct message* msg)
+{
+   int sent_bytes = pgagroal_prep_send_recv(watcher, msg);
+
+   if (msg->length == 0)
+   {
+      return MESSAGE_STATUS_ZERO;
+   }
+   if (sent_bytes < msg->length)
+   {
+      return MESSAGE_STATUS_ERROR;
+   }
+   return MESSAGE_STATUS_OK;
+}
+
+static int __attribute__((unused))
+read_from_buffer(struct io_watcher* watcher, struct message* msg)
+{
+   int read_bytes = pgagroal_wait_recv(watcher, msg);
+
+   ((struct message*)msg)->length = read_bytes;
+   msg->kind = (signed char)(*((char*)msg->data));
+
+   if (msg->length == 0)
+   {
+      return MESSAGE_STATUS_ZERO;
+   }
+   return MESSAGE_STATUS_OK;
+}
+
+int
+pgagroal_recv_message(struct io_watcher* watcher, struct message** msg)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+   struct worker_io* wi = (struct worker_io*)watcher;
+
+   if (wi->server_ssl)
+   {
+      return ssl_read_message(wi->server_ssl, 0, msg);
+   }
+   if (config->ev_backend != PGAGROAL_EVENT_BACKEND_IO_URING)
+   {
+      return read_message(watcher->fds.worker.rcv_fd, false, 0, msg);
+   }
+   return read_message_from_buffer(watcher, msg);
+}
+
+int
+pgagroal_send_message(struct io_watcher* watcher, struct message* msg)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+   struct worker_io* wi = (struct worker_io*)watcher;
+
+   if (wi->server_ssl)
+   {
+      return ssl_write_message(wi->server_ssl, msg);
+   }
+   if (config->ev_backend != PGAGROAL_EVENT_BACKEND_IO_URING)
+   {
+      return write_message(watcher->fds.worker.snd_fd, msg);
+   }
+   return write_message_from_buffer(watcher, msg);
 }
 
 int
@@ -528,12 +632,24 @@ error:
 int
 pgagroal_write_discard_all(SSL* ssl, int socket)
 {
+#if 0
+   struct main_configuration* config = (struct main_configuration*)shmem;
+#endif
+
    int status;
    int size = 18;
 
    char discard[size];
    struct message msg;
    struct message* reply = NULL;
+
+#if 0
+   struct io_watcher watcher = {
+      .type = EV_WORKER,
+      .fds.worker.rcv_fd = socket,
+      .fds.worker.snd_fd = socket,
+   };
+#endif
 
    memset(&msg, 0, sizeof(struct message));
    memset(&discard, 0, sizeof(discard));
@@ -546,7 +662,15 @@ pgagroal_write_discard_all(SSL* ssl, int socket)
    msg.length = size;
    msg.data = &discard;
 
+#if 0
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_IO_URING)
+   {
+      status = send_recv_from_buffer(&watcher, &msg);
+   }
+   else if (ssl == NULL)
+#else
    if (ssl == NULL)
+#endif
    {
       status = write_message(socket, &msg);
    }
@@ -559,7 +683,19 @@ pgagroal_write_discard_all(SSL* ssl, int socket)
       goto error;
    }
 
+   /* FIXME: someone is destroying the memory before reaching here in the worker */
+   pgagroal_memory_init();
+
+#if 0
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_IO_URING)
+   {
+      status = read_from_buffer(&watcher, &msg);
+      reply = &msg;
+   }
+   else if (ssl == NULL)
+#else
    if (ssl == NULL)
+#endif
    {
       status = read_message(socket, true, 0, &reply);
    }
@@ -1174,6 +1310,11 @@ pgagroal_connection_isvalid(int socket)
    {
       goto error;
    }
+   if (reply->kind == 'e')
+   {
+      pgagroal_log_error("Unexpected message kind");
+      goto error;
+   }
 
    pgagroal_clear_message(reply);
 
@@ -1268,6 +1409,10 @@ read_message(int socket, bool block, int timeout, struct message** msg)
          {
             keep_read = true;
             errno = 0;
+         }
+         else
+         {
+            pgagroal_log_error("read error: fd=%d errno=%d", socket, errno);
          }
       }
    }
