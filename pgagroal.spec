@@ -7,8 +7,8 @@ URL:           https://github.com/agroal/pgagroal
 Source0:       https://github.com/agroal/pgagroal/archive/%{version}.tar.gz
 
 BuildRequires: gcc cmake make python3-docutils
-BuildRequires: libev libev-devel openssl openssl-devel systemd systemd-devel libatomic zlib zlib-devel libzstd libzstd-devel lz4 lz4-devel bzip2 bzip2-devel
-Requires:      libev openssl systemd libatomic zlib libzstd lz4 bzip2
+BuildRequires: libev libev-devel openssl openssl-devel systemd systemd-devel libatomic zlib zlib-devel libzstd libzstd-devel lz4 lz4-devel bzip2 bzip2-devel binutils
+Requires:      libev openssl systemd libatomic zlib libzstd lz4 bzip2 binutils
 
 %description
 pgagroal is a high-performance connection pool for PostgreSQL.
