@@ -593,7 +593,7 @@ socket_buffers(int fd)
  *
  */
 static int
-bind_host(const char* hostname, int port, int** fds, int* length, bool non_blocking, int* buffer_size, bool no_delay, int backlog)
+bind_host(const char* hostname, int port, int** fds, int* length, bool non_blocking, int* buffer_size __attribute__((unused)), bool no_delay, int backlog)
 {
    int* result = NULL;
    int index, size;

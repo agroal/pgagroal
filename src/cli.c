@@ -721,7 +721,7 @@ username:
          printf("\n");
       }
 
-      for (int i = 0; i < strlen(password); i++)
+      for (unsigned long i = 0; i < strlen(password); i++)
       {
          if ((unsigned char)(*(password + i)) & 0x80)
          {
@@ -1561,7 +1561,7 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
    memset(server, 0, MISC_LENGTH);
    memset(key, 0, MISC_LENGTH);
 
-   for (int i = 0; i < strlen(config_key); i++)
+   for (unsigned long i = 0; i < strlen(config_key); i++)
    {
       if (config_key[i] == '.')
       {

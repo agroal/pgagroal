@@ -318,7 +318,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
 }
 
 static void
-signal_cb(struct ev_loop* loop, ev_signal* w, int revents)
+signal_cb(struct ev_loop* loop, ev_signal* w, int revents __attribute__((unused)))
 {
    struct signal_info* si;
 

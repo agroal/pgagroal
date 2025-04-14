@@ -134,7 +134,7 @@ pgagroal_create_message(void* data, ssize_t length, struct message** msg)
 }
 
 void
-pgagroal_clear_message(struct message* msg)
+pgagroal_clear_message(struct message* msg __attribute__((unused)))
 {
    pgagroal_memory_free();
 }
@@ -1396,6 +1396,7 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
                   SLEEP(100000000L)
 
                }
+               __attribute__ ((fallthrough));
             case SSL_ERROR_WANT_READ:
             case SSL_ERROR_WANT_WRITE:
             case SSL_ERROR_WANT_CONNECT:

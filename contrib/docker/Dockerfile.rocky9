@@ -57,6 +57,8 @@ RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.
         libatomic \
         libyaml-devel \
         systemd-devel \
+        libasan \ 
+        libasan-static \
         yaml-cpp-devel && \
     dnf clean all
 

@@ -130,7 +130,7 @@ session_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_si
 }
 
 static void
-session_start(struct ev_loop* loop, struct worker_io* w)
+session_start(struct ev_loop* loop __attribute__((unused)), struct worker_io* w)
 {
    struct client_session* client;
    struct main_configuration* config;
@@ -161,7 +161,7 @@ session_start(struct ev_loop* loop, struct worker_io* w)
 }
 
 static void
-session_stop(struct ev_loop* loop, struct worker_io* w)
+session_stop(struct ev_loop* loop __attribute__((unused)), struct worker_io* w)
 {
    struct client_session* client;
 
@@ -281,7 +281,7 @@ session_periodic(void)
 }
 
 static void
-session_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
+session_client(struct ev_loop* loop, struct ev_io* watcher, int revents __attribute__((unused)))
 {
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
@@ -446,7 +446,7 @@ failover:
 }
 
 static void
-session_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
+session_server(struct ev_loop* loop, struct ev_io* watcher, int revents __attribute__((unused)))
 {
    int status = MESSAGE_STATUS_ERROR;
    bool fatal = false;

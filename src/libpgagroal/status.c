@@ -39,7 +39,7 @@
 static void status_details(bool details, struct json* response);
 
 void
-pgagroal_status(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload)
+pgagroal_status(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compression, uint8_t encryption, struct json* payload)
 {
    char* elapsed = NULL;
    time_t start_time;
@@ -95,7 +95,7 @@ error:
 }
 
 void
-pgagroal_status_details(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload)
+pgagroal_status_details(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compression, uint8_t encryption, struct json* payload)
 {
    char* elapsed = NULL;
    time_t start_time;
@@ -170,6 +170,7 @@ status_details(bool details, struct json* response)
          case STATE_IN_USE:
          case STATE_GRACEFULLY:
             active++;
+            __attribute__ ((fallthrough));
          case STATE_INIT:
          case STATE_FREE:
          case STATE_FLUSH:

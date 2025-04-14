@@ -318,7 +318,7 @@ noop_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-int8_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+int8_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    char buf[MISC_LENGTH];
@@ -331,7 +331,7 @@ int8_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-uint8_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+uint8_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    char buf[MISC_LENGTH];
@@ -343,7 +343,7 @@ uint8_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-int16_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+int16_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    char buf[MISC_LENGTH];
@@ -356,7 +356,7 @@ int16_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-uint16_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+uint16_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    char buf[MISC_LENGTH];
@@ -369,7 +369,7 @@ uint16_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-int32_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+int32_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    char buf[MISC_LENGTH];
@@ -382,7 +382,7 @@ int32_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-uint32_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+uint32_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    char buf[MISC_LENGTH];
@@ -395,7 +395,7 @@ uint32_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-int64_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+int64_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    char buf[MISC_LENGTH];
@@ -408,7 +408,7 @@ int64_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-uint64_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+uint64_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    char buf[MISC_LENGTH];
@@ -421,7 +421,7 @@ uint64_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-float_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+float_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    char buf[MISC_LENGTH];
@@ -434,7 +434,7 @@ float_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-double_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+double_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    char buf[MISC_LENGTH];
@@ -493,7 +493,7 @@ string_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-bool_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+bool_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    bool val = (bool) data;
@@ -503,7 +503,7 @@ bool_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-char_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+char_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    char buf[MISC_LENGTH];
@@ -535,7 +535,7 @@ json_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 }
 
 static char*
-mem_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
+mem_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
    char buf[MISC_LENGTH];

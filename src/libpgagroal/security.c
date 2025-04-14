@@ -465,7 +465,7 @@ error:
 }
 
 int
-accept_ssl_vault(struct vault_configuration* config, int client_fd, SSL** client_ssl)
+accept_ssl_vault(struct vault_configuration* config __attribute__((unused)), int client_fd, SSL** client_ssl)
 {
 
    pgagroal_log_debug("SSL request from client: %d", client_fd);
@@ -1302,7 +1302,7 @@ compare_auth_response(struct message* orig, struct message* response, int auth_t
 }
 
 static int
-use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, SSL** server_ssl)
+use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method, SSL** server_ssl __attribute__((unused)))
 {
    int status = MESSAGE_STATUS_ERROR;
    struct main_configuration* config = NULL;
@@ -1658,7 +1658,7 @@ error:
 }
 
 static int
-client_trust(SSL* c_ssl, int client_fd, char* username, char* password, int slot)
+client_trust(SSL* c_ssl __attribute__((unused)), int client_fd, char* username __attribute__((unused)), char* password __attribute__((unused)), int slot)
 {
    pgagroal_log_debug("client_trust %d %d", client_fd, slot);
 
@@ -1858,7 +1858,7 @@ error:
 }
 
 static int
-client_scram256(SSL* c_ssl, int client_fd, char* username, char* password, int slot)
+client_scram256(SSL* c_ssl, int client_fd, char* username __attribute__((unused)), char* password, int slot)
 {
    int status;
    time_t start_time;
@@ -2441,7 +2441,7 @@ error:
 }
 
 static int
-server_trust(int slot, SSL* server_ssl)
+server_trust(int slot, SSL* server_ssl __attribute__((unused)))
 {
    struct main_configuration* config = NULL;
 
@@ -3462,7 +3462,7 @@ sasl_prep(char* password, char** password_prep)
    char* p = NULL;
 
    /* Only support ASCII for now */
-   for (int i = 0; i < strlen(password); i++)
+   for (unsigned long i = 0; i < strlen(password); i++)
    {
       if ((unsigned char)(*(password + i)) & 0x80)
       {
@@ -3639,7 +3639,7 @@ client_proof(char* password, char* salt, int salt_length, int iterations,
    }
 
    /* ClientProof: ClientKey XOR ClientSignature */
-   for (int i = 0; i < size; i++)
+   for (size_t i = 0; i < size; i++)
    {
       *(r + i) = *(c_k + i) ^ *(c_s + i);
    }
@@ -3676,8 +3676,8 @@ error:
 
 static int
 verify_client_proof(char* s_key, int s_key_length,
-                    char* client_proof, int client_proof_length,
-                    char* salt, int salt_length, int iterations,
+                    char* client_proof, int client_proof_length __attribute__((unused)),
+                    char* salt __attribute__((unused)), int salt_length __attribute__((unused)), int iterations __attribute__((unused)),
                     char* client_first_message_bare, size_t client_first_message_bare_length,
                     char* server_first_message, size_t server_first_message_length,
                     char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length)
@@ -3733,7 +3733,7 @@ verify_client_proof(char* s_key, int s_key_length,
    }
 
    /* ClientKey: ClientProof XOR ClientSignature */
-   for (int i = 0; i < size; i++)
+   for (size_t i = 0; i < size; i++)
    {
       *(c_k + i) = *(client_proof + i) ^ *(c_s + i);
    }
@@ -3844,7 +3844,7 @@ salted_password(char* password, char* salt, int salt_length, int iterations, uns
          goto error;
       }
 
-      for (int j = 0; j < size; j++)
+      for (size_t j = 0; j < size; j++)
       {
          *(r + j) ^= *(Ui + j);
       }
@@ -4376,7 +4376,7 @@ error:
 }
 
 static int
-auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method)
+auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method __attribute__((unused)))
 {
    int su_socket;
    SSL* su_ssl = NULL;
@@ -5119,7 +5119,7 @@ error:
 }
 
 static int
-auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int slot)
+auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int slot __attribute__((unused)))
 {
    int status;
    char salt[4];
@@ -5217,7 +5217,7 @@ error:
 }
 
 static int
-auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username, char* shadow, int slot)
+auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username __attribute__((unused)), char* shadow, int slot)
 {
    int status;
    time_t start_time;

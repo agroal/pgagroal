@@ -1011,7 +1011,7 @@ pgagroal_flush_server(signed char server)
 }
 
 void
-pgagroal_request_flush(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload)
+pgagroal_request_flush(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compression, uint8_t encryption, struct json* payload)
 {
    time_t start_time;
    time_t end_time;

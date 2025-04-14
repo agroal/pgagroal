@@ -95,7 +95,7 @@ transaction_pipeline(void)
 }
 
 static int
-transaction_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_size)
+transaction_initialize(void* shmem __attribute__((unused)), void** pipeline_shmem __attribute__((unused)), size_t* pipeline_shmem_size __attribute__((unused)))
 {
    return 0;
 }
@@ -184,7 +184,7 @@ transaction_stop(struct ev_loop* loop, struct worker_io* w)
 }
 
 static void
-transaction_destroy(void* pipeline_shmem, size_t pipeline_shmem_size)
+transaction_destroy(void* pipeline_shmem __attribute__((unused)), size_t pipeline_shmem_size __attribute__((unused)))
 {
 }
 
@@ -194,7 +194,7 @@ transaction_periodic(void)
 }
 
 static void
-transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
+transaction_client(struct ev_loop* loop, struct ev_io* watcher, int revents __attribute__((unused)))
 {
    int status = MESSAGE_STATUS_ERROR;
    SSL* s_ssl = NULL;
@@ -397,7 +397,7 @@ get_error:
 }
 
 static void
-transaction_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
+transaction_server(struct ev_loop* loop, struct ev_io* watcher, int revents __attribute__((unused)))
 {
    int status = MESSAGE_STATUS_ERROR;
    bool has_z = false;
@@ -607,7 +607,7 @@ shutdown_mgt(struct ev_loop* loop)
 }
 
 static void
-accept_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
+accept_cb(struct ev_loop* loop __attribute__((unused)), struct ev_io* watcher, int revents)
 {
    struct sockaddr_in client_addr;
    socklen_t client_addr_length;

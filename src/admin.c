@@ -624,7 +624,7 @@ password:
       printf("\n");
    }
 
-   for (int i = 0; i < strlen(password); i++)
+   for (unsigned long i = 0; i < strlen(password); i++)
    {
       if ((unsigned char)(*(password + i)) & 0x80)
       {
@@ -863,7 +863,7 @@ password:
             printf("\n");
          }
 
-         for (int i = 0; i < strlen(password); i++)
+         for (unsigned long i = 0; i < strlen(password); i++)
          {
             if ((unsigned char)(*(password + i)) & 0x80)
             {

@@ -71,13 +71,13 @@ performance_pipeline(void)
 }
 
 static int
-performance_initialize(void* shmem, void** pipeline_shmem, size_t* pipeline_shmem_size)
+performance_initialize(void* shmem __attribute__((unused)), void** pipeline_shmem __attribute__((unused)), size_t* pipeline_shmem_size __attribute__((unused)))
 {
    return 0;
 }
 
 static void
-performance_start(struct ev_loop* loop, struct worker_io* w)
+performance_start(struct ev_loop* loop __attribute__((unused)), struct worker_io* w)
 {
    struct main_configuration* config;
 
@@ -95,12 +95,12 @@ performance_start(struct ev_loop* loop, struct worker_io* w)
 }
 
 static void
-performance_stop(struct ev_loop* loop, struct worker_io* w)
+performance_stop(struct ev_loop* loop __attribute__((unused)), struct worker_io* w __attribute__((unused)))
 {
 }
 
 static void
-performance_destroy(void* pipeline_shmem, size_t pipeline_shmem_size)
+performance_destroy(void* pipeline_shmem __attribute__((unused)), size_t pipeline_shmem_size __attribute__((unused)))
 {
 }
 
@@ -110,7 +110,7 @@ performance_periodic(void)
 }
 
 static void
-performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents)
+performance_client(struct ev_loop* loop, struct ev_io* watcher, int revents __attribute__((unused)))
 {
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
@@ -203,7 +203,7 @@ server_error:
 }
 
 static void
-performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents)
+performance_server(struct ev_loop* loop, struct ev_io* watcher, int revents __attribute__((unused)))
 {
    int status = MESSAGE_STATUS_ERROR;
    bool fatal = false;

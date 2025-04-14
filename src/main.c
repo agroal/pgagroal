@@ -1933,7 +1933,7 @@ error:
 }
 
 static void
-accept_transfer_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
+accept_transfer_cb(struct ev_loop* loop __attribute__((unused)), struct ev_io* watcher, int revents)
 {
    struct sockaddr_in6 client_addr;
    socklen_t client_addr_length;
@@ -2299,7 +2299,7 @@ accept_management_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
 }
 
 static void
-shutdown_cb(struct ev_loop* loop, ev_signal* w, int revents)
+shutdown_cb(struct ev_loop* loop, ev_signal* w __attribute__((unused)), int revents __attribute__((unused)))
 {
    pgagroal_log_debug("pgagroal: shutdown requested");
    pgagroal_pool_status();
@@ -2308,14 +2308,14 @@ shutdown_cb(struct ev_loop* loop, ev_signal* w, int revents)
 }
 
 static void
-reload_cb(struct ev_loop* loop, ev_signal* w, int revents)
+reload_cb(struct ev_loop* loop __attribute__((unused)), ev_signal* w __attribute__((unused)), int revents __attribute__((unused)))
 {
    pgagroal_log_debug("pgagroal: reload requested");
    reload_configuration();
 }
 
 static void
-graceful_cb(struct ev_loop* loop, ev_signal* w, int revents)
+graceful_cb(struct ev_loop* loop, ev_signal* w __attribute__((unused)), int revents __attribute__((unused)))
 {
    struct main_configuration* config;
 
@@ -2335,7 +2335,7 @@ graceful_cb(struct ev_loop* loop, ev_signal* w, int revents)
 }
 
 static void
-coredump_cb(struct ev_loop* loop, ev_signal* w, int revents)
+coredump_cb(struct ev_loop* loop __attribute__((unused)), ev_signal* w __attribute__((unused)), int revents __attribute__((unused)))
 {
    pgagroal_log_info("pgagroal: core dump requested");
    pgagroal_pool_status();
@@ -2344,7 +2344,7 @@ coredump_cb(struct ev_loop* loop, ev_signal* w, int revents)
 }
 
 static void
-idle_timeout_cb(struct ev_loop* loop, ev_periodic* w, int revents)
+idle_timeout_cb(struct ev_loop* loop __attribute__((unused)), ev_periodic* w __attribute__((unused)), int revents)
 {
    if (EV_ERROR & revents)
    {
@@ -2361,7 +2361,7 @@ idle_timeout_cb(struct ev_loop* loop, ev_periodic* w, int revents)
 }
 
 static void
-max_connection_age_cb(struct ev_loop* loop, ev_periodic* w, int revents)
+max_connection_age_cb(struct ev_loop* loop __attribute__((unused)), ev_periodic* w __attribute__((unused)), int revents)
 {
    if (EV_ERROR & revents)
    {
@@ -2378,7 +2378,7 @@ max_connection_age_cb(struct ev_loop* loop, ev_periodic* w, int revents)
 }
 
 static void
-validation_cb(struct ev_loop* loop, ev_periodic* w, int revents)
+validation_cb(struct ev_loop* loop __attribute__((unused)), ev_periodic* w __attribute__((unused)), int revents)
 {
    if (EV_ERROR & revents)
    {
@@ -2395,7 +2395,7 @@ validation_cb(struct ev_loop* loop, ev_periodic* w, int revents)
 }
 
 static void
-disconnect_client_cb(struct ev_loop* loop, ev_periodic* w, int revents)
+disconnect_client_cb(struct ev_loop* loop __attribute__((unused)), ev_periodic* w __attribute__((unused)), int revents)
 {
    if (EV_ERROR & revents)
    {
@@ -2412,7 +2412,7 @@ disconnect_client_cb(struct ev_loop* loop, ev_periodic* w, int revents)
 }
 
 static void
-rotate_frontend_password_cb(struct ev_loop* loop, ev_periodic* w, int revents)
+rotate_frontend_password_cb(struct ev_loop* loop __attribute__((unused)), ev_periodic* w __attribute__((unused)), int revents)
 {
    char* pwd;
 

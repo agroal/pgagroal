@@ -121,7 +121,7 @@ struct to_string_param
 {
    char* str;
    int indent;
-   int cnt;
+   uint64_t cnt;
    char* tag;
    struct art* t;
 };
@@ -1495,7 +1495,7 @@ art_search(struct art* t, unsigned char* key, uint32_t key_len)
 }
 
 static int
-art_to_json_string_cb(void* param, const unsigned char* key, uint32_t key_len, struct value* value)
+art_to_json_string_cb(void* param, const unsigned char* key, uint32_t key_len __attribute__((unused)), struct value* value)
 {
    struct to_string_param* p = (struct to_string_param*) param;
    char* str = NULL;
@@ -1519,7 +1519,7 @@ art_to_json_string_cb(void* param, const unsigned char* key, uint32_t key_len, s
 }
 
 static int
-art_to_compact_json_string_cb(void* param, const unsigned char* key, uint32_t key_len, struct value* value)
+art_to_compact_json_string_cb(void* param, const unsigned char* key, uint32_t key_len __attribute__((unused)), struct value* value)
 {
    struct to_string_param* p = (struct to_string_param*) param;
    char* str = NULL;
@@ -1543,7 +1543,7 @@ art_to_compact_json_string_cb(void* param, const unsigned char* key, uint32_t ke
 }
 
 static int
-art_to_text_string_cb(void* param, const unsigned char* key, uint32_t key_len, struct value* value)
+art_to_text_string_cb(void* param, const unsigned char* key, uint32_t key_len __attribute__((unused)), struct value* value)
 {
    struct to_string_param* p = (struct to_string_param*) param;
    char* str = NULL;

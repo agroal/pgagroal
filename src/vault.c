@@ -135,6 +135,7 @@ router(SSL* c_ssl, SSL* s_ssl, int client_fd)
          break;
       case CLIENTSSL_ON_SERVERSSL_OFF:
          pgagroal_log_error("client requests tls connection to http server");
+         __attribute__ ((fallthrough));
       default:
          return 1;
    }
@@ -174,7 +175,7 @@ exit:
 }
 
 static void
-route_users(char* username, char** response, SSL* s_ssl, int client_fd)
+route_users(char* username, char** response, SSL* s_ssl, int client_fd __attribute__((unused)))
 {
    struct vault_configuration* config = (struct vault_configuration*)shmem;
    int client_pgagroal_fd = -1;
@@ -272,7 +273,7 @@ connect_pgagroal(struct vault_configuration* config, char* username, char* passw
    pgagroal_log_debug("connect_pgagroal: Authenticating the remote management access to %s:%d", config->vault_server.server.host, config->vault_server.server.port);
    username = config->vault_server.user.username;
 
-   for (int i = 0; i < strlen(password); i++)
+   for (unsigned long i = 0; i < strlen(password); i++)
    {
       if ((unsigned char)(*(password + i)) & 0x80)
       {
@@ -665,7 +666,7 @@ read_users_path:
 }
 
 static void
-shutdown_cb(struct ev_loop* loop, ev_signal* w, int revents)
+shutdown_cb(struct ev_loop* loop, ev_signal* w __attribute__((unused)), int revents __attribute__((unused)))
 {
    pgagroal_log_debug("pgagroal-vault: Shutdown requested");
    ev_break(loop, EVBREAK_ALL);

@@ -455,7 +455,7 @@ retry:
 
          memset(&buf, 0, sizeof(buf));
 
-         for (int i = 0; i < size; i++)
+         for (size_t i = 0; i < size; i++)
          {
             if (k == LINE_LENGTH)
             {
@@ -472,7 +472,7 @@ retry:
          j++;
          k = 0;
 
-         for (int i = 0; i < size; i++)
+         for (size_t i = 0; i < size; i++)
          {
             signed char c = (signed char) *((char*)data + i);
             if (k == LINE_LENGTH)
@@ -481,7 +481,7 @@ retry:
                j++;
                k = 0;
             }
-            if (c >= 32 && c <= 127)
+            if (c >= 32)
             {
                buf[j] = c;
             }
