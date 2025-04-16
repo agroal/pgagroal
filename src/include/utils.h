@@ -477,6 +477,16 @@ char*
 pgagroal_append(char* orig, char* s);
 
 /**
+ * Format a string and append it to the original string
+ * @param buf original string
+ * @param format The string to be formatted and appended to buf
+ * @param ... The arguments to be formatted
+ * @return The resulting string
+ */
+char*
+pgagroal_format_and_append(char* buf, char* format, ...);
+
+/**
  * Append an int
  *
  * @param orig The original string

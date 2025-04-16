@@ -2219,7 +2219,7 @@ extract_syskey_value(char* str, char** key, char** value)
    {
       goto error;
    }
-   
+
    for (int i = 0; i < c; i++)
    {
       k = pgagroal_append_char(k, str[i]);
@@ -2710,6 +2710,9 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    memcpy(config->common.host, reload->common.host, MISC_LENGTH);
    config->common.port = reload->common.port;
    config->common.metrics = reload->common.metrics;
+   memcpy(config->common.metrics_cert_file, reload->common.metrics_cert_file, MAX_PATH);
+   memcpy(config->common.metrics_key_file, reload->common.metrics_key_file, MAX_PATH);
+   memcpy(config->common.metrics_ca_file, reload->common.metrics_ca_file, MAX_PATH);
    config->common.metrics_cache_max_age = reload->common.metrics_cache_max_age;
    if (restart_int("metrics_cache_max_size", config->common.metrics_cache_max_size, reload->common.metrics_cache_max_size))
    {
@@ -2765,9 +2768,9 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    config->authquery = reload->authquery;
 
    config->common.tls = reload->common.tls;
-   memcpy(config->common.tls_cert_file, reload->common.tls_cert_file, MISC_LENGTH);
-   memcpy(config->common.tls_key_file, reload->common.tls_key_file, MISC_LENGTH);
-   memcpy(config->common.tls_ca_file, reload->common.tls_ca_file, MISC_LENGTH);
+   memcpy(config->common.tls_cert_file, reload->common.tls_cert_file, MAX_PATH);
+   memcpy(config->common.tls_key_file, reload->common.tls_key_file, MAX_PATH);
+   memcpy(config->common.tls_ca_file, reload->common.tls_ca_file, MAX_PATH);
 
    if (config->common.tls && (config->pipeline == PIPELINE_SESSION || config->pipeline == PIPELINE_TRANSACTION))
    {
@@ -2945,9 +2948,9 @@ static bool
 is_same_tls(struct server* src, struct server* dst)
 {
    if (src->tls == dst->tls &&
-       !strncmp(src->tls_cert_file, dst->tls_cert_file, MISC_LENGTH) &&
-       !strncmp(src->tls_key_file, dst->tls_key_file, MISC_LENGTH) &&
-       !strncmp(src->tls_ca_file, dst->tls_ca_file, MISC_LENGTH))
+       !strncmp(src->tls_cert_file, dst->tls_cert_file, MAX_PATH) &&
+       !strncmp(src->tls_key_file, dst->tls_key_file, MAX_PATH) &&
+       !strncmp(src->tls_ca_file, dst->tls_ca_file, MAX_PATH))
    {
       return true;
    }
@@ -3746,17 +3749,29 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       {
          return to_bool(buffer, config->authquery);
       }
-      else if (!strncmp(key, "tls_ca_file", MISC_LENGTH))
+      else if (!strncmp(key, "tls_ca_file", MAX_PATH))
       {
          return to_string(buffer, config->common.tls_ca_file, buffer_size);
       }
-      else if (!strncmp(key, "tls_cert_file", MISC_LENGTH))
+      else if (!strncmp(key, "tls_cert_file", MAX_PATH))
       {
          return to_string(buffer, config->common.tls_cert_file, buffer_size);
       }
-      else if (!strncmp(key, "tls_key_file", MISC_LENGTH))
+      else if (!strncmp(key, "tls_key_file", MAX_PATH))
       {
          return to_string(buffer, config->common.tls_key_file, buffer_size);
+      }
+      else if (!strncmp(key, "metrics_ca_file", MAX_PATH))
+      {
+         return to_string(buffer, config->common.metrics_ca_file, buffer_size);
+      }
+      else if (!strncmp(key, "metrics_cert_file", MAX_PATH))
+      {
+         return to_string(buffer, config->common.metrics_cert_file, buffer_size);
+      }
+      else if (!strncmp(key, "metrics_key_file", MAX_PATH))
+      {
+         return to_string(buffer, config->common.metrics_key_file, buffer_size);
       }
       else if (!strncmp(key, "blocking_timeout", MISC_LENGTH))
       {
@@ -3922,15 +3937,15 @@ pgagroal_write_server_config_value(char* buffer, char* server_name, char* config
    {
       return to_bool(buffer, config->servers[server_index].tls);
    }
-   else if (!strncmp(config_key, "tls_cert_file", MISC_LENGTH))
+   else if (!strncmp(config_key, "tls_cert_file", MAX_PATH))
    {
       return to_string(buffer, config->servers[server_index].tls_cert_file, buffer_size);
    }
-   else if (!strncmp(config_key, "tls_key_file", MISC_LENGTH))
+   else if (!strncmp(config_key, "tls_key_file", MAX_PATH))
    {
       return to_string(buffer, config->servers[server_index].tls_key_file, buffer_size);
    }
-   else if (!strncmp(config_key, "tls_ca_file", MISC_LENGTH))
+   else if (!strncmp(config_key, "tls_ca_file", MAX_PATH))
    {
       return to_string(buffer, config->servers[server_index].tls_ca_file, buffer_size);
    }
@@ -4493,6 +4508,33 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
          unknown = true;
       }
    }
+   else if (key_in_section("metrics_ca_file", section, key, true, NULL))
+   {
+      max = strlen(value);
+      if (max > MAX_PATH - 1)
+      {
+         max = MAX_PATH - 1;
+      }
+      memcpy(config->common.metrics_ca_file, value, max);
+   }
+   else if (key_in_section("metrics_cert_file", section, key, true, NULL))
+   {
+      max = strlen(value);
+      if (max > MAX_PATH - 1)
+      {
+         max = MAX_PATH - 1;
+      }
+      memcpy(config->common.metrics_cert_file, value, max);
+   }
+   else if (key_in_section("metrics_key_file", section, key, true, NULL))
+   {
+      max = strlen(value);
+      if (max > MAX_PATH - 1)
+      {
+         max = MAX_PATH - 1;
+      }
+      memcpy(config->common.metrics_key_file, value, max);
+   }
    else if (key_in_section("metrics_cache_max_age", section, key, true, &unknown))
    {
       if (as_seconds(value, &config->common.metrics_cache_max_age, PGAGROAL_PROMETHEUS_CACHE_DISABLED))
@@ -4559,54 +4601,54 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    else if (key_in_section("tls_ca_file", section, key, true, NULL))
    {
       max = strlen(value);
-      if (max > MISC_LENGTH - 1)
+      if (max > MAX_PATH - 1)
       {
-         max = MISC_LENGTH - 1;
+         max = MAX_PATH - 1;
       }
       memcpy(config->common.tls_ca_file, value, max);
    }
    else if (key_in_section("tls_ca_file", section, key, false, &unknown))
    {
       max = strlen(value);
-      if (max > MISC_LENGTH - 1)
+      if (max > MAX_PATH - 1)
       {
-         max = MISC_LENGTH - 1;
+         max = MAX_PATH - 1;
       }
       memcpy(srv->tls_ca_file, value, max);
    }
    else if (key_in_section("tls_cert_file", section, key, true, NULL))
    {
       max = strlen(value);
-      if (max > MISC_LENGTH - 1)
+      if (max > MAX_PATH - 1)
       {
-         max = MISC_LENGTH - 1;
+         max = MAX_PATH - 1;
       }
       memcpy(config->common.tls_cert_file, value, max);
    }
    else if (key_in_section("tls_cert_file", section, key, false, &unknown))
    {
       max = strlen(value);
-      if (max > MISC_LENGTH - 1)
+      if (max > MAX_PATH - 1)
       {
-         max = MISC_LENGTH - 1;
+         max = MAX_PATH - 1;
       }
       memcpy(srv->tls_cert_file, value, max);
    }
    else if (key_in_section("tls_key_file", section, key, true, NULL))
    {
       max = strlen(value);
-      if (max > MISC_LENGTH - 1)
+      if (max > MAX_PATH - 1)
       {
-         max = MISC_LENGTH - 1;
+         max = MAX_PATH - 1;
       }
       memcpy(config->common.tls_key_file, value, max);
    }
    else if (key_in_section("tls_key_file", section, key, false, &unknown))
    {
       max = strlen(value);
-      if (max > MISC_LENGTH - 1)
+      if (max > MAX_PATH - 1)
       {
-         max = MISC_LENGTH - 1;
+         max = MAX_PATH - 1;
       }
       memcpy(srv->tls_key_file, value, max);
    }
@@ -4925,27 +4967,27 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
    else if (key_in_section("tls_ca_file", section, key, true, &unknown))
    {
       max = strlen(value);
-      if (max > MISC_LENGTH - 1)
+      if (max > MAX_PATH - 1)
       {
-         max = MISC_LENGTH - 1;
+         max = MAX_PATH - 1;
       }
       memcpy(config->common.tls_ca_file, value, max);
    }
    else if (key_in_section("tls_cert_file", section, key, true, &unknown))
    {
       max = strlen(value);
-      if (max > MISC_LENGTH - 1)
+      if (max > MAX_PATH - 1)
       {
-         max = MISC_LENGTH - 1;
+         max = MAX_PATH - 1;
       }
       memcpy(config->common.tls_cert_file, value, max);
    }
    else if (key_in_section("tls_key_file", section, key, true, &unknown))
    {
       max = strlen(value);
-      if (max > MISC_LENGTH - 1)
+      if (max > MAX_PATH - 1)
       {
-         max = MISC_LENGTH - 1;
+         max = MAX_PATH - 1;
       }
       memcpy(config->common.tls_key_file, value, max);
    }
@@ -4955,6 +4997,33 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
       {
          unknown = true;
       }
+   }
+   else if (key_in_section("metrics_ca_file", section, key, true, &unknown))
+   {
+      max = strlen(value);
+      if (max > MAX_PATH - 1)
+      {
+         max = MAX_PATH - 1;
+      }
+      memcpy(config->common.metrics_ca_file, value, max);
+   }
+   else if (key_in_section("metrics_cert_file", section, key, true, &unknown))
+   {
+      max = strlen(value);
+      if (max > MAX_PATH - 1)
+      {
+         max = MAX_PATH - 1;
+      }
+      memcpy(config->common.metrics_cert_file, value, max);
+   }
+   else if (key_in_section("metrics_key_file", section, key, true, &unknown))
+   {
+      max = strlen(value);
+      if (max > MAX_PATH - 1)
+      {
+         max = MAX_PATH - 1;
+      }
+      memcpy(config->common.metrics_key_file, value, max);
    }
    else if (key_in_section("metrics_cache_max_age", section, key, true, &unknown))
    {
@@ -5453,6 +5522,9 @@ add_configuration_response(struct json* res)
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_TLS_CERT_FILE, (uintptr_t)config->common.tls_cert_file, ValueString);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_TLS_KEY_FILE, (uintptr_t)config->common.tls_key_file, ValueString);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_TLS_CA_FILE, (uintptr_t)config->common.tls_ca_file, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_METRICS_CERT_FILE, (uintptr_t)config->common.metrics_cert_file, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_METRICS_KEY_FILE, (uintptr_t)config->common.metrics_key_file, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_METRICS_CA_FILE, (uintptr_t)config->common.metrics_ca_file, ValueString);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_LIBEV, (uintptr_t)config->libev, ValueString);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_KEEP_ALIVE, (uintptr_t)config->keep_alive, ValueBool);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_NODELAY, (uintptr_t)config->nodelay, ValueBool);
@@ -5729,9 +5801,9 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
          if (strlen(section) > 0)
          {
             max = strlen(config_value);
-            if (max > MISC_LENGTH - 1)
+            if (max > MAX_PATH - 1)
             {
-               max = MISC_LENGTH - 1;
+               max = MAX_PATH - 1;
             }
             memcpy(&config->servers[server_index].tls_cert_file, config_value, max);
             config->servers[server_index].tls_cert_file[max] = '\0';
@@ -5741,9 +5813,9 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
          else
          {
             max = strlen(config_value);
-            if (max > MISC_LENGTH - 1)
+            if (max > MAX_PATH - 1)
             {
-               max = MISC_LENGTH - 1;
+               max = MAX_PATH - 1;
             }
             memcpy(config->common.tls_cert_file, config_value, max);
             config->common.tls_cert_file[max] = '\0';
@@ -5755,9 +5827,9 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
          if (strlen(section) > 0)
          {
             max = strlen(config_value);
-            if (max > MISC_LENGTH - 1)
+            if (max > MAX_PATH - 1)
             {
-               max = MISC_LENGTH - 1;
+               max = MAX_PATH - 1;
             }
             memcpy(&config->servers[server_index].tls_key_file, config_value, max);
             config->servers[server_index].tls_key_file[max] = '\0';
@@ -5767,9 +5839,9 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
          else
          {
             max = strlen(config_value);
-            if (max > MISC_LENGTH - 1)
+            if (max > MAX_PATH - 1)
             {
-               max = MISC_LENGTH - 1;
+               max = MAX_PATH - 1;
             }
             memcpy(config->common.tls_key_file, config_value, max);
             config->common.tls_key_file[max] = '\0';
@@ -5781,9 +5853,9 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
          if (strlen(section) > 0)
          {
             max = strlen(config_value);
-            if (max > MISC_LENGTH - 1)
+            if (max > MAX_PATH - 1)
             {
-               max = MISC_LENGTH - 1;
+               max = MAX_PATH - 1;
             }
             memcpy(&config->servers[server_index].tls_ca_file, config_value, max);
             config->servers[server_index].tls_ca_file[max] = '\0';
@@ -5793,14 +5865,47 @@ pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
          else
          {
             max = strlen(config_value);
-            if (max > MISC_LENGTH - 1)
+            if (max > MAX_PATH - 1)
             {
-               max = MISC_LENGTH - 1;
+               max = MAX_PATH - 1;
             }
             memcpy(config->common.tls_ca_file, config_value, max);
             config->common.tls_ca_file[max] = '\0';
             pgagroal_json_put(response, key, (uintptr_t)config->common.tls_ca_file, ValueString);
          }
+      }
+      else if (!strcmp(key, "tls_cert_file"))
+      {
+         max = strlen(config_value);
+         if (max > MAX_PATH - 1)
+         {
+            max = MAX_PATH - 1;
+         }
+         memcpy(config->common.tls_cert_file, config_value, max);
+         config->common.tls_cert_file[max] = '\0';
+         pgagroal_json_put(response, key, (uintptr_t)config->common.tls_cert_file, ValueString);
+      }
+      else if (!strcmp(key, "tls_key_file"))
+      {
+         max = strlen(config_value);
+         if (max > MAX_PATH - 1)
+         {
+            max = MAX_PATH - 1;
+         }
+         memcpy(config->common.tls_key_file, config_value, max);
+         config->common.tls_key_file[max] = '\0';
+         pgagroal_json_put(response, key, (uintptr_t)config->common.tls_key_file, ValueString);
+      }
+      else if (!strcmp(key, "tls_ca_file"))
+      {
+         max = strlen(config_value);
+         if (max > MAX_PATH - 1)
+         {
+            max = MAX_PATH - 1;
+         }
+         memcpy(config->common.tls_ca_file, config_value, max);
+         config->common.tls_ca_file[max] = '\0';
+         pgagroal_json_put(response, key, (uintptr_t)config->common.tls_ca_file, ValueString);
       }
       else if (!strcmp(key, "unix_socket_dir"))
       {

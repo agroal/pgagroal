@@ -75,7 +75,6 @@ static void route_not_found(char** response);
 static void route_found(char** response, char* password);
 static void route_redirect(char** response, char* redirect_link);
 static int router(SSL* ccl, SSL* ssl, int client_fd);
-static bool is_ssl_request(int client_fd);
 static int get_connection_state(struct vault_configuration* config, int client_fd);
 
 static volatile int keep_running = 1;
@@ -296,41 +295,13 @@ connect_pgagroal(struct vault_configuration* config, char* username, char* passw
    return 0;
 }
 
-static bool
-is_ssl_request(int client_fd)
-{
-   ssize_t peek_bytes;
-   char peek_buffer[HTTP_BUFFER_SIZE];
-   bool ssl_req = false;
-
-   // MSG_Peek
-   peek_bytes = recv(client_fd, peek_buffer, sizeof(peek_buffer), MSG_PEEK);
-   if (peek_bytes <= 0)
-   {
-      pgagroal_log_error("unable to peek network data from client");
-      close(client_fd);
-      exit(1);
-   }
-
-   // Check for SSL request by matching `Client Hello` bytes
-   if (
-      ((unsigned char)peek_buffer[0] == 0x16) &&
-      ((unsigned char)peek_buffer[1] == 0x03) &&
-      ((unsigned char)peek_buffer[2] == 0x01 || (unsigned char)peek_buffer[2] == 0x02 || (unsigned char)peek_buffer[2] == 0x03 || (unsigned char)peek_buffer[2] == 0x04)
-      )
-   {
-      ssl_req = true;
-   }
-
-   return ssl_req;
-}
-
 static int
 get_connection_state(struct vault_configuration* config, int client_fd)
 {
+   int is_ssl_req = pgagroal_is_ssl_request(client_fd);
    if (config->common.tls)
    {
-      if (is_ssl_request(client_fd))
+      if (is_ssl_req)
       {
          return CLIENTSSL_ON_SERVERSSL_ON;
       }
@@ -339,7 +310,7 @@ get_connection_state(struct vault_configuration* config, int client_fd)
          return CLIENTSSL_OFF_SERVERSSL_ON;
       }
    }
-   else if (is_ssl_request(client_fd))
+   else if (is_ssl_req)
    {
       return CLIENTSSL_ON_SERVERSSL_OFF;
    }
@@ -805,6 +776,8 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    socklen_t client_addr_length;
    int client_fd;
    struct vault_configuration* config;
+   SSL_CTX* ctx = NULL;
+   SSL* client_ssl = NULL;
 
    if (EV_ERROR & revents)
    {
@@ -863,8 +836,22 @@ accept_metrics_cb(struct ev_loop* loop, struct ev_io* watcher, int revents)
    {
       ev_loop_fork(loop);
       shutdown_ports();
+      if (strlen(config->common.metrics_cert_file) > 0 && strlen(config->common.metrics_key_file) > 0)
+      {
+         if (pgagroal_create_ssl_ctx(false, &ctx))
+         {
+            pgagroal_log_error("Could not create metrics SSL context");
+            return;
+         }
+
+         if (pgagroal_create_ssl_server(ctx, config->common.metrics_key_file, config->common.metrics_cert_file, config->common.metrics_ca_file, client_fd, &client_ssl))
+         {
+            pgagroal_log_error("Could not create metrics SSL server");
+            return;
+         }
+      }
       /* We are leaving the socket descriptor valid such that the client won't reuse it */
-      pgagroal_vault_prometheus(client_fd);
+      pgagroal_vault_prometheus(client_ssl, client_fd);
    }
 
    pgagroal_disconnect(client_fd);

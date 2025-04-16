@@ -29,6 +29,7 @@
 #ifndef PGAGROAL_PROMETHEUS_H
 #define PGAGROAL_PROMETHEUS_H
 
+#include <openssl/crypto.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -59,17 +60,19 @@ extern "C" {
 
 /**
  * Create a prometheus instance
+ * @param client_ssl The client SSL structure
  * @param fd The client descriptor
  */
 void
-pgagroal_prometheus(int fd);
+pgagroal_prometheus(SSL* client_ssl, int fd);
 
 /**
  * Create a prometheus instance for vault
+ * @param client_ssl The client SSL structure
  * @param fd The client descriptor
  */
 void
-pgagroal_vault_prometheus(int fd);
+pgagroal_vault_prometheus(SSL* client_ssl, int fd);
 
 /**
  * Initialize prometheus shmem

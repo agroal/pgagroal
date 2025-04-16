@@ -162,6 +162,15 @@ tls_key_file
 tls_ca_file
   Certificate Authority (CA) file for TLS. Changes require restart in the server section.
 
+metrics_cert_file
+  Certificate file for TLS for Prometheus metrics
+
+metrics_key_file
+  Private key file for TLS for Prometheus metrics
+
+metrics_ca_file
+  Certificate Authority (CA) file for TLS for Prometheus metrics
+
 libev
   The libev backend to use. Valid options: auto, select, poll, epoll, iouring, devpoll and port. Default is auto
 

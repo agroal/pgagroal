@@ -295,9 +295,9 @@ struct server
    int version;                     /**< The major version of the server */
    int minor_version;               /**< The minor version of the server */
    bool tls;                        /**< Use TLS if possible */
-   char tls_cert_file[MISC_LENGTH]; /**< TLS certificate path */
-   char tls_key_file[MISC_LENGTH];  /**< TLS key path */
-   char tls_ca_file[MISC_LENGTH];   /**< TLS CA certificate path */
+   char tls_cert_file[MAX_PATH]; /**< TLS certificate path */
+   char tls_key_file[MAX_PATH];  /**< TLS key path */
+   char tls_ca_file[MAX_PATH];   /**< TLS CA certificate path */
    atomic_schar state;              /**< The state of the server */
    int lineno;                      /**< The line number within the configuration file */
 } __attribute__ ((aligned (64)));
@@ -499,14 +499,17 @@ struct configuration
 
    // TLS support
    bool tls;                        /**< Is TLS enabled */
-   char tls_cert_file[MISC_LENGTH]; /**< TLS certificate path */
-   char tls_key_file[MISC_LENGTH];  /**< TLS key path */
-   char tls_ca_file[MISC_LENGTH];   /**< TLS CA certificate path */
+   char tls_cert_file[MAX_PATH]; /**< TLS certificate path */
+   char tls_key_file[MAX_PATH];  /**< TLS key path */
+   char tls_ca_file[MAX_PATH];   /**< TLS CA certificate path */
    // Prometheus
    unsigned char hugepage;              /**< Huge page support */
    int metrics;                         /**< The metrics port */
    unsigned int metrics_cache_max_age;  /**< Number of seconds to cache the Prometheus response */
    unsigned int metrics_cache_max_size; /**< Number of bytes max to cache the Prometheus response */
+   char metrics_cert_file[MAX_PATH];    /**< Metrics TLS certificate path */
+   char metrics_key_file[MAX_PATH];     /**< Metrics TLS key path */
+   char metrics_ca_file[MAX_PATH];      /**< Metrics TLS CA certificate path */
 };
 
 /** @struct vault_configuration

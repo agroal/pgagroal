@@ -118,9 +118,7 @@ static int  server_signature(char* password, char* salt, int salt_length, int it
                              unsigned char** result, size_t* result_length);
 
 static bool is_tls_user(char* username, char* database);
-static int  create_ssl_ctx(bool client, SSL_CTX** ctx);
 static int  create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, SSL** ssl);
-static int  create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl);
 static int  establish_client_tls_connection(int server, int fd, SSL** ssl);
 static int  create_client_tls_connection(int fd, SSL** ssl, char* tls_key_file, char* tls_cert_file, char* tls_ca_file);
 
@@ -240,12 +238,12 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
          SSL_CTX* ctx = NULL;
 
          /* We are acting as a server against the client */
-         if (create_ssl_ctx(false, &ctx))
+         if (pgagroal_create_ssl_ctx(false, &ctx))
          {
             goto error;
          }
 
-         if (create_ssl_server(ctx, client_fd, &c_ssl))
+         if (pgagroal_create_ssl_server(ctx, config->common.tls_key_file, config->common.tls_cert_file, config->common.tls_ca_file, client_fd, &c_ssl))
          {
             pgagroal_log_debug("authenticate: connection error");
             pgagroal_write_connection_refused(NULL, client_fd);
@@ -476,12 +474,12 @@ accept_ssl_vault(struct vault_configuration* config, int client_fd, SSL** client
    SSL* c_ssl = NULL;
 
    /* We are acting as a server against the client */
-   if (create_ssl_ctx(false, &ctx))
+   if (pgagroal_create_ssl_ctx(false, &ctx))
    {
       goto error;
    }
 
-   if (create_ssl_server(ctx, client_fd, &c_ssl))
+   if (pgagroal_create_ssl_server(ctx, config->common.tls_key_file, config->common.tls_cert_file, config->common.tls_ca_file, client_fd, &c_ssl))
    {
       goto error;
    }
@@ -657,12 +655,12 @@ pgagroal_remote_management_auth(int client_fd, char* address, SSL** client_ssl)
          SSL_CTX* ctx = NULL;
 
          /* We are acting as a server against the client */
-         if (create_ssl_ctx(false, &ctx))
+         if (pgagroal_create_ssl_ctx(false, &ctx))
          {
             goto error;
          }
 
-         if (create_ssl_server(ctx, client_fd, &c_ssl))
+         if (pgagroal_create_ssl_server(ctx, config->common.tls_key_file, config->common.tls_cert_file, config->common.tls_ca_file, client_fd, &c_ssl))
          {
             goto error;
          }
@@ -912,7 +910,7 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
 
                if (msg->kind == 'S')
                {
-                  if (create_ssl_ctx(true, &ctx))
+                  if (pgagroal_create_ssl_ctx(true, &ctx))
                   {
                      goto error;
                   }
@@ -4139,8 +4137,8 @@ is_tls_user(char* username, char* database)
    return false;
 }
 
-static int
-create_ssl_ctx(bool client, SSL_CTX** ctx)
+int
+pgagroal_create_ssl_ctx(bool client, SSL_CTX** ctx)
 {
    SSL_CTX* c = NULL;
 
@@ -4274,43 +4272,40 @@ error:
    return 1;
 }
 
-static int
-create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl)
+int
+pgagroal_create_ssl_server(SSL_CTX* ctx, char* key_file, char* cert_file, char* ca_file, int socket, SSL** ssl)
 {
    SSL* s = NULL;
    STACK_OF(X509_NAME) * root_cert_list = NULL;
-   struct configuration* config;
 
-   config = (struct configuration*)shmem;
-
-   if (strlen(config->tls_cert_file) == 0)
+   if (strlen(cert_file) == 0)
    {
       pgagroal_log_error("No TLS certificate defined");
       goto error;
    }
 
-   if (strlen(config->tls_key_file) == 0)
+   if (strlen(key_file) == 0)
    {
       pgagroal_log_error("No TLS private key defined");
       goto error;
    }
 
-   if (SSL_CTX_use_certificate_chain_file(ctx, config->tls_cert_file) != 1)
+   if (SSL_CTX_use_certificate_chain_file(ctx, cert_file) != 1)
    {
       unsigned long err;
 
       err = ERR_get_error();
-      pgagroal_log_error("Couldn't load TLS certificate: %s", config->tls_cert_file);
+      pgagroal_log_error("Couldn't load TLS certificate: %s", cert_file);
       pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
       goto error;
    }
 
-   if (SSL_CTX_use_PrivateKey_file(ctx, config->tls_key_file, SSL_FILETYPE_PEM) != 1)
+   if (SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM) != 1)
    {
       unsigned long err;
 
       err = ERR_get_error();
-      pgagroal_log_error("Couldn't load TLS private key: %s", config->tls_key_file);
+      pgagroal_log_error("Couldn't load TLS private key: %s", key_file);
       pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
       goto error;
    }
@@ -4320,30 +4315,30 @@ create_ssl_server(SSL_CTX* ctx, int socket, SSL** ssl)
       unsigned long err;
 
       err = ERR_get_error();
-      pgagroal_log_error("TLS private key check failed: %s", config->tls_key_file);
+      pgagroal_log_error("TLS private key check failed: %s", key_file);
       pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
       goto error;
    }
 
-   if (strlen(config->tls_ca_file) > 0)
+   if (strlen(ca_file) > 0)
    {
-      if (SSL_CTX_load_verify_locations(ctx, config->tls_ca_file, NULL) != 1)
+      if (SSL_CTX_load_verify_locations(ctx, ca_file, NULL) != 1)
       {
          unsigned long err;
 
          err = ERR_get_error();
-         pgagroal_log_error("Couldn't load TLS CA: %s", config->tls_ca_file);
+         pgagroal_log_error("Couldn't load TLS CA: %s", ca_file);
          pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
          goto error;
       }
 
-      root_cert_list = SSL_load_client_CA_file(config->tls_ca_file);
+      root_cert_list = SSL_load_client_CA_file(ca_file);
       if (root_cert_list == NULL)
       {
          unsigned long err;
 
          err = ERR_get_error();
-         pgagroal_log_error("Couldn't load TLS CA: %s", config->tls_ca_file);
+         pgagroal_log_error("Couldn't load TLS CA: %s", ca_file);
          pgagroal_log_error("Reason: %s", ERR_reason_error_string(err));
          goto error;
       }
@@ -5518,7 +5513,7 @@ create_client_tls_connection(int fd, SSL** ssl, char* tls_key_file, char* tls_ce
    int status = -1;
 
    /* We are acting as a client against the server */
-   if (create_ssl_ctx(true, &ctx))
+   if (pgagroal_create_ssl_ctx(true, &ctx))
    {
       pgagroal_log_error("CTX failed");
       goto error;
@@ -5675,4 +5670,52 @@ pgagroal_extract_server_parameters(int slot, struct deque** server_parameters)
    *server_parameters = sp;
    return 0;
 
+}
+
+void
+pgagroal_close_ssl(SSL* ssl)
+{
+   int res;
+   SSL_CTX* ctx;
+
+   if (ssl != NULL)
+   {
+      ctx = SSL_get_SSL_CTX(ssl);
+      res = SSL_shutdown(ssl);
+      if (res == 0)
+      {
+         SSL_shutdown(ssl);
+      }
+      SSL_free(ssl);
+      SSL_CTX_free(ctx);
+   }
+}
+
+bool
+pgagroal_is_ssl_request(int client_fd)
+{
+   ssize_t peek_bytes;
+   char peek_buffer[HTTP_BUFFER_SIZE];
+   bool ssl_req = false;
+
+   // MSG_Peek
+   peek_bytes = recv(client_fd, peek_buffer, sizeof(peek_buffer), MSG_PEEK);
+   if (peek_bytes <= 0)
+   {
+      pgagroal_log_error("unable to peek network data from client");
+      close(client_fd);
+      exit(1);
+   }
+
+   // Check for SSL request by matching `Client Hello` bytes
+   if (
+      ((unsigned char)peek_buffer[0] == 0x16) &&
+      ((unsigned char)peek_buffer[1] == 0x03) &&
+      ((unsigned char)peek_buffer[2] == 0x01 || (unsigned char)peek_buffer[2] == 0x02 || (unsigned char)peek_buffer[2] == 0x03 || (unsigned char)peek_buffer[2] == 0x04)
+      )
+   {
+      ssl_req = true;
+   }
+
+   return ssl_req;
 }

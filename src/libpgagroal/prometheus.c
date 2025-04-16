@@ -27,6 +27,7 @@
  */
 
 /* pgagroal */
+#include "security.h"
 #include <pgagroal.h>
 #include <logging.h>
 #include <memory.h>
@@ -69,28 +70,29 @@
 #define TWENTYFOUR_HOURS   86400
 
 static int resolve_page(struct message* msg);
-static int badrequest_page(int client_fd);
-static int unknown_page(int client_fd);
-static int home_page(int client_fd);
-static int home_vault_page(int client_fd);
-static int metrics_page(int client_fd);
-static int metrics_vault_page(int client_fd);
-static int bad_request(int client_fd);
+static int badrequest_page(SSL* client_ssl, int client_fd);
+static int unknown_page(SSL* client_ssl, int client_fd);
+static int home_page(SSL* client_ssl, int client_fd);
+static int home_vault_page(SSL* client_ssl, int client_fd);
+static int metrics_page(SSL* client_ssl, int client_fd);
+static int metrics_vault_page(SSL* client_ssl, int client_fd);
+static int bad_request(SSL* client_ssl, int client_fd);
+static int redirect_page(SSL* client_ssl, int client_fd, char* path);
 
-static void general_information(int client_fd);
-static void general_vault_information(int client_fd);
-static void connection_information(int client_fd);
-static void limit_information(int client_fd);
-static void session_information(int client_fd);
-static void pool_information(int client_fd);
-static void auth_information(int client_fd);
-static void client_information(int client_fd);
-static void internal_information(int client_fd);
-static void internal_vault_information(int client_fd);
-static void connection_awaiting_information(int client_fd);
-static void write_os_kernel_version(int client_fd);
+static void general_information(SSL* client_ssl, int client_fd);
+static void general_vault_information(SSL* client_ssl, int client_fd);
+static void connection_information(SSL* client_ssl, int client_fd);
+static void limit_information(SSL* client_ssl, int client_fd);
+static void session_information(SSL* client_ssl, int client_fd);
+static void pool_information(SSL* client_ssl, int client_fd);
+static void auth_information(SSL* client_ssl, int client_fd);
+static void client_information(SSL* client_ssl, int client_fd);
+static void internal_information(SSL* client_ssl, int client_fd);
+static void internal_vault_information(SSL* client_ssl, int client_fd);
+static void connection_awaiting_information(SSL* client_ssl, int client_fd);
+static void write_os_kernel_version(SSL* client_ssl, int client_fd);
 
-static int send_chunk(int client_fd, char* data);
+static int send_chunk(SSL* cilent_ssl, int client_fd, char* data);
 
 static bool is_metrics_cache_configured(void);
 static bool is_metrics_cache_valid(void);
@@ -101,7 +103,7 @@ static void metrics_cache_invalidate(void);
 static bool is_prometheus_enabled(void);
 
 void
-pgagroal_prometheus(int client_fd)
+pgagroal_prometheus(SSL* client_ssl, int client_fd)
 {
    int status;
    int page;
@@ -118,7 +120,62 @@ pgagroal_prometheus(int client_fd)
 
    config = (struct main_configuration*)shmem;
 
-   status = pgagroal_read_timeout_message(NULL, client_fd, config->common.authentication_timeout, &msg);
+   if (client_ssl)
+   {
+      if (pgagroal_is_ssl_request(client_fd))
+      {
+         if (SSL_accept(client_ssl) <= 0)
+         {
+            pgagroal_log_error("Failed to accept SSL connection");
+            goto error;
+         }
+      }
+      else
+      {
+         char* path = "/";
+         char* base_url = NULL;
+
+         if (pgagroal_read_timeout_message(NULL, client_fd, config->common.authentication_timeout, &msg) != MESSAGE_STATUS_OK)
+         {
+            pgagroal_log_error("Failed to read message");
+            goto error;
+         }
+
+         char* path_start = strstr(msg->data, " ");
+         if (path_start)
+         {
+            path_start++;
+            char* path_end = strstr(path_start, " ");
+            if (path_end)
+            {
+               *path_end = '\0';
+               path = path_start;
+            }
+         }
+
+         base_url = pgagroal_format_and_append(base_url, "https://localhost:%d%s", config->common.metrics, path);
+
+         if (redirect_page(NULL, client_fd, base_url) != MESSAGE_STATUS_OK)
+         {
+            pgagroal_log_error("Failed to redirect to: %s", base_url);
+            free(base_url);
+            goto error;
+         }
+
+         pgagroal_close_ssl(client_ssl);
+         pgagroal_disconnect(client_fd);
+
+         pgagroal_memory_destroy();
+         pgagroal_stop_logging();
+
+         free(base_url);
+
+         exit(0);
+      }
+
+   }
+
+   status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -128,21 +185,22 @@ pgagroal_prometheus(int client_fd)
 
    if (page == PAGE_HOME)
    {
-      home_page(client_fd);
+      home_page(client_ssl, client_fd);
    }
    else if (page == PAGE_METRICS)
    {
-      metrics_page(client_fd);
+      metrics_page(client_ssl, client_fd);
    }
    else if (page == PAGE_UNKNOWN)
    {
-      unknown_page(client_fd);
+      unknown_page(client_ssl, client_fd);
    }
    else
    {
-      bad_request(client_fd);
+      bad_request(client_ssl, client_fd);
    }
 
+   pgagroal_close_ssl(client_ssl);
    pgagroal_disconnect(client_fd);
 
    pgagroal_memory_destroy();
@@ -152,9 +210,10 @@ pgagroal_prometheus(int client_fd)
 
 error:
 
-   badrequest_page(client_fd);
+   badrequest_page(client_ssl, client_fd);
 
    pgagroal_log_debug("pgagroal_prometheus: disconnect %d", client_fd);
+   pgagroal_close_ssl(client_ssl);
    pgagroal_disconnect(client_fd);
 
    pgagroal_memory_destroy();
@@ -164,7 +223,7 @@ error:
 }
 
 void
-pgagroal_vault_prometheus(int client_fd)
+pgagroal_vault_prometheus(SSL* client_ssl, int client_fd)
 {
    int status;
    int page;
@@ -181,7 +240,7 @@ pgagroal_vault_prometheus(int client_fd)
 
    config = (struct vault_configuration*)shmem;
 
-   status = pgagroal_read_timeout_message(NULL, client_fd, config->common.authentication_timeout, &msg);
+   status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -191,19 +250,19 @@ pgagroal_vault_prometheus(int client_fd)
 
    if (page == PAGE_HOME)
    {
-      home_vault_page(client_fd);
+      home_vault_page(client_ssl, client_fd);
    }
    else if (page == PAGE_METRICS)
    {
-      metrics_vault_page(client_fd);
+      metrics_vault_page(client_ssl, client_fd);
    }
    else if (page == PAGE_UNKNOWN)
    {
-      unknown_page(client_fd);
+      unknown_page(client_ssl, client_fd);
    }
    else
    {
-      bad_request(client_fd);
+      bad_request(client_ssl, client_fd);
    }
 
    pgagroal_disconnect(client_fd);
@@ -1073,6 +1132,46 @@ pgagroal_prometheus_logging(int type)
 }
 
 static int
+redirect_page(SSL* client_ssl, int client_fd, char* path)
+{
+   char* data = NULL;
+   time_t now;
+   char time_buf[32];
+   int status;
+   struct message msg;
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&data, 0, sizeof(data));
+
+   now = time(NULL);
+
+   memset(&time_buf, 0, sizeof(time_buf));
+   ctime_r(&now, &time_buf[0]);
+   time_buf[strlen(time_buf) - 1] = 0;
+
+   data = pgagroal_append(data, "HTTP/1.1 301 Moved Permanently\r\n");
+   data = pgagroal_append(data, "Location: ");
+   data = pgagroal_append(data, path);
+   data = pgagroal_append(data, "\r\n");
+   data = pgagroal_append(data, "Date: ");
+   data = pgagroal_append(data, &time_buf[0]);
+   data = pgagroal_append(data, "\r\n");
+   data = pgagroal_append(data, "Content-Length: 0\r\n");
+   data = pgagroal_append(data, "Connection: close\r\n");
+   data = pgagroal_append(data, "\r\n");
+
+   msg.kind = 0;
+   msg.length = strlen(data);
+   msg.data = data;
+
+   status = pgagroal_write_message(client_ssl, client_fd, &msg);
+
+   free(data);
+
+   return status;
+}
+
+static int
 resolve_page(struct message* msg)
 {
    char* from = NULL;
@@ -1107,7 +1206,7 @@ resolve_page(struct message* msg)
 }
 
 static int
-badrequest_page(int client_fd)
+badrequest_page(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    time_t now;
@@ -1133,7 +1232,7 @@ badrequest_page(int client_fd)
    msg.length = strlen(data);
    msg.data = data;
 
-   status = pgagroal_write_message(NULL, client_fd, &msg);
+   status = pgagroal_write_message(client_ssl, client_fd, &msg);
 
    free(data);
 
@@ -1141,7 +1240,7 @@ badrequest_page(int client_fd)
 }
 
 static int
-unknown_page(int client_fd)
+unknown_page(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    time_t now;
@@ -1167,7 +1266,7 @@ unknown_page(int client_fd)
    msg.length = strlen(data);
    msg.data = data;
 
-   status = pgagroal_write_message(NULL, client_fd, &msg);
+   status = pgagroal_write_message(client_ssl, client_fd, &msg);
 
    free(data);
 
@@ -1175,7 +1274,7 @@ unknown_page(int client_fd)
 }
 
 static int
-home_page(int client_fd)
+home_page(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    time_t now;
@@ -1204,7 +1303,7 @@ home_page(int client_fd)
    msg.length = strlen(data);
    msg.data = data;
 
-   status = pgagroal_write_message(NULL, client_fd, &msg);
+   status = pgagroal_write_message(client_ssl, client_fd, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto done;
@@ -1557,7 +1656,7 @@ home_page(int client_fd)
    data = pgagroal_append(data, "</body>\n");
    data = pgagroal_append(data, "</html>\n");
 
-   send_chunk(client_fd, data);
+   send_chunk(client_ssl, client_fd, data);
    free(data);
    data = NULL;
 
@@ -1568,7 +1667,7 @@ home_page(int client_fd)
    msg.length = strlen(data);
    msg.data = data;
 
-   status = pgagroal_write_message(NULL, client_fd, &msg);
+   status = pgagroal_write_message(client_ssl, client_fd, &msg);
 
 done:
    if (data != NULL)
@@ -1580,7 +1679,7 @@ done:
 }
 
 static int
-home_vault_page(int client_fd)
+home_vault_page(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    time_t now;
@@ -1609,7 +1708,7 @@ home_vault_page(int client_fd)
    msg.length = strlen(data);
    msg.data = data;
 
-   status = pgagroal_write_message(NULL, client_fd, &msg);
+   status = pgagroal_write_message(client_ssl, client_fd, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto done;
@@ -1659,7 +1758,7 @@ home_vault_page(int client_fd)
    data = pgagroal_append(data, "</body>\n");
    data = pgagroal_append(data, "</html>\n");
 
-   send_chunk(client_fd, data);
+   send_chunk(client_ssl, client_fd, data);
    free(data);
    data = NULL;
 
@@ -1670,7 +1769,7 @@ home_vault_page(int client_fd)
    msg.length = strlen(data);
    msg.data = data;
 
-   status = pgagroal_write_message(NULL, client_fd, &msg);
+   status = pgagroal_write_message(client_ssl, client_fd, &msg);
 
 done:
    if (data != NULL)
@@ -1682,7 +1781,7 @@ done:
 }
 
 static int
-metrics_page(int client_fd)
+metrics_page(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    time_t now;
@@ -1737,7 +1836,7 @@ retry_cache_locking:
          msg.length = strlen(data);
          msg.data = data;
 
-         status = pgagroal_write_message(NULL, client_fd, &msg);
+         status = pgagroal_write_message(client_ssl, client_fd, &msg);
          if (status != MESSAGE_STATUS_OK)
          {
             metrics_cache_invalidate();
@@ -1749,16 +1848,16 @@ retry_cache_locking:
          free(data);
          data = NULL;
 
-         general_information(client_fd);
-         connection_information(client_fd);
-         limit_information(client_fd);
-         session_information(client_fd);
-         pool_information(client_fd);
-         auth_information(client_fd);
-         client_information(client_fd);
-         internal_information(client_fd);
-         connection_awaiting_information(client_fd);
-         write_os_kernel_version(client_fd);
+         general_information(client_ssl, client_fd);
+         connection_information(client_ssl, client_fd);
+         limit_information(client_ssl, client_fd);
+         session_information(client_ssl, client_fd);
+         pool_information(client_ssl, client_fd);
+         auth_information(client_ssl, client_fd);
+         client_information(client_ssl, client_fd);
+         internal_information(client_ssl, client_fd);
+         connection_awaiting_information(client_ssl, client_fd);
+         write_os_kernel_version(client_ssl, client_fd);
 
          /* Footer */
          data = pgagroal_append(data, "0\r\n\r\n");
@@ -1781,7 +1880,7 @@ retry_cache_locking:
       SLEEP_AND_GOTO(1000000L, retry_cache_locking)
    }
 
-   status = pgagroal_write_message(NULL, client_fd, &msg);
+   status = pgagroal_write_message(client_ssl, client_fd, &msg);
 
    if (status != MESSAGE_STATUS_OK)
    {
@@ -1800,7 +1899,7 @@ error:
 }
 
 static int
-metrics_vault_page(int client_fd)
+metrics_vault_page(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    time_t now;
@@ -1855,7 +1954,7 @@ retry_cache_locking:
          msg.length = strlen(data);
          msg.data = data;
 
-         status = pgagroal_write_message(NULL, client_fd, &msg);
+         status = pgagroal_write_message(client_ssl, client_fd, &msg);
          if (status != MESSAGE_STATUS_OK)
          {
             metrics_cache_invalidate();
@@ -1867,8 +1966,8 @@ retry_cache_locking:
          free(data);
          data = NULL;
 
-         general_vault_information(client_fd);
-         internal_vault_information(client_fd);
+         general_vault_information(client_ssl, client_fd);
+         internal_vault_information(client_ssl, client_fd);
 
          /* Footer */
          data = pgagroal_append(data, "0\r\n\r\n");
@@ -1891,7 +1990,7 @@ retry_cache_locking:
       SLEEP_AND_GOTO(1000000L, retry_cache_locking)
    }
 
-   status = pgagroal_write_message(NULL, client_fd, &msg);
+   status = pgagroal_write_message(client_ssl, client_fd, &msg);
 
    if (status != MESSAGE_STATUS_OK)
    {
@@ -1910,7 +2009,7 @@ error:
 }
 
 static int
-bad_request(int client_fd)
+bad_request(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    time_t now;
@@ -1936,7 +2035,7 @@ bad_request(int client_fd)
    msg.length = strlen(data);
    msg.data = data;
 
-   status = pgagroal_write_message(NULL, client_fd, &msg);
+   status = pgagroal_write_message(client_ssl, client_fd, &msg);
 
    free(data);
 
@@ -1944,7 +2043,7 @@ bad_request(int client_fd)
 }
 
 static void
-general_information(int client_fd)
+general_information(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    struct main_configuration* config;
@@ -2090,7 +2189,7 @@ general_information(int client_fd)
 
    if (data != NULL)
    {
-      send_chunk(client_fd, data);
+      send_chunk(client_ssl, client_fd, data);
       metrics_cache_append(data);
       free(data);
       data = NULL;
@@ -2098,7 +2197,7 @@ general_information(int client_fd)
 }
 
 static void
-general_vault_information(int client_fd)
+general_vault_information(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    struct vault_prometheus* prometheus;
@@ -2128,7 +2227,7 @@ general_vault_information(int client_fd)
 
    if (data != NULL)
    {
-      send_chunk(client_fd, data);
+      send_chunk(client_ssl, client_fd, data);
       metrics_cache_append(data);
       free(data);
       data = NULL;
@@ -2136,7 +2235,7 @@ general_vault_information(int client_fd)
 }
 
 static void
-connection_information(int client_fd)
+connection_information(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    int active;
@@ -2276,7 +2375,7 @@ connection_information(int client_fd)
 
       if (strlen(data) > CHUNK_SIZE)
       {
-         send_chunk(client_fd, data);
+         send_chunk(client_ssl, client_fd, data);
          metrics_cache_append(data);
          free(data);
          data = NULL;
@@ -2287,7 +2386,7 @@ connection_information(int client_fd)
 
    if (data != NULL)
    {
-      send_chunk(client_fd, data);
+      send_chunk(client_ssl, client_fd, data);
       metrics_cache_append(data);
       free(data);
       data = NULL;
@@ -2295,7 +2394,7 @@ connection_information(int client_fd)
 }
 
 static void
-limit_information(int client_fd)
+limit_information(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    struct main_configuration* config;
@@ -2366,7 +2465,7 @@ limit_information(int client_fd)
 
          if (strlen(data) > CHUNK_SIZE)
          {
-            send_chunk(client_fd, data);
+            send_chunk(client_ssl, client_fd, data);
             metrics_cache_append(data);
             free(data);
             data = NULL;
@@ -2377,7 +2476,7 @@ limit_information(int client_fd)
 
       if (data != NULL)
       {
-         send_chunk(client_fd, data);
+         send_chunk(client_ssl, client_fd, data);
          metrics_cache_append(data);
          free(data);
          data = NULL;
@@ -2386,7 +2485,7 @@ limit_information(int client_fd)
 }
 
 static void
-session_information(int client_fd)
+session_information(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    unsigned long counter;
@@ -2497,14 +2596,14 @@ session_information(int client_fd)
    data = pgagroal_append_ulong(data, counter);
    data = pgagroal_append(data, "\n\n");
 
-   send_chunk(client_fd, data);
+   send_chunk(client_ssl, client_fd, data);
    metrics_cache_append(data);
    free(data);
    data = NULL;
 }
 
 static void
-write_os_kernel_version(int client_fd)
+write_os_kernel_version(SSL* client_ssl, int client_fd)
 {
    char* os = NULL;
    int major = 0, minor = 0, patch = 0;
@@ -2557,7 +2656,7 @@ write_os_kernel_version(int client_fd)
    data = pgagroal_append_int(data, 1); // 1 indicates success
    data = pgagroal_append(data, "\n");
 
-   send_chunk(client_fd, data);
+   send_chunk(client_ssl, client_fd, data);
    metrics_cache_append(data);
 
    /* Clean up */
@@ -2574,7 +2673,7 @@ error:
 }
 
 static void
-pool_information(int client_fd)
+pool_information(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    struct main_prometheus* prometheus;
@@ -2647,14 +2746,14 @@ pool_information(int client_fd)
    data = pgagroal_append_ulong(data, atomic_load(&prometheus->connection_success));
    data = pgagroal_append(data, "\n\n");
 
-   send_chunk(client_fd, data);
+   send_chunk(client_ssl, client_fd, data);
    metrics_cache_append(data);
    free(data);
    data = NULL;
 }
 
 static void
-auth_information(int client_fd)
+auth_information(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    struct main_prometheus* prometheus;
@@ -2679,14 +2778,14 @@ auth_information(int client_fd)
    data = pgagroal_append_ulong(data, atomic_load(&prometheus->auth_user_error));
    data = pgagroal_append(data, "\n\n");
 
-   send_chunk(client_fd, data);
+   send_chunk(client_ssl, client_fd, data);
    metrics_cache_append(data);
    free(data);
    data = NULL;
 }
 
 static void
-client_information(int client_fd)
+client_information(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    struct main_prometheus* prometheus;
@@ -2705,14 +2804,14 @@ client_information(int client_fd)
    data = pgagroal_append_ulong(data, atomic_load(&prometheus->client_active));
    data = pgagroal_append(data, "\n\n");
 
-   send_chunk(client_fd, data);
+   send_chunk(client_ssl, client_fd, data);
    metrics_cache_append(data);
    free(data);
    data = NULL;
 }
 
 static void
-internal_information(int client_fd)
+internal_information(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    struct main_prometheus* prometheus;
@@ -2743,14 +2842,14 @@ internal_information(int client_fd)
    data = pgagroal_append_int(data, atomic_load(&prometheus->prometheus_base.self_sockets));
    data = pgagroal_append(data, "\n\n");
 
-   send_chunk(client_fd, data);
+   send_chunk(client_ssl, client_fd, data);
    metrics_cache_append(data);
    free(data);
    data = NULL;
 }
 
 static void
-internal_vault_information(int client_fd)
+internal_vault_information(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    struct vault_prometheus* prometheus;
@@ -2769,7 +2868,7 @@ internal_vault_information(int client_fd)
    data = pgagroal_append_int(data, atomic_load(&prometheus->prometheus_base.self_sockets));
    data = pgagroal_append(data, "\n\n");
 
-   send_chunk(client_fd, data);
+   send_chunk(client_ssl, client_fd, data);
    metrics_cache_append(data);
    free(data);
    data = NULL;
@@ -2781,7 +2880,7 @@ internal_vault_information(int client_fd)
  * and also one line per limit if there are limits.
  */
 static void
-connection_awaiting_information(int client_fd)
+connection_awaiting_information(SSL* client_ssl, int client_fd)
 {
    char* data = NULL;
    struct main_configuration* config;
@@ -2819,7 +2918,7 @@ connection_awaiting_information(int client_fd)
 
          if (strlen(data) > CHUNK_SIZE)
          {
-            send_chunk(client_fd, data);
+            send_chunk(client_ssl, client_fd, data);
             metrics_cache_append(data);
             free(data);
             data = NULL;
@@ -2831,7 +2930,7 @@ connection_awaiting_information(int client_fd)
    if (data != NULL)
    {
       data = pgagroal_append(data, "\n");
-      send_chunk(client_fd, data);
+      send_chunk(client_ssl, client_fd, data);
       metrics_cache_append(data);
       free(data);
       data = NULL;
@@ -2839,7 +2938,7 @@ connection_awaiting_information(int client_fd)
 }
 
 static int
-send_chunk(int client_fd, char* data)
+send_chunk(SSL* client_ssl, int client_fd, char* data)
 {
    int status;
    char* m = NULL;
@@ -2863,7 +2962,7 @@ send_chunk(int client_fd, char* data)
    msg.length = strlen(m);
    msg.data = m;
 
-   status = pgagroal_write_message(NULL, client_fd, &msg);
+   status = pgagroal_write_message(client_ssl, client_fd, &msg);
 
    free(m);
 
