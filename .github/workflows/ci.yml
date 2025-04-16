@@ -13,7 +13,6 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
 
-   
     strategy:
       matrix:
         compiler: [gcc, clang]
@@ -45,10 +44,10 @@ jobs:
 
       - name: Install Eisvogel template for Pandoc
         run: |
-          wget https://github.com/Wandmalfarbe/pandoc-latex-template/releases/download/2.4.2/Eisvogel-2.4.2.tar.gz
-          tar -xzf Eisvogel-2.4.2.tar.gz
+          wget https://github.com/Wandmalfarbe/pandoc-latex-template/releases/download/v3.1.0/Eisvogel-3.1.0.tar.gz
+          tar -xzf Eisvogel-3.1.0.tar.gz
           mkdir -p ~/.local/share/pandoc/templates
-          mv eisvogel.latex ~/.local/share/pandoc/templates/
+          mv Eisvogel-3.1.0/eisvogel.latex ~/.local/share/pandoc/templates/
 
       - name: Install PostgreSQL
         run: |
@@ -97,28 +96,28 @@ jobs:
 
       - name: Setup pgagroal
         run: |
-            sudo mkdir -p /etc/pgagroal  
+            sudo mkdir -p /etc/pgagroal
             sudo cp ./doc/etc/*.conf /etc/pgagroal
             sudo bash -c 'tee /etc/pgagroal/pgagroal.conf > /dev/null <<EOF
             [pgagroal]
             host = *
             port = 2345
-        
+
             log_type = file
             log_level = debug5
-            log_path = /tmp/pgagroal.log 
-        
+            log_path = /tmp/pgagroal.log
+
             max_connections = 100
             idle_timeout = 600
             validation = off
             unix_socket_dir = /tmp/
-        
+
             [primary]
             host = localhost
             port = 5432
             EOF'
         working-directory: /home/runner/work/pgagroal/pgagroal/
-        
+
       - name: Build Project
         run: |
           mkdir build
@@ -128,7 +127,7 @@ jobs:
           else
             export CC=/usr/bin/clang
           fi
-           
+
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ..
            make -j$(nproc)
         working-directory: /home/runner/work/pgagroal/pgagroal/
@@ -136,7 +135,7 @@ jobs:
       - name: Run pgagroal & verify (GCC/Debug or Clang/Debug & Release)
         run: |
           cd build/src
-          ./pgagroal -d 
+          ./pgagroal -d
           source /tmp/functions.sh
           verify_running
           verify_shutdown
@@ -147,7 +146,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: logs-${{ matrix.compiler }}-${{ matrix.build_type }}
-          path:  /tmp/pgagroal.log 
+          path:  /tmp/pgagroal.log
           retention-days: 90
 
       - name: Upload Generated Documentation Artifact
@@ -155,31 +154,29 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: generated-docs
-          path: build/doc/ 
+          path: build/doc/
           retention-days: 90
 
-
-   
   build-macos:
     runs-on: macos-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      
+
       - name: Cache Homebrew packages
         uses: actions/cache@v3
         with:
           path: ~/Library/Caches/Homebrew
           key: ${{ runner.os }}-homebrew-${{ hashFiles('.github/workflows/build-macos.yml') }}
           restore-keys: ${{ runner.os }}-homebrew-
-      
+
       - name: Install dependencies
         run: |
           brew update
           brew install openssl libev zstd lz4 bzip2 docutils graphviz doxygen
           brew install postgresql@17
-      
+
       - name: Start PostgreSQL
         run: |
           brew services start postgresql@17
@@ -192,7 +189,7 @@ jobs:
             echo "Waiting for PostgreSQL to start..."
             sleep 1
           done
-      
+
       - name: Configure and build with clang
         run: |
           export OPENSSL_ROOT_DIR=$(brew --prefix openssl)
@@ -200,7 +197,7 @@ jobs:
           cd build
           cmake -DCMAKE_BUILD_TYPE=Debug ..
           make -j$(sysctl -n hw.ncpu)
-      
+
       - name: Run pgagroal and test
         run: |
           sudo mkdir -p /etc/pgagroal
@@ -216,7 +213,7 @@ jobs:
           fi
           # Shutdown pgagroal
           ./pgagroal-cli shutdown
-      
+
       - name: Stop PostgreSQL
         run: |
           brew services stop postgresql@14
@@ -281,7 +278,7 @@ jobs:
               hs-pandoc \
               texlive-base \
               texlive-texmf \
-              graphviz 
+              graphviz
 
       - name: Configure PostgreSQL
         shell: freebsd {0}
@@ -327,7 +324,7 @@ jobs:
               echo "[W] Found dangling pgagroal processes, killing them"
               pkill -9 pgagroal
               sleep 2
-            fi          
+            fi
             echo "[*] Confirming there are no dangling pgagroal processes"
             pgrep pgagroal > /dev/null && echo "[E] Dangling pgagroal child processes: $(pgrep pgagroal | wc -l)" && exit 1
             echo "[*] rm -f /tmp/pgagroal.2345.pid"
@@ -346,7 +343,7 @@ jobs:
 
           log_type = file
           log_level = debug5
-          log_path = /tmp/pgagroal.log 
+          log_path = /tmp/pgagroal.log
 
           max_connections = 100
           idle_timeout = 600
@@ -372,7 +369,6 @@ jobs:
           cd $GITHUB_WORKSPACE/build
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} "$GITHUB_WORKSPACE"
           make -j$(sysctl -n hw.ncpu)
-        
 
       - name: Debug Testsuite Path
         shell: freebsd {0}
