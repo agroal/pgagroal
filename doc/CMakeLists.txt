@@ -17,51 +17,64 @@ set(PGAGROAL_DATABASES_CONF_DST_FILE "${CMAKE_CURRENT_BINARY_DIR}/pgagroal_datab
 
 # pgagroal.1
 add_custom_command(
-  TARGET man
+  OUTPUT ${PGAGROAL_DST_FILE}
   COMMAND ${RST2MAN_EXECUTABLE} ${PGAGROAL_SRC_FILE} ${PGAGROAL_DST_FILE}
-  OUTPUTS ${PGAGROAL_DST_FILE}
+  DEPENDS ${PGAGROAL_SRC_FILE}
+  COMMENT "Generating man page: pgagroal.1"
 )
 
 # pgagroal-cli.1
 add_custom_command(
-  TARGET man
+  OUTPUT ${PGAGROAL_CLI_DST_FILE}
   COMMAND ${RST2MAN_EXECUTABLE} ${PGAGROAL_CLI_SRC_FILE} ${PGAGROAL_CLI_DST_FILE}
-  OUTPUTS ${PGAGROAL_CLI_DST_FILE}
+  DEPENDS ${PGAGROAL_CLI_SRC_FILE}
+  COMMENT "Generating man page: pgagroal-cli.1"
 )
 
 # pgagroal-admin.1
 add_custom_command(
-  TARGET man
+  OUTPUT ${PGAGROAL_ADMIN_DST_FILE}
   COMMAND ${RST2MAN_EXECUTABLE} ${PGAGROAL_ADMIN_SRC_FILE} ${PGAGROAL_ADMIN_DST_FILE}
-  OUTPUTS ${PGAGROAL_ADMIN_DST_FILE}
+  DEPENDS ${PGAGROAL_ADMIN_SRC_FILE}
+  COMMENT "Generating man page: pgagroal-admin.1"
 )
 
 # pgagroal.conf.5
 add_custom_command(
-  TARGET man
+  OUTPUT ${PGAGROAL_CONF_DST_FILE}
   COMMAND ${RST2MAN_EXECUTABLE} ${PGAGROAL_CONF_SRC_FILE} ${PGAGROAL_CONF_DST_FILE}
-  OUTPUTS ${PGAGROAL_CONF_DST_FILE}
+  DEPENDS ${PGAGROAL_CONF_SRC_FILE}
+  COMMENT "Generating man page: pgagroal.conf.5"
 )
 
 # pgagroal_hba.conf.5
 add_custom_command(
-  TARGET man
+  OUTPUT ${PGAGROAL_HBA_CONF_DST_FILE}
   COMMAND ${RST2MAN_EXECUTABLE} ${PGAGROAL_HBA_CONF_SRC_FILE} ${PGAGROAL_HBA_CONF_DST_FILE}
-  OUTPUTS ${PGAGROAL_HBA_CONF_DST_FILE}
+  DEPENDS ${PGAGROAL_HBA_CONF_SRC_FILE}
+  COMMENT "Generating man page: pgagroal_hba.conf.5"
 )
 
 # pgagroal_databases.conf.5
 add_custom_command(
-  TARGET man
+  OUTPUT ${PGAGROAL_DATABASES_CONF_DST_FILE}
   COMMAND ${RST2MAN_EXECUTABLE} ${PGAGROAL_DATABASES_CONF_SRC_FILE} ${PGAGROAL_DATABASES_CONF_DST_FILE}
-  OUTPUTS ${PGAGROAL_DATABASES_CONF_DST_FILE}
+  DEPENDS ${PGAGROAL_DATABASES_CONF_SRC_FILE}
+  COMMENT "Generating man page: pgagroal_databases.conf.5"
 )
 
-# man pages
-add_custom_command(
-  TARGET man
-  DEPENDS ${PGAGROAL_DST_FILE} ${PGAGROAL_CLI_DST_FILE} ${PGAGROAL_ADMIN_DST_FILE} ${PGAGROAL_CONF_DST_FILE} ${PGAGROAL_HBA_CONF_DST_FILE} ${PGAGROAL_DATABASES_CONF_DST_FILE}
+# Group man page outputs into a target
+add_custom_target(manpages ALL
+  DEPENDS
+    ${PGAGROAL_DST_FILE}
+    ${PGAGROAL_CLI_DST_FILE}
+    ${PGAGROAL_ADMIN_DST_FILE}
+    ${PGAGROAL_CONF_DST_FILE}
+    ${PGAGROAL_HBA_CONF_DST_FILE}
+    ${PGAGROAL_DATABASES_CONF_DST_FILE}
 )
+
+add_dependencies(man manpages)
 
 #
 # Install configuration and documentation
@@ -152,7 +165,7 @@ if(generation)
   install(FILES ${MANUAL_OUTPUT_DIR}/pgagroal-dev-guide.pdf DESTINATION share/doc/pgagroal/manual)
   install(FILES ${MANUAL_OUTPUT_DIR}/pgagroal-dev-guide.html DESTINATION share/doc/pgagroal/manual)
   install(FILES ${MANUAL_OUTPUT_DIR}/pgagroal-advanced.pdf DESTINATION share/doc/pgagroal/manual)
-  install(FILES ${MANUAL_OUTPUT_DIR}/pgagroal-advanced-guide.html DESTINATION share/doc/pgagroal/manual)
+  install(FILES ${MANUAL_OUTPUT_DIR}/pgagroal-advanced.html DESTINATION share/doc/pgagroal/manual)
 
 endif()
 
@@ -172,12 +185,14 @@ if (DOXYGEN_FOUND)
   if (${DOXYGEN_VERSION} STREQUAL "1.10.0" OR ${DOXYGEN_VERSION} STREQUAL "1.11.0" OR ${DOXYGEN_VERSION} STREQUAL "1.12.0")
     add_custom_command(
       TARGET api
+      POST_BUILD
       COMMAND ${DOXYGEN_EXECUTABLE} -q ${DOXYFILE_OUT}
       COMMENT "Generating API documentation"
     )
   else()
     add_custom_command(
       TARGET api
+      POST_BUILD
       COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE_OUT}
       COMMENT "Generating API documentation"
     )
