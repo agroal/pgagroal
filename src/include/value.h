@@ -51,12 +51,17 @@ enum value_type {
    ValueChar,
    ValueBool,
    ValueString,
+   ValueStringRef,
    ValueFloat,
    ValueDouble,
    ValueBASE64,
+   ValueBASE64Ref,
    ValueJSON,
+   ValueJSONRef,
    ValueDeque,
+   ValueDequeRef,
    ValueART,
+   ValueARTRef,
    ValueRef,
    ValueMem,
 };
@@ -164,6 +169,20 @@ pgagroal_value_from_float(float val);
  */
 float
 pgagroal_value_to_float(uintptr_t val);
+
+enum value_type
+pgagroal_value_to_ref(enum value_type type);
+
+#ifdef DEBUG
+/**
+ * Translate the type to string for debugging purpose
+ * @param type The type
+ * @return The type
+ */
+char*
+pgagroal_value_type_to_string(enum value_type type);
+
+#endif
 
 #ifdef __cplusplus
 }

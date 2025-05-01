@@ -55,10 +55,10 @@ enum art_node_type {
  */
 struct art_node
 {
-   uint32_t prefix_len;                     /**< The actual length of the prefix segment */
-   enum art_node_type type;                 /**< The node type */
-   uint8_t num_children;                    /**< The number of children */
-   unsigned char prefix[MAX_PREFIX_LEN];    /**< The (potentially partial) prefix, only record up to MAX_PREFIX_LEN characters */
+   uint32_t prefix_len;                      /**< The actual length of the prefix segment */
+   enum art_node_type type;                  /**< The node type */
+   uint8_t num_children;                     /**< The number of children */
+   unsigned char prefix[MAX_PREFIX_LEN];     /**< The (potentially partial) prefix, only record up to MAX_PREFIX_LEN characters */
 } __attribute__ ((aligned (64)));
 
 /**
@@ -289,13 +289,13 @@ static struct value*
 art_search(struct art* t, unsigned char* key, uint32_t key_len);
 
 static int
-art_to_json_string_cb(void* param, const unsigned char* key, uint32_t key_len, struct value* value);
+art_to_json_string_cb(void* param, const char* key, struct value* value);
 
 static int
-art_to_text_string_cb(void* param, const unsigned char* key, uint32_t key_len, struct value* value);
+art_to_text_string_cb(void* param, const char* key, struct value* value);
 
 static int
-art_to_compact_json_string_cb(void* param, const unsigned char* key, uint32_t key_len, struct value* value);
+art_to_compact_json_string_cb(void* param, const char* key, struct value* value);
 
 static char*
 to_json_string(struct art* t, char* tag, int indent);
@@ -330,30 +330,38 @@ pgagroal_art_destroy(struct art* tree)
 }
 
 uintptr_t
-pgagroal_art_search(struct art* t, unsigned char* key, uint32_t key_len)
+pgagroal_art_search(struct art* t, char* key)
 {
-   struct value* val = art_search(t, key, key_len);
+   if (t == NULL || key == NULL)
+   {
+      return false;
+   }
+   struct value* val = art_search(t, (unsigned char*)key, strlen(key) + 1);
    return pgagroal_value_data(val);
 }
 
 bool
-pgagroal_art_contains_key(struct art* t, unsigned char* key, uint32_t key_len)
+pgagroal_art_contains_key(struct art* t, char* key)
 {
-   struct value* val = art_search(t, key, key_len);
+   if (t == NULL || key == NULL)
+   {
+      return false;
+   }
+   struct value* val = art_search(t, (unsigned char*)key, strlen(key) + 1);
    return val != NULL;
 }
 
 int
-pgagroal_art_insert(struct art* t, unsigned char* key, uint32_t key_len, uintptr_t value, enum value_type type)
+pgagroal_art_insert(struct art* t, char* key, uintptr_t value, enum value_type type)
 {
    struct value* old_val = NULL;
    bool new = false;
-   if (t == NULL)
+   if (t == NULL || key == NULL)
    {
       // c'mon, at least create a tree first...
       goto error;
    }
-   old_val = art_node_insert(t->root, &t->root, 0, key, key_len, value, type, NULL, &new);
+   old_val = art_node_insert(t->root, &t->root, 0, (unsigned char*)key, strlen(key) + 1, value, type, NULL, &new);
    pgagroal_value_destroy(old_val);
    if (new)
    {
@@ -365,16 +373,15 @@ error:
 }
 
 int
-pgagroal_art_insert_with_config(struct art* t, unsigned char* key, uint32_t key_len, uintptr_t value, struct value_config* config)
+pgagroal_art_insert_with_config(struct art* t, char* key, uintptr_t value, struct value_config* config)
 {
    struct value* old_val = NULL;
    bool new = false;
-   if (t == NULL)
+   if (t == NULL || key == NULL)
    {
-      // c'mon, at least create a tree first...
       goto error;
    }
-   old_val = art_node_insert(t->root, &t->root, 0, key, key_len, value, ValueRef, config, &new);
+   old_val = art_node_insert(t->root, &t->root, 0, (unsigned char*)key, strlen(key) + 1, value, ValueRef, config, &new);
    pgagroal_value_destroy(old_val);
    if (new)
    {
@@ -386,17 +393,30 @@ error:
 }
 
 int
-pgagroal_art_delete(struct art* t, unsigned char* key, uint32_t key_len)
+pgagroal_art_delete(struct art* t, char* key)
 {
    struct art_leaf* l = NULL;
-   if (t == NULL)
+   if (t == NULL || key == NULL)
    {
       return 1;
    }
-   l = art_node_delete(t->root, &t->root, 0, key, key_len);
+   l = art_node_delete(t->root, &t->root, 0, (unsigned char*)key, strlen(key) + 1);
    t->size--;
    pgagroal_value_destroy(l->value);
    free(l);
+   return 0;
+}
+
+int
+pgagroal_art_clear(struct art* t)
+{
+   if (t == NULL)
+   {
+      return 0;
+   }
+   destroy_art_node(t->root);
+   t->root = NULL;
+   t->size = 0;
    return 0;
 }
 
@@ -637,7 +657,7 @@ art_node_insert(struct art_node* node, struct art_node** node_ref, uint32_t dept
    struct art_leaf* leaf = NULL;
    struct art_leaf* min_leaf = NULL;
    uint32_t idx = 0;
-   uint32_t diff_len = 0; // where the keys diverge
+   uint32_t diff_len = 0;  // where the keys diverge
    struct art_node* new_node = NULL;
    struct art_node** next = NULL;
    unsigned char* leaf_key = NULL;
@@ -799,6 +819,10 @@ art_node_delete(struct art_node* node, struct art_node** node_ref, uint32_t dept
    else
    {
       depth += node->prefix_len;
+      if (depth >= key_len)
+      {
+         return NULL;
+      }
       child = node_get_child(node, key[depth]);
       if (child == NULL)
       {
@@ -839,7 +863,7 @@ art_node_iterate(struct art_node* node, art_callback cb, void* data)
    if (IS_LEAF(node))
    {
       l = GET_LEAF(node);
-      return cb(data, l->key, l->key_len, l->value);
+      return cb(data, (char*)l->key, l->value);
    }
    switch (node->type)
    {
@@ -1374,7 +1398,7 @@ pgagroal_art_iterator_next(struct art_iterator* iter)
       if (IS_LEAF(node))
       {
          iter->count++;
-         iter->key = GET_LEAF(node)->key;
+         iter->key = (char*)GET_LEAF(node)->key;
          iter->value = GET_LEAF(node)->value;
          return true;
       }
@@ -1434,6 +1458,30 @@ pgagroal_art_iterator_next(struct art_iterator* iter)
    return false;
 }
 
+bool
+pgagroal_art_iterator_has_next(struct art_iterator* iter)
+{
+   if (iter == NULL || iter->tree == NULL)
+   {
+      return false;
+   }
+   return iter->count < iter->tree->size;
+}
+
+void
+pgagroal_art_iterator_remove(struct art_iterator* iter)
+{
+   if (iter == NULL || iter->tree == NULL || iter->key == NULL)
+   {
+      return;
+   }
+
+   pgagroal_art_delete(iter->tree, iter->key);
+   iter->key = NULL;
+   iter->value = NULL;
+   iter->count--;
+}
+
 void
 pgagroal_art_iterator_destroy(struct art_iterator* iter)
 {
@@ -1485,6 +1533,10 @@ art_search(struct art* t, unsigned char* key, uint32_t key_len)
          return NULL;
       }
       depth += node->prefix_len;
+      if (depth >= key_len)
+      {
+         return NULL;
+      }
       // you can't dereference what the function returns directly since it could be null
       child = node_get_child(node, key[depth]);
       node = child != NULL ? *child : NULL;
@@ -1495,7 +1547,7 @@ art_search(struct art* t, unsigned char* key, uint32_t key_len)
 }
 
 static int
-art_to_json_string_cb(void* param, const unsigned char* key, uint32_t key_len __attribute__((unused)), struct value* value)
+art_to_json_string_cb(void* param, const char* key, struct value* value)
 {
    struct to_string_param* p = (struct to_string_param*) param;
    char* str = NULL;
@@ -1519,7 +1571,7 @@ art_to_json_string_cb(void* param, const unsigned char* key, uint32_t key_len __
 }
 
 static int
-art_to_compact_json_string_cb(void* param, const unsigned char* key, uint32_t key_len __attribute__((unused)), struct value* value)
+art_to_compact_json_string_cb(void* param, const char* key, struct value* value)
 {
    struct to_string_param* p = (struct to_string_param*) param;
    char* str = NULL;
@@ -1543,7 +1595,7 @@ art_to_compact_json_string_cb(void* param, const unsigned char* key, uint32_t ke
 }
 
 static int
-art_to_text_string_cb(void* param, const unsigned char* key, uint32_t key_len __attribute__((unused)), struct value* value)
+art_to_text_string_cb(void* param, const char* key, struct value* value)
 {
    struct to_string_param* p = (struct to_string_param*) param;
    char* str = NULL;
@@ -1551,10 +1603,14 @@ art_to_text_string_cb(void* param, const unsigned char* key, uint32_t key_len __
    p->cnt++;
    bool has_next = p->cnt < p->t->size;
    tag = pgagroal_append(tag, (char*)key);
-   tag = pgagroal_append(tag, ": ");
+   tag = pgagroal_append(tag, ":");
    if (value->type == ValueJSON && ((struct json*) value->data)->type != JSONUnknown)
    {
       tag = pgagroal_append(tag, "\n");
+   }
+   else
+   {
+      tag = pgagroal_append(tag, " ");
    }
    if (pgagroal_compare_string(p->tag, BULLET_POINT))
    {

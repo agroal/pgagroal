@@ -104,6 +104,14 @@ int
 pgagroal_deque_remove(struct deque* deque, char* tag);
 
 /**
+ * Remove all the nodes inside a deque
+ * @param deque The deque
+ * @return 0 on success, 1 if otherwise
+ */
+int
+pgagroal_deque_clear(struct deque* deque);
+
+/**
  * Add a node to deque's tail with custom to_string and data destroy callback,
  * the type will be set to ValueRef
  * This function is thread safe
@@ -201,6 +209,14 @@ pgagroal_deque_iterator_create(struct deque* deque, struct deque_iterator** iter
  */
 bool
 pgagroal_deque_iterator_next(struct deque_iterator* iter);
+
+/**
+ * Check if iterator has next value without advancing it
+ * @param iter The iterator
+ * @return true if has next, false if otherwise
+ */
+bool
+pgagroal_deque_iterator_has_next(struct deque_iterator* iter);
 
 /**
  * Remove the current node iterator points to and place the iterator to the previous node

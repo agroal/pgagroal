@@ -40,7 +40,7 @@ extern "C" {
 
 #define MAX_PREFIX_LEN 10
 
-typedef int (*art_callback)(void* data, const unsigned char* key, uint32_t key_len, struct value* value);
+typedef int (*art_callback)(void* data, const char* key, struct value* value);
 
 typedef void (*value_destroy_callback)(void* value);
 
@@ -61,7 +61,7 @@ struct art_iterator
    struct deque* que;           /**< The deque */
    struct art* tree;            /**< The ART */
    uint32_t count;              /**< The count of the iterator */
-   unsigned char* key;          /**< The key */
+   char* key;                   /**< The key */
    struct value* value;         /**< The value */
 };
 
@@ -77,55 +77,58 @@ pgagroal_art_create(struct art** tree);
  * inserts a new value into the art tree,note that the key is copied while the value is sometimes not(depending on value type)
  * @param t The tree
  * @param key The key
- * @param key_len The length of the key
  * @param value The value data
  * @param type The value type
  * @return 0 if the item was successfully inserted, otherwise 1
  */
 int
-pgagroal_art_insert(struct art* t, unsigned char* key, uint32_t key_len, uintptr_t value, enum value_type type);
+pgagroal_art_insert(struct art* t, char* key, uintptr_t value, enum value_type type);
 
 /**
  * inserts a new ValueRef value into the art tree with a custom to_string and destroy data callback config
  * @param t The tree
  * @param key The key
- * @param key_len The length of the key
  * @param value The value data
  * @param config The config
  * @return 0 if the item was successfully inserted, otherwise 1
  */
 int
-pgagroal_art_insert_with_config(struct art* t, unsigned char* key, uint32_t key_len, uintptr_t value, struct value_config* config);
+pgagroal_art_insert_with_config(struct art* t, char* key, uintptr_t value, struct value_config* config);
 
 /**
  * Check if a key exists in the ART tree
  * @param t The tree
  * @param key The key
- * @param key_len The length of the key
  * @return true if the key exists, false if otherwise
  */
 bool
-pgagroal_art_contains_key(struct art* t, unsigned char* key, uint32_t key_len);
+pgagroal_art_contains_key(struct art* t, char* key);
 
 /**
  * Searches for a value in the ART tree
  * @param t The tree
  * @param key The key
- * @param key_len The length of the key
  * @return NULL if the item was not found, otherwise the value pointer is returned
  */
 uintptr_t
-pgagroal_art_search(struct art* t, unsigned char* key, uint32_t key_len);
+pgagroal_art_search(struct art* t, char* key);
 
 /**
  * Deletes a value from the ART tree
  * @param t The tree
  * @param key The key
- * @param key_len The length of the key
  * @return 0 if success or value not found, 1 if otherwise
  */
 int
-pgagroal_art_delete(struct art* t, unsigned char* key, uint32_t key_len);
+pgagroal_art_delete(struct art* t, char* key);
+
+/**
+ * Remove all the key value pairs in the ART tree
+ * @param t The tree
+ * @return 0 on success, 1 if otherwise
+ */
+int
+pgagroal_art_clear(struct art* t);
 
 /**
  * Get the next key value pair into iterator
@@ -134,6 +137,22 @@ pgagroal_art_delete(struct art* t, unsigned char* key, uint32_t key_len);
  */
 bool
 pgagroal_art_iterator_next(struct art_iterator* iter);
+
+/**
+ * Check if the iterator has next value without advancing it
+ * @param iter The iterator
+ * @return true if iterator has next, otherwise false
+ */
+bool
+pgagroal_art_iterator_has_next(struct art_iterator* iter);
+
+/**
+ * Remove the current key value pair the iterator points to.
+ * The key and value will be set to NULL afterward.
+ * @param iter The iterator
+ */
+void
+pgagroal_art_iterator_remove(struct art_iterator* iter);
 
 /**
  * Create an art iterator

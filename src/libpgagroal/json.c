@@ -29,10 +29,11 @@
 /* pgagroal */
 #include <pgagroal.h>
 #include <art.h>
-#include <logging.h>
 #include <json.h>
+#include <logging.h>
 #include <message.h>
 #include <utils.h>
+
 /* System */
 #include <ctype.h>
 #include <errno.h>
@@ -77,9 +78,64 @@ pgagroal_json_put(struct json* item, char* key, uintptr_t val, enum value_type t
    {
       goto error;
    }
-   return pgagroal_art_insert((struct art*)item->elements, (unsigned char*)key, strlen(key) + 1, val, type);
+   return pgagroal_art_insert((struct art*)item->elements, key, val, type);
 error:
    return 1;
+}
+
+int
+pgagroal_json_remove(struct json* item, char* key)
+{
+   struct art* tree = NULL;
+   if (item == NULL || key == NULL || strlen(key) == 0 || item->type != JSONItem)
+   {
+      goto error;
+   }
+
+   tree = (struct art*)item->elements;
+   if (tree->size == 0)
+   {
+      // no need to delete from an empty map
+      return 0;
+   }
+   if (pgagroal_art_delete(tree, key))
+   {
+      goto error;
+   }
+
+   if (tree->size == 0)
+   {
+      // reset json object status, so that it may become an array in the future
+      item->type = JSONUnknown;
+      pgagroal_art_destroy(tree);
+      item->elements = NULL;
+   }
+
+   return 0;
+
+error:
+   return 1;
+}
+
+int
+pgagroal_json_clear(struct json* obj)
+{
+   if (obj == NULL || obj->elements == NULL)
+   {
+      return 0;
+   }
+   switch (obj->type)
+   {
+      case JSONArray:
+         pgagroal_deque_clear((struct deque*)obj->elements);
+         break;
+      case JSONItem:
+         pgagroal_art_clear((struct art*)obj->elements);
+         break;
+      case JSONUnknown:
+         return 1;
+   }
+   return 0;
 }
 
 int
@@ -158,7 +214,7 @@ pgagroal_json_get(struct json* item, char* tag)
    {
       return 0;
    }
-   return pgagroal_art_search(item->elements, (unsigned char*)tag, strlen(tag) + 1);
+   return pgagroal_art_search(item->elements, tag);
 }
 
 bool
@@ -168,7 +224,7 @@ pgagroal_json_contains_key(struct json* item, char* key)
    {
       return false;
    }
-   return pgagroal_art_contains_key(item->elements, (unsigned char*)key, strlen(key) + 1);
+   return pgagroal_art_contains_key(item->elements, key);
 }
 
 int
@@ -234,8 +290,27 @@ pgagroal_json_iterator_next(struct json_iterator* iter)
       if (has_next)
       {
          iter->value = ((struct art_iterator*)iter->iter)->value;
-         iter->key = (char*)((struct art_iterator*)iter->iter)->key;
+         iter->key = ((struct art_iterator*)iter->iter)->key;
       }
+   }
+   return has_next;
+}
+
+bool
+pgagroal_json_iterator_has_next(struct json_iterator* iter)
+{
+   bool has_next = false;
+   if (iter == NULL || iter->iter == NULL)
+   {
+      return false;
+   }
+   if (iter->obj->type == JSONArray)
+   {
+      has_next = pgagroal_deque_iterator_has_next((struct deque_iterator*)iter->iter);
+   }
+   else
+   {
+      has_next = pgagroal_art_iterator_has_next((struct art_iterator*)iter->iter);
    }
    return has_next;
 }
@@ -610,6 +685,107 @@ handle_escape_char(char* str, uint64_t* index, uint64_t len, char* ch)
    }
    *index = idx + 1;
    return 0;
+}
+
+int
+pgagroal_json_read_file(char* path, struct json** obj)
+{
+   FILE* file = NULL;
+   char buf[DEFAULT_BUFFER_SIZE];
+   char* str = NULL;
+   struct json* j = NULL;
+
+   *obj = NULL;
+
+   if (path == NULL)
+   {
+      goto error;
+   }
+
+   file = fopen(path, "r");
+
+   if (file == NULL)
+   {
+      pgagroal_log_error("Failed to open json file %s", path);
+      goto error;
+   }
+
+   memset(buf, 0, sizeof(buf));
+
+   // save the last one for ending so that we get to use append
+   while (fread(buf, 1, DEFAULT_BUFFER_SIZE - 1, file) > 0)
+   {
+      str = pgagroal_append(str, buf);
+      memset(buf, 0, sizeof(buf));
+   }
+
+   if (pgagroal_json_parse_string(str, &j))
+   {
+      pgagroal_log_error("Failed to parse json file %s", path);
+      goto error;
+   }
+
+   *obj = j;
+
+   fclose(file);
+   free(str);
+   return 0;
+
+error:
+
+   pgagroal_json_destroy(j);
+
+   if (file != NULL)
+   {
+      fclose(file);
+   }
+
+   free(str);
+
+   return 1;
+}
+
+int
+pgagroal_json_write_file(char* path, struct json* obj)
+{
+   FILE* file = NULL;
+   char* str = NULL;
+
+   if (path == NULL || obj == NULL)
+   {
+      goto error;
+   }
+
+   file = fopen(path, "wb");
+   if (file == NULL)
+   {
+      pgagroal_log_error("Failed to create json file %s", path);
+      goto error;
+   }
+
+   str = pgagroal_json_to_string(obj, FORMAT_JSON, NULL, 0);
+   if (str == NULL)
+   {
+      goto error;
+   }
+
+   if (fputs(str, file) == EOF)
+   {
+      pgagroal_log_error("Failed to write json file %s", path);
+      goto error;
+   }
+
+   free(str);
+   fclose(file);
+   return 0;
+
+error:
+   free(str);
+   if (file != NULL)
+   {
+      fclose(file);
+   }
+   return 1;
 }
 
 static bool
