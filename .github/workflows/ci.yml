@@ -40,6 +40,7 @@ jobs:
             doxygen \
             clang \
             net-tools \
+            gcovr \
             pandoc texlive texlive-latex-extra texlive-fonts-extra texlive-xetex \
             texlive-luatex texlive-science texlive-extra-utils
 
@@ -63,61 +64,6 @@ jobs:
         run: |
           echo "PATH=$PATH:/usr/lib/postgresql/17/bin" >> $GITHUB_ENV
           echo $PATH
-
-      # - name: Start PostgreSQL
-      #   run: |
-      #     sudo systemctl start postgresql || exit 1
-      #     pg_isready -h 127.0.0.1 | grep '5432' || (echo "Nothing is listening on 127.0.0.1:5432" && exit 1)
-      #     pg_isready -h ::1 | grep '5432' || (echo "Nothing is listening on ::1:5432" && exit 1)
-      #     sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
-      #     PGPASSWORD="postgres" pgbench -i -s 1 -h localhost -p 5432 -U postgres -d postgres
-
-      # - name: Define verify functions
-      #   run: |
-      #     echo 'verify_running() {
-      #       echo "Confirming pgagroal is listening on port 2345"
-      #       netstat -tuln | grep "127.0.0.1:2345" || (echo "Nothing is listening on 127.0.0.1:2345" && exit 1)
-      #       netstat -tuln | grep "::1:2345" || (echo "Nothing is listening on ::1:2345" && exit 1)
-      #       echo "[*] Running pgagroal-cli ping"
-      #       ./pgagroal-cli ping
-      #       echo "[*] Running queries with psql"
-      #       PGPASSWORD="postgres" psql -h 127.0.0.1 -p 2345 -U postgres -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
-      #       PGPASSWORD="postgres" psql -h ::1 -p 2345 -U postgres -d postgres -c "SELECT * FROM pgbench_accounts LIMIT 50;" > /dev/null
-      #     }
-
-      #     verify_shutdown() {
-      #       echo "[*] Running pgagroal-cli shutdown immediate"
-      #       ./pgagroal-cli shutdown immediate
-      #       sleep 5
-      #       echo "[*] Confirming there are no dangling pgagroal processes"
-      #       pgrep pgagroal > /dev/null && echo "[E] Dangling pgagroal child processes: $(wc -l < <(pgrep pgagroal))" && exit 1
-      #       echo "rm -f /tmp/pgagroal.2345.pid"
-      #       rm -f /tmp/pgagroal.2345.pid
-      #     }' > /tmp/functions.sh
-
-      # - name: Setup pgagroal
-      #   run: |
-      #       sudo mkdir -p /etc/pgagroal
-      #       sudo cp ./doc/etc/*.conf /etc/pgagroal
-      #       sudo bash -c 'tee /etc/pgagroal/pgagroal.conf > /dev/null <<EOF
-      #       [pgagroal]
-      #       host = *
-      #       port = 2345
-
-      #       log_type = file
-      #       log_level = debug5
-      #       log_path = /tmp/pgagroal.log
-
-      #       max_connections = 100
-      #       idle_timeout = 600
-      #       validation = off
-      #       unix_socket_dir = /tmp/
-
-      #       [primary]
-      #       host = localhost
-      #       port = 5432
-      #       EOF'
-      #   working-directory: /home/runner/work/pgagroal/pgagroal/
 
       - name: Build Project
         run: |
@@ -145,27 +91,62 @@ jobs:
               export ASAN_OPTIONS=detect_leaks=0,verify_asan_link_order=0
             fi
           fi
-          $(which bash) ./testsuite.sh run-configs
+          $(which bash) ./testsuite.sh
         working-directory: /home/runner/work/pgagroal/pgagroal/build
 
-      # - name: Run pgagroal & verify (GCC/Debug or Clang/Debug & Release)
-      #   run: |
-      #     cd build/src
-      #     ./pgagroal -d
-      #     source /tmp/functions.sh
-      #     verify_running
-      #     verify_shutdown
-      #   working-directory: /home/runner/work/pgagroal/pgagroal/
+      - name: Run config tests
+        run: $(which bash) ./testsuite.sh run-configs
+        working-directory: /home/runner/work/pgagroal/pgagroal/build
+
+# === Generate coverage reports ===
+      - name: Generate Detailed HTML Coverage Report
+        if: matrix.compiler == 'gcc' && matrix.build_type == 'Debug'
+        uses: threeal/gcovr-action@v1.1.0
+        with:
+          root: /home/runner/work/pgagroal/pgagroal
+          html-details: true
+          html-out: coverage.html
+  
+
+      - name: Generate Cobertura Report
+        if: matrix.compiler == 'gcc' && matrix.build_type == 'Debug'
+        uses: threeal/gcovr-action@v1.1.0
+        with:
+          xml-out: cobertura.xml
+
+      - name: Generate Coveralls JSON Report and Upload
+        if: matrix.compiler == 'gcc' && matrix.build_type == 'Debug'
+        uses: threeal/gcovr-action@v1.1.0
+        with:
+          root: /home/runner/work/pgagroal/pgagroal
+          coveralls-out: coveralls.json
+
+      - name: Bundle All Coverage Reports
+        if: matrix.compiler == 'gcc' && matrix.build_type == 'Debug'
+        run: |
+          mkdir -p coverage-report
+          mv *.html coverage-report/
+          mv cobertura.xml coverage-report/
+          mv coveralls.json coverage-report/
+
+
+      - name: Upload All Coverage Reports as Artifact
+        if: matrix.compiler == 'gcc' && matrix.build_type == 'Debug'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports-${{ matrix.compiler }}-${{ matrix.build_type }}
+          path: coverage-report
+          retention-days: 90
 
       - name: Upload Build and Run Logs as Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: logs-${{ matrix.compiler }}-${{ matrix.build_type }}
-          path:  /tmp/pgagroal.log
+          path: /home/runner/work/pgagroal/pgagroal/build/log
           retention-days: 90
 
-      - name: Testsuite Clean
+      - name: Clean Testsuite
         run: $(which bash) ./testsuite.sh clean
         working-directory: /home/runner/work/pgagroal/pgagroal/build
 
@@ -174,8 +155,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: generated-docs
-          path: build/doc/
+          path: /home/runner/work/pgagroal/pgagroal/build/doc
           retention-days: 90
+
+
+
 
   build-macos:
     runs-on: macos-latest
@@ -185,7 +169,7 @@ jobs:
       POSTGRESQL_VERSION: "@17"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Cache Homebrew packages
         uses: actions/cache@v3
@@ -203,7 +187,7 @@ jobs:
       - name: Add PostgreSQL to Path
         run: |
           echo "$(brew --prefix postgresql${POSTGRESQL_VERSION})/bin" >> $GITHUB_PATH
-
+     
       # - name: Start PostgreSQL
       #   run: |
       #     brew services start postgresql@17
@@ -271,10 +255,12 @@ jobs:
       #     brew services stop postgresql@14
       #   if: always()
 
+
   build-freebsd:
     runs-on: ubuntu-latest
     name: FreeBSD Build and Test
-    strategy:
+    timeout-minutes: 30
+    strategy:  
       matrix:
         compiler: [clang]
         build_type: [Debug, Release]
@@ -292,7 +278,6 @@ jobs:
             libvirt-clients \
             bridge-utils
           sudo systemctl start libvirtd
-
       - name: Setup FreeBSD VM
         uses: vmactions/freebsd-vm@v1
         id: freebsd-vm
@@ -300,15 +285,14 @@ jobs:
           release: "14.2"
           usesh: true
           envs: "PATH,GITHUB_ENV,GITHUB_WORKSPACE,GITHUB_OUTPUT"
-          mem: 6144
+          mem: 4096
           sync: rsync
           copyback: true
-          prepare: |
+          run: |
             # System bootstrap
             ASSUME_ALWAYS_YES=yes pkg bootstrap
             pkg update
             pkg upgrade -y
-
             # Base dependencies
             pkg install -y \
               bash \
@@ -331,7 +315,6 @@ jobs:
               texlive-base \
               texlive-texmf \
               graphviz
-
       - name: Build Project
         shell: freebsd {0}
         run: |
@@ -339,19 +322,16 @@ jobs:
           cd $GITHUB_WORKSPACE/build
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} "$GITHUB_WORKSPACE"
           make -j$(sysctl -n hw.ncpu)
-
       - name: Debug Testsuite Path
         shell: freebsd {0}
         run: |
           cd "${GITHUB_WORKSPACE}/build"
           bash ./testsuite.sh
-
       - name: Clean Testsuite
         shell: freebsd {0}
         run: |
           cd ${GITHUB_WORKSPACE}/build
           bash ./testsuite.sh clean
-
       - name: Upload Build Artifacts
         if: always()
         uses: actions/upload-artifact@v4

@@ -105,6 +105,17 @@ if (check)
   )
 endif()
 
+if(container)
+
+add_test(NAME container_test
+           COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/coverage.sh
+           WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+
+set_property(TEST container_test
+             PROPERTY FAIL_REGULAR_EXPRESSION "Failures: [1-9][0-9]*")
+
+endif()
+
 file(
     COPY
     "${CMAKE_SOURCE_DIR}/test/testsuite.sh"
@@ -115,4 +126,14 @@ file(
     COPY
     "${CMAKE_SOURCE_DIR}/test/conf"
     DESTINATION "${CMAKE_BINARY_DIR}/"
+)
+configure_file(
+  "${CMAKE_SOURCE_DIR}/test/coverage.sh"
+  "${CMAKE_BINARY_DIR}/coverage.sh"
+  COPYONLY
+)
+configure_file(
+  "${CMAKE_SOURCE_DIR}/test/Dockerfile.testsuite"
+  "${CMAKE_BINARY_DIR}/Dockerfile.testsuite"
+  COPYONLY
 )

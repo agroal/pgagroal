@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.14.0)
 
+option(ENABLE_COVERAGE "Enable code coverage" OFF)
+
 set(VERSION_MAJOR "2")
 set(VERSION_MINOR "0")
 set(VERSION_PATCH "0")
@@ -37,6 +39,7 @@ message(STATUS "pgagroal ${VERSION_STRING}")
 
 set(generation TRUE)
 set(check TRUE)
+set(container FALSE)
 
 include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
@@ -74,6 +77,16 @@ else ()
   message(STATUS "check needed. The testsuite process will be skipped.")
   set(check FALSE)
 endif()
+
+find_program(DOCKER_EXECUTABLE docker)
+find_program(PODMAN_EXECUTABLE podman)
+if (DOCKER_EXECUTABLE OR PODMAN_EXECUTABLE)
+  set(container TRUE)
+  message(STATUS "Docker or podman found")
+else ()
+  message(STATUS "Docker or podman needed. The test suite will be skipped.")
+endif()
+
 
 find_package(ZLIB)
 if (ZLIB_FOUND)
