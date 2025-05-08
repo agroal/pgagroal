@@ -162,10 +162,10 @@ dnf install pandoc texlive-scheme-basic \
 You will need the `Eisvogel` template as well which you can install through
 
 ```
-wget https://github.com/Wandmalfarbe/pandoc-latex-template/releases/download/v3.1.0/Eisvogel-3.1.0.tar.gz
-tar -xzf Eisvogel-3.1.0.tar.gz
+wget https://github.com/Wandmalfarbe/pandoc-latex-template/releases/download/v3.2.0/Eisvogel-3.2.0.tar.gz
+tar -xzf Eisvogel-3.2.0.tar.gz
 mkdir -p ~/.local/share/pandoc/templates
-mv Eisvogel-3.1.0/eisvogel.latex ~/.local/share/pandoc/templates/
+mv Eisvogel-3.2.0/eisvogel.latex ~/.local/share/pandoc/templates/
 ```
 
 where `$HOME` is your home directory.
