@@ -566,6 +566,10 @@ pgagroal_kill_connection(int slot, SSL* ssl)
 
       if (!pgagroal_socket_has_error(fd))
       {
+         if (pgagroal_socket_isvalid(config->connections[slot].fd))
+         {
+            pgagroal_write_terminate(NULL, config->connections[slot].fd);
+         }
          pgagroal_disconnect(fd);
       }
    }

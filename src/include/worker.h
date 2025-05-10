@@ -51,7 +51,7 @@ extern "C" {
  */
 struct worker_io
 {
-   struct ev_io io;      /**< The libev base type */
+   struct io_watcher io; /**< The I/O watcher */
    int client_fd;        /**< The client descriptor */
    int server_fd;        /**< The server descriptor */
    int slot;             /**< The slot */
