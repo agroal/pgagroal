@@ -74,6 +74,7 @@ after having installed all the required dependencies:
 * [zstd](http://www.zstd.net)
 * [lz4](https://lz4.github.io/lz4/)
 * [bzip2](http://sourceware.org/bzip2/)
+* [binutils](https://www.gnu.org/software/binutils/)
 
 
 See the [documentation about installing the required dependencies](doc/DISTRIBUTIONS.md).

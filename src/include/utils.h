@@ -36,8 +36,6 @@ extern "C" {
 #include <pgagroal.h>
 #include <message.h>
 
-#include <stdlib.h>
-
 /** @struct signal_info
  * Defines the signal structure
  */
@@ -564,16 +562,12 @@ pgagroal_escape_string(char* str);
 int
 pgagroal_resolve_path(char* orig_path, char** new_path);
 
-#ifdef DEBUG
-
 /**
  * Generate a backtrace in the log
  * @return 0 if success, otherwise 1
  */
 int
 pgagroal_backtrace(void);
-
-#endif
 
 /**
  * Utility function to parse the command line

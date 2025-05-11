@@ -191,6 +191,11 @@ if (HAS_PIC)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 endif()
 
+check_include_file(execinfo.h HAVE_EXECINFO_H)
+if (HAVE_EXECINFO_H)
+  add_compile_options(-DHAVE_EXECINFO_H)
+endif()
+
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   include(CheckPIESupported)
   check_pie_supported()

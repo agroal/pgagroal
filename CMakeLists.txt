@@ -43,6 +43,7 @@ set(container FALSE)
 
 include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
+include(CheckIncludeFile)
 include(CheckLinkerFlag)
 include(FindPackageHandleStandardArgs)
 include(GNUInstallDirs)
