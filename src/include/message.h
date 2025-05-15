@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #include <pgagroal.h>
+#include <ev.h>
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -384,6 +385,24 @@ pgagroal_connection_isvalid(int socket);
  */
 void
 pgagroal_log_message(struct message* msg);
+
+/**
+ * Read a message from a buffer (io_uring backend)
+ * @param watcher The io_wacher used to recv
+ * @param msg The message received
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
+ */
+int
+pgagroal_recv_message(struct io_watcher* watcher, struct message** msg);
+
+/**
+ * Write a message to a buffer (io_uring backend)
+ * @param watcher The io_wacher used to send
+ * @param msg The message to send
+ * @return One of MESSAGE_STATUS_ZERO, MESSAGE_STATUS_OK or MESSAGE_STATUS_ERROR
+ */
+int
+pgagroal_send_message(struct io_watcher* watcher, struct message* msg);
 
 /**
  * Read a message using a socket

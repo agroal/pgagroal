@@ -45,6 +45,7 @@ include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
 include(CheckIncludeFile)
 include(CheckLinkerFlag)
+include(CheckFunctionExists)
 include(FindPackageHandleStandardArgs)
 include(GNUInstallDirs)
 
@@ -59,7 +60,7 @@ set(SUPPORTED_COMPILERS "GNU" "Clang" "AppleClang")
 
 # Check for a supported compiler
 if (NOT CMAKE_C_COMPILER_ID IN_LIST SUPPORTED_COMPILERS)
-   message(FATAL_ERROR "Unsupported compiler ${CMAKE_C_COMPILER_ID}. Supported compilers are: ${SUPPORTED_COMPILERS}")
+  message(FATAL_ERROR "Unsupported compiler ${CMAKE_C_COMPILER_ID}. Supported compilers are: ${SUPPORTED_COMPILERS}")
 endif ()
 
 CHECK_C_COMPILER_FLAG("-std=c17" COMPILER_SUPPORTS_C17)
@@ -117,13 +118,6 @@ else ()
   message(FATAL_ERROR "lz4 needed")
 endif()
 
-find_package(Libev 4.11)
-if (LIBEV_FOUND)
-  message(STATUS "libev found")
-else ()
-  message(FATAL_ERROR "libev needed")
-endif()
-
 find_package(OpenSSL)
 if (OPENSSL_FOUND)
   message(STATUS "OpenSSL found")
@@ -176,12 +170,21 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     message(FATAL_ERROR "libatomic needed")
   endif()
 
+  find_package(Liburing 2.5)
+  if (LIBURING_FOUND)
+    message(STATUS "liburing found")
+  else()
+    message(FATAL_ERROR "liburing needed")
+  endif()
+
   find_package(Systemd)
   if (SYSTEMD_FOUND)
     message(STATUS "systemd found")
   else ()
   message(STATUS "systemd not found; building without systemd support")
   endif()
+
+  check_function_exists(epoll_pwait2 HAVE_EPOLL_PWAIT2)
 endif()
 
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/src/")

@@ -115,6 +115,10 @@ static int to_log_type(char* where, int value);
 static void add_configuration_response(struct json* res);
 static void add_servers_configuration_response(struct json* res);
 
+static bool is_supported_backend(ev_backend_t backend);
+static char* to_backend_str(ev_backend_t value);
+static ev_backend_t to_backend_type(char* str);
+
 /**
  *
  */
@@ -158,6 +162,8 @@ pgagroal_init_configuration(void* shm)
    config->common.hugepage = HUGEPAGE_TRY;
    config->tracker = false;
    config->track_prepared_statements = false;
+
+   config->ev_backend = PGAGROAL_EVENT_BACKEND_AUTO;
 
    config->common.log_type = PGAGROAL_LOGGING_TYPE_CONSOLE;
    config->common.log_level = PGAGROAL_LOGGING_LEVEL_INFO;
@@ -396,6 +402,10 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
    bool tls;
    struct stat st;
    struct main_configuration* config;
+#if HAVE_LINUX
+   int fd;
+   char rval;
+#endif /* HAVE_LINUX */
 
    tls = false;
 
@@ -726,6 +736,62 @@ pgagroal_validate_configuration(void* shm, bool has_unix_socket, bool has_main_s
          return 1;
       }
    }
+
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_INVALID)
+   {
+      pgagroal_log_warn("Configured event backend is invalid. Default to 'auto'");
+      config->ev_backend = PGAGROAL_EVENT_BACKEND_AUTO;
+   }
+
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_EMPTY)
+   {
+      pgagroal_log_warn("ev_backend configuration is empty. Default to 'auto'");
+      config->ev_backend = PGAGROAL_EVENT_BACKEND_AUTO;
+   }
+
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_AUTO || !is_supported_backend(config->ev_backend))
+   {
+      config->ev_backend = DEFAULT_EVENT_BACKEND;
+   }
+
+#if HAVE_LINUX
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_IO_URING)
+   {
+      /* check if io_uring is enabled or works for supported configuration, else fallback to next backend */
+      fd = open("/proc/sys/kernel/io_uring_disabled", O_RDONLY);
+      if (fd < 0)
+      {
+         pgagroal_log_debug("Failed to open file /proc/sys/kernel/io_uring_disabled: %s", strerror(errno));
+         goto fallback;
+      }
+      if (read(fd, &rval, 1) <= 0)
+      {
+         pgagroal_log_fatal("Failed to read file /proc/sys/kernel/io_uring_disabled");
+         return 1;
+      }
+      if (close(fd) < 0)
+      {
+         pgagroal_log_fatal("Failed to close file descriptor for /proc/sys/kernel/io_uring_disabled: %s", strerror(errno));
+         return 1;
+      }
+
+      /* see doc: https://docs.kernel.org/admin-guide/sysctl/kernel.html#io-uring-disabled */
+      if (config->common.tls || (rval == '1') || (rval == '2'))
+      {
+         if (config->common.tls)
+         {
+            pgagroal_log_warn("io_uring not supported with tls on");
+         }
+         else
+         {
+            pgagroal_log_warn("io_uring supported but not enabled. Enable io_uring by setting /proc/sys/kernel/io_uring_disabled to '0'");
+         }
+fallback:
+         config->ev_backend = PGAGROAL_EVENT_BACKEND_EPOLL;
+      }
+   }
+#endif /* HAVE_LINUX */
+   pgagroal_log_debug("Selected backend '%s'", to_backend_str(config->ev_backend));
 
    // do some last initialization here, since the configuration
    // looks good so far
@@ -2806,15 +2872,17 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
       changed = true;
    }
 
-   /* libev */
-   if (restart_string("libev", config->libev, reload->libev, true))
+   /* event backend */
+   if (restart_int("ev_backend", config->ev_backend, reload->ev_backend))
    {
       changed = true;
    }
+
    config->keep_alive = reload->keep_alive;
    config->nodelay = reload->nodelay;
    config->non_blocking = reload->non_blocking;
    config->backlog = reload->backlog;
+
    /* hugepage */
    if (restart_int("hugepage", config->common.hugepage, reload->common.hugepage))
    {
@@ -2958,6 +3026,36 @@ is_same_tls(struct server* src, struct server* dst)
    {
       return false;
    }
+}
+
+/**
+ * Checks if event backend is supported.
+ * @return true if supported, false otherwise
+ */
+static bool
+is_supported_backend(ev_backend_t backend)
+{
+   int bi, backends;
+   ev_backend_t supported_backends[] = {
+#if HAVE_LINUX
+      PGAGROAL_EVENT_BACKEND_IO_URING,
+      PGAGROAL_EVENT_BACKEND_EPOLL,
+#else
+      PGAGROAL_EVENT_BACKEND_KQUEUE,
+#endif
+   };
+   backends = sizeof(supported_backends) / sizeof(supported_backends[0]);
+
+   for (bi = 0; bi < backends; bi++)
+   {
+      if (backend == supported_backends[bi])
+      {
+         return true;
+      }
+   }
+
+   pgagroal_log_warn("Configured backend '%s' is unsupported", to_backend_str(backend));
+   return false;
 }
 
 static void
@@ -4432,6 +4530,72 @@ to_log_type(char* where, int value)
    return 0;
 }
 
+/**
+ * Convert a string description into ev_backend_t.
+ *
+ * @param str The string representing the event backend
+ * @return The corresponding ev_backend_t value for the given string. If the input
+ * string is not recognized, EV_BACKEND_AUTO is returned
+ */
+static ev_backend_t
+to_backend_type(char* str)
+{
+   if (is_empty_string(str))
+   {
+      return PGAGROAL_EVENT_BACKEND_EMPTY;
+   }
+   if (!strncmp(str, "auto", MISC_LENGTH))
+   {
+      return PGAGROAL_EVENT_BACKEND_AUTO;
+   }
+   if (!strncmp(str, "io_uring", MISC_LENGTH))
+   {
+      return PGAGROAL_EVENT_BACKEND_IO_URING;
+   }
+   if (!strncmp(str, "epoll", MISC_LENGTH))
+   {
+      return PGAGROAL_EVENT_BACKEND_EPOLL;
+   }
+   if (!strncmp(str, "kqueue", MISC_LENGTH))
+   {
+      return PGAGROAL_EVENT_BACKEND_KQUEUE;
+   }
+
+   return PGAGROAL_EVENT_BACKEND_INVALID;
+}
+
+/**
+ * Convert ev_backend_t to its string description.
+ *
+ * @param value The ev_backend_t enum value
+ * @return A string describing the ev_backend_t value. If the value is invalid
+ * or not recognized, the function returns "auto"
+ */
+static char*
+to_backend_str(ev_backend_t value)
+{
+   if (value < 0)
+   {
+      return "auto";
+   }
+
+   switch (value)
+   {
+      case PGAGROAL_EVENT_BACKEND_AUTO:
+         return "auto";
+      case PGAGROAL_EVENT_BACKEND_IO_URING:
+         return "io_uring";
+      case PGAGROAL_EVENT_BACKEND_EPOLL:
+         return "epoll";
+      case PGAGROAL_EVENT_BACKEND_KQUEUE:
+         return "kqueue";
+      default:
+         return "unknown";
+   }
+
+   return "auto";
+}
+
 int
 pgagroal_apply_main_configuration(struct main_configuration* config,
                                   struct server* srv,
@@ -4819,15 +4983,9 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
       }
       memcpy(config->unix_socket_dir, value, max);
    }
-   else if (key_in_section("libev", section, key, true, &unknown))
+   else if (key_in_section("ev_backend", section, key, true, &unknown))
    {
-
-      max = strlen(value);
-      if (max > MISC_LENGTH - 1)
-      {
-         max = MISC_LENGTH - 1;
-      }
-      memcpy(config->libev, value, max);
+      config->ev_backend = to_backend_type(value);
    }
    else if (key_in_section("keep_alive", section, key, true, &unknown))
    {
@@ -5525,7 +5683,7 @@ add_configuration_response(struct json* res)
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_METRICS_CERT_FILE, (uintptr_t)config->common.metrics_cert_file, ValueString);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_METRICS_KEY_FILE, (uintptr_t)config->common.metrics_key_file, ValueString);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_METRICS_CA_FILE, (uintptr_t)config->common.metrics_ca_file, ValueString);
-   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_LIBEV, (uintptr_t)config->libev, ValueString);
+   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_EV_BACKEND, (uintptr_t)to_backend_str(config->ev_backend), ValueString);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_KEEP_ALIVE, (uintptr_t)config->keep_alive, ValueBool);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_NODELAY, (uintptr_t)config->nodelay, ValueBool);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_NON_BLOCKING, (uintptr_t)config->non_blocking, ValueBool);
@@ -6203,16 +6361,10 @@ pgagroal_conf_set(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compr
          config->failover_script[max] = '\0';
          pgagroal_json_put(response, key, (uintptr_t)config->failover_script, ValueString);
       }
-      else if (!strcmp(key, "libev"))
+      else if (!strcmp(key, "ev_backend"))
       {
-         max = strlen(config_value);
-         if (max > MISC_LENGTH - 1)
-         {
-            max = MISC_LENGTH - 1;
-         }
-         memcpy(config->libev, config_value, max);
-         config->libev[max] = '\0';
-         pgagroal_json_put(response, key, (uintptr_t)config->libev, ValueString);
+         config->ev_backend = to_backend_type(config_value);
+         pgagroal_json_put(response, key, (uintptr_t)to_backend_str(config->ev_backend), ValueString);
       }
       else if (!strcmp(key, "update_process_title"))
       {
@@ -6240,8 +6392,7 @@ pgagroal_conf_set(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compr
    if (pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload))
    {
       pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_NETWORK, compression, encryption, payload);
-      pgagroal_log_error("Conf Set: Error sending response");
-      goto error;
+      pgagroal_log_error("Conf Set: Error sending response"); goto error;
    }
 
    elapsed = pgagroal_get_timestamp_string(start_time, end_time, &total_seconds);
