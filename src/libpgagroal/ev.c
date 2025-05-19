@@ -788,12 +788,12 @@ ev_io_uring_handler(struct io_uring_cqe* cqe)
    {
       case PGAGROAL_EVENT_TYPE_PERIODIC:
          per = (struct periodic_watcher*)watcher;
-         per->cb(loop, per, PGAGROAL_EVENT_RC_OK);
+         per->cb();
          break;
       case PGAGROAL_EVENT_TYPE_MAIN:
          io = (struct io_watcher*)watcher;
          io->fds.main.client_fd = cqe->res;
-         io->cb(loop, io, PGAGROAL_EVENT_RC_OK);
+         io->cb(io);
          break;
       case PGAGROAL_EVENT_TYPE_WORKER:
          io = (struct io_watcher*)watcher;
@@ -808,7 +808,7 @@ ev_io_uring_handler(struct io_uring_cqe* cqe)
             msg->length = cqe->res;
             rc = PGAGROAL_EVENT_RC_OK;
          }
-         io->cb(loop, io, rc);
+         io->cb(io);
 
          /* The loop can break in the callback, check if
           * the event loop is still running before rearming */
@@ -1031,7 +1031,7 @@ ev_epoll_periodic_handler(struct periodic_watcher* watcher)
       pgagroal_log_error("periodic_handler: read");
       return PGAGROAL_EVENT_RC_ERROR;
    }
-   watcher->cb(loop, watcher, 0);
+   watcher->cb();
    return PGAGROAL_EVENT_RC_OK;
 }
 
@@ -1108,9 +1108,8 @@ ev_epoll_io_stop(struct io_watcher* watcher)
 static int
 ev_epoll_io_handler(struct io_watcher* watcher)
 {
+   int client_fd = -1;
    enum event_type type = watcher->event_watcher.type;
-   int client_fd;
-   int rc = PGAGROAL_EVENT_RC_OK;
    switch (type)
    {
       case PGAGROAL_EVENT_TYPE_MAIN:
@@ -1120,25 +1119,25 @@ ev_epoll_io_handler(struct io_watcher* watcher)
             if (errno != EAGAIN && errno != EWOULDBLOCK)
             {
                pgagroal_log_error("accept error: %s", strerror(errno));
-               rc = PGAGROAL_EVENT_RC_ERROR;
+               return PGAGROAL_EVENT_RC_ERROR;
             }
          }
          else
          {
             pgagroal_socket_nonblocking(client_fd, true);
             watcher->fds.main.client_fd = client_fd;
-            watcher->cb(loop, watcher, rc);
+            watcher->cb(watcher);
          }
          break;
       case PGAGROAL_EVENT_TYPE_WORKER:
-         watcher->cb(loop, watcher, rc);
+         watcher->cb(watcher);
          break;
       default:
          /* shouldn't happen, do not recover */
          pgagroal_log_fatal("BUG: Unknown event type: %d", type);
          return PGAGROAL_EVENT_RC_FATAL;
    }
-   return rc;
+   return PGAGROAL_EVENT_RC_OK;
 }
 
 #else
@@ -1472,9 +1471,8 @@ pgagroal_signal_stop(struct signal_watcher* target)
 }
 
 static void
-signal_handler(int signum, siginfo_t* si __attribute__((unused)), void* p __attribute__((unused)))
+signal_handler(int signum, siginfo_t *si __attribute__((unused)), void *p __attribute__((unused)))
 {
-   int rc = PGAGROAL_EVENT_RC_OK;
-   struct signal_watcher* watcher = signal_watchers[signum];
-   watcher->cb(loop, watcher, rc);
+   struct signal_watcher *watcher = signal_watchers[signum];
+   watcher->cb();
 }

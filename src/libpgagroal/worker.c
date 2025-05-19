@@ -51,7 +51,7 @@
 
 volatile int exit_code = WORKER_FAILURE;
 
-static void signal_callback(struct event_loop* loop, struct signal_watcher* w, int revents);
+static void signal_callback(void);
 
 void
 pgagroal_worker(int client_fd, char* address, char** argv)
@@ -312,15 +312,8 @@ pgagroal_worker(int client_fd, char* address, char** argv)
 }
 
 static void
-signal_callback(struct event_loop* loop __attribute__((unused)), struct signal_watcher* w, int revents __attribute__((unused)))
+signal_callback(void)
 {
-   struct signal_info* si;
-
-   si = (struct signal_info*)w;
-
-   pgagroal_log_debug("pgagroal: signal %d for slot %d", si->sig_w.signum, si->slot);
-
    exit_code = WORKER_SHUTDOWN;
-
    pgagroal_event_loop_break();
 }

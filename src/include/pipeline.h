@@ -45,7 +45,7 @@ extern "C" {
 
 typedef int (* initialize)(void*, void**, size_t*);
 typedef void (* start)(struct event_loop*, struct worker_io*);
-typedef void (* callback)(struct event_loop*, struct io_watcher*, int);
+typedef void (* callback)(struct io_watcher*);
 typedef void (* stop)(struct event_loop*, struct worker_io*);
 typedef void (* destroy)(void*, size_t);
 typedef void (* periodic)(void);

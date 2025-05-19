@@ -67,9 +67,9 @@
 
 #define MAX_FDS 64
 
-static void accept_vault_cb(struct event_loop* loop, struct io_watcher* watcher, int revents);
-static void accept_metrics_cb(struct event_loop* loop, struct io_watcher* watcher, int revents);
-static void shutdown_cb(struct event_loop* loop, struct signal_watcher* w, int revents);
+static void accept_vault_cb(struct io_watcher* watcher);
+static void accept_metrics_cb(struct io_watcher* watcher);
+static void shutdown_cb(void);
 static bool accept_fatal(int error);
 static int connect_pgagroal(struct vault_configuration* config, char* username, char* password, SSL** s_ssl, int* client_socket);
 static void route_users(char* username, char** response, SSL* s_ssl, int client_fd);
@@ -656,7 +656,7 @@ read_users_path:
 }
 
 static void
-shutdown_cb(struct event_loop* loop __attribute__((unused)), struct signal_watcher* w __attribute__((unused)), int revents __attribute__((unused)))
+shutdown_cb(void)
 {
    pgagroal_log_debug("pgagroal-vault: Shutdown requested");
    pgagroal_event_loop_break();
@@ -664,7 +664,7 @@ shutdown_cb(struct event_loop* loop __attribute__((unused)), struct signal_watch
 }
 
 static void
-accept_vault_cb(struct event_loop* loop __attribute__((unused)), struct io_watcher* watcher, int revents)
+accept_vault_cb(struct io_watcher* watcher)
 {
    struct sockaddr_in6 client_addr;
 
@@ -674,13 +674,6 @@ accept_vault_cb(struct event_loop* loop __attribute__((unused)), struct io_watch
    SSL* c_ssl = NULL;
    SSL* s_ssl = NULL;
    struct vault_configuration* config;
-
-   if (PGAGROAL_EVENT_RC_ERROR & revents)
-   {
-      pgagroal_log_debug("accept_vault_cb: Invalid event: %s", strerror(errno));
-      errno = 0;
-      return;
-   }
 
    config = (struct vault_configuration*)shmem;
 
@@ -761,7 +754,7 @@ accept_vault_cb(struct event_loop* loop __attribute__((unused)), struct io_watch
 }
 
 static void
-accept_metrics_cb(struct event_loop* loop __attribute__((unused)), struct io_watcher* watcher, int revents)
+accept_metrics_cb(struct io_watcher* watcher)
 {
    struct sockaddr_in6 client_addr;
    socklen_t client_addr_length;
@@ -769,13 +762,6 @@ accept_metrics_cb(struct event_loop* loop __attribute__((unused)), struct io_wat
    struct vault_configuration* config;
    SSL_CTX* ctx = NULL;
    SSL* client_ssl = NULL;
-
-   if (PGAGROAL_EVENT_RC_ERROR & revents)
-   {
-      pgagroal_log_debug("accept_metrics_cb: invalid event: %s", strerror(errno));
-      errno = 0;
-      return;
-   }
 
    config = (struct vault_configuration*)shmem;
 

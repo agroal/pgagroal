@@ -46,8 +46,8 @@
 
 static int  performance_initialize(void*, void**, size_t*);
 static void performance_start(struct event_loop* loop, struct worker_io*);
-static void performance_client(struct event_loop* loop, struct io_watcher* watcher, int revents);
-static void performance_server(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void performance_client(struct io_watcher* watcher);
+static void performance_server(struct io_watcher* watcher);
 static void performance_stop(struct event_loop* loop, struct worker_io*);
 static void performance_destroy(void*, size_t);
 static void performance_periodic(void);
@@ -110,7 +110,7 @@ performance_periodic(void)
 }
 
 static void
-performance_client(struct event_loop* loop __attribute__((unused)), struct io_watcher* watcher, int revents __attribute__((unused)))
+performance_client(struct io_watcher* watcher)
 {
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
@@ -192,7 +192,7 @@ server_error:
 }
 
 static void
-performance_server(struct event_loop* loop __attribute__((unused)), struct io_watcher* watcher, int revents __attribute__((unused)))
+performance_server(struct io_watcher* watcher)
 {
    int status = MESSAGE_STATUS_ERROR;
    bool fatal = false;

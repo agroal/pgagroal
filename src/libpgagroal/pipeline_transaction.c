@@ -52,15 +52,15 @@
 
 static int  transaction_initialize(void*, void**, size_t*);
 static void transaction_start(struct event_loop* loop, struct worker_io*);
-static void transaction_client(struct event_loop* loop, struct io_watcher* watcher, int revents);
-static void transaction_server(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void transaction_client(struct io_watcher* watcher);
+static void transaction_server(struct io_watcher* watcher);
 static void transaction_stop(struct event_loop* loop, struct worker_io*);
 static void transaction_destroy(void*, size_t);
 static void transaction_periodic(void);
 
 static void start_mgt(struct event_loop* loop);
 static void shutdown_mgt(struct event_loop* loop);
-static void accept_cb(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void accept_cb(struct io_watcher* watcher);
 
 static int slot;
 static char username[MAX_USERNAME_LENGTH];
@@ -192,7 +192,7 @@ transaction_periodic(void)
 }
 
 static void
-transaction_client(struct event_loop* loop __attribute__((unused)), struct io_watcher* watcher, int revents __attribute__((unused)))
+transaction_client(struct io_watcher* watcher)
 {
    int status = MESSAGE_STATUS_ERROR;
    SSL* s_ssl = NULL;
@@ -219,7 +219,8 @@ transaction_client(struct event_loop* loop __attribute__((unused)), struct io_wa
 
       memcpy(&config->connections[slot].appname[0], &appname[0], MAX_APPLICATION_NAME);
 
-      pgagroal_event_worker_init(&server_io.io, config->connections[slot].fd, wi->client_fd, transaction_server);
+      pgagroal_event_worker_init(&server_io.io, config->connections[slot].fd,
+                                 wi->client_fd, transaction_server);
       server_io.client_fd = wi->client_fd;
       server_io.server_fd = config->connections[slot].fd;
       server_io.slot = slot;
@@ -380,7 +381,7 @@ get_error:
 }
 
 static void
-transaction_server(struct event_loop* loop __attribute__((unused)), struct io_watcher* watcher, int revents __attribute__((unused)))
+transaction_server(struct io_watcher* watcher)
 {
    int status = MESSAGE_STATUS_ERROR;
    bool has_z = false;
@@ -577,7 +578,7 @@ shutdown_mgt(struct event_loop* loop __attribute__((unused)))
 }
 
 static void
-accept_cb(struct event_loop* loop __attribute__((unused)), struct io_watcher* watcher, int revents __attribute__((unused)))
+accept_cb(struct io_watcher* watcher)
 {
    int client_fd = -1;
    int id = -1;

@@ -52,8 +52,8 @@
 
 static int  session_initialize(void*, void**, size_t*);
 static void session_start(struct event_loop* loop, struct worker_io*);
-static void session_client(struct event_loop* loop, struct io_watcher* watcher, int revents);
-static void session_server(struct event_loop* loop, struct io_watcher* watcher, int revents);
+static void session_client(struct io_watcher* watcher);
+static void session_server(struct io_watcher* watcher);
 static void session_stop(struct event_loop* loop, struct worker_io*);
 static void session_destroy(void*, size_t);
 static void session_periodic(void);
@@ -282,7 +282,7 @@ session_periodic(void)
 }
 
 static void
-session_client(struct event_loop* loop __attribute__((unused)), struct io_watcher* watcher, int revents __attribute__((unused)))
+session_client(struct io_watcher* watcher)
 {
    int status = MESSAGE_STATUS_ERROR;
    struct worker_io* wi = NULL;
@@ -433,7 +433,7 @@ failover:
 }
 
 static void
-session_server(struct event_loop* loop __attribute__((unused)), struct io_watcher* watcher, int revents __attribute__((unused)))
+session_server(struct io_watcher* watcher)
 {
    int status = MESSAGE_STATUS_ERROR;
    bool fatal = false;
