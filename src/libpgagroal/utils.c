@@ -330,69 +330,62 @@ pgagroal_read_uint8(void* data)
 int16_t
 pgagroal_read_int16(void* data)
 {
-   unsigned char bytes[] = {*((unsigned char*)data),
-                            *((unsigned char*)(data + 1))};
-
-   int16_t res = (int16_t)((bytes[0] << 8)) |
-                 ((bytes[1]));
-
-   return res;
+   int16_t val;
+   memcpy(&val, data, sizeof(val));
+   return ntohs(val);
 }
 
 int32_t
 pgagroal_read_int32(void* data)
 {
-   unsigned char bytes[] = {*((unsigned char*)data),
-                            *((unsigned char*)(data + 1)),
-                            *((unsigned char*)(data + 2)),
-                            *((unsigned char*)(data + 3))};
-
-   int32_t res = (int32_t)(((uint32_t)bytes[0] << 24)) |
-                 (((uint32_t)bytes[1] << 16)) |
-                 (((uint32_t)bytes[2] << 8)) |
-                 (((uint32_t)bytes[3]));
-
-   return res;
+   int32_t val;
+   memcpy(&val, data, sizeof(val));
+   return ntohl(val);
 }
 
 uint32_t
 pgagroal_read_uint32(void* data)
 {
-   uint8_t bytes[] = {*((uint8_t*)data),
-                      *((uint8_t*)(data + 1)),
-                      *((uint8_t*)(data + 2)),
-                      *((uint8_t*)(data + 3))};
-
-   uint32_t res = (uint32_t)(((uint32_t)bytes[0] << 24)) |
-                  (((uint32_t)bytes[1] << 16)) |
-                  (((uint32_t)bytes[2] << 8)) |
-                  (((uint32_t)bytes[3]));
-
-   return res;
+   uint32_t val;
+   memcpy(&val, data, sizeof(val));
+   return ntohl(val);
 }
 
 long
 pgagroal_read_long(void* data)
 {
-   unsigned char bytes[] = {*((unsigned char*)data),
-                            *((unsigned char*)(data + 1)),
-                            *((unsigned char*)(data + 2)),
-                            *((unsigned char*)(data + 3)),
-                            *((unsigned char*)(data + 4)),
-                            *((unsigned char*)(data + 5)),
-                            *((unsigned char*)(data + 6)),
-                            *((unsigned char*)(data + 7))};
+   if (pgagroal_bigendian())
+   {
+      // If the host is big-endian, read directly into a 'long'.
+      long val;
+      memcpy(&val, data, sizeof(val));
+      return val;
+   }
+   else
+   {
+      // If little-endian, reassemble the bytes in big-endian order.
+      unsigned char bytes[] = {
+         *((unsigned char*)data + 0),
+         *((unsigned char*)data + 1),
+         *((unsigned char*)data + 2),
+         *((unsigned char*)data + 3),
+         *((unsigned char*)data + 4),
+         *((unsigned char*)data + 5),
+         *((unsigned char*)data + 6),
+         *((unsigned char*)data + 7)
+      };
 
-   long res = (long)(((long)bytes[0]) << 56) |
-              (((long)bytes[1]) << 48) |
-              (((long)bytes[2]) << 40) |
-              (((long)bytes[3]) << 32) |
-              (((long)bytes[4]) << 24) |
-              (((long)bytes[5]) << 16) |
-              (((long)bytes[6]) << 8) |
-              (((long)bytes[7]));
+      long res = (long)(((long)bytes[0]) << 56) |
+                 (((long)bytes[1]) << 48) |
+                 (((long)bytes[2]) << 40) |
+                 (((long)bytes[3]) << 32) |
+                 (((long)bytes[4]) << 24) |
+                 (((long)bytes[5]) << 16) |
+                 (((long)bytes[6]) << 8) |
+                 (((long)bytes[7]));
 
-   return res;
+      return res;
+   }
 }
 
 char*
@@ -414,53 +407,47 @@ pgagroal_write_uint8(void* data, uint8_t b)
 }
 
 void
+pgagroal_write_int16(void* data, int16_t i)
+{
+   int16_t n = htons(i);
+   memcpy(data, &n, sizeof(n));
+}
+
+void
 pgagroal_write_int32(void* data, int32_t i)
 {
-   char* ptr = (char*)&i;
-
-   *((char*)(data + 3)) = *ptr;
-   ptr++;
-   *((char*)(data + 2)) = *ptr;
-   ptr++;
-   *((char*)(data + 1)) = *ptr;
-   ptr++;
-   *((char*)(data)) = *ptr;
+   int32_t n = htonl(i);
+   memcpy(data, &n, sizeof(n));
 }
 
 void
 pgagroal_write_uint32(void* data, uint32_t i)
 {
-   uint8_t* ptr = (uint8_t*)&i;
-
-   *((uint8_t*)(data + 3)) = *ptr;
-   ptr++;
-   *((uint8_t*)(data + 2)) = *ptr;
-   ptr++;
-   *((uint8_t*)(data + 1)) = *ptr;
-   ptr++;
-   *((uint8_t*)(data)) = *ptr;
+   uint32_t n = htonl(i);
+   memcpy(data, &n, sizeof(n));
 }
 
 void
 pgagroal_write_long(void* data, long l)
 {
-   char* ptr = (char*)&l;
-
-   *((char*)(data + 7)) = *ptr;
-   ptr++;
-   *((char*)(data + 6)) = *ptr;
-   ptr++;
-   *((char*)(data + 5)) = *ptr;
-   ptr++;
-   *((char*)(data + 4)) = *ptr;
-   ptr++;
-   *((char*)(data + 3)) = *ptr;
-   ptr++;
-   *((char*)(data + 2)) = *ptr;
-   ptr++;
-   *((char*)(data + 1)) = *ptr;
-   ptr++;
-   *((char*)(data)) = *ptr;
+   if (pgagroal_bigendian())
+   {
+      // If the host is big-endian, write as-is.
+      memcpy(data, &l, sizeof(l));
+   }
+   else
+   {
+      // If little-endian, reverse the bytes as before.
+      char* ptr = (char*)&l;
+      *((char*)(data + 7)) = *ptr; ptr++;
+      *((char*)(data + 6)) = *ptr; ptr++;
+      *((char*)(data + 5)) = *ptr; ptr++;
+      *((char*)(data + 4)) = *ptr; ptr++;
+      *((char*)(data + 3)) = *ptr; ptr++;
+      *((char*)(data + 2)) = *ptr; ptr++;
+      *((char*)(data + 1)) = *ptr; ptr++;
+      *((char*)(data + 0)) = *ptr;
+   }
 }
 
 void

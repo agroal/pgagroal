@@ -2580,9 +2580,10 @@ reload_configuration(void)
    if (restart)
    {
       remove_pidfile();
+      exit(0);
    }
 
-   exit(0);
+   return true;
 
 error:
    remove_pidfile();

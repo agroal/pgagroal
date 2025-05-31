@@ -1257,7 +1257,7 @@ ev_kqueue_signal_handler(struct kevent* kev)
 {
    int rc = 0;
    struct signal_watcher* watcher = (struct signal_watcher*)kev->udata;
-   watcher->cb(loop, watcher, rc);
+   watcher->cb();
    return rc;
 }
 
@@ -1300,7 +1300,7 @@ static int
 ev_kqueue_periodic_handler(struct kevent* kev)
 {
    struct periodic_watcher* watcher = (struct periodic_watcher*)kev->udata;
-   watcher->cb(loop, watcher, 0);
+   watcher->cb();
    return PGAGROAL_EVENT_RC_OK;
 }
 
@@ -1386,7 +1386,7 @@ ev_kqueue_io_handler(struct kevent* kev)
          else
          {
             pgagroal_socket_nonblocking(watcher->fds.main.client_fd, true);
-            watcher->cb(loop, watcher, rc);
+            watcher->cb(watcher);
          }
          break;
       case PGAGROAL_EVENT_TYPE_WORKER:
@@ -1397,7 +1397,7 @@ ev_kqueue_io_handler(struct kevent* kev)
          }
          else
          {
-            watcher->cb(loop, watcher, rc);
+            watcher->cb(watcher);
          }
          break;
       default:
@@ -1471,8 +1471,8 @@ pgagroal_signal_stop(struct signal_watcher* target)
 }
 
 static void
-signal_handler(int signum, siginfo_t *si __attribute__((unused)), void *p __attribute__((unused)))
+signal_handler(int signum, siginfo_t* si __attribute__((unused)), void* p __attribute__((unused)))
 {
-   struct signal_watcher *watcher = signal_watchers[signum];
+   struct signal_watcher* watcher = signal_watchers[signum];
    watcher->cb();
 }
