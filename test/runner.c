@@ -64,7 +64,7 @@ main(int argc, char* argv[])
 
    pgagroal_tsclient_destroy();
    return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
-   
+
 error:
    pgagroal_tsclient_destroy();
    return EXIT_FAILURE;

@@ -33,7 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
- 
+
 /**
  * Set up a suite of test cases for pgagroal
  * @return The result
@@ -42,4 +42,3 @@ Suite*
 pgagroal_test1_suite();
 
 #endif // PGAGROAL_TEST1_H
- 

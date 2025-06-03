@@ -42,4 +42,3 @@ Suite*
 pgagroal_test2_suite();
 
 #endif // PGAGROAL_TEST2_H
-  

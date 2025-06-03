@@ -53,116 +53,116 @@ static char* get_log_file_path();
 int
 pgagroal_tsclient_init(char* base_dir)
 {
-    int ret;
-    size_t size;
-    char* configuration_path = NULL;
+   int ret;
+   size_t size;
+   char* configuration_path = NULL;
 
-    memset(project_directory, 0, sizeof(project_directory));
-    memcpy(project_directory, base_dir, strlen(base_dir));
+   memset(project_directory, 0, sizeof(project_directory));
+   memcpy(project_directory, base_dir, strlen(base_dir));
 
-    configuration_path = get_configuration_path();
-    // Create the shared memory for the configuration
-    size = sizeof(struct main_configuration);
-    if (pgagroal_create_shared_memory(size, HUGEPAGE_OFF, &shmem))
-    {
-        goto error;
-    }
-    pgagroal_init_configuration(shmem);
-    // Try reading configuration from the configuration path
-    if (configuration_path != NULL)
-    {
-        ret = pgagroal_read_configuration(shmem, configuration_path, false);
-        if (ret)
-        {
-            goto error;
-        }
-    }
-    else
-    {
-        goto error;
-    } 
+   configuration_path = get_configuration_path();
+   // Create the shared memory for the configuration
+   size = sizeof(struct main_configuration);
+   if (pgagroal_create_shared_memory(size, HUGEPAGE_OFF, &shmem))
+   {
+      goto error;
+   }
+   pgagroal_init_configuration(shmem);
+   // Try reading configuration from the configuration path
+   if (configuration_path != NULL)
+   {
+      ret = pgagroal_read_configuration(shmem, configuration_path, false);
+      if (ret)
+      {
+         goto error;
+      }
+   }
+   else
+   {
+      goto error;
+   }
 
-    free(configuration_path);
-    return 0;
+   free(configuration_path);
+   return 0;
 error:
-    free(configuration_path);
-    return 1;
+   free(configuration_path);
+   return 1;
 }
 
 int
 pgagroal_tsclient_destroy()
 {
-    size_t size;
+   size_t size;
 
-    size = sizeof(struct main_configuration);
-    return pgagroal_destroy_shared_memory(shmem, size);
+   size = sizeof(struct main_configuration);
+   return pgagroal_destroy_shared_memory(shmem, size);
 }
 
 int
 pgagroal_tsclient_execute_pgbench(char* database, bool select_only, int client_count, int thread_count, int transaction_count)
 {
-    char* command = NULL;
-    char* log_file_path = NULL;
-    struct main_configuration* config = NULL;
-    int ret = EXIT_FAILURE;
+   char* command = NULL;
+   char* log_file_path = NULL;
+   struct main_configuration* config = NULL;
+   int ret = EXIT_FAILURE;
 
-    config = (struct main_configuration*)shmem;
-    log_file_path = get_log_file_path();
+   config = (struct main_configuration*)shmem;
+   log_file_path = get_log_file_path();
 
-    command = pgagroal_append(NULL, "pgbench");
-    command = pgagroal_append_char(command, ' ');
+   command = pgagroal_append(NULL, "pgbench");
+   command = pgagroal_append_char(command, ' ');
 
-    // add options
-    if (select_only)
-    {
-        command = pgagroal_append(command, "-S");
-        command = pgagroal_append_char(command, ' ');
-    }
+   // add options
+   if (select_only)
+   {
+      command = pgagroal_append(command, "-S");
+      command = pgagroal_append_char(command, ' ');
+   }
 
-    if (client_count) 
-    {
-        command = pgagroal_append(command, "-c ");
-        command = pgagroal_append_int(command, client_count);
-        command = pgagroal_append_char(command, ' ');
-    }
-    if (thread_count)
-    {
-        command = pgagroal_append(command, "-j ");
-        command = pgagroal_append_int(command, thread_count);
-        command = pgagroal_append_char(command, ' ');
-    }
-    if (transaction_count)
-    {
-        command = pgagroal_append(command, "-t ");
-        command = pgagroal_append_int(command, transaction_count);
-        command = pgagroal_append_char(command, ' ');
-    }
+   if (client_count)
+   {
+      command = pgagroal_append(command, "-c ");
+      command = pgagroal_append_int(command, client_count);
+      command = pgagroal_append_char(command, ' ');
+   }
+   if (thread_count)
+   {
+      command = pgagroal_append(command, "-j ");
+      command = pgagroal_append_int(command, thread_count);
+      command = pgagroal_append_char(command, ' ');
+   }
+   if (transaction_count)
+   {
+      command = pgagroal_append(command, "-t ");
+      command = pgagroal_append_int(command, transaction_count);
+      command = pgagroal_append_char(command, ' ');
+   }
 
-    // add host details
-    command = pgagroal_append(command, "-h ");
-    command = pgagroal_append(command, config->common.host);
-    command = pgagroal_append_char(command, ' ');
+   // add host details
+   command = pgagroal_append(command, "-h ");
+   command = pgagroal_append(command, config->common.host);
+   command = pgagroal_append_char(command, ' ');
 
-    command = pgagroal_append(command, "-p ");
-    command = pgagroal_append_int(command, config->common.port);
-    command = pgagroal_append_char(command, ' ');
+   command = pgagroal_append(command, "-p ");
+   command = pgagroal_append_int(command, config->common.port);
+   command = pgagroal_append_char(command, ' ');
 
-    command = pgagroal_append(command, "-d ");
-    command = pgagroal_append(command, database);
+   command = pgagroal_append(command, "-d ");
+   command = pgagroal_append(command, database);
 
-    command = pgagroal_append(command, " >> "); // append to the file
-    command = pgagroal_append(command, log_file_path);
-    command = pgagroal_append(command, " 2>&1");
+   command = pgagroal_append(command, " >> ");  // append to the file
+   command = pgagroal_append(command, log_file_path);
+   command = pgagroal_append(command, " 2>&1");
 
-    ret = system(command);
-    if (command != NULL && ret == 0)
-    {
-        ret = EXIT_SUCCESS;
-    }
-  
-    free(log_file_path);
-    free(command);
-    return ret;
+   ret = system(command);
+   if (command != NULL && ret == 0)
+   {
+      ret = EXIT_SUCCESS;
+   }
+
+   free(log_file_path);
+   free(command);
+   return ret;
 }
 
 static char*
@@ -180,10 +180,10 @@ get_configuration_path()
    return configuration_path;
 }
 
-static char* 
+static char*
 get_log_file_path()
 {
-    char* log_file_path = NULL;
+   char* log_file_path = NULL;
    int project_directory_length = strlen(project_directory);
    int log_trail_length = strlen(PGBENCH_LOG_FILE_TRAIL);
 

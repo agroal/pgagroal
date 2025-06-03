@@ -33,9 +33,9 @@
 // baseline
 START_TEST(test_pgagroal_baseline)
 {
-    int found = 0;
-    found = !pgagroal_tsclient_execute_pgbench("postgres", true, 8, 0, 1000);
-    ck_assert_msg(found, "success status not found");
+   int found = 0;
+   found = !pgagroal_tsclient_execute_pgbench("postgres", true, 8, 0, 1000);
+   ck_assert_msg(found, "success status not found");
 }
 
 // high_clients template
@@ -65,16 +65,16 @@ START_TEST(test_pgagroal_baseline)
 Suite*
 pgagroal_test2_suite()
 {
-Suite* s;
-TCase* tc_core;
+   Suite* s;
+   TCase* tc_core;
 
-s = suite_create("pgagroal_test2");
+   s = suite_create("pgagroal_test2");
 
-tc_core = tcase_create("Core");
+   tc_core = tcase_create("Core");
 
-tcase_set_timeout(tc_core, 60);
-tcase_add_test(tc_core, test_pgagroal_baseline);
-suite_add_tcase(s, tc_core);
+   tcase_set_timeout(tc_core, 60);
+   tcase_add_test(tc_core, test_pgagroal_baseline);
+   suite_add_tcase(s, tc_core);
 
-return s;
+   return s;
 }
