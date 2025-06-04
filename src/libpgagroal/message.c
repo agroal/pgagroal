@@ -1309,6 +1309,7 @@ read_message(int socket, bool block, int timeout, struct message** msg)
    ssize_t numbytes;
    struct timeval tv;
    struct message* m = NULL;
+   pgagroal_memory_init();
 
    if (unlikely(timeout > 0))
    {
@@ -1320,9 +1321,7 @@ read_message(int socket, bool block, int timeout, struct message** msg)
    do
    {
       keep_read = false;
-
       m = pgagroal_memory_message();
-
       numbytes = read(socket, m->data, DEFAULT_BUFFER_SIZE);
 
       if (likely(numbytes > 0))
@@ -1355,7 +1354,6 @@ read_message(int socket, bool block, int timeout, struct message** msg)
                tv.tv_usec = 0;
                setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
             }
-
             return MESSAGE_STATUS_ZERO;
          }
       }
