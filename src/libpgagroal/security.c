@@ -187,7 +187,7 @@ pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl,
       }
       else
       {
-         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &server_fd, config->keep_alive, config->non_blocking, config->nodelay);
+         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, &server_fd, config->keep_alive, config->nodelay);
       }
 
       if (ret)
@@ -1671,7 +1671,6 @@ client_password(SSL* c_ssl, int client_fd, char* username, char* password, int s
 {
    int status;
    time_t start_time;
-   bool non_blocking;
    struct main_configuration* config;
    struct message* msg = NULL;
 
@@ -1686,9 +1685,6 @@ client_password(SSL* c_ssl, int client_fd, char* username, char* password, int s
    }
 
    start_time = time(NULL);
-
-   non_blocking = pgagroal_socket_is_nonblocking(client_fd);
-   pgagroal_socket_nonblocking(client_fd, true);
 
    /* psql may just close the connection without word, so loop */
 retry:
@@ -1708,11 +1704,6 @@ retry:
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
-   }
-
-   if (!non_blocking)
-   {
-      pgagroal_socket_nonblocking(client_fd, false);
    }
 
    if (strcmp(pgagroal_read_string(msg->data + 5), password))
@@ -1745,7 +1736,6 @@ client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot)
    int status;
    char salt[4];
    time_t start_time;
-   bool non_blocking;
    size_t size;
    char* pwdusr = NULL;
    char* shadow = NULL;
@@ -1771,9 +1761,6 @@ client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot)
 
    start_time = time(NULL);
 
-   non_blocking = pgagroal_socket_is_nonblocking(client_fd);
-   pgagroal_socket_nonblocking(client_fd, true);
-
    /* psql may just close the connection without word, so loop */
 retry:
    status = pgagroal_read_timeout_message(c_ssl, client_fd, 1, &msg);
@@ -1793,11 +1780,6 @@ retry:
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
-   }
-
-   if (!non_blocking)
-   {
-      pgagroal_socket_nonblocking(client_fd, false);
    }
 
    size = strlen(username) + strlen(password) + 1;
@@ -1863,7 +1845,6 @@ client_scram256(SSL* c_ssl, int client_fd, char* username __attribute__((unused)
 {
    int status;
    time_t start_time;
-   bool non_blocking;
    char* password_prep = NULL;
    char* client_first_message_bare = NULL;
    char* server_first_message = NULL;
@@ -1900,9 +1881,6 @@ client_scram256(SSL* c_ssl, int client_fd, char* username __attribute__((unused)
 
    start_time = time(NULL);
 
-   non_blocking = pgagroal_socket_is_nonblocking(client_fd);
-   pgagroal_socket_nonblocking(client_fd, true);
-
    /* psql may just close the connection without word, so loop */
 retry:
    status = pgagroal_read_timeout_message(c_ssl, client_fd, 1, &msg);
@@ -1922,11 +1900,6 @@ retry:
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
-   }
-
-   if (!non_blocking)
-   {
-      pgagroal_socket_nonblocking(client_fd, false);
    }
 
    client_first_message_bare = calloc(1, msg->length - 25);
@@ -4533,7 +4506,7 @@ retry:
       }
       else
       {
-         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, server_fd, config->keep_alive, config->non_blocking, config->nodelay);
+         ret = pgagroal_connect(config->servers[server].host, config->servers[server].port, server_fd, config->keep_alive, config->nodelay);
       }
 
       if (ret)
@@ -5125,7 +5098,6 @@ auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int
    int status;
    char salt[4];
    time_t start_time;
-   bool non_blocking;
    char* md5_req = NULL;
    char* md5 = NULL;
    struct main_configuration* config;
@@ -5146,9 +5118,6 @@ auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int
 
    start_time = time(NULL);
 
-   non_blocking = pgagroal_socket_is_nonblocking(client_fd);
-   pgagroal_socket_nonblocking(client_fd, true);
-
    /* psql may just close the connection without word, so loop */
 retry:
    status = pgagroal_read_timeout_message(c_ssl, client_fd, 1, &msg);
@@ -5168,11 +5137,6 @@ retry:
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
-   }
-
-   if (!non_blocking)
-   {
-      pgagroal_socket_nonblocking(client_fd, false);
    }
 
    md5_req = calloc(1, 36);
@@ -5222,7 +5186,6 @@ auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username __attribute
 {
    int status;
    time_t start_time;
-   bool non_blocking;
    char* scram256 = NULL;
    char* s1 = NULL;
    char* s2 = NULL;
@@ -5266,9 +5229,6 @@ auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username __attribute
 
    start_time = time(NULL);
 
-   non_blocking = pgagroal_socket_is_nonblocking(client_fd);
-   pgagroal_socket_nonblocking(client_fd, true);
-
    /* psql may just close the connection without word, so loop */
 retry:
    status = pgagroal_read_timeout_message(c_ssl, client_fd, 1, &msg);
@@ -5288,11 +5248,6 @@ retry:
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
-   }
-
-   if (!non_blocking)
-   {
-      pgagroal_socket_nonblocking(client_fd, false);
    }
 
    /* Split shadow */

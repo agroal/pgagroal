@@ -157,7 +157,6 @@ pgagroal_init_configuration(void* shm)
 
    config->keep_alive = true;
    config->nodelay = true;
-   config->non_blocking = false;
    config->backlog = -1;
    config->common.hugepage = HUGEPAGE_TRY;
    config->tracker = false;
@@ -2880,7 +2879,6 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
 
    config->keep_alive = reload->keep_alive;
    config->nodelay = reload->nodelay;
-   config->non_blocking = reload->non_blocking;
    config->backlog = reload->backlog;
 
    /* hugepage */
@@ -3938,10 +3936,6 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       else if (!strncmp(key, "nodelay", MISC_LENGTH))
       {
          return to_int(buffer, config->nodelay);
-      }
-      else if (!strncmp(key, "non_blocking", MISC_LENGTH))
-      {
-         return to_bool(buffer, config->non_blocking);
       }
       else if (!strncmp(key, "backlog", MISC_LENGTH))
       {
@@ -5001,13 +4995,6 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
          unknown = true;
       }
    }
-   else if (key_in_section("non_blocking", section, key, true, &unknown))
-   {
-      if (as_bool(value, &config->non_blocking))
-      {
-         unknown = true;
-      }
-   }
    else if (key_in_section("backlog", section, key, true, &unknown))
    {
       if (as_int(value, &config->backlog))
@@ -5686,7 +5673,6 @@ add_configuration_response(struct json* res)
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_EV_BACKEND, (uintptr_t)to_backend_str(config->ev_backend), ValueString);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_KEEP_ALIVE, (uintptr_t)config->keep_alive, ValueBool);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_NODELAY, (uintptr_t)config->nodelay, ValueBool);
-   pgagroal_json_put(res, CONFIGURATION_ARGUMENT_NON_BLOCKING, (uintptr_t)config->non_blocking, ValueBool);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_BACKLOG, (uintptr_t)config->backlog, ValueInt64);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_HUGEPAGE, (uintptr_t)config->common.hugepage, ValueChar);
    pgagroal_json_put(res, CONFIGURATION_ARGUMENT_TRACKER, (uintptr_t)config->tracker, ValueBool);
@@ -6301,14 +6287,6 @@ pgagroal_conf_set(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compr
             unknown = true;
          }
          pgagroal_json_put(response, key, (uintptr_t)config->nodelay, ValueBool);
-      }
-      else if (!strcmp(key, "non_blocking"))
-      {
-         if (as_bool(config_value, &config->non_blocking))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->non_blocking, ValueBool);
       }
       else if (!strcmp(key, "backlog"))
       {

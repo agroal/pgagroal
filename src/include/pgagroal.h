@@ -569,7 +569,6 @@ struct main_configuration
    int ev_backend;          /**< Selected ev backend */
    bool keep_alive;         /**< Use keep alive */
    bool nodelay;            /**< Use NODELAY */
-   bool non_blocking;       /**< Use non blocking */
    int backlog;             /**< The backlog for listen */
    bool tracker;            /**< Tracker support */
    bool track_prepared_statements; /**< Track prepared statements (transaction pooling) */

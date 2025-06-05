@@ -960,7 +960,7 @@ read_superuser_path:
    /* Bind main socket */
    if (!has_main_sockets)
    {
-      if (pgagroal_bind(config->common.host, config->common.port, &main_fds, &main_fds_length, config->non_blocking, config->nodelay, config->backlog))
+      if (pgagroal_bind(config->common.host, config->common.port, &main_fds, &main_fds_length, config->nodelay, config->backlog))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.port);
 #ifdef HAVE_SYSTEMD
@@ -1090,7 +1090,7 @@ read_superuser_path:
    if (config->common.metrics > 0)
    {
       /* Bind metrics socket */
-      if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, config->nodelay, config->backlog))
+      if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, config->nodelay, config->backlog))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
 #ifdef HAVE_SYSTEMD
@@ -1114,7 +1114,7 @@ read_superuser_path:
    if (config->management > 0)
    {
       /* Bind management socket */
-      if (pgagroal_bind(config->common.host, config->management, &management_fds, &management_fds_length, config->non_blocking, config->nodelay, config->backlog))
+      if (pgagroal_bind(config->common.host, config->management, &management_fds, &management_fds_length, config->nodelay, config->backlog))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->management);
 #ifdef HAVE_SYSTEMD
@@ -1287,7 +1287,7 @@ accept_main_cb(struct io_watcher* watcher)
          main_fds = NULL;
          main_fds_length = 0;
 
-         if (pgagroal_bind(config->common.host, config->common.port, &main_fds, &main_fds_length, config->non_blocking, config->nodelay, config->backlog))
+         if (pgagroal_bind(config->common.host, config->common.port, &main_fds, &main_fds_length, config->nodelay, config->backlog))
          {
             pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.port);
             exit(1);
@@ -2113,7 +2113,7 @@ accept_metrics_cb(struct io_watcher* watcher)
          metrics_fds = NULL;
          metrics_fds_length = 0;
 
-         if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, config->nodelay, config->backlog))
+         if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, config->nodelay, config->backlog))
          {
             pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
             exit(1);
@@ -2195,7 +2195,7 @@ accept_management_cb(struct io_watcher* watcher)
          management_fds = NULL;
          management_fds_length = 0;
 
-         if (pgagroal_bind(config->common.host, config->management, &management_fds, &management_fds_length, config->non_blocking, config->nodelay, config->backlog))
+         if (pgagroal_bind(config->common.host, config->management, &management_fds, &management_fds_length, config->nodelay, config->backlog))
          {
             pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->management);
             exit(1);
@@ -2504,7 +2504,7 @@ reload_configuration(void)
    main_fds = NULL;
    main_fds_length = 0;
 
-   if (pgagroal_bind(config->common.host, config->common.port, &main_fds, &main_fds_length, config->non_blocking, config->nodelay, config->backlog))
+   if (pgagroal_bind(config->common.host, config->common.port, &main_fds, &main_fds_length, config->nodelay, config->backlog))
    {
       pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.port);
       goto error;
@@ -2526,7 +2526,7 @@ reload_configuration(void)
       metrics_fds_length = 0;
 
       /* Bind metrics socket */
-      if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, config->non_blocking, config->nodelay, config->backlog))
+      if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, config->nodelay, config->backlog))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
          goto error;
@@ -2548,7 +2548,7 @@ reload_configuration(void)
       management_fds_length = 0;
 
       /* Bind management socket */
-      if (pgagroal_bind(config->common.host, config->management, &management_fds, &management_fds_length, config->non_blocking, config->nodelay, config->backlog))
+      if (pgagroal_bind(config->common.host, config->management, &management_fds, &management_fds_length, config->nodelay, config->backlog))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->management);
          goto error;

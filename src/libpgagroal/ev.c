@@ -1052,7 +1052,6 @@ ev_epoll_io_start(struct io_watcher* watcher)
          break;
       case PGAGROAL_EVENT_TYPE_WORKER:
          fd = watcher->fds.worker.rcv_fd;
-         pgagroal_socket_nonblocking(watcher->fds.worker.snd_fd, true);
          /* XXX: lookup the possibility to add EPOLLET here */
          event.events = EPOLLIN;
          break;
@@ -1124,7 +1123,6 @@ ev_epoll_io_handler(struct io_watcher* watcher)
          }
          else
          {
-            pgagroal_socket_nonblocking(client_fd, true);
             watcher->fds.main.client_fd = client_fd;
             watcher->cb(watcher);
          }
@@ -1328,8 +1326,6 @@ ev_kqueue_io_start(struct io_watcher* watcher)
          return PGAGROAL_EVENT_RC_FATAL;
    }
 
-   pgagroal_socket_nonblocking(fd, true);
-
    EV_SET(&kev, fd, filter, EV_ADD | EV_ENABLE | EV_CLEAR, 0, 0, watcher);
 
    if (kevent(loop->kqueuefd, &kev, 1, NULL, 0, NULL) == -1)
@@ -1385,7 +1381,6 @@ ev_kqueue_io_handler(struct kevent* kev)
          }
          else
          {
-            pgagroal_socket_nonblocking(watcher->fds.main.client_fd, true);
             watcher->cb(watcher);
          }
          break;

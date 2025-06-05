@@ -265,7 +265,7 @@ connect_pgagroal(struct vault_configuration* config, char* username, char* passw
 {
    SSL* s = NULL;
 
-   if (pgagroal_connect(config->vault_server.server.host, config->vault_server.server.port, client_socket, false, false, false))
+   if (pgagroal_connect(config->vault_server.server.host, config->vault_server.server.port, client_socket, false, false))
    {
       pgagroal_disconnect(*client_socket);
       return 1;
@@ -570,7 +570,7 @@ read_users_path:
 
    // -- Bind & Listen at the given hostname and port --
 
-   if (pgagroal_bind(config->common.host, config->common.port, &server_fds, &server_fds_length, false, false, -1))
+   if (pgagroal_bind(config->common.host, config->common.port, &server_fds, &server_fds_length, false, -1))
    {
       errx(1, "pgagroal-vault: Could not bind to %s:%d", config->common.host, config->common.port);
    }
@@ -604,7 +604,7 @@ read_users_path:
    if (config->common.metrics > 0)
    {
       /* Bind metrics socket */
-      if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, false, false, -1))
+      if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, false, -1))
       {
          pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
 #ifdef HAVE_SYSTEMD
@@ -692,7 +692,7 @@ accept_vault_cb(struct io_watcher* watcher)
          free(server_fds);
          server_fds = NULL;
 
-         if (pgagroal_bind(config->common.host, config->common.port, &server_fds, &server_fds_length, false, false, -1))
+         if (pgagroal_bind(config->common.host, config->common.port, &server_fds, &server_fds_length, false, -1))
          {
             pgagroal_log_fatal("pgagroal-vault: Could not bind to %s:%d", config->common.host, config->common.port);
             exit(1);
@@ -782,7 +782,7 @@ accept_metrics_cb(struct io_watcher* watcher)
          metrics_fds = NULL;
          metrics_fds_length = 0;
 
-         if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, false, false, -1))
+         if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, false, -1))
          {
             pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
             exit(1);

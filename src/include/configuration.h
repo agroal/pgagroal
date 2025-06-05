@@ -117,7 +117,6 @@ extern "C" {
 #define CONFIGURATION_ARGUMENT_EV_BACKEND                       "ev_backend"
 #define CONFIGURATION_ARGUMENT_KEEP_ALIVE                       "keep_alive"
 #define CONFIGURATION_ARGUMENT_NODELAY                          "nodelay"
-#define CONFIGURATION_ARGUMENT_NON_BLOCKING                     "non_blocking"
 #define CONFIGURATION_ARGUMENT_BACKLOG                          "backlog"
 #define CONFIGURATION_ARGUMENT_HUGEPAGE                         "hugepage"
 #define CONFIGURATION_ARGUMENT_TRACKER                          "tracker"

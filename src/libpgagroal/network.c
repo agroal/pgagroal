@@ -54,14 +54,14 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-static int bind_host(const char* hostname, int port, int** fds, int* length, bool non_blocking, int* buffer_size, bool no_delay, int backlog);
+static int bind_host(const char* hostname, int port, int** fds, int* length, int* buffer_size, bool no_delay, int backlog);
 static int socket_buffers(int fd);
 
 /**
  *
  */
 int
-pgagroal_bind(const char* hostname, int port, int** fds, int* length, bool non_blocking, bool no_delay, int backlog)
+pgagroal_bind(const char* hostname, int port, int** fds, int* length, bool no_delay, int backlog)
 {
    int default_buffer_size = DEFAULT_BUFFER_SIZE;
    struct ifaddrs* ifaddr, * ifa;
@@ -102,7 +102,7 @@ pgagroal_bind(const char* hostname, int port, int** fds, int* length, bool non_b
                inet_ntop(AF_INET6, &sa6->sin6_addr, addr, sizeof(addr));
             }
 
-            if (bind_host(addr, port, &new_fds, &new_length, non_blocking, &default_buffer_size, no_delay, backlog))
+            if (bind_host(addr, port, &new_fds, &new_length, &default_buffer_size, no_delay, backlog))
             {
                free(new_fds);
                continue;
@@ -139,7 +139,7 @@ pgagroal_bind(const char* hostname, int port, int** fds, int* length, bool non_b
       return 0;
    }
 
-   return bind_host(hostname, port, fds, length, non_blocking, &default_buffer_size, no_delay, backlog);
+   return bind_host(hostname, port, fds, length, &default_buffer_size, no_delay, backlog);
 }
 
 /**
@@ -239,7 +239,7 @@ pgagroal_remove_unix_socket(const char* directory, const char* file)
  *
  */
 int
-pgagroal_connect(const char* hostname, int port, int* fd, bool keep_alive, bool non_blocking, bool no_delay)
+pgagroal_connect(const char* hostname, int port, int* fd, bool keep_alive, bool no_delay)
 {
    int default_buffer_size = DEFAULT_BUFFER_SIZE;
    struct addrinfo hints = {0};
@@ -341,12 +341,6 @@ pgagroal_connect(const char* hostname, int port, int* fd, bool keep_alive, bool 
    }
 
    freeaddrinfo(servinfo);
-
-   /* Set O_NONBLOCK on the socket */
-   if (non_blocking)
-   {
-      pgagroal_socket_nonblocking(*fd, true);
-   }
 
    return 0;
 
@@ -463,36 +457,6 @@ pgagroal_get_address(struct sockaddr* sa, char* address, size_t length)
       inet_ntop(AF_INET6, &(((struct sockaddr_in6*)sa)->sin6_addr), address, length);
    }
 }
-
-int
-pgagroal_socket_nonblocking(int fd, bool value)
-{
-   int flags;
-
-   flags = fcntl(fd, F_GETFL);
-
-   if (value)
-   {
-      fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-   }
-   else
-   {
-      fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
-   }
-
-   return 0;
-}
-
-bool
-pgagroal_socket_is_nonblocking(int fd)
-{
-   int flags;
-
-   flags = fcntl(fd, F_GETFL);
-
-   return flags & O_NONBLOCK;
-}
-
 int
 pgagroal_socket_has_error(int fd)
 {
@@ -595,7 +559,7 @@ socket_buffers(int fd)
  *
  */
 static int
-bind_host(const char* hostname, int port, int** fds, int* length, bool non_blocking, int* buffer_size __attribute__((unused)), bool no_delay, int backlog)
+bind_host(const char* hostname, int port, int** fds, int* length, int* buffer_size __attribute__((unused)), bool no_delay, int backlog)
 {
    int* result = NULL;
    int index, size;
@@ -657,15 +621,6 @@ bind_host(const char* hostname, int port, int** fds, int* length, bool non_block
          pgagroal_log_debug("server: so_reuseaddr: %d %s", sockfd, strerror(errno));
          pgagroal_disconnect(sockfd);
          continue;
-      }
-
-      if (non_blocking)
-      {
-         if (pgagroal_socket_nonblocking(sockfd, true))
-         {
-            pgagroal_disconnect(sockfd);
-            continue;
-         }
       }
 
       if (socket_buffers(sockfd))
