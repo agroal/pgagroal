@@ -79,6 +79,8 @@ pgagroal_status(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compres
 
    pgagroal_stop_logging();
    pgagroal_memory_destroy();
+   free(elapsed);
+   elapsed = NULL;
 
    exit(0);
 

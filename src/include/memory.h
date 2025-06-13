@@ -63,6 +63,7 @@ pgagroal_memory_free(void);
 void
 pgagroal_memory_destroy(void);
 
+
 #ifdef __cplusplus
 }
 #endif

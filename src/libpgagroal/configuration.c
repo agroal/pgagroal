@@ -73,7 +73,8 @@ static int as_hugepage(char* str);
 static unsigned int as_update_process_title(char* str, unsigned int* policy, unsigned int default_policy);
 static int extract_value(char* str, int offset, char** value);
 static void extract_hba(char* str, char** type, char** database, char** user, char** address, char** method);
-static void extract_limit(char* str, int server_max, char** database, char** user, int* max_size, int* initial_size, int* min_size);
+static void extract_limit(char* str, int server_max, char** database, char** user, int* max_size, int* initial_size, int* min_size, char aliases[MAX_ALIASES][MAX_DATABASE_LENGTH], int* aliases_count);
+static void copy_limit(struct limit* dst, struct limit* src);
 static unsigned int as_seconds(char* str, unsigned int* age, unsigned int default_age);
 static unsigned int as_bytes(char* str, unsigned int* bytes, unsigned int default_bytes);
 
@@ -114,6 +115,8 @@ static int to_log_type(char* where, int value);
 
 static void add_configuration_response(struct json* res);
 static void add_servers_configuration_response(struct json* res);
+static void add_hba_configuration_response(struct json* res);
+static void add_limits_configuration_response(struct json* res);
 
 static bool is_supported_backend(ev_backend_t backend);
 static char* to_backend_str(ev_backend_t value);
@@ -1170,6 +1173,8 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
    int index;
    char* database = NULL;
    char* username = NULL;
+   char aliases[MAX_ALIASES][MAX_DATABASE_LENGTH];
+   int aliases_count = 0;
    int max_size;
    int initial_size;
    int min_size;
@@ -1198,12 +1203,25 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
       {
          initial_size = 0;
          min_size = 0;
+         aliases_count = 0;
 
-         extract_limit(line, server_max, &database, &username, &max_size, &initial_size, &min_size);
-         lineno++;
+         // Clear aliases array for each line
+         memset(aliases, 0, sizeof(aliases));
+
+         extract_limit(line, server_max, &database, &username, &max_size, &initial_size, &min_size, aliases, &aliases_count);
 
          if (database && username)
          {
+
+            // Log aliases if found
+            if (aliases_count > 0)
+            {
+               pgagroal_log_debug("Database '%s' has %d aliases:", database, aliases_count);
+               for (int i = 0; i < aliases_count; i++)
+               {
+                  pgagroal_log_debug("  Alias %d: %s", i + 1, aliases[i]);
+               }
+            }
 
             // normalize the sizes
             initial_size = initial_size > max_size ? max_size : initial_size;
@@ -1225,6 +1243,24 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                config->limits[index].initial_size = initial_size;
                config->limits[index].min_size = min_size;
                config->limits[index].lineno = lineno;
+
+               config->limits[index].aliases_count = aliases_count;
+               for (int i = 0; i < aliases_count && i < MAX_ALIASES; i++)
+               {
+                  memset(config->limits[index].aliases[i], 0, MAX_DATABASE_LENGTH);
+                  size_t alias_len = strlen(aliases[i]);
+                  if (alias_len < MAX_DATABASE_LENGTH)
+                  {
+                     memcpy(config->limits[index].aliases[i], aliases[i], alias_len);
+                  }
+
+                  else
+                  {
+                     pgagroal_log_fatal("Alias too long during configuration copy");
+                     exit(1);
+                  }
+               }
+
                atomic_init(&config->limits[index].active_connections, 0);
 
                index++;
@@ -1291,6 +1327,82 @@ pgagroal_validate_limit_configuration(void* shm)
       {
          pgagroal_log_fatal("min_size must be greater or equal to 0 for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
          return 1;
+      }
+
+      // Validate aliases within the current limit entry
+      for (int j = 0; j < config->limits[i].aliases_count; j++)
+      {
+         if (strlen(config->limits[i].aliases[j]) == 0)
+         {
+            pgagroal_log_fatal("Empty alias found for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
+            return 1;
+         }
+
+         // Check for duplicate aliases within the same limit entry
+         for (int k = j + 1; k < config->limits[i].aliases_count; k++)
+         {
+            if (!strcmp(config->limits[i].aliases[j], config->limits[i].aliases[k]))
+            {
+               pgagroal_log_fatal("Duplicate alias '%s' found within limit entry %d (%s:%d)",
+                                  config->limits[i].aliases[j], i + 1, config->limit_path, config->limits[i].lineno);
+               return 1;
+            }
+         }
+
+         // Check if alias conflicts with any main database name
+         for (int k = 0; k < config->number_of_limits; k++)
+         {
+            if (!strcmp(config->limits[i].aliases[j], config->limits[k].database))
+            {
+               pgagroal_log_fatal("Alias '%s' in entry %d conflicts with database name in entry %d (%s:%d vs %s:%d)",
+                                  config->limits[i].aliases[j], i + 1, k + 1,
+                                  config->limit_path, config->limits[i].lineno,
+                                  config->limit_path, config->limits[k].lineno);
+               return 1;
+            }
+         }
+
+         // Check for alias uniqueness across all other limit entries
+         for (int k = 0; k < config->number_of_limits; k++)
+         {
+            if (k == i)
+            {
+               continue;          // Skip current entry
+
+            }
+            for (int l = 0; l < config->limits[k].aliases_count; l++)
+            {
+               if (!strcmp(config->limits[i].aliases[j], config->limits[k].aliases[l]))
+               {
+                  pgagroal_log_fatal("Duplicate alias '%s' found in entries %d and %d (%s:%d vs %s:%d)",
+                                     config->limits[i].aliases[j], i + 1, k + 1,
+                                     config->limit_path, config->limits[i].lineno,
+                                     config->limit_path, config->limits[k].lineno);
+                  return 1;
+               }
+            }
+         }
+      }
+
+      // Check if main database name conflicts with any alias
+      for (int j = 0; j < config->number_of_limits; j++)
+      {
+         if (j == i)
+         {
+            continue;          // Skip current entry
+
+         }
+         for (int k = 0; k < config->limits[j].aliases_count; k++)
+         {
+            if (!strcmp(config->limits[i].database, config->limits[j].aliases[k]))
+            {
+               pgagroal_log_fatal("Database name '%s' in entry %d conflicts with alias in entry %d (%s:%d vs %s:%d)",
+                                  config->limits[i].database, i + 1, j + 1,
+                                  config->limit_path, config->limits[i].lineno,
+                                  config->limit_path, config->limits[j].lineno);
+               return 1;
+            }
+         }
       }
 
       if (config->limits[i].initial_size > 0 || config->limits[i].min_size > 0)
@@ -2618,35 +2730,160 @@ extract_hba(char* str, char** type, char** database, char** user, char** address
 }
 
 static void
-extract_limit(char* str, int server_max, char** database, char** user, int* max_size, int* initial_size, int* min_size)
+extract_limit(char* str, int server_max, char** database, char** user, int* max_size, int* initial_size, int* min_size,
+              char aliases[MAX_ALIASES][MAX_DATABASE_LENGTH], int* aliases_count)
 {
    int offset = 0;
-   int length = strlen(str);
+   int length;
    char* value = NULL;
+   char* db_part = NULL;
 
+   // Initialize all output parameters
    *max_size = 0;
    *initial_size = 0;
    *min_size = 0;
+   *aliases_count = 0;
+   *database = NULL;
+   *user = NULL;
 
-   offset = extract_value(str, offset, database);
-
-   if (offset == -1 || offset >= length)
+   if (!str)
    {
       return;
    }
 
+   // Remove trailing newline/carriage return
+   length = strlen(str);
+   while (length > 0 && (str[length - 1] == '\n' || str[length - 1] == '\r'))
+   {
+      str[length - 1] = '\0';
+      length--;
+   }
+
+   if (length == 0)
+   {
+      return;
+   }
+
+   // Extract database part (may contain aliases)
+   offset = extract_value(str, offset, &db_part);
+   if (offset == -1 || !db_part)
+   {
+      goto cleanup;
+   }
+
+   char* alias_start = strchr(db_part, '=');
+   if (alias_start)
+   {
+      // Split to check database name part before '='
+      *alias_start = '\0';
+
+      // Check if the database name part is "all"
+      if (!strcasecmp("all", db_part))
+      {
+         // This is invalid: "all" cannot have aliases
+         pgagroal_log_fatal("Database 'all' cannot have aliases. Invalid configuration: '%s'", str);
+         pgagroal_log_fatal("Pgagroal_Database Configuration is invalid. Exiting.");
+         free(db_part);
+         exit(1);
+
+      }
+
+      // Restore the '=' for normal processing
+      *alias_start = '=';
+   }
+
+   // Check if it's "all" - if so, don't parse for aliases
+   if (!strcasecmp("all", db_part))
+   {
+      *database = strdup(db_part);
+      if (!*database)
+      {
+         goto cleanup;
+      }
+   }
+   else
+   {
+      // Parse database name and aliases for non-"all" entries
+      //
+
+      if (alias_start)
+      {
+         // Split database name from aliases
+         *alias_start = '\0';
+         alias_start++;
+
+         // Set database name
+         *database = strdup(db_part);
+         if (!*database)
+         {
+            goto cleanup;
+         }
+
+         // Parse aliases (comma-separated)
+         char* alias_copy = strdup(alias_start);
+         if (alias_copy)
+         {
+            char* token = strtok(alias_copy, ",");
+            while (token && *aliases_count < MAX_ALIASES)
+            {
+               // Trim whitespace
+               while (*token == ' ' || *token == '\t')
+                  token++;
+               char* end = token + strlen(token) - 1;
+               while (end > token && (*end == ' ' || *end == '\t'))
+               {
+                  *end = '\0';
+                  end--;
+               }
+
+               if (strlen(token) > 0)
+               {
+                  //Ensure alias length doesn't exceed MAX_DATABASE_LENGTH - 1
+                  if (strlen(token) >= MAX_DATABASE_LENGTH)
+                  {
+                     pgagroal_log_fatal("Alias '%s' too long (max %d characters) in configuration: '%s'",
+                                        token, MAX_DATABASE_LENGTH - 1, str);
+                     pgagroal_log_fatal("Server configuration is invalid. Exiting.");
+                     free(db_part);
+                     free(alias_copy);
+                     exit(1);
+                  }
+
+                  // Safe copy with explicit null termination
+                  memset(aliases[*aliases_count], 0, MAX_DATABASE_LENGTH);
+                  memcpy(aliases[*aliases_count], token, strlen(token));
+                  (*aliases_count)++;
+               }
+
+               token = strtok(NULL, ",");
+            }
+
+            free(alias_copy);
+         }
+      }
+      else
+      {
+         // No aliases, just database name
+         *database = strdup(db_part);
+         if (!*database)
+         {
+            goto cleanup;
+         }
+      }
+   }
+
+   // Extract user
    offset = extract_value(str, offset, user);
-
-   if (offset == -1 || offset >= length)
+   if (offset == -1 || !*user)
    {
-      return;
+      goto cleanup;
    }
 
+   // Extract max_size
    offset = extract_value(str, offset, &value);
-
-   if (offset == -1)
+   if (offset == -1 || !value)
    {
-      return;
+      goto cleanup;
    }
 
    if (!strcasecmp("all", value))
@@ -2658,21 +2895,15 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
       if (as_int(value, max_size))
       {
          *max_size = -1;
-         return;
+         goto cleanup;
       }
    }
-
    free(value);
    value = NULL;
 
+   // Extract initial_size (optional)
    offset = extract_value(str, offset, &value);
-
-   if (offset == -1)
-   {
-      return;
-   }
-
-   if (value != NULL && strcmp("", value) != 0)
+   if (offset != -1 && value && strcmp("", value) != 0)
    {
       if (!strcasecmp("all", value))
       {
@@ -2683,22 +2914,15 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
          if (as_int(value, initial_size))
          {
             *initial_size = 0;
-            return;
          }
       }
+      free(value);
+      value = NULL;
    }
 
-   free(value);
-   value = NULL;
-
+   // Extract min_size (optional)
    offset = extract_value(str, offset, &value);
-
-   if (offset == -1)
-   {
-      return;
-   }
-
-   if (value != NULL && strcmp("", value) != 0)
+   if (offset != -1 && value && strcmp("", value) != 0)
    {
       if (!strcasecmp("all", value))
       {
@@ -2709,49 +2933,94 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
          if (as_int(value, min_size))
          {
             *min_size = 0;
-            return;
          }
       }
+      free(value);
+      value = NULL;
    }
 
+   goto success;
+
+cleanup:
+   free(*database);
+   free(*user);
+   *database = NULL;
+   *user = NULL;
+
+success:
+   free(db_part);
    free(value);
 }
 
 static int
 extract_value(char* str, int offset, char** value)
 {
-   int from;
-   int to;
-   int length = strlen(str);
-   char* v = NULL;
+   int start;
+   int end;
+   int length;
+   char* result = NULL;
 
-   while ((str[offset] == ' ' || str[offset] == '\t') && offset < length)
-      offset++;
+   *value = NULL;
 
-   if (offset < length)
+   if (!str)
    {
-      from = offset;
-
-      while ((str[offset] != ' ' && str[offset] != '\t' && str[offset] != '\r' && str[offset] != '\n') && offset < length)
-         offset++;
-
-      if (offset <= length)
-      {
-         to = offset;
-
-         v = calloc(1, to - from + 1);
-         if (v == NULL)
-         {
-            return -1;
-         }
-         memcpy(v, str + from, to - from);
-         *value = v;
-
-         return offset;
-      }
+      return -1;
    }
 
-   return -1;
+   length = strlen(str);
+
+   // Check if offset is already beyond string length
+   if (offset < 0 || offset >= length)
+   {
+      return -1;
+   }
+
+   start = offset;
+
+   // Skip leading whitespace
+   while (start < length && (str[start] == ' ' || str[start] == '\t'))
+   {
+      start++;
+   }
+
+   if (start >= length)
+   {
+      return -1;
+   }
+
+   end = start;
+
+   // Find end of token - stop at whitespace, newline, or end of string
+   while (end < length && str[end] != ' ' && str[end] != '\t' &&
+          str[end] != '\n' && str[end] != '\r' && str[end] != '\0')
+   {
+      end++;
+   }
+
+   // Extract the token if we found one
+   if (end > start)
+   {
+      result = calloc(1, end - start + 1);
+      if (result == NULL)
+      {
+         return -1;
+      }
+      memcpy(result, str + start, end - start);
+      result[end - start] = '\0';
+      *value = result;
+   }
+   else
+   {
+      return -1;
+   }
+
+   // Skip trailing whitespace to position for next token
+   while (end < length && (str[end] == ' ' || str[end] == '\t'))
+   {
+      end++;
+   }
+
+   return end;
 }
 
 /**
@@ -2943,6 +3212,24 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    {
       changed = true;
    }
+   else
+   {
+      // Successful reload - copy all limit configurations including aliases
+      for (int i = 0; i < reload->number_of_limits; i++)
+      {
+         copy_limit(&config->limits[i], &reload->limits[i]);
+
+         // Log alias changes for debugging
+         if (config->limits[i].aliases_count != reload->limits[i].aliases_count)
+         {
+            pgagroal_log_debug("Reloaded aliases for database '%s': count changed from %d to %d",
+                               config->limits[i].database,
+                               config->limits[i].aliases_count,
+                               reload->limits[i].aliases_count);
+         }
+      }
+      config->number_of_limits = reload->number_of_limits;
+   }
 
    memset(&config->users[0], 0, sizeof(struct user) * NUMBER_OF_USERS);
    for (int i = 0; i < reload->number_of_users; i++)
@@ -3054,6 +3341,31 @@ is_supported_backend(ev_backend_t backend)
 
    pgagroal_log_warn("Configured backend '%s' is unsupported", to_backend_str(backend));
    return false;
+}
+
+static void
+copy_limit(struct limit* dst, struct limit* src)
+{
+   memcpy(&dst->database[0], &src->database[0], MAX_DATABASE_LENGTH);
+   memcpy(&dst->username[0], &src->username[0], MAX_USERNAME_LENGTH);
+
+   // Copy aliases
+   dst->aliases_count = src->aliases_count;
+   for (int i = 0; i < src->aliases_count && i < MAX_ALIASES; i++)
+   {
+      memcpy(&dst->aliases[i][0], &src->aliases[i][0], MAX_DATABASE_LENGTH);
+   }
+
+   // Clear any remaining alias slots
+   for (int i = src->aliases_count; i < MAX_ALIASES; i++)
+   {
+      memset(&dst->aliases[i][0], 0, MAX_DATABASE_LENGTH);
+   }
+
+   dst->max_size = src->max_size;
+   dst->initial_size = src->initial_size;
+   dst->min_size = src->min_size;
+   dst->lineno = src->lineno;
 }
 
 static void
@@ -3180,6 +3492,30 @@ restart_limit(char* name __attribute__((unused)), struct main_configuration* con
       {
          pgagroal_log_info("Restart required for limits");
          goto error;
+      }
+
+      // Alias changes are allowed without restart
+      if (e->aliases_count != n->aliases_count)
+      {
+         pgagroal_log_info("Alias configuration changed for database '%s' - will reload without restart", n->database);
+         continue; // Don't trigger restart for alias changes
+      }
+
+      // Check if existing aliases have changed
+      bool aliases_changed = false;
+      for (int j = 0; j < n->aliases_count; j++)
+      {
+         if (j >= e->aliases_count || strcmp(e->aliases[j], n->aliases[j]) != 0)
+         {
+            aliases_changed = true;
+            break;
+         }
+      }
+
+      if (aliases_changed)
+      {
+         pgagroal_log_info("Alias configuration changed for database '%s' - will reload without restart", n->database);
+         // Continue without triggering restart
       }
    }
 
@@ -5684,18 +6020,21 @@ add_configuration_response(struct json* res)
 static void
 add_servers_configuration_response(struct json* res)
 {
-   struct main_configuration* config = NULL;
+   struct main_configuration* config = (struct main_configuration*)shmem;
 
-   config = (struct main_configuration*)shmem;
+   // Create a server section to hold all server configurations
+   struct json* server_section = NULL;
+   if (pgagroal_json_create(&server_section))
+   {
+      return;
+   }
 
-   // JSON of server configuration
    for (int i = 0; i < config->number_of_servers; i++)
    {
       struct json* server_conf = NULL;
-
       if (pgagroal_json_create(&server_conf))
       {
-         return;
+         continue;
       }
 
       pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_HOST, (uintptr_t)config->servers[i].host, ValueString);
@@ -5705,8 +6044,100 @@ add_servers_configuration_response(struct json* res)
       pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_TLS_KEY_FILE, (uintptr_t)config->servers[i].tls_key_file, ValueString);
       pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_TLS_CA_FILE, (uintptr_t)config->servers[i].tls_ca_file, ValueString);
 
-      pgagroal_json_put(res, config->servers[i].name, (uintptr_t)server_conf, ValueJSON);
+      // Add this server to the server section using server name as key
+      pgagroal_json_put(server_section, config->servers[i].name, (uintptr_t)server_conf, ValueJSON);
    }
+
+   // Add the server section to the main response
+   pgagroal_json_put(res, "server", (uintptr_t)server_section, ValueJSON);
+}
+
+static void
+add_limits_configuration_response(struct json* res)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+
+   // Create a limits section to hold all limit configurations
+   struct json* limits_section = NULL;
+   if (pgagroal_json_create(&limits_section))
+   {
+      return;
+   }
+
+   for (int i = 0; i < config->number_of_limits; i++)
+   {
+      struct json* limit_conf = NULL;
+      if (pgagroal_json_create(&limit_conf))
+      {
+         continue;
+      }
+
+      // Add limit parameters to limit_conf object
+      pgagroal_json_put(limit_conf, "database", (uintptr_t)config->limits[i].database, ValueString);
+      pgagroal_json_put(limit_conf, "username", (uintptr_t)config->limits[i].username, ValueString);
+      pgagroal_json_put(limit_conf, "max_size", (uintptr_t)config->limits[i].max_size, ValueInt64);
+      pgagroal_json_put(limit_conf, "initial_size", (uintptr_t)config->limits[i].initial_size, ValueInt64);
+      pgagroal_json_put(limit_conf, "min_size", (uintptr_t)config->limits[i].min_size, ValueInt64);
+      pgagroal_json_put(limit_conf, "aliases_count", (uintptr_t)config->limits[i].aliases_count, ValueInt64);
+
+      // Always create aliases array (empty if no aliases)
+      struct json* aliases_array = NULL;
+      if (pgagroal_json_create(&aliases_array))
+      {
+         pgagroal_json_destroy(limit_conf);
+         continue;
+      }
+
+      // Add aliases to the array (loop won't execute if aliases_count is 0)
+      for (int j = 0; j < config->limits[i].aliases_count && j < MAX_ALIASES; j++)
+      {
+         pgagroal_json_append(aliases_array, (uintptr_t)config->limits[i].aliases[j], ValueString);
+      }
+
+      // Always add the aliases array (will be empty [] if no aliases)
+      pgagroal_json_put(limit_conf, "aliases", (uintptr_t)aliases_array, ValueJSON);
+
+      // Add this limit to the limits section using database name as key
+      pgagroal_json_put(limits_section, config->limits[i].database, (uintptr_t)limit_conf, ValueJSON);
+   }
+
+   // Add the limits section to the main response
+   pgagroal_json_put(res, "limit", (uintptr_t)limits_section, ValueJSON);
+}
+
+static void
+add_hba_configuration_response(struct json* res)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+
+   // Create an hba section to hold all HBA configurations
+   struct json* hba_section = NULL;
+   if (pgagroal_json_create(&hba_section))
+   {
+      return;
+   }
+
+   for (int i = 0; i < config->number_of_hbas; i++)
+   {
+      struct json* hba_conf = NULL;
+      if (pgagroal_json_create(&hba_conf))
+      {
+         continue;
+      }
+
+      // Add HBA parameters to hba_conf object
+      pgagroal_json_put(hba_conf, "type", (uintptr_t)config->hbas[i].type, ValueString);
+      pgagroal_json_put(hba_conf, "database", (uintptr_t)config->hbas[i].database, ValueString);
+      pgagroal_json_put(hba_conf, "username", (uintptr_t)config->hbas[i].username, ValueString);
+      pgagroal_json_put(hba_conf, "address", (uintptr_t)config->hbas[i].address, ValueString);
+      pgagroal_json_put(hba_conf, "method", (uintptr_t)config->hbas[i].method, ValueString);
+
+      // Add this HBA entry to the hba section using username as key
+      pgagroal_json_put(hba_section, config->hbas[i].username, (uintptr_t)hba_conf, ValueJSON);
+   }
+
+   // Add the hba section to the main response
+   pgagroal_json_put(res, "hba", (uintptr_t)hba_section, ValueJSON);
 }
 
 void
@@ -5731,6 +6162,8 @@ pgagroal_conf_get(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compr
 
    add_configuration_response(response);
    add_servers_configuration_response(response);
+   add_limits_configuration_response(response);
+   add_hba_configuration_response(response);
 
    end_time = time(NULL);
 

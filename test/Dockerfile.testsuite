@@ -47,7 +47,7 @@ RUN dnf -y update && \
       net-tools check check-devel graphviz \
       doxygen pandoc texlive texlive-latex \
       python3-pip curl ca-certificates wget \
-      libasan libubsan libstdc++-devel libgcc glibc-devel \
+      libasan libubsan libstdc++-devel liburing-devel libgcc glibc-devel \
       gawk coreutils findutils iproute && \
     dnf clean all
 
