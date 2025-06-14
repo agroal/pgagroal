@@ -84,12 +84,13 @@ extern "C" {
 #define MANAGEMENT_SHUTDOWN           15
 #define MANAGEMENT_STATUS             16
 #define MANAGEMENT_SWITCH_TO          17
+#define MANAGEMENT_CONFIG_ALIAS       18
 
-#define MANAGEMENT_MASTER_KEY         18
-#define MANAGEMENT_ADD_USER           19
-#define MANAGEMENT_UPDATE_USER        20
-#define MANAGEMENT_REMOVE_USER        21
-#define MANAGEMENT_LIST_USERS         22
+#define MANAGEMENT_MASTER_KEY         19
+#define MANAGEMENT_ADD_USER           20
+#define MANAGEMENT_UPDATE_USER        21
+#define MANAGEMENT_REMOVE_USER        22
+#define MANAGEMENT_LIST_USERS         23
 /**
  * Management arguments
  */
@@ -161,6 +162,10 @@ extern "C" {
 #define MANAGEMENT_ERROR_CONF_SET_NOCONFIG_KEY_OR_VALUE     1004
 #define MANAGEMENT_ERROR_CONF_SET_UNKNOWN_SERVER            1005
 #define MANAGEMENT_ERROR_CONF_SET_UNKNOWN_CONFIGURATION_KEY 1006
+
+#define MANAGEMENT_ERROR_CONF_ALIAS_NOFORK                    1200
+#define MANAGEMENT_ERROR_CONF_ALIAS_NETWORK                   1201
+#define MANAGEMENT_ERROR_CONF_ALIAS_ERROR                     1202
 
 /**
  * Output formats
@@ -450,6 +455,9 @@ pgagroal_management_request_conf_get(SSL* ssl, int socket, uint8_t compression, 
 int
 pgagroal_management_request_conf_set(SSL* ssl, int socket, char* config_key, char* config_value, uint8_t compression, uint8_t encryption, int32_t output_format);
 
+int
+pgagroal_management_config_alias(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, struct json* payload);
+
 /**
  * Get the frontend password of a user
  * @param ssl The SSL connection
@@ -462,6 +470,10 @@ pgagroal_management_request_conf_set(SSL* ssl, int socket, char* config_key, cha
  */
 int
 pgagroal_management_request_get_password(SSL* ssl, int socket, char* username, uint8_t compression, uint8_t encryption, int32_t output_format);
+
+// Add around line 170:
+int
+pgagroal_management_request_conf_alias(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 /**
  * Create an ok response

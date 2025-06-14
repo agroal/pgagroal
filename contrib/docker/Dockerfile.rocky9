@@ -58,7 +58,8 @@ RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.
         libyaml-devel \
         systemd-devel \
         libasan \ 
-        libasan-static \
+        liburing-devel \
+        libubsan \
         yaml-cpp-devel && \
     dnf clean all
 
@@ -66,7 +67,7 @@ WORKDIR /src
 
 COPY . .
 
-RUN rm -rf build && mkdir build
+RUN rm -rf CMakeCache.txt CMakeFiles build && mkdir build
 
 RUN cd build && \
     cmake .. -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_RPATH=/usr/local/lib && \
@@ -80,7 +81,8 @@ RUN dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x
         postgresql17-contrib \
         libpq5 \
         libev \
-        libatomic && \
+        libatomic \
+        liburing && \
     dnf clean all
 
 RUN useradd --create-home --shell /bin/bash pgagroal

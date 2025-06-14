@@ -39,6 +39,7 @@ jobs:
             doxygen \
             clang \
             net-tools \
+            liburing2 \
             gcovr \
             pandoc texlive texlive-latex-extra texlive-fonts-extra texlive-xetex \
             texlive-luatex texlive-science texlive-extra-utils

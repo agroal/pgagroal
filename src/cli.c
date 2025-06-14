@@ -71,6 +71,7 @@
 #define COMMAND_CONFIG_LS       "conf-ls"
 #define COMMAND_CONFIG_GET      "conf-get"
 #define COMMAND_CONFIG_SET      "conf-set"
+#define COMMAND_CONFIG_ALIAS    "conf-alias"
 
 #define OUTPUT_FORMAT_JSON "json"
 #define OUTPUT_FORMAT_TEXT "text"
@@ -114,6 +115,8 @@ static int process_set_result(SSL* ssl, int socket, char* config_key, int32_t ou
 
 static int get_conf_path_result(struct json* j, uintptr_t* r);
 static int get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t output_format);
+static int conf_alias(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int process_alias_result(SSL* ssl, int socket, int32_t output_format);
 
 static char* translate_command(int32_t cmd_code);
 static char* translate_output_format(int32_t out_code);
@@ -247,6 +250,14 @@ const struct pgagroal_command command_table[] = {
       .log_message = "<conf set> [%s] = [%s]"
    },
    {
+      .command = "conf",
+      .subcommand = "alias",
+      .accepted_argument_count = {0},
+      .action = MANAGEMENT_CONFIG_ALIAS,
+      .deprecated = false,
+      .log_message = "<conf alias>"
+   },
+   {
       .command = "clear",
       .subcommand = "server",
       .accepted_argument_count = {0, 1},
@@ -359,6 +370,8 @@ usage(void)
    printf("                                   conf get <parameter_name>\n");
    printf("                           - 'set' to modify a configuration value;\n");
    printf("                                   conf set <parameter_name> <parameter_value>;\n");
+   printf("                           - 'alias' to list all database aliases;\n");
+   printf("                                   conf alias\n");
    printf("  clear <what>             Resets either the Prometheus statistics or the specified server.\n");
    printf("                           <what> can be\n");
    printf("                           - 'server' (default) followed by a server name\n");
@@ -818,6 +831,10 @@ username:
    {
       exit_code = conf_set(s_ssl, socket, parsed.args[0], parsed.args[1], compression, encryption, output_format);
    }
+   else if (parsed.cmd->action == MANAGEMENT_CONFIG_ALIAS)
+   {
+      exit_code = conf_alias(s_ssl, socket, compression, encryption, output_format);
+   }
 
 done:
 
@@ -898,6 +915,7 @@ help_conf(void)
    printf("  pgagroal-cli conf [ls]\n");
    printf("  pgagroal-cli conf [get] <parameter_name>\n");
    printf("  pgagroal-cli conf [set] <parameter_name> <parameter_value>\n");
+   printf("  pgagroal-cli conf [alias]\n");
 }
 
 static void
@@ -931,6 +949,7 @@ display_helper(char* command)
    else if (!strcmp(command, COMMAND_CONFIG_GET) ||
             !strcmp(command, COMMAND_CONFIG_LS) ||
             !strcmp(command, COMMAND_CONFIG_SET) ||
+            !strcmp(command, COMMAND_CONFIG_ALIAS) ||
             !strcmp(command, COMMAND_RELOAD))
    {
       help_conf();
@@ -1295,6 +1314,21 @@ error:
 }
 
 static int
+conf_alias(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_conf_alias(ssl, socket, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   return process_alias_result(ssl, socket, output_format);
+
+error:
+
+   return 1;
+}
+
+static int
 process_result(SSL* ssl, int socket, int32_t output_format)
 {
    struct json* read = NULL;
@@ -1536,7 +1570,8 @@ error:
 static int
 get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t output_format)
 {
-   char server[MISC_LENGTH];
+   char section[MISC_LENGTH];
+   char context[MISC_LENGTH];
    char key[MISC_LENGTH];
 
    struct json* configuration_js = NULL;
@@ -1546,6 +1581,7 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
    struct json_iterator* iter;
    char* config_value = NULL;
    int begin = -1, end = -1;
+   int dot_count = 0;
 
    if (!config_key)
    {
@@ -1558,17 +1594,39 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
       goto error;
    }
 
-   memset(server, 0, MISC_LENGTH);
+   memset(section, 0, MISC_LENGTH);
+   memset(context, 0, MISC_LENGTH);
    memset(key, 0, MISC_LENGTH);
 
+   // Parse dotted notation: section.context.key
    for (unsigned long i = 0; i < strlen(config_key); i++)
    {
       if (config_key[i] == '.')
       {
-         if (!strlen(server))
+         dot_count++;
+         if (dot_count == 1 && !strlen(section))
          {
-            memcpy(server, &config_key[begin], end - begin + 1);
-            server[end - begin + 1] = '\0';
+            // First dot: extract section
+            size_t len = end - begin + 1;
+            if (len >= MISC_LENGTH)
+            {
+               len = MISC_LENGTH - 1;
+            }
+            memcpy(section, &config_key[begin], len);
+            section[len] = '\0';
+            begin = end = -1;
+            continue;
+         }
+         else if (dot_count == 2 && !strlen(context))
+         {
+            // Second dot: extract context
+            size_t len = end - begin + 1;
+            if (len >= MISC_LENGTH)
+            {
+               len = MISC_LENGTH - 1;
+            }
+            memcpy(context, &config_key[begin], len);
+            context[len] = '\0';
             begin = end = -1;
             continue;
          }
@@ -1578,43 +1636,80 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
       {
          begin = i;
       }
-
       end = i;
-
    }
 
-   // if the key has not been found, since there is no ending dot,
-   // try to extract it from the string
+   // Extract the final key
    if (!strlen(key))
    {
-      memcpy(key, &config_key[begin], end - begin + 1);
-      key[end - begin + 1] = '\0';
+      size_t len = end - begin + 1;
+      if (len >= MISC_LENGTH)
+      {
+         len = MISC_LENGTH - 1;
+      }
+      memcpy(key, &config_key[begin], len);
+      key[len] = '\0';
    }
 
    response = (struct json*)pgagroal_json_get(j, MANAGEMENT_CATEGORY_RESPONSE);
    outcome = (struct json*)pgagroal_json_get(j, MANAGEMENT_CATEGORY_OUTCOME);
+
    if (!response || !outcome)
    {
       goto error;
    }
 
-   // Check if error response
    if (pgagroal_json_contains_key(outcome, MANAGEMENT_ARGUMENT_ERROR))
    {
       goto error;
    }
 
-   if (strlen(server) > 0)
+   // Handle different section types
+   if (strlen(section) > 0)
    {
-      configuration_js = (struct json*)pgagroal_json_get(response, server);
-      if (!configuration_js)
+      // Get the section from response
+      struct json* section_json = (struct json*)pgagroal_json_get(response, section);
+      if (!section_json)
       {
          goto error;
+      }
+
+      if (strlen(context) > 0)
+      {
+         // Get the context from section
+         configuration_js = (struct json*)pgagroal_json_get(section_json, context);
+         if (!configuration_js)
+         {
+            goto error;
+         }
+      }
+      else
+      {
+
+         configuration_js = section_json;
+
+         size_t section_len = strlen(section);
+         if (section_len >= MISC_LENGTH)
+         {
+            section_len = MISC_LENGTH - 1;
+         }
+         memset(key, 0, MISC_LENGTH);
+         memcpy(key, section, section_len);
+         key[section_len] = '\0';
       }
    }
    else
    {
+      // Main configuration (no section)
       configuration_js = response;
+      size_t config_key_len = strlen(config_key);
+      if (config_key_len >= MISC_LENGTH)
+      {
+         config_key_len = MISC_LENGTH - 1;
+      }
+      memset(key, 0, MISC_LENGTH);
+      memcpy(key, config_key, config_key_len);
+      key[config_key_len] = '\0';
    }
 
    pgagroal_json_iterator_create(configuration_js, &iter);
@@ -1625,19 +1720,20 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
          config_value = pgagroal_value_to_string(iter->value, FORMAT_TEXT, NULL, 0);
          if (iter->value->type == ValueJSON)
          {
-            struct json* server_data = NULL;
-            pgagroal_json_clone((struct json*)iter->value->data, &server_data);
-            pgagroal_json_put(filtered_response, key, (uintptr_t)server_data, iter->value->type);
+            struct json* data = NULL;
+            pgagroal_json_clone((struct json*)iter->value->data, &data);
+            pgagroal_json_put(filtered_response, key, (uintptr_t)data, iter->value->type);
          }
          else
          {
             pgagroal_json_put(filtered_response, key, (uintptr_t)iter->value->data, iter->value->type);
          }
+         break;
       }
    }
    pgagroal_json_iterator_destroy(iter);
 
-   if (!config_value)  // if key doesn't match with any field in configuration
+   if (!config_value)
    {
       goto error;
    }
@@ -1656,7 +1752,6 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
    return 0;
 
 error:
-
    if (output_format == MANAGEMENT_OUTPUT_FORMAT_JSON)
    {
       pgagroal_json_put(filtered_response, "Outcome", (uintptr_t)false, ValueBool);
@@ -1729,6 +1824,103 @@ error:
    return 1;
 
 }
+static int
+process_alias_result(SSL* ssl, int socket, int32_t output_format)
+{
+   struct json* json = NULL;
+   int result = 0;
+
+   if (pgagroal_management_read_json(ssl, socket, NULL, NULL, &json))
+   {
+      result = 1;
+      goto cleanup;
+   }
+
+   if (output_format == MANAGEMENT_OUTPUT_FORMAT_JSON)
+   {
+      pgagroal_json_print(json, FORMAT_JSON);
+      goto cleanup;
+   }
+
+   // Text format output
+   struct json* output = (struct json*)pgagroal_json_get(json, "output");
+   if (!output)
+   {
+      printf("No alias data found.\n");
+      goto cleanup;
+   }
+
+   struct json* aliases_obj = (struct json*)pgagroal_json_get(output, "aliases");
+   if (!aliases_obj)
+   {
+      printf("No alias data found.\n");
+      goto cleanup;
+   }
+
+   printf("Database Aliases Configuration:\n");
+   printf("===============================\n\n");
+
+   // Use JSON iterator to traverse the array
+   struct json_iterator* iter = NULL;
+   if (pgagroal_json_iterator_create(aliases_obj, &iter) == 0)
+   {
+      while (pgagroal_json_iterator_next(iter))
+      {
+         struct json* entry = (struct json*)iter->value->data;
+
+         char* database = (char*)pgagroal_json_get(entry, "database");
+         char* username = (char*)pgagroal_json_get(entry, "username");
+         int aliases_count = (int)(uintptr_t)pgagroal_json_get(entry, "aliases_count");
+
+         printf("Database: %s\n", database ? database : "Unknown");
+         printf("Username: %s\n", username ? username : "Unknown");
+
+         if (aliases_count > 0)
+         {
+            struct json* alias_list = (struct json*)pgagroal_json_get(entry, "aliases");
+            printf("Aliases (%d): ", aliases_count);
+
+            if (alias_list)
+            {
+               struct json_iterator* alias_iter = NULL;
+               if (pgagroal_json_iterator_create(alias_list, &alias_iter) == 0)
+               {
+                  bool first = true;
+                  while (pgagroal_json_iterator_next(alias_iter))
+                  {
+                     struct json* alias_item = (struct json*)alias_iter->value->data;
+                     char* alias = (char*)pgagroal_json_get(alias_item, "alias");
+
+                     if (!first)
+                     {
+                        printf(", ");
+                     }
+                     printf("%s", alias ? alias : "Unknown");
+                     first = false;
+                  }
+                  pgagroal_json_iterator_destroy(alias_iter);
+               }
+            }
+            printf("\n");
+         }
+         else
+         {
+            printf("Aliases: None\n");
+         }
+         printf("\n");
+      }
+
+      pgagroal_json_iterator_destroy(iter);
+   }
+
+cleanup:
+   if (json)
+   {
+      pgagroal_json_destroy(json);
+   }
+
+   return result;
+}
 
 static char*
 translate_command(int32_t cmd_code)
@@ -1759,6 +1951,18 @@ translate_command(int32_t cmd_code)
          break;
       case MANAGEMENT_RELOAD:
          command_output = pgagroal_append(command_output, COMMAND_RELOAD);
+         break;
+      case MANAGEMENT_CONFIG_LS:
+         command_output = pgagroal_append(command_output, COMMAND_CONFIG_LS);
+         break;
+      case MANAGEMENT_CONFIG_GET:
+         command_output = pgagroal_append(command_output, COMMAND_CONFIG_GET);
+         break;
+      case MANAGEMENT_CONFIG_SET:
+         command_output = pgagroal_append(command_output, COMMAND_CONFIG_SET);
+         break;
+      case MANAGEMENT_CONFIG_ALIAS:
+         command_output = pgagroal_append(command_output, COMMAND_CONFIG_ALIAS);
          break;
       case MANAGEMENT_CLEAR:
          command_output = pgagroal_append(command_output, COMMAND_CLEAR);

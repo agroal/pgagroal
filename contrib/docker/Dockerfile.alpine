@@ -50,17 +50,20 @@ RUN apk add --no-cache \
     texlive texmf-dist \
     doxygen graphviz \
     libatomic \
+    liburing-dev\
+    liburing \
+    linux-headers \
     yaml-dev
 WORKDIR /src
 
 COPY . .
 
-RUN rm -rf build && mkdir build
-
-RUN cd build && \
+RUN rm -rf CMakeCache.txt CMakeFiles build && mkdir build && \
+    cd build && \
     cmake -DCMAKE_INSTALL_PREFIX=/usr/local/ .. && \
     make -j$(nproc) && \
     make install
+
 
 FROM alpine:latest
 

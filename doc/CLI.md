@@ -324,6 +324,20 @@ Admins file:               /etc/pgagroal/pgagroal_admins.conf
 Superuser file:
 Users file:                /etc/pgagroal/pgagroal_users.conf
 ```
+### conf alias
+
+The command `conf alias ` shows all the databases in `pgagroal_databases.conf` along with there alias and username .
+
+```
+Database Aliases Configuration:
+===============================
+
+Database: mydb
+Username: myuser
+Aliases (1): q
+
+```
+
 
 ### clear
 Resets different parts of the pooler. It accepts an operational mode:
