@@ -114,6 +114,8 @@ static int to_log_type(char* where, int value);
 
 static void add_configuration_response(struct json* res);
 static void add_servers_configuration_response(struct json* res);
+static void add_hba_configuration_response(struct json* res);
+static void add_limits_configuration_response(struct json* res);
 
 static bool is_supported_backend(ev_backend_t backend);
 static char* to_backend_str(ev_backend_t value);
@@ -5684,18 +5686,24 @@ add_configuration_response(struct json* res)
 static void
 add_servers_configuration_response(struct json* res)
 {
-   struct main_configuration* config = NULL;
+   struct main_configuration* config = (struct main_configuration*)shmem;
+   struct json* server_section = NULL;
+   struct json* server_conf = NULL;
+   // Create a server section to hold all server configurations
+   if (pgagroal_json_create(&server_section))
+   {
+      pgagroal_log_error("Failed to create server section JSON");
+      goto error;
+   }
 
-   config = (struct main_configuration*)shmem;
-
-   // JSON of server configuration
    for (int i = 0; i < config->number_of_servers; i++)
    {
-      struct json* server_conf = NULL;
 
       if (pgagroal_json_create(&server_conf))
       {
-         return;
+         pgagroal_log_error("Failed to create server configuration JSON for %s",
+                            config->servers[i].name);
+         goto error;
       }
 
       pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_HOST, (uintptr_t)config->servers[i].host, ValueString);
@@ -5705,8 +5713,114 @@ add_servers_configuration_response(struct json* res)
       pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_TLS_KEY_FILE, (uintptr_t)config->servers[i].tls_key_file, ValueString);
       pgagroal_json_put(server_conf, CONFIGURATION_ARGUMENT_TLS_CA_FILE, (uintptr_t)config->servers[i].tls_ca_file, ValueString);
 
-      pgagroal_json_put(res, config->servers[i].name, (uintptr_t)server_conf, ValueJSON);
+      // Add this server to the server section using server name as key
+      pgagroal_json_put(server_section, config->servers[i].name, (uintptr_t)server_conf, ValueJSON);
+      server_conf = NULL; // Prevent double free
    }
+
+   // Add the server section to the main response
+   pgagroal_json_put(res, PGAGROAL_CONF_SERVER_PREFIX, (uintptr_t)server_section, ValueJSON);
+   return;
+
+error:
+
+   pgagroal_json_destroy(server_conf);
+   pgagroal_json_destroy(server_section);
+   return;
+
+}
+
+static void
+add_limits_configuration_response(struct json* res)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+   struct json* limits_section = NULL;
+   struct json* limit_conf = NULL;
+   if (pgagroal_json_create(&limits_section))
+   {
+      pgagroal_log_error("Failed to create limits section JSON");
+      goto error;
+   }
+
+   for (int i = 0; i < config->number_of_limits; i++)
+   {
+      if (pgagroal_json_create(&limit_conf))
+      {
+         pgagroal_log_error("Failed to create limit configuration JSON for %s",
+                            config->limits[i].database);
+         goto error;
+      }
+
+      // Add limit parameters to limit_conf object
+      pgagroal_json_put(limit_conf, CONFIGURATION_ARGUMENT_LIMIT_DATABASE, (uintptr_t)config->limits[i].database, ValueString);
+      pgagroal_json_put(limit_conf, CONFIGURATION_ARGUMENT_LIMIT_USERNAME, (uintptr_t)config->limits[i].username, ValueString);
+      pgagroal_json_put(limit_conf, CONFIGURATION_ARGUMENT_LIMIT_MAX_SIZE, (uintptr_t)config->limits[i].max_size, ValueInt64);
+      pgagroal_json_put(limit_conf, CONFIGURATION_ARGUMENT_LIMIT_INITIAL_SIZE, (uintptr_t)config->limits[i].initial_size, ValueInt64);
+      pgagroal_json_put(limit_conf, CONFIGURATION_ARGUMENT_LIMIT_MIN_SIZE, (uintptr_t)config->limits[i].min_size, ValueInt64);
+
+      // Add this limit to the limits section using database name as key
+      pgagroal_json_put(limits_section, config->limits[i].database, (uintptr_t)limit_conf, ValueJSON);
+      limit_conf = NULL; // Prevent double free
+   }
+
+   // Add the limits section to the main response
+   pgagroal_json_put(res, PGAGROAL_CONF_LIMIT_PREFIX, (uintptr_t)limits_section, ValueJSON);
+   return;
+
+error:
+
+   pgagroal_json_destroy(limit_conf);
+
+   pgagroal_json_destroy(limits_section);
+
+   return;
+}
+
+static void
+add_hba_configuration_response(struct json* res)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+   struct json* hba_section = NULL;
+   struct json* hba_conf = NULL;
+   if (pgagroal_json_create(&hba_section))
+   {
+      pgagroal_log_error("Failed to create HBA section JSON");
+      goto error;
+   }
+
+   for (int i = 0; i < config->number_of_hbas; i++)
+   {
+      if (pgagroal_json_create(&hba_conf))
+      {
+         pgagroal_log_error("Failed to create HBA configuration JSON for %s",
+                            config->hbas[i].username);
+         goto error;
+      }
+
+      // Add HBA parameters to hba_conf object
+      pgagroal_json_put(hba_conf, CONFIGURATION_ARGUMENT_HBA_TYPE, (uintptr_t)config->hbas[i].type, ValueString);
+      pgagroal_json_put(hba_conf, CONFIGURATION_ARGUMENT_HBA_DATABASE, (uintptr_t)config->hbas[i].database, ValueString);
+      pgagroal_json_put(hba_conf, CONFIGURATION_ARGUMENT_HBA_USERNAME, (uintptr_t)config->hbas[i].username, ValueString);
+      pgagroal_json_put(hba_conf, CONFIGURATION_ARGUMENT_HBA_ADDRESS, (uintptr_t)config->hbas[i].address, ValueString);
+      pgagroal_json_put(hba_conf, CONFIGURATION_ARGUMENT_HBA_METHOD, (uintptr_t)config->hbas[i].method, ValueString);
+
+      // Add this HBA entry to the hba section using username as key
+      pgagroal_json_put(hba_section, config->hbas[i].username, (uintptr_t)hba_conf, ValueJSON);
+
+      hba_conf = NULL; // Prevent double free
+   }
+
+   // Add the hba section to the main response
+   pgagroal_json_put(res, PGAGROAL_CONF_HBA_PREFIX, (uintptr_t)hba_section, ValueJSON);
+   return;
+
+error:
+
+   pgagroal_json_destroy(hba_conf);
+
+   pgagroal_json_destroy(hba_section);
+
+   return;
 }
 
 void
@@ -5731,6 +5845,8 @@ pgagroal_conf_get(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compr
 
    add_configuration_response(response);
    add_servers_configuration_response(response);
+   add_limits_configuration_response(response);
+   add_hba_configuration_response(response);
 
    end_time = time(NULL);
 

@@ -125,6 +125,20 @@ extern "C" {
 #define CONFIGURATION_ARGUMENT_UPDATE_PROCESS_TITLE             "update_process_title"
 #define CONFIGURATION_ARGUMENT_PRIMARY                          "primary"
 
+// HBA configuration argument constants
+#define CONFIGURATION_ARGUMENT_HBA_TYPE                         "type"
+#define CONFIGURATION_ARGUMENT_HBA_DATABASE                     "database"
+#define CONFIGURATION_ARGUMENT_HBA_USERNAME                     "username"
+#define CONFIGURATION_ARGUMENT_HBA_ADDRESS                      "address"
+#define CONFIGURATION_ARGUMENT_HBA_METHOD                       "method"
+
+// Limit configuration argument constants
+#define CONFIGURATION_ARGUMENT_LIMIT_DATABASE                   "database"
+#define CONFIGURATION_ARGUMENT_LIMIT_USERNAME                   "username"
+#define CONFIGURATION_ARGUMENT_LIMIT_MAX_SIZE                   "max_size"
+#define CONFIGURATION_ARGUMENT_LIMIT_MIN_SIZE                   "min_size"
+#define CONFIGURATION_ARGUMENT_LIMIT_INITIAL_SIZE               "initial_size"
+
 /**
  * Initialize the configuration structure
  * @param shmem The shared memory segment
