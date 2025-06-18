@@ -151,6 +151,33 @@ anotherdb  userB   10           5       3
 | INITIAL_SIZE | No | Specifies the initial pool size for the entry. `all` for `MAX_SIZE` connections. Default is 0 |
 | MIN_SIZE | No | Specifies the minimum pool size for the entry. `all` for `MAX_SIZE` connections. Default is 0 |
 
+### Database Aliases
+
+Database aliases allow clients to connect using alternative names for a configured database. This is useful for:
+- Application migrations where legacy database names need to be supported
+- Multi-tenancy scenarios where different clients use different logical names
+- Providing user-friendly names without exposing actual backend database names
+
+### Alias Rules and Behavior
+
+- **Alias Resolution**: When a client connects using an alias, pgagroal automatically resolves it to the real database name before establishing or reusing backend connections
+- **Connection Pooling**: Connections established with the real database name can be reused by clients connecting with any of its aliases
+- **Transparent Mapping**: All authentication queries and backend communication use the real database name
+- **Uniqueness**: Aliases must be unique across all database entries and cannot conflict with any real database name
+- **Limit**: Maximum 8 aliases per database entry
+
+### Configuration Examples
+
+```
+ Database with aliases
+production_db=prod,main,primary    myuser    10    5    2    
+ 
+development_db=dev,test,staging,qa  devuser   5     2    1    
+
+new_app_db=legacy_app,old_db      appuser    15    8    3    
+```
+
+
 
 There can be up to `64` entries in the configuration file.
 
@@ -160,6 +187,19 @@ The system will find the best match limit entry for a given `DATABASE`-`USER` pa
 1. Use the first entry with an exact `DATABASE` and `USER` match.
 2. If there is no exact match, use the entry with a `USER` match and `DATABASE` set to `all`.
 3. If Rule 2 does not apply, use the entry with a `DATABASE` match and `USER` set to `all`.
+
+**Note**: For alias matching in Rule 1, if a client connects using an alias name, pgagroal will find the entry where the alias is defined and treat it as an exact database match.
+
+### Alias Validation
+
+The configuration system validates aliases to ensure:
+- No duplicate aliases within the same entry
+- No alias conflicts with main database names in other entries  
+- No duplicate aliases across different entries
+- Aliases are not empty strings
+- Total alias count does not exceed the maximum limit
+
+Changes to aliases can be reloaded without restarting pgagroal, making it easy to add or modify aliases for existing databases.
 
 ## pgagroal_users configuration
 
