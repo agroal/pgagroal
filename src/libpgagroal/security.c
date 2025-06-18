@@ -130,6 +130,7 @@ static int auth_query_server_scram256(char* username, char* password, int socket
 static int auth_query_get_password(int socket, SSL* server_ssl, char* username, char* database, char** password);
 static int auth_query_client_md5(SSL* c_ssl, int client_fd, char* username, char* hash, int slot);
 static int auth_query_client_scram256(SSL* c_ssl, int client_fd, char* username, char* shadow, int slot);
+static char* resolve_database_alias(char* username, char* database);
 
 int
 pgagroal_authenticate(int client_fd, char* address, int* slot, SSL** client_ssl, SSL** server_ssl)
@@ -526,6 +527,7 @@ pgagroal_prefill_auth(char* username, char* password, char* database, int* slot,
    struct message* msg = NULL;
    int ret = -1;
    int status = -1;
+   char* real_database = NULL;
 
    config = (struct main_configuration*)shmem;
 
@@ -540,8 +542,9 @@ pgagroal_prefill_auth(char* username, char* password, char* database, int* slot,
       goto error;
    }
    server_fd = config->connections[*slot].fd;
+   real_database = resolve_database_alias(username, database);
 
-   status = pgagroal_create_startup_message(username, database, &startup_msg);
+   status = pgagroal_create_startup_message(username, real_database, &startup_msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -1311,6 +1314,8 @@ use_pooled_connection(SSL* c_ssl, int client_fd, int slot, char* username, char*
    struct message* msg = NULL;
    char* password = NULL;
 
+   database = resolve_database_alias(username, database);
+
    config = (struct main_configuration*)shmem;
 
    password = get_frontend_password(username);
@@ -1474,6 +1479,10 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
    struct message* msg = NULL;
    struct message* auth_msg = NULL;
    struct main_configuration* config = NULL;
+   char* client_username = NULL;
+   char* client_database = NULL;
+   char* client_appname = NULL;
+   char* real_database = NULL;
 
    config = (struct main_configuration*)shmem;
    server_fd = config->connections[slot].fd;
@@ -1498,12 +1507,43 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
 
    /* Send auth request to PostgreSQL */
    pgagroal_log_trace("authenticate: client auth request (%d)", client_fd);
-   status = pgagroal_write_message(*server_ssl, server_fd, request_msg);
+
+   // Extract username, database, and appname from request message
+   pgagroal_extract_username_database(request_msg, &client_username, &client_database, &client_appname);
+
+   // Resolve database alias to real database name
+   real_database = resolve_database_alias(client_username, client_database);
+
+   // Store the extracted values in the connection slot
+   if (client_username != NULL)
+   {
+      memset(&config->connections[slot].username, 0, MAX_USERNAME_LENGTH);
+      memcpy(&config->connections[slot].username, client_username, strlen(client_username));
+   }
+   if (client_database != NULL)
+   {
+      memset(&config->connections[slot].database, 0, MAX_DATABASE_LENGTH);
+      memcpy(&config->connections[slot].database, client_database, strlen(client_database));
+   }
+   if (client_appname != NULL)
+   {
+      memset(&config->connections[slot].appname, 0, MAX_APPLICATION_NAME);
+      memcpy(&config->connections[slot].appname, client_appname, strlen(client_appname));
+   }
+
+   // Create startup message with the REAL database name for PostgreSQL
+   status = pgagroal_create_startup_message(client_username, real_database, &msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
    }
-   pgagroal_clear_message(msg);
+
+   status = pgagroal_write_message(*server_ssl, server_fd, msg);
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+   pgagroal_free_message(msg);
 
    /* Keep response, and send response to client */
    pgagroal_log_trace("authenticate: server auth request (%d)", server_fd);
@@ -1550,6 +1590,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
       }
 
       auth_msg = pgagroal_copy_message(msg);
+      pgagroal_clear_message(msg);
 
       if (hba_method == SECURITY_TRUST)
       {
@@ -1599,7 +1640,6 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
       {
          pgagroal_write_connection_refused(c_ssl, client_fd);
          pgagroal_write_empty(c_ssl, client_fd);
-
          goto error;
       }
 
@@ -1610,7 +1650,6 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
             pgagroal_write_connection_refused(c_ssl, client_fd);
             pgagroal_write_empty(c_ssl, client_fd);
          }
-
          goto error;
       }
 
@@ -1630,6 +1669,11 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
 
    pgagroal_log_trace("authenticate: has_security %d", config->connections[slot].has_security);
 
+   // Clean up allocated memory
+   free(client_username);
+   free(client_database);
+   free(client_appname);
+
    pgagroal_free_message(auth_msg);
 
    return AUTH_SUCCESS;
@@ -1647,11 +1691,21 @@ bad_password:
       }
    }
 
+   // Clean up allocated memory
+   free(client_username);
+   free(client_database);
+   free(client_appname);
+
    return AUTH_BAD_PASSWORD;
 
 error:
 
    pgagroal_free_message(auth_msg);
+
+   // Clean up allocated memory
+   free(client_username);
+   free(client_database);
+   free(client_appname);
 
    pgagroal_log_trace("use_unpooled_connection: failed for slot %d", slot);
 
@@ -2917,9 +2971,28 @@ is_allowed_username(char* username, char* entry)
 static bool
 is_allowed_database(char* database, char* entry)
 {
+   struct main_configuration* config = (struct main_configuration*)shmem;
+
    if (!strcasecmp(entry, "all") || !strcmp(database, entry))
    {
       return true;
+   }
+
+   // Check if the database is an alias in any limit entry
+   for (int i = 0; i < config->number_of_limits; i++)
+   {
+      if (!strcmp(entry, config->limits[i].database))
+      {
+         // Check if database is an alias of this entry
+         for (int j = 0; j < config->limits[i].aliases_count; j++)
+         {
+            if (!strcmp(database, config->limits[i].aliases[j]))
+            {
+               pgagroal_log_debug("HBA: Database '%s' matched as alias of '%s'", database, entry);
+               return true;
+            }
+         }
+      }
    }
 
    return false;
@@ -5674,4 +5747,33 @@ pgagroal_is_ssl_request(int client_fd)
    }
 
    return ssl_req;
+}
+
+static char*
+resolve_database_alias(char* username, char* database)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+
+   // Find the best rule for this user/database combination
+   for (int i = 0; i < config->number_of_limits; i++)
+   {
+      bool username_match = (!strcmp("all", config->limits[i].username) || !strcmp(username, config->limits[i].username));
+
+      if (username_match)
+      {
+         // Check if database matches any alias for this limit entry
+         for (int j = 0; j < config->limits[i].aliases_count; j++)
+         {
+            if (!strcmp(database, config->limits[i].aliases[j]))
+            {
+               pgagroal_log_debug("resolve_database_alias: '%s' -> '%s' (rule %d)",
+                                  database, config->limits[i].database, i);
+               return config->limits[i].database; // Return real database name
+            }
+         }
+      }
+   }
+
+   // Not an alias, return original name
+   return database;
 }

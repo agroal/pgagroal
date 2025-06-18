@@ -25,7 +25,7 @@ pgagroal_cli_completions()
                 COMPREPLY+=($(compgen -W "server prometheus" "${COMP_WORDS[2]}"))
                 ;;
 	    conf)
-		COMPREPLY+=($(compgen -W "reload get set ls" "${COMP_WORDS[2]}"))
+		COMPREPLY+=($(compgen -W "reload get set ls alias" "${COMP_WORDS[2]}"))
 		;;
 	    status)
 		COMPREPLY+=($(compgen -W "details" "${COMP_WORDS[2]}"))

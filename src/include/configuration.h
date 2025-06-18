@@ -138,6 +138,9 @@ extern "C" {
 #define CONFIGURATION_ARGUMENT_LIMIT_MAX_SIZE                   "max_size"
 #define CONFIGURATION_ARGUMENT_LIMIT_MIN_SIZE                   "min_size"
 #define CONFIGURATION_ARGUMENT_LIMIT_INITIAL_SIZE               "initial_size"
+#define CONFIGURATION_ARGUMENT_LIMIT_ALIASES                    "aliases"
+#define CONFIGURATION_ARGUMENT_LIMIT_NUMBER_OF_ALIASES          "number_of_aliases"
+#define CONFIGURATION_ARGUMENT_LIMIT_LINENO                     "line_number"
 
 // Set configuration argument constants
 #define CONFIGURATION_RESPONSE_STATUS                           "status"

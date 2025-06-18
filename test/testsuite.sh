@@ -426,6 +426,89 @@ clean() {
 ##############################################################
 
 #################### PGAGROAL OPERATIONS #####################
+
+create_master_key() {
+    echo -e "\e[34mCreate Master Key \e[0m"
+    
+    # Check if master key already exists
+    if [[ "$OS" == "FreeBSD" ]]; then
+        if run_as_postgres "test -f ~/.pgagroal/master.key"; then
+            echo "Master key already exists, using existing key ... ok"
+            return 0
+        fi
+    else
+        if [ -f "$HOME/.pgagroal/master.key" ]; then
+            echo "Master key already exists, using existing key ... ok"
+            return 0
+        fi
+    fi
+    
+    # Create .pgagroal directory if it doesn't exist
+    echo "=== DEBUG: Creating .pgagroal directory ==="
+    if [[ "$OS" == "FreeBSD" ]]; then
+        run_as_postgres "mkdir -p ~/.pgagroal"
+        run_as_postgres "chmod 700 ~/.pgagroal"
+    else
+        mkdir -p ~/.pgagroal
+        chmod 700 ~/.pgagroal
+    fi
+    
+    echo "=== DEBUG: Creating master key ==="
+    run_as_postgres "$EXECUTABLE_DIRECTORY/pgagroal-admin master-key -P $PGPASSWORD"
+    master_key_result=$?
+    echo "Master key creation result: $master_key_result"
+    
+    # Handle the result
+    if [ $master_key_result -eq 0 ]; then
+        echo "Master key created successfully ... ok"
+    elif [ $master_key_result -eq 1 ]; then
+        # Exit code 1 typically means "already exists" - this is acceptable
+        echo "Master key already exists or minor issue, continuing ... ok"
+    else
+        echo "Failed to create master key with unexpected error (exit code: $master_key_result)"
+        exit 1
+    fi
+    
+    echo ""
+}
+
+create_users_configuration() {
+    echo -e "\e[34mCreate Users Configuration \e[0m"
+    
+    # Check if users configuration already exists
+    if [ -f "$CONFIGURATION_DIRECTORY/pgagroal_users.conf" ]; then
+        echo "Users configuration file already exists, removing for fresh setup"
+        rm -f "$CONFIGURATION_DIRECTORY/pgagroal_users.conf"
+    fi
+    
+    echo "=== DEBUG: Adding $PSQL_USER to pgagroal_users.conf ==="
+    run_as_postgres "$EXECUTABLE_DIRECTORY/pgagroal-admin -f $CONFIGURATION_DIRECTORY/pgagroal_users.conf -U $PSQL_USER -P $PGPASSWORD user add"
+    user_add_result=$?
+    echo "User add result for $PSQL_USER: $user_add_result"
+    
+    if [ $user_add_result -ne 0 ]; then
+        echo "Failed to add user $PSQL_USER"
+        exit 1
+    fi
+    
+    echo "create pgagroal_users.conf inside $CONFIGURATION_DIRECTORY ... ok"
+    echo ""
+}
+
+create_database_alias_config() {
+    echo -e "\e[34mCreate Database Alias Configuration \e[0m"
+    
+    cat << EOF > $CONFIGURATION_DIRECTORY/pgagroal_databases.conf
+#
+# DATABASE=ALIAS1,ALIAS2 USER MAX_SIZE INITIAL_SIZE MIN_SIZE
+#
+postgres=pgalias1,pgalias2 $PSQL_USER 8 0 0
+EOF
+
+    echo "create pgagroal_databases.conf inside $CONFIGURATION_DIRECTORY ... ok"
+    echo ""
+}
+
 pgagroal_initialize_configuration() {
     echo -e "\e[34mInitialize pgagroal configuration files \e[0m"
     mkdir -p $CONFIGURATION_DIRECTORY
@@ -461,7 +544,14 @@ EOF
         chown -R postgres:postgres $CONFIGURATION_DIRECTORY
         chown -R postgres:postgres $PGAGROAL_LOG_FILE
     fi
+    
+    # Create configuration files 
+    create_database_alias_config
+    create_master_key
+    create_users_configuration
+    
     echo ""
+
 }
 
 execute_testcases() {
@@ -485,7 +575,7 @@ execute_testcases() {
         exit 1
     fi
 
-    run_as_postgres "$EXECUTABLE_DIRECTORY/pgagroal -c $CONFIGURATION_DIRECTORY/pgagroal.conf -a $CONFIGURATION_DIRECTORY/pgagroal_hba.conf -d"
+    run_as_postgres "$EXECUTABLE_DIRECTORY/pgagroal -c $CONFIGURATION_DIRECTORY/pgagroal.conf -a $CONFIGURATION_DIRECTORY/pgagroal_hba.conf -u $CONFIGURATION_DIRECTORY/pgagroal_users.conf -l $CONFIGURATION_DIRECTORY/pgagroal_databases.conf -d"
     wait_for_server_ready $PGAGROAL_PORT
     if [ $? -eq 0 ]; then
         echo "pgagroal server started in daemon mode ... ok"

@@ -54,6 +54,7 @@
 #include <openssl/ssl.h>
 
 #define HELP 99
+#define DB_ALIAS_STRING_LENGTH   512
 
 #define COMMAND_CANCELSHUTDOWN  "cancel-shutdown"
 #define COMMAND_CLEAR           "clear"
@@ -71,6 +72,7 @@
 #define COMMAND_CONFIG_LS       "conf-ls"
 #define COMMAND_CONFIG_GET      "conf-get"
 #define COMMAND_CONFIG_SET      "conf-set"
+#define COMMAND_CONFIG_ALIAS    "conf-alias"
 
 #define OUTPUT_FORMAT_JSON "json"
 #define OUTPUT_FORMAT_TEXT "text"
@@ -114,6 +116,8 @@ static int process_set_result(SSL* ssl, int socket, char* config_key, int32_t ou
 
 static int get_conf_path_result(struct json* j, uintptr_t* r);
 static int get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t output_format);
+static int conf_alias(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
+static int process_alias_result(SSL* ssl, int socket, int32_t output_format);
 
 static char* translate_command(int32_t cmd_code);
 static char* translate_output_format(int32_t out_code);
@@ -247,6 +251,14 @@ const struct pgagroal_command command_table[] = {
       .log_message = "<conf set> [%s] = [%s]"
    },
    {
+      .command = "conf",
+      .subcommand = "alias",
+      .accepted_argument_count = {0},
+      .action = MANAGEMENT_CONFIG_ALIAS,
+      .deprecated = false,
+      .log_message = "<conf alias>"
+   },
+   {
       .command = "clear",
       .subcommand = "server",
       .accepted_argument_count = {0, 1},
@@ -359,6 +371,8 @@ usage(void)
    printf("                                   conf get <parameter_name>\n");
    printf("                           - 'set' to modify a configuration value;\n");
    printf("                                   conf set <parameter_name> <parameter_value>;\n");
+   printf("                           - 'alias' to list all database aliases;\n");
+   printf("                                   conf alias\n");
    printf("  clear <what>             Resets either the Prometheus statistics or the specified server.\n");
    printf("                           <what> can be\n");
    printf("                           - 'server' (default) followed by a server name\n");
@@ -818,6 +832,10 @@ username:
    {
       exit_code = conf_set(s_ssl, socket, parsed.args[0], parsed.args[1], compression, encryption, output_format);
    }
+   else if (parsed.cmd->action == MANAGEMENT_CONFIG_ALIAS)
+   {
+      exit_code = conf_alias(s_ssl, socket, compression, encryption, output_format);
+   }
 
 done:
 
@@ -898,6 +916,7 @@ help_conf(void)
    printf("  pgagroal-cli conf [ls]\n");
    printf("  pgagroal-cli conf [get] <parameter_name>\n");
    printf("  pgagroal-cli conf [set] <parameter_name> <parameter_value>\n");
+   printf("  pgagroal-cli conf [alias]\n");
 }
 
 static void
@@ -931,6 +950,7 @@ display_helper(char* command)
    else if (!strcmp(command, COMMAND_CONFIG_GET) ||
             !strcmp(command, COMMAND_CONFIG_LS) ||
             !strcmp(command, COMMAND_CONFIG_SET) ||
+            !strcmp(command, COMMAND_CONFIG_ALIAS) ||
             !strcmp(command, COMMAND_RELOAD))
    {
       help_conf();
@@ -1288,6 +1308,21 @@ conf_set(SSL* ssl, int socket, char* config_key, char* config_value, uint8_t com
    }
 
    return 0;
+
+error:
+
+   return 1;
+}
+
+static int
+conf_alias(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   if (pgagroal_management_request_conf_alias(ssl, socket, compression, encryption, output_format))
+   {
+      goto error;
+   }
+
+   return process_alias_result(ssl, socket, output_format);
 
 error:
 
@@ -1772,6 +1807,7 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
    return 0;
 
 error:
+
    if (output_format == MANAGEMENT_OUTPUT_FORMAT_JSON)
    {
       pgagroal_json_put(filtered_response, "Outcome", (uintptr_t)false, ValueBool);
@@ -1866,7 +1902,150 @@ error:
    return 1;
 
 }
+static int
+process_alias_result(SSL* ssl, int socket, int32_t output_format)
+{
+   struct json* json = NULL;
+   struct json* output = NULL;
+   struct json* aliases_obj = NULL;
+   struct json_iterator* iter = NULL;
+   int result = 0;
 
+   if (pgagroal_management_read_json(ssl, socket, NULL, NULL, &json))
+   {
+      result = 1;
+      goto cleanup;
+   }
+
+   if (output_format == MANAGEMENT_OUTPUT_FORMAT_JSON)
+   {
+      pgagroal_json_print(json, FORMAT_JSON);
+      goto cleanup;
+   }
+
+   // Text format output
+   output = (struct json*)pgagroal_json_get(json, "output");
+   if (!output)
+   {
+      printf("No alias data found.\n");
+      pgagroal_log_debug("No output object found in JSON response");
+      result = 1;
+      goto cleanup;
+   }
+
+   aliases_obj = (struct json*)pgagroal_json_get(output, "aliases");
+   if (!aliases_obj)
+   {
+      printf("No alias data found.\n");
+      result = 1;
+      pgagroal_log_debug("No aliases object found in output");
+      goto cleanup;
+   }
+
+   printf("# DATABASE=ALIASES                           USER           MAX   INIT   MIN\n");
+   printf("#--------------------------------------------------------------------------\n");
+
+   // Use JSON iterator to traverse the array
+   if (pgagroal_json_iterator_create(aliases_obj, &iter) == 0)
+   {
+      while (pgagroal_json_iterator_next(iter))
+      {
+         struct json* entry = (struct json*)iter->value->data;
+         struct json_iterator* alias_iter = NULL;
+
+         char* database = (char*)pgagroal_json_get(entry, "database");
+         char* username = (char*)pgagroal_json_get(entry, "username");
+         int aliases_count = (int)(uintptr_t)pgagroal_json_get(entry, "aliases_count");
+         int max_size = (int)(uintptr_t)pgagroal_json_get(entry, "max_size");
+         int initial_size = (int)(uintptr_t)pgagroal_json_get(entry, "initial_size");
+         int min_size = (int)(uintptr_t)pgagroal_json_get(entry, "min_size");
+
+         if (!database || !username)
+         {
+            pgagroal_log_debug("Corrupted alias entry - missing required fields (database or username)");
+            result = 1;
+            goto cleanup;
+         }
+
+         // Build the database=aliases string
+         char db_alias_string[DB_ALIAS_STRING_LENGTH];
+         snprintf(db_alias_string, sizeof(db_alias_string), "%s", database);
+
+         if (aliases_count > 0)
+         {
+            struct json* alias_list = (struct json*)pgagroal_json_get(entry, "aliases");
+
+            if (alias_list)
+            {
+               // Add equals sign and first alias
+               strcat(db_alias_string, "=");
+               if (pgagroal_json_iterator_create(alias_list, &alias_iter) == 0)
+               {
+                  bool first = true;
+                  while (pgagroal_json_iterator_next(alias_iter))
+                  {
+                     struct json* alias_item = (struct json*)alias_iter->value->data;
+
+                     char* alias = (char*)pgagroal_json_get(alias_item, "alias");
+
+                     if (!alias)
+                     {
+                        pgagroal_log_debug("Error: Corrupted alias data - missing alias field");
+                        pgagroal_json_iterator_destroy(alias_iter);
+                        result = 1;
+                        goto cleanup;
+                     }
+
+                     if (!first)
+                     {
+                        strcat(db_alias_string, ",");
+                     }
+                     strcat(db_alias_string, alias);
+                     first = false;
+                  }
+                  pgagroal_json_iterator_destroy(alias_iter);
+                  alias_iter = NULL;
+
+               }
+
+            }
+
+         }
+
+         // Print in compact configuration format
+         if (max_size > 0)
+         {
+            // If we have limit configuration data, show it
+            printf("%-40s    %-10s    %4d   %4d   %3d\n",
+                   db_alias_string, username, max_size, initial_size, min_size);
+         }
+         else
+         {
+            // If no limit data, just show database=aliases and username
+            printf("%-40s %-10s\n", db_alias_string, username);
+         }
+
+      }
+   }
+   else
+   {
+      pgagroal_log_debug("Failed to create JSON iterator for aliases");
+      printf("No alias data found.\n");
+      goto cleanup;
+   }
+
+cleanup:
+   if (iter)
+   {
+      pgagroal_json_iterator_destroy(iter);
+   }
+   if (json)
+   {
+      pgagroal_json_destroy(json);
+   }
+
+   return result;
+}
 static char*
 translate_command(int32_t cmd_code)
 {
@@ -1905,6 +2084,9 @@ translate_command(int32_t cmd_code)
          break;
       case MANAGEMENT_CONFIG_SET:
          command_output = pgagroal_append(command_output, COMMAND_CONFIG_SET);
+         break;
+      case MANAGEMENT_CONFIG_ALIAS:
+         command_output = pgagroal_append(command_output, COMMAND_CONFIG_ALIAS);
          break;
       case MANAGEMENT_CLEAR:
          command_output = pgagroal_append(command_output, COMMAND_CLEAR);

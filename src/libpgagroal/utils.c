@@ -1539,3 +1539,33 @@ pgagroal_resolve_path(char* orig_path, char** new_path)
 error:
    return 1;
 }
+
+char*
+pgagroal_remove_all_whitespace(char* orig)
+{
+   size_t length;
+   char c = 0;
+   char* result = NULL;
+
+   if (orig == NULL || strlen(orig) == 0)
+   {
+      return orig;
+   }
+
+   length = strlen(orig);
+
+   for (size_t i = 0; i < length; i++)
+   {
+      c = *(orig + i);
+      if (c == ' ' || c == '\t' || c == '\r' || c == '\n')
+      {
+         /* Skip whitespace */
+      }
+      else
+      {
+         result = pgagroal_append_char(result, c);
+      }
+   }
+
+   return result;
+}

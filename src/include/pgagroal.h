@@ -86,6 +86,7 @@ extern "C" {
 #define MIN_PASSWORD_LENGTH      8
 #define MAX_PASSWORD_LENGTH   1024
 #define MAX_APPLICATION_NAME    64
+#define MAX_ALIASES              8
 
 #define MAX_PATH        1024
 #define MISC_LENGTH      128
@@ -187,6 +188,8 @@ extern "C" {
 #define PGAGROAL_LIMIT_ENTRY_MAX_SIZE "max_size"
 #define PGAGROAL_LIMIT_ENTRY_MIN_SIZE "min_size"
 #define PGAGROAL_LIMIT_ENTRY_INITIAL_SIZE "initial_size"
+#define PGAGROAL_LIMIT_ENTRY_ALIASES "aliases"
+#define PGAGROAL_LIMIT_ENTRY_NUMBER_OF_ALIASES "number_of_aliases"
 #define PGAGROAL_LIMIT_ENTRY_LINENO "line_number"
 
 /**
@@ -348,6 +351,8 @@ struct limit
 {
    char database[MAX_DATABASE_LENGTH]; /**< The database */
    char username[MAX_USERNAME_LENGTH]; /**< The user name */
+   char aliases[MAX_ALIASES][MAX_DATABASE_LENGTH]; /**< The aliases for the database */
+   int aliases_count;               /**< The number of aliases */
    atomic_ushort active_connections;   /**< The active number of connections */
    int max_size;                       /**< The maximum pool size */
    int initial_size;                   /**< The initial pool size */

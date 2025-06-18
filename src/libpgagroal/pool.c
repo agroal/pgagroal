@@ -58,6 +58,9 @@ static int find_best_rule(char* username, char* database);
 static bool remove_connection(char* username, char* database);
 static void connection_details(int slot);
 static bool do_prefill(char* username, char* database, int size);
+static bool is_alias_of_limit(char* database, int limit_index);
+static int get_connection_count_for_limit_rule(int rule_index, char* username);
+static char* resolve_database_name(char* database, int best_rule);
 
 int
 pgagroal_get_connection(char* username, char* database, bool reuse, bool transaction_mode, int* slot, SSL** ssl)
@@ -73,6 +76,7 @@ pgagroal_get_connection(char* username, char* database, bool reuse, bool transac
    int best_rule;
    int retries;
    int ret;
+   char* real_database;
 
    struct main_configuration* config;
    struct main_prometheus* prometheus;
@@ -96,11 +100,13 @@ start:
 
    if (best_rule >= 0)
    {
-      connections = atomic_fetch_add(&config->limits[best_rule].active_connections, 1);
+      // ENHANCED: Use alias-aware connection counting
+      connections = get_connection_count_for_limit_rule(best_rule, username);
       if (connections >= config->limits[best_rule].max_size)
       {
          goto retry;
       }
+
    }
 
    connections = atomic_fetch_add(&config->active_connections, 1);
@@ -110,7 +116,6 @@ start:
       goto retry;
    }
 
-   /* Try and find an existing free connection */
    if (reuse)
    {
       for (int i = 0; *slot == -1 && i < config->max_connections; i++)
@@ -119,9 +124,25 @@ start:
 
          if (atomic_compare_exchange_strong(&config->states[i], &free, STATE_IN_USE))
          {
+            bool can_reuse = false;
+
+            // Check if same rule and username
             if (best_rule == config->connections[i].limit_rule &&
-                !strcmp((const char*)(&config->connections[i].username), username) &&
-                !strcmp((const char*)(&config->connections[i].database), database))
+                !strcmp((const char*)(&config->connections[i].username), username))
+            {
+               real_database = resolve_database_name(database, best_rule);
+               // Check exact database match
+               if (!strcmp((const char*)(&config->connections[i].database), real_database))
+               {
+                  can_reuse = true;
+                  pgagroal_log_debug("Reusing connection: client_db='%s' matches stored_db='%s'",
+                                     database, config->connections[i].database);
+               }
+               // Check if both are aliases of the same real database
+
+            }
+
+            if (can_reuse)
             {
                *slot = i;
             }
@@ -216,10 +237,11 @@ start:
 
          memset(&config->connections[*slot].username, 0, MAX_USERNAME_LENGTH);
          memcpy(&config->connections[*slot].username, username, MIN(strlen(username), MAX_USERNAME_LENGTH - 1));
-
+         real_database = resolve_database_name(database, best_rule);
          memset(&config->connections[*slot].database, 0, MAX_DATABASE_LENGTH);
-         memcpy(&config->connections[*slot].database, database, MIN(strlen(database), MAX_DATABASE_LENGTH - 1));
+         memcpy(&config->connections[*slot].database, real_database, MIN(strlen(real_database), MAX_DATABASE_LENGTH - 1));
 
+         pgagroal_log_debug("Connection setup: client_db='%s' -> postgres_db='%s'", database, real_database);
          config->connections[*slot].has_security = SECURITY_INVALID;
          config->connections[*slot].fd = fd;
 
@@ -1255,9 +1277,33 @@ find_best_rule(char* username, char* database)
    {
       for (int i = 0; i < config->number_of_limits; i++)
       {
+         bool database_match = false;
+
+         // Check exact database name match or "all"
+         if (!strcmp("all", config->limits[i].database) || !strcmp(database, config->limits[i].database))
+         {
+            database_match = true;
+         }
+         else
+         {
+            // Check if database matches any alias for this limit entry
+            for (int j = 0; j < config->limits[i].aliases_count; j++)
+            {
+               if (!strcmp(database, config->limits[i].aliases[j]))
+               {
+                  database_match = true;
+                  pgagroal_log_debug("Database '%s' matched alias '%s' for rule %d",
+                                     database, config->limits[i].aliases[j], i);
+                  break;
+               }
+            }
+         }
+
+         // Check username match
+         bool username_match = (!strcmp("all", config->limits[i].username) || !strcmp(username, config->limits[i].username));
+
          /* There is a match */
-         if ((!strcmp("all", config->limits[i].username) || !strcmp(username, config->limits[i].username)) &&
-             (!strcmp("all", config->limits[i].database) || !strcmp(database, config->limits[i].database)))
+         if (username_match && database_match)
          {
             if (best_rule == -1)
             {
@@ -1266,7 +1312,8 @@ find_best_rule(char* username, char* database)
             else
             {
                if (!strcmp(username, config->limits[best_rule].username) &&
-                   !strcmp(database, config->limits[best_rule].database))
+                   (!strcmp(database, config->limits[best_rule].database) ||
+                    is_alias_of_limit(database, best_rule)))
                {
                   /* We have a precise rule already */
                }
@@ -1291,7 +1338,76 @@ find_best_rule(char* username, char* database)
       }
    }
 
+   if (best_rule != -1)
+   {
+      pgagroal_log_debug("find_best_rule: user=%s, database=%s -> rule %d (real_database=%s)",
+                         username, database, best_rule, config->limits[best_rule].database);
+   }
+
    return best_rule;
+}
+
+static bool
+is_alias_of_limit(char* database, int limit_index)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+
+   if (limit_index < 0 || limit_index >= config->number_of_limits)
+   {
+      return false;
+   }
+
+   for (int i = 0; i < config->limits[limit_index].aliases_count; i++)
+   {
+      if (!strcmp(database, config->limits[limit_index].aliases[i]))
+      {
+         return true;
+      }
+   }
+
+   return false;
+}
+
+static int
+get_connection_count_for_limit_rule(int rule_index, char* username)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+   int count = 0;
+
+   if (rule_index < 0 || rule_index >= config->number_of_limits)
+   {
+      return 0;
+   }
+
+   for (int i = 0; i < config->max_connections; i++)
+   {
+      if (atomic_load(&config->states[i]) != STATE_NOTINIT &&
+          !strcmp((const char*)(&config->connections[i].username), username))
+      {
+         // Check if this connection is for the main database name
+         if (!strcmp((const char*)(&config->connections[i].database), config->limits[rule_index].database))
+         {
+            count++;
+         }
+         else
+         {
+            // Check if this connection is for any alias of this database
+            for (int j = 0; j < config->limits[rule_index].aliases_count; j++)
+            {
+               if (!strcmp((const char*)(&config->connections[i].database), config->limits[rule_index].aliases[j]))
+               {
+                  count++;
+                  break;
+               }
+            }
+         }
+      }
+   }
+
+   pgagroal_log_debug("Connection count for rule %d (user=%s): %d connections",
+                      rule_index, username, count);
+
+   return count;
 }
 
 static bool
@@ -1552,23 +1668,38 @@ do_prefill(char* username, char* database, int size)
 
    config = (struct main_configuration*)shmem;
 
-   for (int i = 0; i < config->max_connections; i++)
+   //Find the limit rule for this database/username combination
+   int rule_index = find_best_rule(username, database);
+   if (rule_index != -1)
    {
-      if (!strcmp((const char*)(&config->connections[i].username), username) &&
-          !strcmp((const char*)(&config->connections[i].database), database))
+      // Count connections for this rule (including aliases)
+      connections = get_connection_count_for_limit_rule(rule_index, username);
+   }
+   else
+   {
+      // Fallback to old logic if no rule found
+      for (int i = 0; i < config->max_connections; i++)
       {
-         connections++;
-      }
-      else
-      {
-         state = atomic_load(&config->states[i]);
-
-         if (state == STATE_NOTINIT)
+         if (!strcmp((const char*)(&config->connections[i].username), username) &&
+             !strcmp((const char*)(&config->connections[i].database), database))
          {
-            free++;
+            connections++;
          }
       }
    }
+
+   // Count free connections
+   for (int i = 0; i < config->max_connections; i++)
+   {
+      state = atomic_load(&config->states[i]);
+      if (state == STATE_NOTINIT)
+      {
+         free++;
+      }
+   }
+
+   pgagroal_log_debug("do_prefill: user=%s, database=%s, current=%d, target=%d, free=%d",
+                      username, database, connections, size, free);
 
    return connections < size && free > 0;
 }
@@ -1598,4 +1729,29 @@ pgagroal_prefill_if_can(bool do_fork, bool initial)
          pgagroal_prefill(initial);
       }
    }
+}
+
+static char*
+resolve_database_name(char* database, int best_rule)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+
+   if (best_rule < 0 || best_rule >= config->number_of_limits)
+   {
+      return database; // Return original if no rule found
+   }
+
+   // Check if this database name is an alias
+   for (int j = 0; j < config->limits[best_rule].aliases_count; j++)
+   {
+      if (!strcmp(database, config->limits[best_rule].aliases[j]))
+      {
+         pgagroal_log_debug("Resolving alias '%s' to real database '%s'",
+                            database, config->limits[best_rule].database);
+         return config->limits[best_rule].database; // Return real database name
+      }
+   }
+
+   // Not an alias, return original name
+   return database;
 }
