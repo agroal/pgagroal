@@ -32,7 +32,6 @@ RUN apk add --no-cache \
     gcc \
     cmake \
     make \
-    postgresql-dev \
     zlib \
     zlib-dev \
     zstd \
@@ -46,16 +45,16 @@ RUN apk add --no-cache \
     musl-dev \
     libev-dev \
     py-docutils \
-    pandoc \
-    texlive texmf-dist \
     doxygen graphviz \
     libatomic \
+    liburing-dev\
+    linux-headers \
     yaml-dev
 WORKDIR /src
 
 COPY . .
 
-RUN rm -rf build && mkdir build
+RUN rm -rf CMakeCache.txt CMakeFiles build && mkdir build
 
 RUN cd build && \
     cmake -DCMAKE_INSTALL_PREFIX=/usr/local/ .. && \
@@ -68,17 +67,16 @@ RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositori
     echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && \
     apk update && \
     apk add --no-cache \
-    postgresql17 \
-    postgresql17-client \
     bash \
     ca-certificates \
-    libev \
     yaml \
     bzip2 \
     bzip2-dev \
     libpq \
     libatomic \
+    liburing-dev\
     zstd \
+    linux-headers \
     lz4-libs
 
 RUN adduser -D -s /bin/sh pgagroal
