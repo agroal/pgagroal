@@ -68,11 +68,19 @@ There are two Dockerfiles available:
 Once the image is built, run the container using:
 - **Using Docker**
    ```sh
-   docker run -d --name pgagroal --network host pgagroal:latest
+   docker run -d --name pgagroal \
+  -p 2345:2345 \
+  -p 2346:2346 \
+  --add-host=host.docker.internal:host-gateway \
+  pgagroal:latest
    ```
 - **Using Podman**
    ```sh
-   podman run -d --name pgagroal --network host pgagroal:latest
+   podman run -d --name pgagroal \
+  -p 2345:2345 \
+  -p 2346:2346 \
+  --add-host=host.docker.internal:host-gateway \
+  pgagroal:latest
    ```
 
 ---

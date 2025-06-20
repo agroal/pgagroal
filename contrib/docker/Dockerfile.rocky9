@@ -36,7 +36,6 @@ RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.
         gcc \
         cmake \
         make \
-        postgresql-devel \
         zlib \
         zlib-devel \
         zstd \
@@ -49,16 +48,14 @@ RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.
         libpq-devel \
         libev-devel \
         python3-docutils \
-        pandoc \
-        texlive \
         doxygen \
-        graphviz \
         openssl-devel \
         libatomic \
         libyaml-devel \
         systemd-devel \
+        liburing-devel \
         libasan \ 
-        libasan-static \
+        libubsan \
         yaml-cpp-devel && \
     dnf clean all
 
@@ -66,7 +63,7 @@ WORKDIR /src
 
 COPY . .
 
-RUN rm -rf build && mkdir build
+RUN rm -rf CMakeCache.txt CMakeFiles build && mkdir build
 
 RUN cd build && \
     cmake .. -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_RPATH=/usr/local/lib && \
@@ -74,13 +71,29 @@ RUN cd build && \
 
 FROM rockylinux:9
 
-RUN dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm && \
-    dnf -y update && \
-    dnf install -y postgresql17-server \
-        postgresql17-contrib \
-        libpq5 \
-        libev \
-        libatomic && \
+RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
+    dnf -y upgrade && \
+    dnf install -y dnf-plugins-core && \
+    dnf config-manager --set-enabled crb && \
+    dnf makecache && \
+    dnf install -y \ 
+        libpq \
+        libpq-devel \
+        libatomic \
+        zlib \
+        zlib-devel \
+        zstd \
+        libzstd-devel \
+        lz4 \
+        lz4-devel \
+        bzip2 \
+        bzip2-devel \
+        libatomic \
+        libyaml-devel \
+        systemd-devel \
+        liburing-devel \
+        libasan \ 
+        libubsan && \
     dnf clean all
 
 RUN useradd --create-home --shell /bin/bash pgagroal

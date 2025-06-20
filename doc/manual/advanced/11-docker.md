@@ -16,8 +16,9 @@ host = *
 port = 2345
 metrics = 2346
 log_type = file
-log_level = info
+log_level = debug
 log_path = /tmp/pgagroal.log
+ev_backend = auto
 
 max_connections = 100
 idle_timeout = 600
@@ -25,7 +26,7 @@ validation = off
 unix_socket_dir = /tmp/
 
 [primary]
-host = localhost
+host = host.docker.internal  
 port = 5432
 ```
 
@@ -101,7 +102,11 @@ Once the image is built, run the container using:
 - **Using Docker**
 
 ```sh
-docker run -d --name pgagroal --network host pgagroal:latest
+docker run -d --name pgagroal \
+  -p 2345:2345 \
+  -p 2346:2346 \
+  --add-host=host.docker.internal:host-gateway \
+  pgagroal:latest
 ```
 
 - **Using Podman**
@@ -110,7 +115,11 @@ docker run -d --name pgagroal --network host pgagroal:latest
 
 
 ```sh
-podman run -d --name pgagroal --network host pgagroal:latest
+podman run -d --name pgagroal \
+  -p 2345:2345 \
+  -p 2346:2346 \
+  --add-host=host.docker.internal:host-gateway \
+  pgagroal:latest
 ```
 
 ## Step 5: Verify the Container
