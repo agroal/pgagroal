@@ -42,7 +42,7 @@ RUN dnf -y update && \
       git gcc clang cmake make \
       libev libev-devel openssl-devel systemd-devel \
       zlib zlib-devel libzstd-devel lz4-devel \
-      libssh-devel libcurl-devel libatomic \
+      libssh-devel libcurl-devel libatomic liburing-devel \
       python3-docutils bzip2-devel libarchive-devel \
       net-tools check check-devel graphviz \
       doxygen pandoc texlive texlive-latex \
@@ -71,7 +71,7 @@ COPY --chown=postgres:postgres . /pgagroal
 USER postgres
 
 # Build directory
-RUN rm -rf /pgagroal/build && \
+RUN rm -rf /pgagroal/CMakeCache.txt /pgagroal/CMakeFiles /pgagroal/build && \
     mkdir -p /pgagroal/build /pgagroal/build/log
 WORKDIR /pgagroal/build
 
