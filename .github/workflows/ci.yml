@@ -313,7 +313,9 @@ jobs:
               hs-pandoc \
               texlive-base \
               texlive-texmf \
-              graphviz
+              graphviz 
+            # Initialize Graphviz plugins after installation
+            dot -c
       - name: Build Project
         shell: freebsd {0}
         run: |
