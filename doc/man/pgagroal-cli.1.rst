@@ -39,6 +39,15 @@ OPTIONS
 -L, --logfile FILE
   Set the logfile
 
+-F, --format text|json|raw
+  Set the output format
+
+-C, --compress none|gz|zstd|lz4|bz2
+  Compress the wire protocol
+
+-E, --encrypt none|aes|aes256|aes192|aes128
+  Encrypt the wire protocol
+
 -v, --verbose
   Output text string of result
 
@@ -51,57 +60,56 @@ OPTIONS
 COMMANDS
 ========
 
-flush-idle
-  Flush idle connections
+flush [mode] [database]
+  Flush connections according to [mode].
+  Allowed modes are:
 
-flush-gracefully
-  Flush all connections gracefully
+    - 'gracefully' (default) to flush all connections gracefully
+    - 'idle' to flush only idle connections
+    - 'all' to flush all connections. USE WITH CAUTION!
 
-flush-all
-  Flush all connections. USE WITH CAUTION !
+  If no [database] name is specified, applies to all databases.
 
-is-alive
-  Is pgagroal alive
+ping
+  Verifies if pgagroal is up and running
 
-enable
-  Enable a database. Optional parameter with the
-  database name, if not specified all will be enabled
+enable [database]
+  Enable the specified database, or all databases if not specified
 
-disable
-  Disable a database. Optional parameter with the
-  database name, if not specified all will be disabled
+disable [database]
+  Disable the specified database, or all databases if not specified
 
-gracefully
-  Stop pgagroal gracefully
+shutdown [mode]
+  Stops pgagroal pooler. The [mode] can be:
+    - 'gracefully' (default): waits for active connections to quit
+    - 'immediate': forces connections to close and terminate
+    - 'cancel': avoid a previously issued 'shutdown gracefully'
 
-stop
-  Stop pgagroal
+status [details]
+  Status of pgagroal, with optional details
 
-cancel-shutdown
-  Cancel the graceful shutdown
+switch-to <server>
+  Switches to the specified primary server
 
-status
-  Status of pgagroal
+conf <action>
+  Manages the configuration. <action> can be:
+    - 'reload': issue a configuration reload
+    - 'ls': list the configuration files used
+    - 'get': obtain information about a runtime configuration value
+      Usage: conf get <parameter_name>
+    - 'set': modify a configuration value
+      Usage: conf set <parameter_name> <parameter_value>
 
-details
-  Detailed status of pgagroal
-
-switch-to
-  Switch to another primary
-
-reset
-  Reset the Prometheus statistics
-
-reset-server
-  Reset the state of a server. Requires a server name as an argument
+clear <what>
+  Resets either the Prometheus statistics or the specified server.
+  <what> can be:
+  
+    - 'server' (default) followed by a server name
+    - a server name on its own
+    - 'prometheus' to reset the Prometheus metrics
 
 REPORTING BUGS
 ==============
-
-pgagroal is maintained on GitHub at https://github.com/agroal/pgagroal
-
-COPYRIGHT
-=========
 
 pgagroal is licensed under the 3-clause BSD License.
 

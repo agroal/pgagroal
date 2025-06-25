@@ -139,6 +139,43 @@ extern "C" {
 #define CONFIGURATION_ARGUMENT_LIMIT_MIN_SIZE                   "min_size"
 #define CONFIGURATION_ARGUMENT_LIMIT_INITIAL_SIZE               "initial_size"
 
+// Set configuration argument constants
+#define CONFIGURATION_RESPONSE_STATUS                           "status"
+#define CONFIGURATION_RESPONSE_MESSAGE                          "message"
+#define CONFIGURATION_RESPONSE_CONFIG_KEY                       "config_key"
+#define CONFIGURATION_RESPONSE_REQUESTED_VALUE                  "requested_value"
+#define CONFIGURATION_RESPONSE_CURRENT_VALUE                    "current_value"
+#define CONFIGURATION_RESPONSE_OLD_VALUE                        "old_value"
+#define CONFIGURATION_RESPONSE_NEW_VALUE                        "new_value"
+#define CONFIGURATION_RESPONSE_RESTART_REQUIRED                 "restart_required"
+#define CONFIGURATION_STATUS_SUCCESS                            "success"
+#define CONFIGURATION_STATUS_RESTART_REQUIRED                   "success_restart_required"
+#define CONFIGURATION_MESSAGE_SUCCESS                           "Configuration change applied successfully"
+#define CONFIGURATION_MESSAGE_RESTART_REQUIRED                  "Configuration change requires restart. Current values preserved."
+
+/**
+ * Structure to hold parsed configuration key information.
+ *
+ * This structure is used to break down a configuration key into its constituent parts
+ * for validation and processing. Configuration keys can have up to three parts separated
+ * by dots: section.context.key
+ *
+ * Examples:
+ * - "log_level" -> section="", context="", key="log_level", section_type=0 (main)
+ * - "pgagroal.log_level" -> section="pgagroal", context="", key="log_level", section_type=0 (main)
+ * - "server.primary.host" -> section="server", context="primary", key="host", section_type=1 (server)
+ * - "hba.myuser.method" -> section="hba", context="myuser", key="method", section_type=2 (hba)
+ * - "limit.mydb.max_size" -> section="limit", context="mydb", key="max_size", section_type=3 (limit)
+ */
+struct config_key_info
+{
+   char section[MISC_LENGTH];   /**< The section name (e.g., "server", "hba", "limit", or "pgagroal") */
+   char context[MISC_LENGTH];   /**< The context identifier (e.g., server name, username, database name) */
+   char key[MISC_LENGTH];       /**< The parameter name (e.g., "host", "port", "max_size") */
+   bool is_main_section;        /**< True if this refers to the main pgagroal section */
+   int section_type;            /**< Section type: 0=main, 1=server, 2=hba, 3=limit */
+};
+
 /**
  * Initialize the configuration structure
  * @param shmem The shared memory segment
@@ -470,22 +507,34 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
                                    char* value);
 
 /**
- * Function to set a configuration value.
+ * Apply a single configuration change
  *
- * This function accepts the same prefixes as the configuration get behavior, so
- * a single parameter like 'max_connections' is managed as the main configuration file,
- * a 'server' prefix will hit a specific server, a 'limit' prefix will set a limit, and so on.
+ * This function applies a configuration change to the running pgagroal instance.
+ * It validates the configuration key, applies the change to a temporary configuration,
+ * validates the result, and determines if a restart is required.
  *
- * The idea behind the function is to "clone" the current configuration in use, and then
- * apply the changes. In order to be coherent to what a "reload" operation would do,
- * this function calls 'pgagroal_transfer_configuration' internally.
+ * The function uses pre-parsed configuration key information to avoid redundant
+ * validation and parsing. It creates a temporary configuration copy, applies the
+ * change, validates the result, and checks if the change requires a service restart.
  *
- * @param config_key the string that contains the name of the parameter
- * @param config_value the value to set
- * @return 0 on success
+ * If no restart is required, the changes are applied to the running configuration.
+ * If a restart is required, the current configuration remains unchanged and the
+ * restart_required flag is set to true.
+ *
+ * @param config_key The configuration key in dotted notation (e.g., "limit.mydb.max_size")
+ * @param config_value The new value to set for the configuration parameter
+ * @param key_info Pre-parsed configuration key information containing section, context,
+ *                 key components and section type. This avoids redundant parsing.
+ * @param restart_required Output parameter set to true if the configuration change
+ *                        requires a full service restart, false if changes can be
+ *                        applied immediately to the running instance
+ * @return 0 upon success, 1 on failure (invalid configuration, validation error,
+ *         or memory allocation failure)
  */
 int
-pgagroal_apply_configuration(char* config_key, char* config_value);
+pgagroal_apply_configuration(char* config_key, char* config_value,
+                             struct config_key_info* key_info,
+                             bool* restart_required);
 
 /**
  * Get a configuration parameter value
@@ -500,14 +549,29 @@ pgagroal_conf_get(SSL* ssl, int client_fd, uint8_t compression, uint8_t encrypti
 
 /**
  * Set a configuration parameter value
+ *
+ * This function handles setting a configuration parameter value through the management
+ * interface. It validates the configuration key format, applies the change to the
+ * running configuration, and determines if a restart is required.
+ *
+ * The function parses the incoming JSON payload to extract the configuration key
+ * and value, validates the input format, applies the change using the configuration
+ * management system, and sends an appropriate response back to the client.
+ *
  * @param ssl The SSL connection
- * @param client_fd The client
+ * @param client_fd The client file descriptor
  * @param compression The compress method for wire protocol
  * @param encryption The encrypt method for wire protocol
- * @param payload The payload
+ * @param payload The JSON payload containing the configuration change request
+ * @param restart_required Output parameter set to true if the configuration change
+ *                        requires a full service restart, false if changes can be
+ *                        applied immediately to the running instance
+ * @param success Output parameter set to true if the configuration change was
+ *               successfully processed and applied, false if the operation failed
+ *               due to validation errors, invalid keys, or system errors
  */
 void
-pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload);
+pgagroal_conf_set(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload, bool* restart_required, bool* success);
 
 #ifdef __cplusplus
 }

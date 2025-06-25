@@ -317,51 +317,130 @@ The configuration key must match the format and naming used in the configuration
 
 
 #### conf set
-Allows the setting of a configuration parameter at run-time, if possible.
 
-Examples
+The `conf set` command allows you to change a configuration parameter at run-time, if possible.
+
+**Syntax:**
+```
+pgagroal-cli conf set <parameter_name> <parameter_value>
+```
+
+**Examples:**
 ```
 pgagroal-cli conf set log_level debug
 pgagroal-cli conf set server.venkman.port 6432
-pgagroal conf set limit.pgbench.max_size 2
+pgagroal-cli conf set limit.pgbench.max_size 2
 ```
 
-The syntax for setting parameters is the same as for the command `conf get`, therefore parameters are organized into namespaces:
-- `main` (optional) is the main pgagroal configuration namespace, for example `main.log_level` or simply `log_level`;
-- `server` is the namespace referred to a specific server. It has to be followed by the name of the server and the name of the parameter to change, in a dotted notation, like `server.venkman.port`;
-- `limit` is the namespace referred to a specific limit entry, followed by the name of the username used in the limit entry.
+The syntax for setting parameters is the same as for the `conf get` command. Parameters are organized into namespaces:
+The syntax for setting parameters is the same as for the `conf get` command. Parameters are organized into namespaces:
+- `pgagroal` (optional): the main configuration namespace, e.g., `pgagroal.log_level` or simply `log_level`
+- `server`: refers to a specific server, e.g., `server.venkman.port`
+- `limit`: refers to a specific limit entry, e.g., `limit.pgbench.max_size`
+- `hba`: refers to a specific HBA entry, e.g., `hba.myuser.method`
 
-When executed, the `conf set` command returns the run-time setting of the specified parameter: if such parameter is equal to the value supplied, the change has been applied, otherwise it means that the old setting has been kept.
-The `--verbose` flag can be used to understand if the change has been applied:
+---
 
-```
-$ pgagroal-cli conf set log_level debug
-debug
+### Output
 
-$ pgagroal-cli conf set log_level debug --verbose
-log_level = debug
-pgagroal-cli: Success (0)
-```
+When executed, the `conf set` command returns a detailed result describing the outcome of the operation. The output is structured and provides clear feedback for all scenarios.
 
-When a setting modification cannot be applied, the system returns the "old" setting value and, if `--verbose` is specified, the error indication:
+#### **Case 1: Successful Application**
+
+If the parameter is set and applied to the running instance:
 
 ```
-$ pgagroal-cli conf set max_connections 100
-40
-
-$ pgagroal-cli conf set max_connections 100 --verbose
-max_connections = 40
-pgagroal-cli: Error (2)
+Configuration change applied successfully
+   Parameter: log_level
+   Old value: info
+   New value: debug
+   Status: Active (applied to running instance)
 ```
 
-When a `conf set` cannot be applied, the system will report in the logs an indication about the problem. With regard to the previous example, the system reports in the logs something like the following (depending on your `log_level`):
+#### **Case 2: Restart Required**
+
+If the parameter change requires a full service restart to take effect:
 
 ```
-DEBUG Trying to change main configuration setting <max_connections> to <100>
-INFO  Restart required for max_connections - Existing 40 New 100
-WARN  1 settings cannot be applied
-DEBUG pgagroal_management_write_config_set: unable to apply changes to <max_connections> -> <100>
+Configuration change requires manual restart
+   Parameter: max_connections
+   Current value: 40 (unchanged in running instance)
+   Requested value: 100
+   Status: Requires full service restart
 ```
+
+#### **Case 3: Invalid Key or Syntax**
+
+If the parameter name is invalid or the syntax is incorrect:
+
+```
+Configuration change failed
+   Invalid key format: 'max_connectionz'
+   Valid formats: 'key', 'section.key', or 'section.context.key'
+```
+
+---
+
+### **JSON Output Example**
+
+You can also request JSON output for automated parsing or scripting:
+
+```
+pgagroal-cli conf set max_connections 1000 --format json
+{
+  "Header": {
+    "ClientVersion": "2.0.0",
+    "Command": 4,
+    "Compression": 0,
+    "Encryption": 0,
+    "Output": 1,
+    "Timestamp": "20250627132548"
+  },
+  "Outcome": {
+    "Status": true,
+    "Time": "00:00:00"
+  },
+  "Request": {
+    "ConfigKey": "max_connections",
+    "ConfigValue": "1000"
+  },
+  "Response": {
+    "ServerVersion": "2.0.0",
+    "config_key": "max_connections",
+    "current_value": "5",
+    "message": "Configuration change requires restart. Current values preserved.",
+    "requested_value": "1000",
+    "restart_required": true,
+    "status": "success_restart_required"
+  }
+}
+```
+
+---
+
+### **Important**
+
+> **Warning:**  
+> When changing critical parameters such as the **main port**, **metrics port**, **management port**, or **unix_socket_dir**, you must choose values carefully.
+>
+> If you set a port or socket to a value that is already in use or unavailable, the reload will fail. In this case, the CLI may still report "success" because the configuration was accepted, but the server will **not** be listening on the new port or socket.  
+>
+> **How to recover:**  
+> If you accidentally set a port or socket to an unavailable value, simply use the `conf set` command again to set it to a valid, available value. The server process will remain running and can be reconfigured as needed.
+>
+> **Recommendation:**  
+> - Avoid setting ports or sockets to values that are already in use by other services.
+> - Always verify the availability of the desired port or socket before applying changes.
+> - Review server logs for detailed error messages if a configuration change does not take effect as expected.
+>
+> **Multiple Entries in `limit` or `hba`:**  
+> If your configuration contains multiple entries with the **same database name** in the `limit` section or the **same username** in the `hba` section,  
+> **the `conf set` command will apply the change to the first matching entry** (topmost in the configuration file).  
+> This means that only the first occurrence will be updated, and any subsequent entries with the same name will remain unchanged.  
+
+
+---
+
 
 #### conf ls
 

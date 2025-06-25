@@ -90,6 +90,7 @@ static int restart_server(struct server* src, struct server* dst);
 static bool is_empty_string(char* s);
 static bool is_same_server(struct server* s1, struct server* s2);
 static bool is_same_tls(struct server* s1, struct server* s2);
+static bool is_valid_config_key(const char* config_key, struct config_key_info* key_info);
 
 static bool key_in_section(char* wanted, char* section, char* key, bool global, bool* unknown);
 static bool is_comment_line(char* line);
@@ -5261,218 +5262,130 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
 }
 
 int
-pgagroal_apply_configuration(char* config_key, char* config_value)
+pgagroal_apply_configuration(char* config_key, char* config_value,
+                             struct config_key_info* key_info,
+                             bool* restart_required)
 {
-   struct main_configuration* config;
    struct main_configuration* current_config;
-
-   char section[MISC_LENGTH];
-   char context[MISC_LENGTH];
-   char key[MISC_LENGTH];
-   int begin = -1, end = -1;
-   bool main_section;
+   struct main_configuration* temp_config;
    size_t config_size = 0;
-   struct server* srv_dst;
-   struct server* srv_src;
 
-   // get the currently running configuration
+   // Initialize restart flag
+   *restart_required = false;
+
+   // Get the currently running configuration
    current_config = (struct main_configuration*)shmem;
-   // create a new configuration that will be the clone of the previous one
+
+   // Create temporary configuration
    config_size = sizeof(struct main_configuration);
-   if (pgagroal_create_shared_memory(config_size, HUGEPAGE_OFF, (void**)&config))
+   if (pgagroal_create_shared_memory(config_size, HUGEPAGE_OFF, (void**)&temp_config))
    {
       goto error;
    }
 
-   // copy the configuration that is currently running
-   memcpy(config, current_config, config_size);
+   // Copy current config to temp
+   memcpy(temp_config, current_config, config_size);
 
-   memset(section, 0, MISC_LENGTH);
-   memset(context, 0, MISC_LENGTH);
-   memset(key, 0, MISC_LENGTH);
+   // Apply configuration changes using the provided key_info
+   pgagroal_log_debug("Applying configuration: section='%s', context='%s', key='%s', section_type=%d",
+                      key_info->section, key_info->context, key_info->key, key_info->section_type);
 
-   for (unsigned long i = 0; i < strlen(config_key); i++)
+   switch (key_info->section_type)
    {
-      if (config_key[i] == '.')
-      {
-         if (!strlen(section))
+      case 0: // Main configuration
+         if (pgagroal_apply_main_configuration(temp_config, NULL, PGAGROAL_MAIN_INI_SECTION, key_info->key, config_value))
          {
-            memcpy(section, &config_key[begin], end - begin + 1);
-            section[end - begin + 1] = '\0';
-            begin = end = -1;
-            continue;
+            goto error;
          }
-         else if (!strlen(context))
-         {
-            memcpy(context, &config_key[begin], end - begin + 1);
-            context[end - begin + 1] = '\0';
-            begin = end = -1;
-            continue;
-         }
-         else if (!strlen(key))
-         {
-            memcpy(key, &config_key[begin], end - begin + 1);
-            key[end - begin + 1] = '\0';
-            begin = end = -1;
-            continue;
-         }
+         break;
 
-      }
-
-      if (begin < 0)
+      case 1: // Server configuration
       {
-         begin = i;
-      }
-
-      end = i;
-
-   }
-
-   // if the key has not been found, since there is no ending dot,
-   // try to extract it from the string
-   if (!strlen(key))
-   {
-      memcpy(key, &config_key[begin], end - begin + 1);
-      key[end - begin + 1] = '\0';
-   }
-
-   // force the main section, i.e., global parameters, if and only if
-   // there is no section or section is 'pgagroal' without any subsection
-   main_section = (!strlen(section) || !strncmp(section, PGAGROAL_MAIN_INI_SECTION, MISC_LENGTH))
-                  && !strlen(context);
-
-   if (!strncmp(section, PGAGROAL_CONF_SERVER_PREFIX, MISC_LENGTH))
-   {
-      srv_src = srv_dst = NULL;
-
-      // server.<servername>.<key>
-      // here the 'context' is the server name, so let's find it
-      for (int i = 0; i < config->number_of_servers; i++)
-      {
-         if (!strncmp(config->servers[i].name, context, MISC_LENGTH))
+         for (int i = 0; i < temp_config->number_of_servers; i++)
          {
-            pgagroal_log_debug("Changing configuration of server <%s>: (%s) %s -> %s",
-                               config->servers[i].name,
-                               config_key,
-                               key,
-                               config_value);
-
-            srv_dst = calloc(1, sizeof(struct server));
-            srv_src = &config->servers[i];
-            // clone the current server
-            memcpy(srv_dst, srv_src, sizeof(struct server));
-            if (pgagroal_apply_main_configuration(config,
-                                                  srv_dst,
-                                                  context,
-                                                  key,
-                                                  config_value))
+            if (!strncmp(temp_config->servers[i].name, key_info->context, MISC_LENGTH))
             {
-               goto error;
+               if (pgagroal_apply_main_configuration(temp_config, &temp_config->servers[i], key_info->context, key_info->key, config_value))
+               {
+                  goto error;
+               }
+               break;
             }
-
-            // now that changes have been applied, see if the server
-            // requires a restart: in such case abort the configuration
-            // change
-            if (restart_server(srv_dst, srv_src))
-            {
-               goto error;
-            }
-
-            break;    // avoid searching for another server section
-
          }
       }
+      break;
 
-      memcpy(srv_src, srv_dst, sizeof(struct server));
-      srv_src = srv_dst = NULL;
-
-   }
-   else if (!strncmp(section, PGAGROAL_CONF_HBA_PREFIX, MISC_LENGTH))
-   {
-      // hba.<user>.<key>
-      // here the context is the username
-      // and the section is the 'hba', while the key is what the user wants to change
-      for (int i = 0; i < config->number_of_hbas; i++)
+      case 2: // HBA configuration
       {
-         if (!strncmp(config->hbas[i].username, context, MISC_LENGTH))
+         for (int i = 0; i < temp_config->number_of_hbas; i++)
          {
-            // this is the correct HBA entry, apply the changes
-            pgagroal_log_debug("Trying to change HBA configuration setting <%s> to <%s>", key, config_value);
-            if (pgagroal_apply_hba_configuration(&config->hbas[i], key, config_value))
+            if (!strncmp(temp_config->hbas[i].username, key_info->context, MISC_LENGTH))
             {
-               goto error;
+               if (pgagroal_apply_hba_configuration(&temp_config->hbas[i], key_info->key, config_value))
+               {
+                  goto error;
+               }
+               break;
             }
-
-            break;    // avoid searching for another HBA entry
          }
       }
-   }
-   else if (!strncmp(section, PGAGROAL_CONF_LIMIT_PREFIX, MISC_LENGTH))
-   {
-      // limit.<user>.<key>
-      // the context is the username and the key is what to change
-      for (int i = 0; i < config->number_of_limits; i++)
+      break;
+
+      case 3: // Limit configuration
       {
-         if (!strncmp(config->limits[i].username, context, MISC_LENGTH))
+         for (int i = 0; i < temp_config->number_of_limits; i++)
          {
-            // this is the correct limit entry, apply the changes
-            // WARNING: according to restart_limit() every change to a limit entry
-            // requires a restart, so it does not make a lot of sense to apply a configuration change
-            pgagroal_log_debug("Trying to change limit configuration setting <%s> to <%s>", key, config_value);
-            if (pgagroal_apply_limit_configuration_string(&config->limits[i], key, config_value))
+            if (!strncmp(temp_config->limits[i].database, key_info->context, MISC_LENGTH))
             {
-               goto error;
+               if (pgagroal_apply_limit_configuration_string(&temp_config->limits[i], key_info->key, config_value))
+               {
+                  goto error;
+               }
+               break;
             }
-
-            break;    // avoid searching for another HBA entry
          }
       }
-      //      return pgagroal_write_limit_config_value(buffer, context, key);
-   }
-   else if (main_section)
-   {
+      break;
 
-      pgagroal_log_debug("Trying to change main configuration setting <%s> to <%s>", config_key, config_value);
-      if (pgagroal_apply_main_configuration(config,
-                                            NULL,
-                                            PGAGROAL_MAIN_INI_SECTION,
-                                            config_key,
-                                            config_value))
-      {
+      default:
+         pgagroal_log_error("Unknown section type: %d", key_info->section_type);
          goto error;
-      }
+   }
+
+   // Validate the temporary configuration
+   if (pgagroal_validate_configuration(temp_config, false, false))
+   {
+      pgagroal_log_error("Configuration validation failed for %s = %s", config_key, config_value);
+      goto error;
+   }
+
+   // Check if restart is required
+   *restart_required = transfer_configuration(current_config, temp_config);
+
+   if (*restart_required)
+   {
+      pgagroal_log_info("Configuration change %s = %s requires restart - changes not applied", config_key, config_value);
    }
    else
    {
-      // if here, an error happened!
-      goto error;
+      // Apply the changes for real
+      transfer_configuration(current_config, temp_config);
+      pgagroal_log_info("Configuration change %s = %s applied successfully", config_key, config_value);
    }
 
-   if (pgagroal_validate_configuration(config, false, false))
+   // Clean up
+   if (pgagroal_destroy_shared_memory((void*)temp_config, config_size))
    {
       goto error;
    }
 
-   if (transfer_configuration(current_config, config))
-   {
-      goto error;
-   }
-
-   if (pgagroal_destroy_shared_memory((void*)config, config_size))
-   {
-      goto error;
-   }
-
-   // all done
    return 0;
+
 error:
-
-   if (config != NULL)
+   if (temp_config != NULL)
    {
-      memcpy(config, current_config, sizeof(struct main_configuration));
-      pgagroal_destroy_shared_memory((void*)config, config_size);
+      pgagroal_destroy_shared_memory((void*)temp_config, config_size);
    }
-
    return 1;
 }
 
@@ -5881,7 +5794,7 @@ error:
 }
 
 void
-pgagroal_conf_set(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compression, uint8_t encryption, struct json* payload)
+pgagroal_conf_set(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compression, uint8_t encryption, struct json* payload, bool* restart_required, bool* success)
 {
    struct json* response = NULL;
    struct json* request = NULL;
@@ -5890,20 +5803,18 @@ pgagroal_conf_set(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compr
    char* elapsed = NULL;
    time_t start_time;
    time_t end_time;
-   char section[MISC_LENGTH];
-   char key[MISC_LENGTH];
    int total_seconds;
-   struct main_configuration* config = NULL;
-   struct json* server_j = NULL;
-   int server_index = -1;
-   int begin = -1, end = -1;
-   size_t max;
+   char old_value[MISC_LENGTH];
+   char new_value[MISC_LENGTH];
+   struct config_key_info key_info;
 
    pgagroal_start_logging();
-
    start_time = time(NULL);
 
-   config = (struct main_configuration*)shmem;
+   // Initialize output parameters
+   *restart_required = false;
+   *success = false;
+
    // Extract config_key and config_value from request
    request = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
    if (!request)
@@ -5923,63 +5834,32 @@ pgagroal_conf_set(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compr
       goto error;
    }
 
-   // Modify
-   memset(section, 0, MISC_LENGTH);
-   memset(key, 0, MISC_LENGTH);
-
-   for (unsigned long i = 0; i < strlen(config_key); i++)
+   if (!is_valid_config_key(config_key, &key_info))
    {
-      if (config_key[i] == '.')
-      {
-         if (!strlen(section))
-         {
-            memcpy(section, &config_key[begin], end - begin + 1);
-            section[end - begin + 1] = '\0';
-            begin = end = -1;
-            continue;
-         }
-      }
-
-      if (begin < 0)
-      {
-         begin = i;
-      }
-
-      end = i;
-   }
-   // if the key has not been found, since there is no ending dot,
-   // try to extract it from the string
-   if (!strlen(key))
-   {
-      memcpy(key, &config_key[begin], end - begin + 1);
-      key[end - begin + 1] = '\0';
+      pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_ERROR, compression, encryption, payload);
+      pgagroal_log_error("Conf Set: Invalid config key format: %s", config_key);
+      goto error;
    }
 
-   if (strlen(section) > 0)
+   // Get old value before applying changes
+   memset(old_value, 0, MISC_LENGTH);
+   if (pgagroal_write_config_value(old_value, config_key, MISC_LENGTH))
    {
-      if (pgagroal_json_create(&server_j))
-      {
-         pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_ERROR, compression, encryption, payload);
-         pgagroal_log_error("Conf Set: Error creating json object (%d)", MANAGEMENT_ERROR_CONF_SET_ERROR);
-         goto error;
-      }
-
-      for (int i = 0; i < config->number_of_servers; i++)
-      {
-         if (!strcmp(config->servers[i].name, section))
-         {
-            server_index = i;
-            break;
-         }
-      }
-      if (server_index == -1)
-      {
-         pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_UNKNOWN_SERVER, compression, encryption, payload);
-         pgagroal_log_error("Conf Set: Unknown server value parsed (%d)", MANAGEMENT_ERROR_CONF_SET_UNKNOWN_SERVER);
-         goto error;
-      }
+      snprintf(old_value, MISC_LENGTH, "<unknown>");
    }
 
+   // Apply configuration change using the enhanced function
+   if (pgagroal_apply_configuration(config_key, config_value, &key_info, restart_required))
+   {
+      // Configuration failed - send error response
+      pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_ERROR, compression, encryption, payload);
+      pgagroal_log_error("Conf Set: Failed to apply configuration change %s=%s", config_key, config_value);
+      goto error;
+   }
+
+   *success = true;  // Configuration succeeded
+
+   // Configuration succeeded - create success response
    if (pgagroal_management_create_response(payload, -1, &response))
    {
       pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_ERROR, compression, encryption, payload);
@@ -5987,527 +5867,253 @@ pgagroal_conf_set(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compr
       goto error;
    }
 
-   if (strlen(key) && config_value)
+   // Get new value after applying changes
+   memset(new_value, 0, MISC_LENGTH);
+   if (pgagroal_write_config_value(new_value, config_key, MISC_LENGTH))
    {
-      bool unknown = false;
-      if (!strcmp(key, "host"))
-      {
-         if (strlen(section) > 0)
-         {
-            max = strlen(config_value);
-            if (max > MISC_LENGTH - 1)
-            {
-               max = MISC_LENGTH - 1;
-            }
-            memcpy(&config->servers[server_index].host, config_value, max);
-            config->servers[server_index].host[max] = '\0';
-            pgagroal_json_put(server_j, key, (uintptr_t)config->servers[server_index].host, ValueString);
-            pgagroal_json_put(response, config->servers[server_index].name, (uintptr_t)server_j, ValueJSON);
-         }
-         else
-         {
-            max = strlen(config_value);
-            if (max > MISC_LENGTH - 1)
-            {
-               max = MISC_LENGTH - 1;
-            }
-            memcpy(config->common.host, config_value, max);
-            config->common.host[max] = '\0';
-            pgagroal_json_put(response, key, (uintptr_t)config->common.host, ValueString);
-         }
-      }
-      else if (!strcmp(key, "port"))
-      {
-         if (strlen(section) > 0)
-         {
-            if (as_int(config_value, &config->servers[server_index].port))
-            {
-               unknown = true;
-            }
-            pgagroal_json_put(server_j, key, (uintptr_t)config->servers[server_index].port, ValueInt64);
-            pgagroal_json_put(response, config->servers[server_index].name, (uintptr_t)server_j, ValueJSON);
-         }
-         else
-         {
-            if (as_int(config_value, &config->common.port))
-            {
-               unknown = true;
-            }
-            pgagroal_json_put(response, key, (uintptr_t)config->common.port, ValueInt64);
-         }
-      }
-      else if (!strcmp(key, "tls"))
-      {
-         if (strlen(section) > 0)
-         {
-            if (as_bool(config_value, &config->servers[server_index].tls))
-            {
-               unknown = true;
-            }
-            pgagroal_json_put(server_j, key, (uintptr_t)config->servers[server_index].tls, ValueBool);
-            pgagroal_json_put(response, config->servers[server_index].name, (uintptr_t)server_j, ValueJSON);
-         }
-         else
-         {
-            if (as_bool(config_value, &config->common.tls))
-            {
-               unknown = true;
-            }
-            pgagroal_json_put(response, key, (uintptr_t)config->common.tls, ValueBool);
-         }
-      }
-      else if (!strcmp(key, "tls_cert_file"))
-      {
-         if (strlen(section) > 0)
-         {
-            max = strlen(config_value);
-            if (max > MAX_PATH - 1)
-            {
-               max = MAX_PATH - 1;
-            }
-            memcpy(&config->servers[server_index].tls_cert_file, config_value, max);
-            config->servers[server_index].tls_cert_file[max] = '\0';
-            pgagroal_json_put(server_j, key, (uintptr_t)config->servers[server_index].tls_cert_file, ValueString);
-            pgagroal_json_put(response, config->servers[server_index].name, (uintptr_t)server_j, ValueJSON);
-         }
-         else
-         {
-            max = strlen(config_value);
-            if (max > MAX_PATH - 1)
-            {
-               max = MAX_PATH - 1;
-            }
-            memcpy(config->common.tls_cert_file, config_value, max);
-            config->common.tls_cert_file[max] = '\0';
-            pgagroal_json_put(response, key, (uintptr_t)config->common.tls_cert_file, ValueString);
-         }
-      }
-      else if (!strcmp(key, "tls_key_file"))
-      {
-         if (strlen(section) > 0)
-         {
-            max = strlen(config_value);
-            if (max > MAX_PATH - 1)
-            {
-               max = MAX_PATH - 1;
-            }
-            memcpy(&config->servers[server_index].tls_key_file, config_value, max);
-            config->servers[server_index].tls_key_file[max] = '\0';
-            pgagroal_json_put(server_j, key, (uintptr_t)config->servers[server_index].tls_key_file, ValueString);
-            pgagroal_json_put(response, config->servers[server_index].name, (uintptr_t)server_j, ValueJSON);
-         }
-         else
-         {
-            max = strlen(config_value);
-            if (max > MAX_PATH - 1)
-            {
-               max = MAX_PATH - 1;
-            }
-            memcpy(config->common.tls_key_file, config_value, max);
-            config->common.tls_key_file[max] = '\0';
-            pgagroal_json_put(response, key, (uintptr_t)config->common.tls_key_file, ValueString);
-         }
-      }
-      else if (!strcmp(key, "tls_ca_file"))
-      {
-         if (strlen(section) > 0)
-         {
-            max = strlen(config_value);
-            if (max > MAX_PATH - 1)
-            {
-               max = MAX_PATH - 1;
-            }
-            memcpy(&config->servers[server_index].tls_ca_file, config_value, max);
-            config->servers[server_index].tls_ca_file[max] = '\0';
-            pgagroal_json_put(server_j, key, (uintptr_t)config->servers[server_index].tls_ca_file, ValueString);
-            pgagroal_json_put(response, config->servers[server_index].name, (uintptr_t)server_j, ValueJSON);
-         }
-         else
-         {
-            max = strlen(config_value);
-            if (max > MAX_PATH - 1)
-            {
-               max = MAX_PATH - 1;
-            }
-            memcpy(config->common.tls_ca_file, config_value, max);
-            config->common.tls_ca_file[max] = '\0';
-            pgagroal_json_put(response, key, (uintptr_t)config->common.tls_ca_file, ValueString);
-         }
-      }
-      else if (!strcmp(key, "tls_cert_file"))
-      {
-         max = strlen(config_value);
-         if (max > MAX_PATH - 1)
-         {
-            max = MAX_PATH - 1;
-         }
-         memcpy(config->common.tls_cert_file, config_value, max);
-         config->common.tls_cert_file[max] = '\0';
-         pgagroal_json_put(response, key, (uintptr_t)config->common.tls_cert_file, ValueString);
-      }
-      else if (!strcmp(key, "tls_key_file"))
-      {
-         max = strlen(config_value);
-         if (max > MAX_PATH - 1)
-         {
-            max = MAX_PATH - 1;
-         }
-         memcpy(config->common.tls_key_file, config_value, max);
-         config->common.tls_key_file[max] = '\0';
-         pgagroal_json_put(response, key, (uintptr_t)config->common.tls_key_file, ValueString);
-      }
-      else if (!strcmp(key, "tls_ca_file"))
-      {
-         max = strlen(config_value);
-         if (max > MAX_PATH - 1)
-         {
-            max = MAX_PATH - 1;
-         }
-         memcpy(config->common.tls_ca_file, config_value, max);
-         config->common.tls_ca_file[max] = '\0';
-         pgagroal_json_put(response, key, (uintptr_t)config->common.tls_ca_file, ValueString);
-      }
-      else if (!strcmp(key, "unix_socket_dir"))
-      {
-         max = strlen(config_value);
-         if (max > MISC_LENGTH - 1)
-         {
-            max = MISC_LENGTH - 1;
-         }
-         memcpy(config->unix_socket_dir, config_value, max);
-         config->unix_socket_dir[max] = '\0';
-         pgagroal_json_put(response, key, (uintptr_t)config->unix_socket_dir, ValueString);
-      }
-      else if (!strcmp(key, "metrics"))
-      {
-         if (as_int(config_value, &config->common.metrics))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->common.metrics, ValueInt64);
-      }
-      else if (!strcmp(key, "metrics_cache_max_age"))
-      {
-         if (as_seconds(config_value, &config->common.metrics_cache_max_age, PGAGROAL_PROMETHEUS_CACHE_DISABLED))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->common.metrics_cache_max_age, ValueInt64);
-      }
-      else if (!strcmp(key, "metrics_cache_max_size"))
-      {
-         if (as_bytes(config_value, &config->common.metrics_cache_max_size, PROMETHEUS_DEFAULT_CACHE_SIZE))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->common.metrics_cache_max_size, ValueInt64);
-      }
-      else if (!strcmp(key, "management"))
-      {
-         if (as_int(config_value, &config->management))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->management, ValueInt64);
-      }
-      else if (!strcmp(key, "log_type"))
-      {
-         config->common.log_type = as_logging_type(config_value);
-         pgagroal_json_put(response, key, (uintptr_t)config->common.log_type, ValueInt64);
-      }
-      else if (!strcmp(key, "log_level"))
-      {
-         config->common.log_level = as_logging_level(config_value);
-         pgagroal_json_put(response, key, (uintptr_t)config->common.log_level, ValueInt64);
-      }
-      else if (!strcmp(key, "log_path"))
-      {
-         max = strlen(config_value);
-         if (max > MISC_LENGTH - 1)
-         {
-            max = MISC_LENGTH - 1;
-         }
-         memcpy(config->common.log_path, config_value, max);
-         config->common.log_path[max] = '\0';
-         pgagroal_json_put(response, key, (uintptr_t)config->common.log_path, ValueString);
-      }
-      else if (!strcmp(key, "log_rotation_age"))
-      {
-         if (as_seconds(config_value, &config->common.log_rotation_age, PGAGROAL_LOGGING_ROTATION_DISABLED))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->common.log_rotation_age, ValueInt64);
-      }
-      else if (!strcmp(key, "log_rotation_size"))
-      {
-         if (as_logging_rotation_size(config_value, &config->common.log_rotation_size))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->common.log_rotation_size, ValueInt64);
-      }
-      else if (!strcmp(key, "log_line_prefix"))
-      {
-         max = strlen(config_value);
-         if (max > MISC_LENGTH - 1)
-         {
-            max = MISC_LENGTH - 1;
-         }
-         memcpy(config->common.log_path, config_value, max);
-         config->common.log_path[max] = '\0';
-         pgagroal_json_put(response, key, (uintptr_t)config->common.log_path, ValueString);
-      }
-      else if (!strcmp(key, "log_mode"))
-      {
-         config->common.log_mode = as_logging_mode(config_value);
-         pgagroal_json_put(response, key, (uintptr_t)config->common.log_mode, ValueInt64);
-      }
-      else if (!strcmp(key, "log_connetions"))
-      {
-         if (as_bool(config_value, &config->common.log_connections))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->common.log_connections, ValueBool);
-      }
-      else if (!strcmp(key, "log_disconnetions"))
-      {
-         if (as_bool(config_value, &config->common.log_disconnections))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->common.log_disconnections, ValueBool);
-      }
-      else if (!strcmp(key, "blocking_timeout"))
-      {
-         if (as_seconds(config_value, &config->blocking_timeout, DEFAULT_BLOCKING_TIMEOUT))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->blocking_timeout, ValueInt64);
-      }
-      else if (!strcmp(key, "idle_timeout"))
-      {
-         if (as_seconds(config_value, &config->idle_timeout, DEFAULT_IDLE_TIMEOUT))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->idle_timeout, ValueInt64);
-      }
-      else if (!strcmp(key, "rotate_frontend_password_length"))
-      {
-         if (as_int(config_value, &config->rotate_frontend_password_length))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->rotate_frontend_password_length, ValueInt64);
-      }
-      else if (!strcmp(key, "rotate_frontend_password_timeout"))
-      {
-         if (as_seconds(config_value, &config->rotate_frontend_password_timeout, DEFAULT_ROTATE_FRONTEND_PASSWORD_TIMEOUT))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->rotate_frontend_password_timeout, ValueInt64);
-      }
-      else if (!strcmp(key, "max_connection_age"))
-      {
-         if (as_seconds(config_value, &config->max_connection_age, DEFAULT_MAX_CONNECTION_AGE))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->max_connection_age, ValueInt64);
-      }
-      else if (!strcmp(key, "validation"))
-      {
-         config->validation = as_validation(config_value);
-         pgagroal_json_put(response, key, (uintptr_t)config->validation, ValueInt64);
-      }
-      else if (!strcmp(key, "background_interval"))
-      {
-         if (as_seconds(config_value, &config->background_interval, DEFAULT_BACKGROUND_INTERVAL))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->background_interval, ValueInt64);
-      }
-      else if (!strcmp(key, "max_retries"))
-      {
-         if (as_int(config_value, &config->max_retries))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->max_retries, ValueInt64);
-      }
-      else if (!strcmp(key, "max_connections"))
-      {
-         if (as_int(config_value, &config->max_connections))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->max_connections, ValueInt64);
-      }
-      else if (!strcmp(key, "allow_unknown_users"))
-      {
-         if (as_bool(config_value, &config->allow_unknown_users))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->allow_unknown_users, ValueBool);
-      }
-      else if (!strcmp(key, "authentication_timeout"))
-      {
-         if (as_seconds(config_value, &config->common.authentication_timeout, DEFAULT_AUTHENTICATION_TIMEOUT))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->common.authentication_timeout, ValueInt64);
-      }
-      else if (!strcmp(key, "pipeline"))
-      {
-         if (as_int(config_value, &config->pipeline))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->pipeline, ValueInt64);
-      }
-      else if (!strcmp(key, "auth_query"))
-      {
-         if (as_bool(config_value, &config->authquery))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->authquery, ValueBool);
-      }
-      else if (!strcmp(key, "failover"))
-      {
-         if (as_bool(config_value, &config->failover))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->failover, ValueBool);
-      }
-      else if (!strcmp(key, "keep_alive"))
-      {
-         if (as_bool(config_value, &config->keep_alive))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->keep_alive, ValueBool);
-      }
-      else if (!strcmp(key, "nodelay"))
-      {
-         if (as_bool(config_value, &config->nodelay))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->nodelay, ValueBool);
-      }
-      else if (!strcmp(key, "backlog"))
-      {
-         if (as_int(config_value, &config->backlog))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->backlog, ValueInt64);
-      }
-      else if (!strcmp(key, "tracker"))
-      {
-         if (as_bool(config_value, &config->tracker))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->tracker, ValueBool);
-      }
-      else if (!strcmp(key, "track_prepared_statements"))
-      {
-         if (as_bool(config_value, &config->track_prepared_statements))
-         {
-            unknown = true;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->track_prepared_statements, ValueBool);
-      }
-      else if (!strcmp(key, "hugepage"))
-      {
-         config->common.hugepage = as_hugepage(config_value);
-         pgagroal_json_put(response, key, (uintptr_t)config->common.hugepage, ValueInt64);
-      }
-      else if (!strcmp(key, "pidfile"))
-      {
-         max = strlen(config_value);
-         if (max > MISC_LENGTH - 1)
-         {
-            max = MISC_LENGTH - 1;
-         }
-         memcpy(config->pidfile, config_value, max);
-         config->pidfile[max] = '\0';
-         pgagroal_json_put(response, key, (uintptr_t)config->pidfile, ValueString);
-      }
-      else if (!strcmp(key, "failover_script"))
-      {
-         max = strlen(config_value);
-         if (max > MISC_LENGTH - 1)
-         {
-            max = MISC_LENGTH - 1;
-         }
-         memcpy(config->failover_script, config_value, max);
-         config->failover_script[max] = '\0';
-         pgagroal_json_put(response, key, (uintptr_t)config->failover_script, ValueString);
-      }
-      else if (!strcmp(key, "ev_backend"))
-      {
-         config->ev_backend = to_backend_type(config_value);
-         pgagroal_json_put(response, key, (uintptr_t)to_backend_str(config->ev_backend), ValueString);
-      }
-      else if (!strcmp(key, "update_process_title"))
-      {
-         if (as_update_process_title(config_value, &config->update_process_title, UPDATE_PROCESS_TITLE_VERBOSE))
-         {
-            unknown = false;
-         }
-         pgagroal_json_put(response, key, (uintptr_t)config->update_process_title, ValueInt64);
-      }
-      else
-      {
-         unknown = true;
-      }
+      snprintf(new_value, MISC_LENGTH, "<unknown>");
+   }
 
-      if (unknown)
-      {
-         pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_UNKNOWN_CONFIGURATION_KEY, compression, encryption, payload);
-         pgagroal_log_error("Conf Set: Unknown configuration key found (%d)", MANAGEMENT_ERROR_CONF_SET_UNKNOWN_CONFIGURATION_KEY);
-         goto error;
-      }
+   if (*restart_required)
+   {
+      // Case 2: Restart required
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_STATUS, (uintptr_t)CONFIGURATION_STATUS_RESTART_REQUIRED, ValueString);
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_MESSAGE, (uintptr_t)CONFIGURATION_MESSAGE_RESTART_REQUIRED, ValueString);
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_CONFIG_KEY, (uintptr_t)config_key, ValueString);
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_REQUESTED_VALUE, (uintptr_t)config_value, ValueString);
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_CURRENT_VALUE, (uintptr_t)old_value, ValueString);
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_RESTART_REQUIRED, (uintptr_t)true, ValueBool);
+
+      pgagroal_log_info("Conf Set: Restart required for %s=%s. Current value: %s", config_key, config_value, old_value);
+   }
+   else
+   {
+      // Case 1: Success + No restart
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_STATUS, (uintptr_t)CONFIGURATION_STATUS_SUCCESS, ValueString);
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_MESSAGE, (uintptr_t)CONFIGURATION_MESSAGE_SUCCESS, ValueString);
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_CONFIG_KEY, (uintptr_t)config_key, ValueString);
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_OLD_VALUE, (uintptr_t)old_value, ValueString);
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_NEW_VALUE, (uintptr_t)new_value, ValueString);
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_RESTART_REQUIRED, (uintptr_t)false, ValueBool);
+
+      pgagroal_log_info("Conf Set: Successfully applied %s: %s -> %s", config_key, old_value, new_value);
    }
 
    end_time = time(NULL);
 
+   // Send success response
    if (pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload))
    {
-      pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_SET_NETWORK, compression, encryption, payload);
-      pgagroal_log_error("Conf Set: Error sending response"); goto error;
+      pgagroal_log_error("Conf Set: Error sending response");
+      goto error;
    }
 
    elapsed = pgagroal_get_timestamp_string(start_time, end_time, &total_seconds);
-
    pgagroal_log_info("Conf Set (Elapsed: %s)", elapsed);
 
-   pgagroal_json_destroy(payload);
+   // Clean up memory
+   free(elapsed);
 
    pgagroal_disconnect(client_fd);
-
    pgagroal_stop_logging();
 
-   exit(0);
+   return;
+
 error:
-
-   pgagroal_json_destroy(payload);
+   // Clean up memory on error
+   if (elapsed)
+   {
+      free(elapsed);
+   }
 
    pgagroal_disconnect(client_fd);
-
    pgagroal_stop_logging();
 
-   exit(1);
+   return;
+}
 
+static bool
+is_valid_config_key(const char* config_key, struct config_key_info* key_info)
+{
+   struct main_configuration* config;
+   int dot_count = 0;
+   int begin = 0, end = -1;
+
+   if (!config_key || strlen(config_key) == 0 || !key_info)
+   {
+      return false;
+   }
+
+   config = (struct main_configuration*)shmem;
+
+   // Initialize output structure
+   memset(key_info, 0, sizeof(struct config_key_info));
+
+   // Basic format validation
+   size_t len = strlen(config_key);
+   if (config_key[0] == '.' || config_key[len - 1] == '.')
+   {
+      pgagroal_log_debug("Invalid config key: starts or ends with dot: %s", config_key);
+      return false;
+   }
+
+   // Check for consecutive dots and count total dots
+   for (size_t i = 0; i < len - 1; i++)
+   {
+      if (config_key[i] == '.')
+      {
+         dot_count++;
+         if (config_key[i + 1] == '.')
+         {
+            pgagroal_log_debug("Invalid config key: consecutive dots: %s", config_key);
+            return false;
+         }
+      }
+   }
+   if (config_key[len - 1] == '.')
+   {
+      dot_count++;
+   }
+
+   if (dot_count > 2)
+   {
+      pgagroal_log_debug("Invalid config key: too many dots (%d): %s", dot_count, config_key);
+      return false;
+   }
+
+   // Parse the key into components
+   for (size_t i = 0; i < len; i++)
+   {
+      if (config_key[i] == '.')
+      {
+         if (!strlen(key_info->section))
+         {
+            // First dot: extract section
+            memcpy(key_info->section, &config_key[begin], i - begin);
+            key_info->section[i - begin] = '\0';
+            begin = i + 1;
+         }
+         else if (!strlen(key_info->context))
+         {
+            // Second dot: extract context
+            memcpy(key_info->context, &config_key[begin], i - begin);
+            key_info->context[i - begin] = '\0';
+            begin = i + 1;
+         }
+      }
+      end = i;
+   }
+
+   // Extract the final part (key)
+   if (dot_count == 0)
+   {
+      // Case: max_connections
+      memcpy(key_info->key, config_key, strlen(config_key));
+      key_info->is_main_section = true;
+      key_info->section_type = 0;
+   }
+   else if (dot_count == 1)
+   {
+      // Case: pgagroal.max_connections
+      memcpy(key_info->key, &config_key[begin], end - begin + 1);
+      key_info->key[end - begin + 1] = '\0';
+      key_info->is_main_section = !strncmp(key_info->section, PGAGROAL_MAIN_INI_SECTION, MISC_LENGTH);
+      key_info->section_type = key_info->is_main_section ? 0 : -1;
+   }
+   else if (dot_count == 2)
+   {
+      // Case: server.primary.host
+      memcpy(key_info->key, &config_key[begin], end - begin + 1);
+      key_info->key[end - begin + 1] = '\0';
+      key_info->is_main_section = false;
+
+      // Determine section type
+      if (!strncmp(key_info->section, PGAGROAL_CONF_SERVER_PREFIX, MISC_LENGTH))
+      {
+         key_info->section_type = 1;
+      }
+      else if (!strncmp(key_info->section, PGAGROAL_CONF_HBA_PREFIX, MISC_LENGTH))
+      {
+         key_info->section_type = 2;
+      }
+      else if (!strncmp(key_info->section, PGAGROAL_CONF_LIMIT_PREFIX, MISC_LENGTH))
+      {
+         key_info->section_type = 3;
+      }
+      else
+      {
+         pgagroal_log_debug("Unknown section type: %s", key_info->section);
+         return false;
+      }
+   }
+
+   // Validate that entries exist in current configuration
+   switch (key_info->section_type)
+   {
+      case 0: // Main section
+         // All main keys are valid if they exist in the parsing logic
+         break;
+
+      case 1: // Server section
+      {
+         bool server_found = false;
+         for (int i = 0; i < config->number_of_servers; i++)
+         {
+            if (!strncmp(config->servers[i].name, key_info->context, MISC_LENGTH))
+            {
+               server_found = true;
+               break;
+            }
+         }
+         if (!server_found)
+         {
+            pgagroal_log_debug("Server '%s' not found in configuration", key_info->context);
+            return false;
+         }
+      }
+      break;
+
+      case 2: // HBA section
+      {
+         bool hba_found = false;
+         for (int i = 0; i < config->number_of_hbas; i++)
+         {
+            if (!strncmp(config->hbas[i].username, key_info->context, MISC_LENGTH))
+            {
+               hba_found = true;
+               break;
+            }
+         }
+         if (!hba_found)
+         {
+            pgagroal_log_debug("HBA user '%s' not found in configuration", key_info->context);
+            return false;
+         }
+      }
+      break;
+
+      case 3: // Limit section
+      {
+         bool limit_found = false;
+         for (int i = 0; i < config->number_of_limits; i++)
+         {
+            if (!strncmp(config->limits[i].database, key_info->context, MISC_LENGTH))
+            {
+               limit_found = true;
+               break;
+            }
+         }
+         if (!limit_found)
+         {
+            pgagroal_log_debug("Database '%s' not found in limit configuration", key_info->context);
+            return false;
+         }
+      }
+      break;
+
+      default:
+         return false;
+   }
+
+   return true;
 }

@@ -72,7 +72,7 @@
 #endif
 
 #define MAX_FDS 64
-#define SIGNALS_NUMBER 7
+#define SIGNALS_NUMBER 8
 
 static void accept_main_cb(struct io_watcher* watcher);
 static void accept_mgt_cb(struct io_watcher* watcher);
@@ -81,6 +81,7 @@ static void accept_metrics_cb(struct io_watcher* watcher);
 static void accept_management_cb(struct io_watcher* watcher);
 static void shutdown_cb(void);
 static void reload_cb(void);
+static void service_reload_cb(void);
 static void graceful_cb(void);
 static void coredump_cb(void);
 static void sigchld_cb(void);
@@ -94,6 +95,8 @@ static bool accept_fatal(int error);
 static void add_client(pid_t pid);
 static void remove_client(pid_t pid);
 static bool reload_configuration(void);
+static bool reload_services_only(void);
+static void reload_set_configuration(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload);
 static void create_pidfile_or_exit(void);
 static void remove_pidfile(void);
 static void shutdown_ports(void);
@@ -992,6 +995,10 @@ read_superuser_path:
    pgagroal_signal_init(&signal_watcher[4].sig_w, coredump_cb, SIGABRT);
    pgagroal_signal_init(&signal_watcher[5].sig_w, shutdown_cb, SIGALRM);
    pgagroal_signal_init(&signal_watcher[6].sig_w, sigchld_cb, SIGCHLD);
+   pgagroal_signal_init(&signal_watcher[7].sig_w, service_reload_cb, SIGUSR1);
+
+   signal_watcher[7].slot = -1;
+   pgagroal_signal_start(&signal_watcher[7].sig_w);
 
    for (int i = 0; i < SIGNALS_NUMBER; i++)
    {
@@ -1832,7 +1839,7 @@ accept_mgt_cb(struct io_watcher* watcher)
          pgagroal_json_clone(payload, &pyl);
 
          pgagroal_set_proc_title(1, ai->argv, "conf set", NULL);
-         pgagroal_conf_set(NULL, client_fd, compression, encryption, pyl);
+         reload_set_configuration(NULL, client_fd, compression, encryption, pyl);
       }
    }
    else if (id == MANAGEMENT_GET_PASSWORD)
@@ -2588,6 +2595,141 @@ reload_configuration(void)
 error:
    remove_pidfile();
    exit(1);
+}
+
+static bool
+reload_services_only(void)
+{
+   char pgsql[MISC_LENGTH];
+   struct main_configuration* config;
+
+   config = (struct main_configuration*)shmem;
+
+   // Shutdown services
+   shutdown_io();
+   shutdown_uds();
+   shutdown_metrics();
+   shutdown_management();
+
+   // Instead, restart services with current memory configuration
+   pgagroal_log_debug("conf set: unix socket Bound to %s/.s.PGSQL.%d", config->unix_socket_dir, config->common.port);
+
+   // Restart Unix Domain Socket with NEW port from memory
+   memset(&pgsql, 0, sizeof(pgsql));
+   snprintf(&pgsql[0], sizeof(pgsql), ".s.PGSQL.%d", config->common.port);
+
+   if (pgagroal_bind_unix_socket(config->unix_socket_dir, &pgsql[0], &unix_pgsql_socket))
+   {
+      pgagroal_log_fatal("pgagroal: Could not bind to %s/%s", config->unix_socket_dir, &pgsql[0]);
+      goto error;
+   }
+
+   pgagroal_log_debug("conf set: main port and host Bound to %s:%d", config->common.host, config->common.port);
+
+   // Restart main sockets with NEW port from memory
+   free(main_fds);
+   main_fds = NULL;
+   main_fds_length = 0;
+
+   if (pgagroal_bind(config->common.host, config->common.port, &main_fds, &main_fds_length, config->nodelay, config->backlog))
+   {
+      pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.port);
+      goto error;
+   }
+
+   if (main_fds_length > MAX_FDS)
+   {
+      pgagroal_log_fatal("pgagroal: Too many descriptors %d", main_fds_length);
+      goto error;
+   }
+
+   start_io();
+   start_uds();
+
+   // Restart metrics if enabled
+   if (config->common.metrics > 0)
+   {
+      free(metrics_fds);
+      metrics_fds = NULL;
+      metrics_fds_length = 0;
+
+      if (pgagroal_bind(config->common.host, config->common.metrics, &metrics_fds, &metrics_fds_length, config->nodelay, config->backlog))
+      {
+         pgagroal_log_fatal("pgagroal: Could not bind to %s:%d", config->common.host, config->common.metrics);
+         goto error;
+      }
+
+      if (metrics_fds_length > MAX_FDS)
+      {
+         pgagroal_log_fatal("pgagroal: Too many descriptors %d", metrics_fds_length);
+         goto error;
+      }
+
+      start_metrics();
+   }
+
+   // Restart management
+   if (config->management > 0)
+   {
+
+      free(management_fds);
+      management_fds = NULL;
+      management_fds_length = 0;
+
+      if (pgagroal_bind(config->common.host, config->management, &management_fds, &management_fds_length, config->nodelay, config->backlog))
+      {
+         pgagroal_log_warn("pgagroal: Could not rebind management port %s:%d, continuing without management", config->common.host, config->management);
+         config->management = 0;
+      }
+      else
+      {
+         if (management_fds_length <= MAX_FDS)
+         {
+            start_management();
+         }
+      }
+   }
+
+   pgagroal_log_info("conf set: Services restarted successfully");
+   return true;
+
+error:
+   return false;
+}
+
+static void
+reload_set_configuration(SSL* ssl, int client_fd, uint8_t compression, uint8_t encryption, struct json* payload)
+{
+   bool restart_required = false;
+   bool config_success = false;
+
+   // Apply configuration changes to shared memory
+   pgagroal_conf_set(ssl, client_fd, compression, encryption, payload, &restart_required, &config_success);
+
+   // Only restart services if config change succeeded AND no restart required
+   if (config_success && !restart_required)
+   {
+      pgagroal_log_info("Configuration applied successfully, reloading services");
+      kill(getppid(), SIGUSR1);  // Signal parent to restart services
+   }
+   else if (config_success && restart_required)
+   {
+      pgagroal_log_info("Configuration requires restart - continuing with old configuration");
+   }
+   else
+   {
+      pgagroal_log_error("Configuration change failed, not applying changes");
+      exit(1);
+   }
+
+   exit(0);
+}
+
+static void
+service_reload_cb(void)
+{
+   pgagroal_log_debug("pgagroal: service restart requested");
+   reload_services_only();  // Parent process restarts services
 }
 
 /**
