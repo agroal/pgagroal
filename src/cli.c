@@ -1617,6 +1617,12 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
       section[MISC_LENGTH - 1] = '\0';
       strncpy(key, parts[1], MISC_LENGTH - 1);
       key[MISC_LENGTH - 1] = '\0';
+
+      // Treat "pgagroal" as the main section (empty)
+      if (!strcasecmp(section, "pgagroal"))
+      {
+         memset(section, 0, MISC_LENGTH);
+      }
    }
    else if (part_count == 3)
    {
