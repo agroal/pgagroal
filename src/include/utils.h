@@ -613,6 +613,14 @@ pgagroal_connection_state_as_string(signed char state);
 int
 pgagroal_os_kernel_version(char** os, int* kernel_major, int* kernel_minor, int* kernel_patch);
 
+/**
+ * Remove all whitespace from a string
+ * @param orig The original string
+ * @return The new string with all whitespace removed
+ */
+char*
+pgagroal_remove_all_whitespace(char* orig);
+
 #ifdef __cplusplus
 }
 #endif

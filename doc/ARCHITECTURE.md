@@ -334,3 +334,15 @@ The implementation is done in [logging.h](../src/include/logging.h) and
 
 The protocol interactions can be debugged using [Wireshark](https://www.wireshark.org/) or
 [pgprtdbg](https://github.com/jesperpedersen/pgprtdbg).
+
+## Database Alias
+
+A **database alias** in pgagroal allows clients to connect using an alternative name for a configured database. This is useful for scenarios such as application migrations, multi-tenancy, or providing user-friendly names without exposing the actual backend database name.
+
+### How it works
+
+- Each database entry in the limits configuration (`pgagroal_databases.conf`) can specify up to eight aliases.
+- When a client connects using an alias, pgagroal transparently maps the alias to the real database name before establishing or reusing a backend connection.
+- Aliases are resolved during both pooled and unpooled connection handling, ensuring that connections are matched and authenticated against the correct backend database.
+
+

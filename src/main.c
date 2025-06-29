@@ -1842,6 +1842,31 @@ accept_mgt_cb(struct io_watcher* watcher)
          reload_set_configuration(NULL, client_fd, compression, encryption, pyl);
       }
    }
+   else if (id == MANAGEMENT_CONFIG_ALIAS)
+   {
+      pid = fork();
+      if (pid == -1)
+      {
+         pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_CONF_ALIAS_NOFORK, compression, encryption, payload);
+         pgagroal_log_error("Config Alias: No fork %s (%d)", NULL, MANAGEMENT_ERROR_CONF_ALIAS_NOFORK);
+         goto error;
+      }
+      else if (pid == 0)
+      {
+         struct json* pyl = NULL;
+
+         shutdown_ports();
+
+         pgagroal_json_clone(payload, &pyl);
+
+         pgagroal_set_proc_title(1, ai->argv, "conf alias", NULL);
+         pgagroal_management_config_alias(NULL, client_fd, compression, encryption, pyl);
+         // Add cleanup - this is needed because we're in a child process
+         pgagroal_json_destroy(pyl);
+         exit(0);
+
+      }
+   }
    else if (id == MANAGEMENT_GET_PASSWORD)
    {
       int index = -1;

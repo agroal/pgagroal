@@ -37,6 +37,7 @@
 #include <lz4_compression.h>
 #include <management.h>
 #include <message.h>
+#include <memory.h>
 #include <network.h>
 #include <pool.h>
 #include <utils.h>
@@ -119,6 +120,146 @@ pgagroal_management_request_enabledb(SSL* ssl, int socket, char* database, uint8
    }
 
    pgagroal_json_put(request, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
+
+   if (pgagroal_management_write_json(ssl, socket, compression, encryption, j))
+   {
+      goto error;
+   }
+
+   pgagroal_json_destroy(j);
+
+   return 0;
+
+error:
+
+   pgagroal_json_destroy(j);
+
+   return 1;
+}
+
+int
+pgagroal_management_config_alias(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, struct json* payload)
+{
+   struct json* response = NULL;
+   struct main_configuration* config;
+   struct json* output = NULL;
+   struct json* aliases_array = NULL;
+   struct json* entry = NULL;
+   struct json* alias_list = NULL;
+   struct json* alias_item = NULL;
+
+   config = (struct main_configuration*)shmem;
+
+   // Create response using the existing function
+   if (pgagroal_management_create_response(payload, -1, &response))
+   {
+      goto error;
+   }
+
+   // Create the main output structure
+   if (pgagroal_json_create(&output))
+   {
+      goto error;
+   }
+
+   // Create aliases array
+   if (pgagroal_json_create(&aliases_array))
+   {
+      goto error;
+   }
+
+   for (int i = 0; i < config->number_of_limits; i++)
+   {
+      entry = NULL;
+      if (pgagroal_json_create(&entry))
+      {
+         goto error;
+      }
+
+      pgagroal_json_put(entry, "database", (uintptr_t)config->limits[i].database, ValueString);
+      pgagroal_json_put(entry, "username", (uintptr_t)config->limits[i].username, ValueString);
+      pgagroal_json_put(entry, "aliases_count", (uintptr_t)config->limits[i].aliases_count, ValueInt32);
+      pgagroal_json_put(entry, "max_size", (uintptr_t)config->limits[i].max_size, ValueInt64);
+      pgagroal_json_put(entry, "initial_size", (uintptr_t)config->limits[i].initial_size, ValueInt64);
+      pgagroal_json_put(entry, "min_size", (uintptr_t)config->limits[i].min_size, ValueInt64);
+
+      if (config->limits[i].aliases_count > 0)
+      {
+         alias_list = NULL;
+         if (pgagroal_json_create(&alias_list))
+         {
+            goto error;
+         }
+
+         for (int j = 0; j < config->limits[i].aliases_count; j++)
+         {
+            alias_item = NULL;
+            if (pgagroal_json_create(&alias_item))
+            {
+               goto error;
+            }
+            pgagroal_json_put(alias_item, "alias", (uintptr_t)config->limits[i].aliases[j], ValueString);
+            pgagroal_json_append(alias_list, (uintptr_t)alias_item, ValueJSON);
+         }
+         pgagroal_json_put(entry, "aliases", (uintptr_t)alias_list, ValueJSON);
+      }
+
+      pgagroal_json_append(aliases_array, (uintptr_t)entry, ValueJSON);
+   }
+
+   // Put the aliases array into the output object
+   pgagroal_json_put(output, "aliases", (uintptr_t)aliases_array, ValueJSON);
+
+   // Put the output into the response
+   pgagroal_json_put(response, "output", (uintptr_t)output, ValueJSON);
+
+   // Send response - use the correct function signature
+   if (pgagroal_management_response_ok(ssl, socket, 0, 0, compression, encryption, response))
+   {
+      goto error;
+   }
+
+   // Cleanup and exit - only destroy response here since all other JSON objects
+   // are children of response and will be cleaned up automatically
+   pgagroal_json_destroy(response);
+
+   // Don't destroy payload here - it will be handled by the caller
+   pgagroal_disconnect(socket);
+
+   pgagroal_memory_destroy();
+   pgagroal_stop_logging();
+
+   exit(0);
+
+error:
+   if (response)
+   {
+      pgagroal_json_destroy(response);
+   }
+   // Don't destroy payload in error case either
+   pgagroal_disconnect(socket);
+
+   pgagroal_memory_destroy();
+   pgagroal_stop_logging();
+
+   exit(1);
+}
+
+int
+pgagroal_management_request_conf_alias(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format)
+{
+   struct json* j = NULL;
+   struct json* request = NULL;
+
+   if (pgagroal_management_create_header(MANAGEMENT_CONFIG_ALIAS, compression, encryption, output_format, &j))
+   {
+      goto error;
+   }
+
+   if (pgagroal_management_create_request(j, &request))
+   {
+      goto error;
+   }
 
    if (pgagroal_management_write_json(ssl, socket, compression, encryption, j))
    {
