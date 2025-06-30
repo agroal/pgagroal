@@ -1612,6 +1612,8 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
    struct json* outcome = NULL;
    struct json_iterator* iter;
    char* config_value = NULL;
+   enum value_type section_type;
+   uintptr_t section_data;
    int part_count = 0;
    char* parts[4] = {NULL, NULL, NULL, NULL}; // Allow max 4 to detect invalid input
    char* token;
@@ -1716,7 +1718,16 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
 
    if (strlen(section) > 0)
    {
-      configuration_js = (struct json*)pgagroal_json_get(response, section);
+      section_data = pgagroal_json_get_typed(response, section, &section_type);
+
+      pgagroal_log_debug("Section '%s' has type: %s", section, pgagroal_value_type_to_string(section_type));
+
+      if (section_type != ValueJSON)
+      {
+         goto error;
+      }
+
+      configuration_js = (struct json*)section_data;
       if (!configuration_js)
       {
          goto error;
@@ -1727,7 +1738,11 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
       configuration_js = response;
    }
 
-   pgagroal_json_iterator_create(configuration_js, &iter);
+   if (pgagroal_json_iterator_create(configuration_js, &iter))
+   {
+      goto error;
+   }
+
    while (pgagroal_json_iterator_next(iter))
    {
       // Handle three-part keys: section.context.key
