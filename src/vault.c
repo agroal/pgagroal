@@ -584,7 +584,8 @@ read_users_path:
       exit(1);
    }
 
-   // -- Initialize the watcher and start loop --
+//-- Initialize the watcher and start loop --
+   pgagroal_event_set_context(PGAGROAL_CONTEXT_VAULT);
    main_loop = pgagroal_event_loop_init();
    if (!main_loop)
    {

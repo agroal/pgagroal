@@ -58,13 +58,13 @@ START_TEST(test_pgagroal_database_alias2)
 START_TEST(test_pgagroal_dual_connection)
 {
    int found1 = 0, found2 = 0;
-   
+
    // Connect with original name
    found1 = !pgagroal_tsclient_execute_pgbench("postgres", true, 0, 0, 0);
-   
-   // Connect with alias name  
+
+   // Connect with alias name
    found2 = !pgagroal_tsclient_execute_pgbench("pgalias1", true, 0, 0, 0);
-   
+
    ck_assert_msg(found1 && found2, "Both original and alias connections should work");
 }
 

@@ -151,6 +151,35 @@ The main loop registers timers, signals and accept watchers.
 
 The worker registers the client watcher (responsible for receiving the message from the client and bouncing it to the server), the server watcher (responsible for watching for a message from the server and bouncing it to the client) and one signal watcher.
 
+The event loop system supports multiple execution contexts to handle different pgagroal components:
+
+- **Main Context** (`PGAGROAL_CONTEXT_MAIN`): Used by the main pgagroal process for connection pooling and management operations
+- **Vault Context** (`PGAGROAL_CONTEXT_VAULT`): Used by pgagroal-vault for HTTP server operations and management communication
+
+Each context uses its own configuration structure and event backend settings. The context is set explicitly before event loop initialization to ensure the correct configuration is used for backend selection and setup.
+
+### Backend Selection
+
+The event backend selection process varies by context:
+
+For the **main pgagroal process**:
+- Reads `ev_backend` setting from main configuration file
+- Validates backend availability and TLS compatibility
+- Falls back to supported alternatives if needed
+
+For **pgagroal-vault**:
+- Reads `ev_backend` setting from vault configuration file
+- Uses the same validation and fallback logic as main process
+- Supports all the same backends: io_uring, epoll, kqueue
+
+Both contexts support the same configuration options:
+- `auto`: Automatically selects the best available backend
+- `io_uring`: Linux-specific, high-performance backend (not supported with TLS)
+- `epoll`: Linux-specific, traditional event notification
+- `kqueue`: BSD/macOS event notification mechanism
+
+The implementation is done in [ev.h](../src/include/ev.h) and [ev.c](../src/libpgagroal/ev.c).
+
 ## Pipeline
 
 [**pgagroal**](https://github.com/agroal/pgagroal) has the concept of a pipeline that defines how communication is routed from the client through [**pgagroal**](https://github.com/agroal/pgagroal) to

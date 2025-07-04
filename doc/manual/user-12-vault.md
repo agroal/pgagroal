@@ -43,6 +43,7 @@ The available keys and their accepted values are reported in the table below.
 | log_disconnections | `off` | Bool | No | Log disconnects |
 | authentication_timeout | 5 | String | No | The amount of time the process will wait for valid credentials. If this value is specified without units, it is taken as seconds. It supports the following units as suffixes: 'S' for seconds (default), 'M' for minutes, 'H' for hours, 'D' for days, and 'W' for weeks. |
 | hugepage | `try` | String | No | Huge page support (`off`, `try`, `on`) |
+| ev_backend | auto | String | No | The event backend to use for the vault's I/O operations (`auto`, `io_uring`, `epoll`, `kqueue`). Default is `auto`, which selects the best available backend for the platform. On Linux, the preference order is: io_uring, epoll. On other platforms, kqueue is used if available. Note: io_uring is not supported when TLS is enabled. |
 | tls | `off` | Bool | No | Enable Transport Layer Security (TLS) |
 | tls_cert_file | | String | No | Certificate file for TLS. This file must be owned by either the user running pgagroal or root. |
 | tls_key_file | | String | No | Private key file for TLS. This file must be owned by either the user running pgagroal or root. Additionally permissions must be at least `0640` when owned by root or `0600` otherwise. |

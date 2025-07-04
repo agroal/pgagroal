@@ -59,6 +59,8 @@ cat > pgagroal_vault.conf
 host = localhost
 port = 2500
 
+ev_backend = auto
+
 log_type = file
 log_level = info
 log_path = /tmp/pgagroal_vault.log

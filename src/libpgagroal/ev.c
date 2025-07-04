@@ -150,13 +150,39 @@ static int kqueue_flags;              /* Flags for kqueue instance creation */
 
 #endif /* HAVE_LINUX */
 
+static int execution_context = PGAGROAL_CONTEXT_MAIN;
+
+void
+pgagroal_event_set_context(int context)
+{
+   execution_context = context;
+}
+
 static int
 setup_ops(void)
 {
-   struct main_configuration* config = (struct main_configuration*)shmem;
+   int backend_type = PGAGROAL_EVENT_BACKEND_AUTO;
+
+   // Determine backend type based on execution context
+   if (execution_context == PGAGROAL_CONTEXT_VAULT)
+   {
+      struct vault_configuration* vault_config = (struct vault_configuration*)shmem;
+      if (vault_config)
+      {
+         backend_type = vault_config->ev_backend;
+      }
+   }
+   else
+   {
+      struct main_configuration* main_config = (struct main_configuration*)shmem;
+      if (main_config)
+      {
+         backend_type = main_config->ev_backend;
+      }
+   }
 
 #if HAVE_LINUX
-   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_IO_URING)
+   if (backend_type == PGAGROAL_EVENT_BACKEND_IO_URING)
    {
       loop_init = ev_io_uring_init;
       loop_fork = ev_io_uring_fork;
@@ -169,7 +195,7 @@ setup_ops(void)
       periodic_stop = ev_io_uring_periodic_stop;
       return PGAGROAL_EVENT_RC_OK;
    }
-   else if (config->ev_backend == PGAGROAL_EVENT_BACKEND_EPOLL)
+   else if (backend_type == PGAGROAL_EVENT_BACKEND_EPOLL)
    {
       loop_init = ev_epoll_init;
       loop_fork = ev_epoll_fork;
@@ -183,7 +209,7 @@ setup_ops(void)
       return PGAGROAL_EVENT_RC_OK;
    }
 #else
-   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_KQUEUE)
+   if (backend_type == PGAGROAL_EVENT_BACKEND_KQUEUE)
    {
       loop_init = ev_kqueue_init;
       loop_fork = ev_kqueue_fork;

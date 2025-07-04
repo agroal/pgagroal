@@ -523,7 +523,8 @@ struct vault_configuration
 {
    struct configuration common;      /**< Common base class */
    char users_path[MAX_PATH];        /**< The configuration path */
-   int number_of_users;              /**< The number of users */
+   int number_of_users;  /**< The number of users */
+   int ev_backend;          /**< Selected ev backend */
    struct vault_server vault_server; /**< The vault servers */
 } __attribute__ ((aligned (64)));
 

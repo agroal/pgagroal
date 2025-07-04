@@ -828,6 +828,7 @@ pgagroal_vault_init_configuration(void* shm)
    config->common.log_disconnections = false;
    config->common.log_mode = PGAGROAL_LOGGING_MODE_APPEND;
    atomic_init(&config->common.log_lock, STATE_FREE);
+   config->ev_backend = PGAGROAL_EVENT_BACKEND_AUTO;
    memcpy(config->common.default_log_path, "pgagroal-vault.log", strlen("pgagroal-vault.log"));
 
    memset(config->vault_server.user.password, 0, MAX_PASSWORD_LENGTH);
@@ -1035,6 +1036,67 @@ pgagroal_vault_validate_configuration (void* shm)
                          config->vault_server.server.lineno);
       return 1;
    }
+
+   // Validate event backend (following main pattern)
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_INVALID)
+   {
+      pgagroal_log_warn("pgagroal-vault: Configured event backend is invalid. Default to 'auto'");
+      config->ev_backend = PGAGROAL_EVENT_BACKEND_AUTO;
+   }
+
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_EMPTY)
+   {
+      pgagroal_log_warn("pgagroal-vault: ev_backend configuration is empty. Default to 'auto'");
+      config->ev_backend = PGAGROAL_EVENT_BACKEND_AUTO;
+   }
+
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_AUTO || !is_supported_backend(config->ev_backend))
+   {
+      config->ev_backend = DEFAULT_EVENT_BACKEND;
+   }
+
+#if HAVE_LINUX
+   if (config->ev_backend == PGAGROAL_EVENT_BACKEND_IO_URING)
+   {
+      int fd;
+      char rval;
+
+      /* check if io_uring is enabled or works for supported configuration, else fallback to next backend */
+      fd = open("/proc/sys/kernel/io_uring_disabled", O_RDONLY);
+      if (fd < 0)
+      {
+         pgagroal_log_debug("pgagroal-vault: Failed to open file /proc/sys/kernel/io_uring_disabled: %s", strerror(errno));
+         goto fallback;
+      }
+      if (read(fd, &rval, 1) <= 0)
+      {
+         pgagroal_log_fatal("pgagroal-vault: Failed to read file /proc/sys/kernel/io_uring_disabled");
+         return 1;
+      }
+      if (close(fd) < 0)
+      {
+         pgagroal_log_fatal("pgagroal-vault: Failed to close file descriptor for /proc/sys/kernel/io_uring_disabled: %s", strerror(errno));
+         return 1;
+      }
+
+      /* see doc: https://docs.kernel.org/admin-guide/sysctl/kernel.html#io-uring-disabled */
+      if (config->common.tls || (rval == '1') || (rval == '2'))
+      {
+         if (config->common.tls)
+         {
+            pgagroal_log_warn("pgagroal-vault: io_uring not supported with tls on");
+         }
+         else
+         {
+            pgagroal_log_warn("pgagroal-vault: io_uring supported but not enabled. Enable io_uring by setting /proc/sys/kernel/io_uring_disabled to '0'");
+         }
+fallback:
+         config->ev_backend = PGAGROAL_EVENT_BACKEND_EPOLL;
+      }
+   }
+#endif /* HAVE_LINUX */
+
+   pgagroal_log_debug("pgagroal-vault: Selected backend '%s'", to_backend_str(config->ev_backend));
 
    return 0;
 }
@@ -5582,6 +5644,10 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
       {
          unknown = true;
       }
+   }
+   else if (key_in_section("ev_backend", section, key, true, &unknown))
+   {
+      config->ev_backend = to_backend_type(value);
    }
    else if (key_in_section("user", section, key, false, &unknown))
    {

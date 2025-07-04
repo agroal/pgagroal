@@ -139,6 +139,29 @@ These files contain the definition and implementation of the event loop for the 
 Each process has its own event loop, such that the process only gets notified when data related only to that process
 is ready. The main loop handles the system wide "services" such as idle timeout checks and so on.
 
+### Event Loop Context Management
+
+The event loop system uses execution contexts to properly handle different pgagroal components:
+
+**Supported Contexts:**
+- `PGAGROAL_CONTEXT_MAIN`: Main pgagroal process context
+- `PGAGROAL_CONTEXT_VAULT`: pgagroal-vault HTTP server context
+
+**Context Setting:**
+Each process sets its context before initializing the event loop using `pgagroal_event_set_context()`. This ensures:
+- Correct configuration structure is accessed (main_configuration vs vault_configuration)  
+- Proper event backend selection based on the component's configuration
+- Isolated event loop behavior per component
+
+**Backend Configuration:**
+Both main and vault contexts support the same `ev_backend` configuration options:
+- `auto`: Selects best available backend automatically
+- `io_uring`: High-performance Linux backend (disabled with TLS)
+- `epoll`: Traditional Linux event notification
+- `kqueue`: BSD/macOS event mechanism
+
+The context approach prevents configuration structure mismatches and allows independent event backend configuration for different pgagroal components.
+
 ## Pipeline
 
 [**pgagroal**](https://github.com/agroal/pgagroal) has the concept of a pipeline that defines how communication is routed from the client through [**pgagroal**](https://github.com/agroal/pgagroal) to

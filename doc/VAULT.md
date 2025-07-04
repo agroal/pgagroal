@@ -40,6 +40,7 @@ The available keys and their accepted values are reported in the table below.
 | log_mode | append | String | No | Append to or create the log file (append, create) |
 | log_connections | `off` | Bool | No | Log connects |
 | log_disconnections | `off` | Bool | No | Log disconnects |
+| ev_backend | auto | String | No | The event backend to use for the vault's I/O operations (`auto`, `io_uring`, `epoll`, `kqueue`). Default is `auto`, which selects the best available backend for the platform. On Linux, the preference order is: io_uring, epoll. On other platforms, kqueue is used if available. |
 | hugepage | `try` | String | No | Huge page support (`off`, `try`, `on`) |
 | tls | `off` | Bool | No | Enable Transport Layer Security (TLS) |
 | tls_cert_file | | String | No | Certificate file for TLS. This file must be owned by either the user running pgagroal or root. |

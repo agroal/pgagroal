@@ -61,6 +61,8 @@ extern "C" {
 #define EXPERIMENTAL_FEATURE_USE_HUGE_ENABLED       0
 #define EXPERIMENTAL_FEATURE_RECV_MULTISHOT_ENABLED 0
 #define EXPERIMENTAL_FEATURE_IOVECS                 0
+#define PGAGROAL_CONTEXT_MAIN  0
+#define PGAGROAL_CONTEXT_VAULT 1
 
 #define ALIGNMENT sysconf(_SC_PAGESIZE)
 #define MAX_EVENTS   32
@@ -423,6 +425,12 @@ pgagroal_event_prep_submit_recv_outside_loop(struct io_watcher* watcher, struct 
  */
 int
 pgagroal_wait_recv(void);
+
+/**
+ * Set the execution context for event loop initialization
+ * @param context PGAGROAL_CONTEXT_MAIN or PGAGROAL_CONTEXT_VAULT
+ */
+void pgagroal_event_set_context(int context);
 
 #ifdef __cplusplus
 }

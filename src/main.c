@@ -981,7 +981,7 @@ read_superuser_path:
 #endif
       goto error;
    }
-
+   pgagroal_event_set_context(PGAGROAL_CONTEXT_MAIN);
    main_loop = pgagroal_event_loop_init();
    if (!main_loop)
    {

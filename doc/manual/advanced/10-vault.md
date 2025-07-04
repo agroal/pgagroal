@@ -30,6 +30,8 @@ port = 2500
 
 metrics = 2501
 
+ev_backend = auto
+
 log_type = console
 log_level = info
 log_path = /tmp/pgagroal-vault.log
