@@ -263,6 +263,27 @@ psql -h localhost -p 2345 -U myuser mydb
 pgagroal-cli -c pgagroal.conf shutdown
 ```
 
+## C programming
+
+[**pgagroal**](https://github.com/pgagroal/pgagroal) is developed using the [C programming language](https://en.wikipedia.org/wiki/C_(programming_language)) so it is a good
+idea to have some knowledge about the language before you begin to make changes.
+
+There are books like,
+
+* [C in a Nutshell](https://www.oreilly.com/library/view/c-in-a/9781491924174/)
+* [21st Century C](https://www.oreilly.com/library/view/21st-century-c/9781491904428/)
+
+that can help you
+
+### Debugging
+
+In order to debug problems in your code you can use [gdb](https://www.sourceware.org/gdb/), or add extra logging using
+the `pgagroal_log_XYZ()` API
+
+### Core APIs
+You may find [core APIs](https://github.com/agroal/pgagroal/blob/master/doc/manual/dev-07-core_api.md) quite useful. Try
+not to reinvent the wheels, unless for a good reason.
+
 ## Basic git guide
 
 Here are some links that will help you

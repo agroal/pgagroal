@@ -57,6 +57,10 @@
 [remote_h]: https://github.com/agroal/pgagroal/blob/master/src/include/remote.h
 [prometheus_h]: https://github.com/agroal/pgagroal/blob/master/src/include/prometheus.h
 [logging_h]: https://github.com/agroal/pgagroal/blob/master/src/include/logging.h
+[value_h]: https://github.com/agroal/pgagroal/blob/master/src/include/value.h
+[deque_h]: https://github.com/agroal/pgagroal/blob/master/src/include/deque.h
+[art_h]: https://github.com/agroal/pgagroal/blob/master/src/include/art.h
+[json_h]: https://github.com/agroal/pgagroal/blob/master/src/include/json.h
 <!-- src/libpgagroal -->
 [message_c]: https://github.com/agroal/pgagroal/blob/master/src/libpgagroal/message.c
 [network_c]: https://github.com/agroal/pgagroal/blob/master/src/libpgagroal/network.c
@@ -64,6 +68,10 @@
 [remote_c]: https://github.com/agroal/pgagroal/blob/master/src/libpgagroal/remote.c
 [prometheus_c]: https://github.com/agroal/pgagroal/blob/master/src/libpgagroal/prometheus.c
 [logging_c]: https://github.com/agroal/pgagroal/blob/master/src/libpgagroal/logging.c
+[value_c]: https://github.com/agroal/pgagroal/blob/master/src/libpgagroal/value.c
+[deque_c]: https://github.com/agroal/pgagroal/blob/master/src/libpgagroal/deque.c
+[art_c]: https://github.com/agroal/pgagroal/blob/master/src/libpgagroal/art.c
+[json_c]: https://github.com/agroal/pgagroal/blob/master/src/libpgagroal/json.c
 
 <!-- Contributing -->
 [ask]: https://github.com/agroal/pgagroal/discussions
