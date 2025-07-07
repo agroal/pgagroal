@@ -467,9 +467,8 @@ error:
 }
 
 int
-accept_ssl_vault(struct vault_configuration* config __attribute__((unused)), int client_fd, SSL** client_ssl)
+accept_ssl_vault(struct vault_configuration* config, int client_fd, SSL** client_ssl)
 {
-
    pgagroal_log_debug("SSL request from client: %d", client_fd);
    int status = MESSAGE_STATUS_ERROR;
    SSL_CTX* ctx = NULL;
@@ -493,24 +492,33 @@ accept_ssl_vault(struct vault_configuration* config __attribute__((unused)), int
    if (status != 1)
    {
       unsigned long err;
+      int sslerr;
 
-      err = ERR_get_error();
-      pgagroal_log_error("SSL failed: %s", ERR_reason_error_string(err));
-      goto error;
+      sslerr = SSL_get_error(c_ssl, status);
+      if (sslerr != SSL_ERROR_WANT_READ && sslerr != SSL_ERROR_WANT_WRITE)
+      {
+         err = ERR_get_error();
+         pgagroal_log_error("SSL failed: %s", ERR_reason_error_string(err));
+         goto error;
+      }
    }
 
+   SSL_CTX_free(ctx);
+
    return 0;
+
 error:
 
    if (ctx != NULL)
    {
       SSL_CTX_free(ctx);
    }
-
    if (c_ssl != NULL)
    {
+      SSL_shutdown(c_ssl);
       SSL_free(c_ssl);
    }
+   *client_ssl = NULL;
 
    pgagroal_log_debug("accept_ssl_vault: ERROR");
    return 1;
@@ -869,6 +877,7 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
    struct message* sasl_continue_response = NULL;
    struct message* sasl_final = NULL;
    struct message* msg = NULL;
+   SSL_CTX* ctx = NULL;
 
    if (pgagroal_get_home_directory() == NULL)
    {
@@ -892,7 +901,6 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
          {
             if (S_ISREG(st.st_mode))
             {
-               SSL_CTX* ctx = NULL;
 
                status = pgagroal_create_ssl_message(&sslrequest_msg);
                if (status != MESSAGE_STATUS_OK)
@@ -928,7 +936,8 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
                   {
                      goto error;
                   }
-
+                  SSL_CTX_free(ctx);
+                  ctx = NULL;
                   *s_ssl = ssl;
 
                   do
@@ -1159,6 +1168,18 @@ bad_password:
    pgagroal_free_message(sasl_continue_response);
    pgagroal_free_message(sasl_final);
 
+   // Cleanup SSL and SSL_CTX on error
+   if (ssl != NULL)
+   {
+      SSL_shutdown(ssl);
+      SSL_free(ssl);
+   }
+   if (ctx != NULL)
+   {
+      SSL_CTX_free(ctx);
+   }
+   *s_ssl = NULL;
+
    pgagroal_memory_destroy();
 
    return AUTH_BAD_PASSWORD;
@@ -1184,6 +1205,18 @@ error:
    pgagroal_free_message(sasl_continue);
    pgagroal_free_message(sasl_continue_response);
    pgagroal_free_message(sasl_final);
+
+   // Cleanup SSL and SSL_CTX on error
+   if (ssl != NULL)
+   {
+      SSL_shutdown(ssl);
+      SSL_free(ssl);
+   }
+   if (ctx != NULL)
+   {
+      SSL_CTX_free(ctx);
+   }
+   *s_ssl = NULL;
 
    pgagroal_memory_destroy();
 

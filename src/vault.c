@@ -114,7 +114,7 @@ router(SSL* c_ssl, SSL* s_ssl, int client_fd)
          {
             pgagroal_log_error("accept_ssl_vault: SSL connection failed");
             exit_code = 1;
-            goto exit;
+            goto cleanup;
          }
          pgagroal_read_socket(c_ssl, client_fd, buffer, sizeof(buffer));
          sscanf(buffer, "%7s %127s", method, path);
@@ -138,7 +138,8 @@ router(SSL* c_ssl, SSL* s_ssl, int client_fd)
          pgagroal_log_error("client requests tls connection to http server");
          __attribute__ ((fallthrough));
       default:
-         return 1;
+         exit_code = 1;
+         goto cleanup;
    }
 
    // Parse URL parameters for GET requests only
@@ -169,23 +170,42 @@ send:
    {
       exit_code = 1;
    }
+
+cleanup:
+   if (c_ssl != NULL)
+   {
+      // Perform clean SSL shutdown
+      int shutdown_result = SSL_shutdown(c_ssl);
+      if (shutdown_result == 0)
+      {
+         // If SSL_shutdown returns 0, call it again for bidirectional shutdown
+         SSL_shutdown(c_ssl);
+      }
+
+      // Free the SSL object (this will also release the SSL_CTX reference)
+      SSL_free(c_ssl);
+      c_ssl = NULL;
+   }
+
    pgagroal_prometheus_client_sockets_sub();
    free(response);
-exit:
+   free(redirect_link);
+
    return exit_code;
 }
 
 static void
-route_users(char* username, char** response, SSL* s_ssl, int client_fd __attribute__((unused)))
+route_users(char* username, char** response, SSL* s_ssl __attribute__((unused)), int client_fd __attribute__((unused)))
 {
    struct vault_configuration* config = (struct vault_configuration*)shmem;
    int client_pgagroal_fd = -1;
+   SSL* mgmt_ssl = NULL;
    struct json* read = NULL;
    struct json* res = NULL;
    char* password = NULL;
 
    // Connect to pgagroal management port
-   if (connect_pgagroal(config, config->vault_server.user.username, config->vault_server.user.password, &s_ssl, &client_pgagroal_fd)) // Change NULL to ssl
+   if (connect_pgagroal(config, config->vault_server.user.username, config->vault_server.user.password, &mgmt_ssl, &client_pgagroal_fd))
    {
       pgagroal_log_error("pgagroal-vault: Couldn't connect to %s:%d", config->vault_server.server.host, config->vault_server.server.port);
       // Send Error Response
@@ -194,15 +214,14 @@ route_users(char* username, char** response, SSL* s_ssl, int client_fd __attribu
    }
 
    // Call GET_PASSWORD at management port
-   if (pgagroal_management_request_get_password(s_ssl, client_pgagroal_fd, username, COMPRESSION_NONE, ENCRYPTION_AES_256_CBC, MANAGEMENT_OUTPUT_FORMAT_JSON))
+   if (pgagroal_management_request_get_password(mgmt_ssl, client_pgagroal_fd, username, COMPRESSION_NONE, ENCRYPTION_AES_256_CBC, MANAGEMENT_OUTPUT_FORMAT_JSON))
    {
       pgagroal_log_error("pgagroal-vault: Couldn't get password from the management");
-      // Send Error Response
       route_not_found(response);
-      return;
+      goto cleanup;
    }
 
-   if (pgagroal_management_read_json(s_ssl, client_pgagroal_fd, NULL, NULL, &read))
+   if (pgagroal_management_read_json(mgmt_ssl, client_pgagroal_fd, NULL, NULL, &read))
    {
       pgagroal_log_warn("pgagroal-vault: Couldn't receive the result");
    }
@@ -221,6 +240,18 @@ route_users(char* username, char** response, SSL* s_ssl, int client_fd __attribu
    else
    {
       route_found(response, password);
+   }
+
+cleanup:
+   // Cleanup management SSL connection
+   if (mgmt_ssl != NULL)
+   {
+      SSL_shutdown(mgmt_ssl);
+      SSL_free(mgmt_ssl);
+   }
+   if (client_pgagroal_fd != -1)
+   {
+      pgagroal_disconnect(client_pgagroal_fd);
    }
 
    pgagroal_json_destroy(read);
@@ -268,6 +299,7 @@ connect_pgagroal(struct vault_configuration* config, char* username, char* passw
    if (pgagroal_connect(config->vault_server.server.host, config->vault_server.server.port, client_socket, false, false))
    {
       pgagroal_disconnect(*client_socket);
+      *client_socket = -1;
       return 1;
    }
 
@@ -278,8 +310,9 @@ connect_pgagroal(struct vault_configuration* config, char* username, char* passw
    {
       if ((unsigned char)(*(password + i)) & 0x80)
       {
-
          pgagroal_log_debug("pgagroal-vault: Bad credentials for %s", username);
+         pgagroal_disconnect(*client_socket);
+         *client_socket = -1;
          return 1;
       }
    }
@@ -289,11 +322,11 @@ connect_pgagroal(struct vault_configuration* config, char* username, char* passw
    {
       pgagroal_log_debug("pgagroal-vault: Bad credentials for %s", username);
       pgagroal_disconnect(*client_socket);
+      *client_socket = -1;
       return 1;
    }
 
    *s_ssl = s;
-
    return 0;
 }
 
