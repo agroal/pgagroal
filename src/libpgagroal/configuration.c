@@ -5912,6 +5912,18 @@ pgagroal_apply_configuration(char* config_key, char* config_value,
       goto error;
    }
 
+   if (pgagroal_validate_hba_configuration(temp_config))
+   {
+      pgagroal_log_error("HBA configuration validation failed for %s = %s", config_key, config_value);
+      goto error;
+   }
+
+   if (pgagroal_validate_limit_configuration(temp_config))
+   {
+      pgagroal_log_error("Limit configuration validation failed for %s = %s", config_key, config_value);
+      goto error;
+   }
+
    // Check if restart is required
    *restart_required = transfer_configuration(current_config, temp_config);
 
