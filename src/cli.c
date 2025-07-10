@@ -1612,6 +1612,8 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
    struct json* outcome = NULL;
    struct json_iterator* iter;
    char* config_value = NULL;
+   struct json_iterator* parent_iter = NULL;
+   bool is_object = false;
    int part_count = 0;
    char* parts[4] = {NULL, NULL, NULL, NULL}; // Allow max 4 to detect invalid input
    char* token;
@@ -1716,6 +1718,25 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
 
    if (strlen(section) > 0)
    {
+
+      if (pgagroal_json_iterator_create(response, &parent_iter) == 0)
+      {
+         while (pgagroal_json_iterator_next(parent_iter))
+         {
+            if (!strcmp(section, parent_iter->key))
+            {
+               is_object = (parent_iter->value->type == ValueJSON);
+               break;
+            }
+         }
+         pgagroal_json_iterator_destroy(parent_iter);
+      }
+
+      if (!is_object)
+      {
+         goto error;
+      }
+
       configuration_js = (struct json*)pgagroal_json_get(response, section);
       if (!configuration_js)
       {
@@ -1727,7 +1748,11 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
       configuration_js = response;
    }
 
-   pgagroal_json_iterator_create(configuration_js, &iter);
+   if (pgagroal_json_iterator_create(configuration_js, &iter))
+   {
+      goto error;
+   }
+   ;
    while (pgagroal_json_iterator_next(iter))
    {
       // Handle three-part keys: section.context.key
