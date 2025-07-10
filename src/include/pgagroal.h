@@ -87,6 +87,7 @@ extern "C" {
 #define MAX_PASSWORD_LENGTH   1024
 #define MAX_APPLICATION_NAME    64
 #define MAX_ALIASES              8
+#define MAX_CERTIFICATES        70
 
 #define MAX_PATH        1024
 #define MISC_LENGTH      128
@@ -191,6 +192,54 @@ extern "C" {
 #define PGAGROAL_LIMIT_ENTRY_ALIASES "aliases"
 #define PGAGROAL_LIMIT_ENTRY_NUMBER_OF_ALIASES "number_of_aliases"
 #define PGAGROAL_LIMIT_ENTRY_LINENO "line_number"
+
+// Key type enumeration
+#define PGAGROAL_KEY_TYPE_UNKNOWN    0
+#define PGAGROAL_KEY_TYPE_RSA        1
+#define PGAGROAL_KEY_TYPE_ECDSA      2
+#define PGAGROAL_KEY_TYPE_ED25519    3
+#define PGAGROAL_KEY_TYPE_ED448      4
+#define PGAGROAL_KEY_TYPE_DSA        5
+#define PGAGROAL_KEY_TYPE_DH         6
+
+// Signature algorithm enumeration
+#define PGAGROAL_SIG_ALG_UNKNOWN            0
+#define PGAGROAL_SIG_ALG_SHA256_WITH_RSA    1
+#define PGAGROAL_SIG_ALG_SHA384_WITH_RSA    2
+#define PGAGROAL_SIG_ALG_SHA512_WITH_RSA    3
+#define PGAGROAL_SIG_ALG_SHA1_WITH_RSA      4
+#define PGAGROAL_SIG_ALG_ECDSA_WITH_SHA256  5
+#define PGAGROAL_SIG_ALG_ECDSA_WITH_SHA384  6
+#define PGAGROAL_SIG_ALG_ECDSA_WITH_SHA512  7
+#define PGAGROAL_SIG_ALG_ED25519            8
+#define PGAGROAL_SIG_ALG_ED448              9
+#define PGAGROAL_SIG_ALG_SHA256_WITH_PSS   10
+#define PGAGROAL_SIG_ALG_SHA384_WITH_PSS   11
+#define PGAGROAL_SIG_ALG_SHA512_WITH_PSS   12
+
+// Key type name constants
+#define PGAGROAL_KEY_TYPE_NAME_UNKNOWN  "Unknown"
+#define PGAGROAL_KEY_TYPE_NAME_RSA      "RSA"
+#define PGAGROAL_KEY_TYPE_NAME_ECDSA    "ECDSA"
+#define PGAGROAL_KEY_TYPE_NAME_ED25519  "Ed25519"
+#define PGAGROAL_KEY_TYPE_NAME_ED448    "Ed448"
+#define PGAGROAL_KEY_TYPE_NAME_DSA      "DSA"
+#define PGAGROAL_KEY_TYPE_NAME_DH       "DH"
+
+// Signature algorithm name constants
+#define PGAGROAL_SIG_ALG_NAME_UNKNOWN           "Unknown"
+#define PGAGROAL_SIG_ALG_NAME_SHA256_WITH_RSA   "SHA256WithRSA"
+#define PGAGROAL_SIG_ALG_NAME_SHA384_WITH_RSA   "SHA384WithRSA"
+#define PGAGROAL_SIG_ALG_NAME_SHA512_WITH_RSA   "SHA512WithRSA"
+#define PGAGROAL_SIG_ALG_NAME_SHA1_WITH_RSA     "SHA1WithRSA"
+#define PGAGROAL_SIG_ALG_NAME_ECDSA_WITH_SHA256 "ECDSAWithSHA256"
+#define PGAGROAL_SIG_ALG_NAME_ECDSA_WITH_SHA384 "ECDSAWithSHA384"
+#define PGAGROAL_SIG_ALG_NAME_ECDSA_WITH_SHA512 "ECDSAWithSHA512"
+#define PGAGROAL_SIG_ALG_NAME_ED25519           "Ed25519"
+#define PGAGROAL_SIG_ALG_NAME_ED448             "Ed448"
+#define PGAGROAL_SIG_ALG_NAME_SHA256_WITH_PSS   "SHA256WithPSS"
+#define PGAGROAL_SIG_ALG_NAME_SHA384_WITH_PSS   "SHA384WithPSS"
+#define PGAGROAL_SIG_ALG_NAME_SHA512_WITH_PSS   "SHA512WithPSS"
 
 /**
  * Constants used to manage the exit code
@@ -378,6 +427,51 @@ struct vault_server
    struct user user;     /**< The user */
 } __attribute__ ((aligned (64)));
 
+/** @struct certificate_info
+ * Defines TLS certificate information for monitoring
+ */
+struct certificate_info
+{
+   char path[MAX_PATH];           /**< Certificate file path */
+   time_t expiry_time;            /**< Certificate expiration timestamp (0 if invalid) */
+   time_t not_before;             /**< Certificate valid from timestamp */
+   bool is_valid;                 /**< Is certificate currently valid */
+   bool is_accessible;            /**< Can we read the certificate file */
+   bool parse_error;              /**< Did we encounter parsing errors */
+   time_t last_checked;           /**< When we last checked this certificate */
+   char type[32];                 /**< Certificate type: "main", "metrics", "server" */
+   char server_name[MISC_LENGTH]; /**< Server name (for server certs) */
+
+   // New fields for enhanced metrics
+   char subject[256];             /**< Certificate subject DN */
+   char issuer[256];              /**< Certificate issuer DN */
+   char serial_number[64];        /**< Certificate serial number (hex) */
+   char expires_date[32];         /**< Human readable expiry date */
+   char valid_from_date[32];      /**< Human readable valid from date */
+   char key_type_name[32];        /**< Key type name (RSA, ECDSA, etc.) */
+   char signature_algorithm_name[64]; /**< Signature algorithm name */
+   int key_size;                  /**< Key size in bits */
+   bool is_ca;                    /**< Is this a CA certificate */
+   int key_type;                  /**< Key type enum value */
+   int signature_algorithm;       /**< Signature algorithm enum value */
+} __attribute__ ((aligned (64)));
+
+/** @struct certificate_metrics
+ * Defines certificate metrics for Prometheus
+ */
+struct certificate_metrics
+{
+   atomic_ulong total;            /**< Total certificates configured */
+   atomic_ulong valid;            /**< Number of valid certificates */
+   atomic_ulong expired;          /**< Number of expired certificates */
+   atomic_ulong expiring_soon;    /**< Expiring within 30 days */
+   atomic_ulong parse_errors;     /**< Number of parsing errors */
+   atomic_ulong inaccessible;     /**< Number of inaccessible certificate files */
+   atomic_ulong configured;       /**< Total number of certificates configured (including invalid) */
+   struct certificate_info certs[MAX_CERTIFICATES]; /**< Certificate details */
+   atomic_int cert_count;         /**< Current number of certificates */
+} __attribute__ ((aligned (64)));
+
 /** @struct prometheus_connection
  * Defines the Prometheus connection metric
  */
@@ -466,6 +560,7 @@ struct main_prometheus
 
    atomic_ulong server_error[NUMBER_OF_SERVERS]; /**< The number of errors for a server */
    atomic_ulong failed_servers;                  /**< The number of failed servers */
+   struct certificate_metrics cert_metrics; /**< TLS certificate metrics */
    struct prometheus_connection prometheus_connections[];  /**< The number of prometheus connections (FMA) */
 
 } __attribute__ ((aligned (64)));

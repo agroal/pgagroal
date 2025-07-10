@@ -37,6 +37,15 @@ extern "C" {
 #include <ev.h>
 #include <stdlib.h>
 
+// Certificate type constants
+#define PGAGROAL_CERT_TYPE_MAIN     "main"
+#define PGAGROAL_CERT_TYPE_METRICS  "metrics"
+#define PGAGROAL_CERT_TYPE_SERVER   "server"
+
+// Server name constants
+#define PGAGROAL_SERVER_NAME_MAIN     "pgagroal"
+#define PGAGROAL_SERVER_NAME_METRICS  "metrics"
+
 /*
  * Value to disable the Prometheus cache,
  * it is equivalent to set `metrics_cache`
@@ -352,6 +361,14 @@ pgagroal_prometheus_logging(int logging);
  */
 int
 pgagroal_init_prometheus_cache(size_t* p_size, void** p_shmem);
+
+/**
+ * Update certificate metrics for main pgagroal
+ * @param config The main configuration
+ * @return 0 on success, 1 on error
+ */
+int
+pgagroal_update_main_certificate_metrics(struct main_configuration* config);
 
 #ifdef __cplusplus
 }

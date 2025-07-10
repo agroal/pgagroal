@@ -2261,6 +2261,18 @@ pgagroal_reload_configuration(bool* r)
    }
 
    *r = transfer_configuration(config, reload);
+   // Update certificate metrics after successful reload
+   if (config->common.metrics > 0)
+   {
+      if (pgagroal_update_main_certificate_metrics(config))
+      {
+         pgagroal_log_warn("Failed to update certificate metrics after configuration reload");
+      }
+      else
+      {
+         pgagroal_log_debug("Certificate metrics updated after configuration reload");
+      }
+   }
 
    pgagroal_destroy_shared_memory((void*)reload, reload_size);
 
@@ -5936,6 +5948,18 @@ pgagroal_apply_configuration(char* config_key, char* config_value,
       // Apply the changes for real
       transfer_configuration(current_config, temp_config);
       pgagroal_log_info("Configuration change %s = %s applied successfully", config_key, config_value);
+      // Update certificate metrics after successful reload
+      if (current_config->common.metrics > 0)
+      {
+         if (pgagroal_update_main_certificate_metrics(current_config))
+         {
+            pgagroal_log_warn("Failed to update certificate metrics after configuration reload");
+         }
+         else
+         {
+            pgagroal_log_debug("Certificate metrics updated after configuration reload");
+         }
+      }
    }
 
    // Clean up

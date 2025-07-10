@@ -27,7 +27,7 @@
  */
 
 /* pgagroal */
-#include "security.h"
+#include <security.h>
 #include <pgagroal.h>
 #include <logging.h>
 #include <memory.h>
@@ -43,6 +43,12 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
+#include <openssl/err.h>
+#include <time.h>
+#include <errno.h>
 
 #define CHUNK_SIZE 32768
 
@@ -69,6 +75,8 @@
 #define TWELVE_HOURS       43200
 #define TWENTYFOUR_HOURS   86400
 
+#define CERT_EXPIRING_THRESHOLD_DAYS 30
+
 static int resolve_page(struct message* msg);
 static int badrequest_page(SSL* client_ssl, int client_fd);
 static int unknown_page(SSL* client_ssl, int client_fd);
@@ -91,6 +99,8 @@ static void internal_information(SSL* client_ssl, int client_fd);
 static void internal_vault_information(SSL* client_ssl, int client_fd);
 static void connection_awaiting_information(SSL* client_ssl, int client_fd);
 static void write_os_kernel_version(SSL* client_ssl, int client_fd);
+static int parse_certificate_file(const char* cert_path, struct certificate_info* cert_info);
+static void certificate_information(SSL* client_ssl, int client_fd);
 
 static int send_chunk(SSL* cilent_ssl, int client_fd, char* data);
 
@@ -367,6 +377,12 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
 
    *p_size = tmp_p_size;
    *p_shmem = tmp_p_shmem;
+
+   // Parse certificates for monitoring
+   if (pgagroal_update_main_certificate_metrics(config))
+   {
+      pgagroal_log_warn("Failed to parse TLS certificates for monitoring during startup");
+   }
 
    return 0;
 
@@ -1281,6 +1297,25 @@ home_page(SSL* client_ssl, int client_fd)
    char time_buf[32];
    int status;
    struct message msg;
+   struct main_prometheus* prometheus;
+   struct certificate_metrics* cert_metrics;
+   int cert_count = 0;
+   bool has_valid_certs = false;
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
+   cert_metrics = &prometheus->cert_metrics;
+   cert_count = atomic_load(&cert_metrics->cert_count);
+
+   // Check if we have at least one valid certificate
+   for (int i = 0; i < cert_count && i < MAX_CERTIFICATES; i++)
+   {
+      struct certificate_info* cert = &cert_metrics->certs[i];
+      if (cert->expiry_time > 0)
+      {
+         has_valid_certs = true;
+         break;
+      }
+   }
 
    memset(&msg, 0, sizeof(struct message));
    memset(&data, 0, sizeof(data));
@@ -1650,6 +1685,152 @@ home_page(SSL* client_ssl, int client_fd)
    data = pgagroal_append(data, "  Reports the kernel version of the macOS system where pgagroal is running, including major, minor, and patch versions.\n");
    data = pgagroal_append(data, "  </p>\n");
 #endif
+   data = pgagroal_append(data, "  <h2>pgagroal_certificates_total</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Total number of TLS certificates configured across all components (main server, metrics, database connections)\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_certificates_accessible</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of TLS certificate files that can be read from disk\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_certificates_valid</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of TLS certificates that are valid and properly formatted\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_certificates_expired</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of TLS certificates that have expired\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_certificates_expiring_soon</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of TLS certificates expiring within 30 days\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_certificates_inaccessible</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of TLS certificate files that cannot be read (missing or permission issues)\n");
+   data = pgagroal_append(data, "  </p>\n");
+   data = pgagroal_append(data, "  <h2>pgagroal_certificates_parse_errors</h2>\n");
+   data = pgagroal_append(data, "  <p>\n");
+   data = pgagroal_append(data, "   Number of TLS certificates with parsing or format errors\n");
+   data = pgagroal_append(data, "  </p>\n");
+   if (has_valid_certs)
+   {
+      data = pgagroal_append(data, "  <h2>pgagroal_tls_certificate_expiration_seconds</h2>\n");
+      data = pgagroal_append(data, "  <p>\n");
+      data = pgagroal_append(data, "   Unix timestamp when the certificate expires. Use (value - time()) to get seconds until expiration\n");
+      data = pgagroal_append(data, "  </p>\n");
+   }
+   // Only show status metric HTML if certificates are configured
+   if (cert_count > 0)
+   {
+      data = pgagroal_append(data, "  <h2>pgagroal_tls_certificate_status</h2>\n");
+      data = pgagroal_append(data, "  <p>\n");
+      data = pgagroal_append(data, "   Certificate status: 1=valid and accessible, 0=invalid or inaccessible\n");
+      data = pgagroal_append(data, "  </p>\n");
+      data = pgagroal_append(data, "  <table>\n");
+      data = pgagroal_append(data, "    <tbody>\n");
+      data = pgagroal_append(data, "      <tr>\n");
+      data = pgagroal_append(data, "        <td>server</td>\n");
+      data = pgagroal_append(data, "        <td>The server component using the certificate</td>\n");
+      data = pgagroal_append(data, "      </tr>\n");
+      data = pgagroal_append(data, "      <tr>\n");
+      data = pgagroal_append(data, "        <td>path</td>\n");
+      data = pgagroal_append(data, "        <td>The file path to the certificate</td>\n");
+      data = pgagroal_append(data, "      </tr>\n");
+      data = pgagroal_append(data, "    </tbody>\n");
+      data = pgagroal_append(data, "  </table>\n");
+   }
+   if (has_valid_certs)
+   {
+      data = pgagroal_append(data, "  <h2>pgagroal_tls_certificate_key_size_bits</h2>\n");
+      data = pgagroal_append(data, "  <p>\n");
+      data = pgagroal_append(data, "   Size of the certificate's public key in bits (e.g., 2048, 4096)\n");
+      data = pgagroal_append(data, "  </p>\n");
+      data = pgagroal_append(data, "  <h2>pgagroal_tls_certificate_is_ca</h2>\n");
+      data = pgagroal_append(data, "  <p>\n");
+      data = pgagroal_append(data, "   Whether the certificate is a Certificate Authority: 1=CA certificate, 0=end-entity certificate\n");
+      data = pgagroal_append(data, "  </p>\n");
+      data = pgagroal_append(data, "  <h2>pgagroal_tls_certificate_key_type</h2>\n");
+      data = pgagroal_append(data, "  <p>The <code>pgagroal_tls_certificate_key_type</code> metric uses the following numeric values:</p>\n");
+      data = pgagroal_append(data, "  <table>\n");
+      data = pgagroal_append(data, "    <tbody>\n");
+      data = pgagroal_append(data, "      <tr><th>Value</th><th>Key Type</th><th>Description</th></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>0</td><td>UNKNOWN</td><td>Unknown or unrecognized key type</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>1</td><td>RSA</td><td>RSA public key algorithm</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>2</td><td>ECDSA</td><td>Elliptic Curve Digital Signature Algorithm</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>3</td><td>ED25519</td><td>EdDSA signature scheme using Curve25519</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>4</td><td>ED448</td><td>EdDSA signature scheme using Curve448</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>5</td><td>DSA</td><td>Digital Signature Algorithm</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>6</td><td>DH</td><td>Diffie-Hellman key exchange</td></tr>\n");
+      data = pgagroal_append(data, "    </tbody>\n");
+      data = pgagroal_append(data, "  </table>\n");
+      data = pgagroal_append(data, "  </p>\n");
+      data = pgagroal_append(data, "  <h2>pgagroal_tls_certificate_signature_algorithm</h2>\n");
+      data = pgagroal_append(data, "  <p>The <code>pgagroal_tls_certificate_signature_algorithm</code> metric uses the following numeric values:</p>\n");
+      data = pgagroal_append(data, "  <table>\n");
+      data = pgagroal_append(data, "    <tbody>\n");
+      data = pgagroal_append(data, "      <tr><th>Value</th><th>Algorithm</th><th>Description</th></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>0</td><td>UNKNOWN</td><td>Unknown or unrecognized signature algorithm</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>1</td><td>SHA256WithRSA</td><td>SHA-256 hash with RSA encryption</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>2</td><td>SHA384WithRSA</td><td>SHA-384 hash with RSA encryption</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>3</td><td>SHA512WithRSA</td><td>SHA-512 hash with RSA encryption</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>4</td><td>SHA1WithRSA</td><td>SHA-1 hash with RSA encryption (deprecated)</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>5</td><td>ECDSAWithSHA256</td><td>ECDSA with SHA-256 hash</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>6</td><td>ECDSAWithSHA384</td><td>ECDSA with SHA-384 hash</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>7</td><td>ECDSAWithSHA512</td><td>ECDSA with SHA-512 hash</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>8</td><td>ED25519</td><td>Ed25519 signature algorithm</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>9</td><td>ED448</td><td>Ed448 signature algorithm</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>10</td><td>SHA256WithPSS</td><td>SHA-256 with RSA-PSS padding</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>11</td><td>SHA384WithPSS</td><td>SHA-384 with RSA-PSS padding</td></tr>\n");
+      data = pgagroal_append(data, "      <tr><td>12</td><td>SHA512WithPSS</td><td>SHA-512 with RSA-PSS padding</td></tr>\n");
+      data = pgagroal_append(data, "    </tbody>\n");
+      data = pgagroal_append(data, "  </table>\n");
+      data = pgagroal_append(data, "  </p>\n");
+      data = pgagroal_append(data, "  <h2>pgagroal_tls_certificate_info</h2>\n");
+      data = pgagroal_append(data, "  <p>\n");
+      data = pgagroal_append(data, "   Comprehensive certificate metadata as labels. Value is always 1. Use labels for certificate details\n");
+      data = pgagroal_append(data, "  </p>\n");
+      data = pgagroal_append(data, "  <table>\n");
+      data = pgagroal_append(data, "    <tbody>\n");
+      data = pgagroal_append(data, "      <tr>\n");
+      data = pgagroal_append(data, "        <td>server</td>\n");
+      data = pgagroal_append(data, "        <td>The server component</td>\n");
+      data = pgagroal_append(data, "      </tr>\n");
+      data = pgagroal_append(data, "      <tr>\n");
+      data = pgagroal_append(data, "        <td>subject</td>\n");
+      data = pgagroal_append(data, "        <td>Certificate subject (e.g., /CN=localhost)</td>\n");
+      data = pgagroal_append(data, "      </tr>\n");
+      data = pgagroal_append(data, "      <tr>\n");
+      data = pgagroal_append(data, "        <td>issuer</td>\n");
+      data = pgagroal_append(data, "        <td>Certificate issuer</td>\n");
+      data = pgagroal_append(data, "      </tr>\n");
+      data = pgagroal_append(data, "      <tr>\n");
+      data = pgagroal_append(data, "        <td>serial_number</td>\n");
+      data = pgagroal_append(data, "        <td>Certificate serial number</td>\n");
+      data = pgagroal_append(data, "      </tr>\n");
+      data = pgagroal_append(data, "      <tr>\n");
+      data = pgagroal_append(data, "        <td>expires_date</td>\n");
+      data = pgagroal_append(data, "        <td>Certificate expiration date (YYYY-MM-DD)</td>\n");
+      data = pgagroal_append(data, "      </tr>\n");
+      data = pgagroal_append(data, "      <tr>\n");
+      data = pgagroal_append(data, "        <td>valid_from_date</td>\n");
+      data = pgagroal_append(data, "        <td>Certificate valid from date (YYYY-MM-DD)</td>\n");
+      data = pgagroal_append(data, "      </tr>\n");
+      data = pgagroal_append(data, "      <tr>\n");
+      data = pgagroal_append(data, "        <td>key_type_name</td>\n");
+      data = pgagroal_append(data, "        <td>Key type name (RSA, ECDSA, etc.)</td>\n");
+      data = pgagroal_append(data, "      </tr>\n");
+      data = pgagroal_append(data, "      <tr>\n");
+      data = pgagroal_append(data, "        <td>signature_algorithm_name</td>\n");
+      data = pgagroal_append(data, "        <td>Signature algorithm name (SHA256WithRSA, etc.)</td>\n");
+      data = pgagroal_append(data, "      </tr>\n");
+      data = pgagroal_append(data, "      <tr>\n");
+      data = pgagroal_append(data, "        <td>key_size</td>\n");
+      data = pgagroal_append(data, "        <td>Key size in bits</td>\n");
+      data = pgagroal_append(data, "      </tr>\n");
+      data = pgagroal_append(data, "    </tbody>\n");
+      data = pgagroal_append(data, "  </table>\n");
+   }
    data = pgagroal_append(data, "  <p>\n");
    data = pgagroal_append(data, "   <a href=\"https://agroal.github.io/pgagroal/\">agroal.github.io/pgagroal/</a>\n");
    data = pgagroal_append(data, "  </p>\n");
@@ -1858,6 +2039,7 @@ retry_cache_locking:
          internal_information(client_ssl, client_fd);
          connection_awaiting_information(client_ssl, client_fd);
          write_os_kernel_version(client_ssl, client_fd);
+         certificate_information(client_ssl, client_fd);
 
          /* Footer */
          data = pgagroal_append(data, "0\r\n\r\n");
@@ -3194,4 +3376,733 @@ is_prometheus_enabled(void)
    struct prometheus* prometheus = (struct prometheus*) prometheus_shmem;
    struct configuration* config = (struct configuration*)shmem;
    return (config->metrics > 0 && prometheus != NULL);
+}
+
+static int
+parse_certificate_file(const char* cert_path, struct certificate_info* cert_info)
+{
+   FILE* fp = NULL;
+   X509* cert = NULL;
+   X509_NAME* subject_name = NULL;
+   X509_NAME* issuer_name = NULL;
+   ASN1_TIME* not_after = NULL;
+   ASN1_TIME* not_before_asn1 = NULL;
+   ASN1_INTEGER* serial = NULL;
+   EVP_PKEY* pkey = NULL;
+   struct tm tm_time;
+   time_t current_time;
+   char* subject_str = NULL;
+   char* issuer_str = NULL;
+   BIGNUM* serial_bn = NULL;
+   char* serial_hex = NULL;
+
+   if (!cert_path || !cert_info)
+   {
+      goto error;
+   }
+
+   memset(cert_info, 0, sizeof(struct certificate_info));
+   strncpy(cert_info->path, cert_path, MAX_PATH - 1);
+   cert_info->last_checked = time(NULL);
+   current_time = cert_info->last_checked;
+
+   // Try to open the certificate file
+   fp = fopen(cert_path, "r");
+   if (!fp)
+   {
+      pgagroal_log_debug("Certificate file not accessible: %s (%s)", cert_path, strerror(errno));
+      cert_info->is_accessible = false;
+      cert_info->parse_error = true;
+      goto error;
+   }
+
+   cert_info->is_accessible = true;
+
+   // Parse the certificate
+   cert = PEM_read_X509(fp, NULL, NULL, NULL);
+   if (!cert)
+   {
+      pgagroal_log_debug("Failed to parse certificate: %s", cert_path);
+      cert_info->parse_error = true;
+      goto error;
+   }
+
+   // Get expiration time
+   not_after = X509_get_notAfter(cert);
+   if (not_after)
+   {
+      memset(&tm_time, 0, sizeof(tm_time));
+      if (ASN1_TIME_to_tm(not_after, &tm_time) == 1)
+      {
+         cert_info->expiry_time = mktime(&tm_time);
+         strftime(cert_info->expires_date, sizeof(cert_info->expires_date), "%Y-%m-%d", &tm_time);
+      }
+   }
+
+   // Get not before time
+   not_before_asn1 = X509_get_notBefore(cert);
+   if (not_before_asn1)
+   {
+      memset(&tm_time, 0, sizeof(tm_time));
+      if (ASN1_TIME_to_tm(not_before_asn1, &tm_time) == 1)
+      {
+         cert_info->not_before = mktime(&tm_time);
+         strftime(cert_info->valid_from_date, sizeof(cert_info->valid_from_date), "%Y-%m-%d", &tm_time);
+      }
+   }
+
+   // Check if certificate is currently valid
+   if (cert_info->expiry_time > 0 && cert_info->not_before > 0)
+   {
+      cert_info->is_valid = (current_time >= cert_info->not_before &&
+                             current_time <= cert_info->expiry_time);
+   }
+
+   // Get subject
+   subject_name = X509_get_subject_name(cert);
+   if (subject_name)
+   {
+      subject_str = X509_NAME_oneline(subject_name, NULL, 0);
+      if (subject_str)
+      {
+         strncpy(cert_info->subject, subject_str, sizeof(cert_info->subject) - 1);
+         OPENSSL_free(subject_str);
+      }
+   }
+
+   // Get issuer
+   issuer_name = X509_get_issuer_name(cert);
+   if (issuer_name)
+   {
+      issuer_str = X509_NAME_oneline(issuer_name, NULL, 0);
+      if (issuer_str)
+      {
+         strncpy(cert_info->issuer, issuer_str, sizeof(cert_info->issuer) - 1);
+         OPENSSL_free(issuer_str);
+      }
+   }
+
+   // Get serial number
+   serial = X509_get_serialNumber(cert);
+   if (serial)
+   {
+      serial_bn = ASN1_INTEGER_to_BN(serial, NULL);
+      if (serial_bn)
+      {
+         serial_hex = BN_bn2hex(serial_bn);
+         if (serial_hex)
+         {
+            snprintf(cert_info->serial_number, sizeof(cert_info->serial_number), "0x%s", serial_hex);
+            OPENSSL_free(serial_hex);
+         }
+         BN_free(serial_bn);
+      }
+   }
+
+   // Get public key information
+   pkey = X509_get_pubkey(cert);
+   if (pkey)
+   {
+      int key_type = EVP_PKEY_base_id(pkey);
+      cert_info->key_size = EVP_PKEY_bits(pkey);
+
+      switch (key_type)
+      {
+         case EVP_PKEY_RSA:
+            cert_info->key_type = PGAGROAL_KEY_TYPE_RSA;
+            strncpy(cert_info->key_type_name, PGAGROAL_KEY_TYPE_NAME_RSA, sizeof(cert_info->key_type_name) - 1);
+            break;
+         case EVP_PKEY_EC:
+            cert_info->key_type = PGAGROAL_KEY_TYPE_ECDSA;
+            strncpy(cert_info->key_type_name, PGAGROAL_KEY_TYPE_NAME_ECDSA, sizeof(cert_info->key_type_name) - 1);
+            break;
+         case EVP_PKEY_ED25519:
+            cert_info->key_type = PGAGROAL_KEY_TYPE_ED25519;
+            strncpy(cert_info->key_type_name, PGAGROAL_KEY_TYPE_NAME_ED25519, sizeof(cert_info->key_type_name) - 1);
+            break;
+         case EVP_PKEY_ED448:
+            cert_info->key_type = PGAGROAL_KEY_TYPE_ED448;
+            strncpy(cert_info->key_type_name, PGAGROAL_KEY_TYPE_NAME_ED448, sizeof(cert_info->key_type_name) - 1);
+            break;
+         default:
+            cert_info->key_type = PGAGROAL_KEY_TYPE_UNKNOWN;
+            strncpy(cert_info->key_type_name, PGAGROAL_KEY_TYPE_NAME_UNKNOWN, sizeof(cert_info->key_type_name) - 1);
+            break;
+      }
+      EVP_PKEY_free(pkey);
+   }
+
+   // Get signature algorithm
+   const X509_ALGOR* sig_alg = NULL;
+   X509_get0_signature(NULL, &sig_alg, cert);
+   if (sig_alg)
+   {
+      int sig_nid = OBJ_obj2nid(sig_alg->algorithm);
+
+      switch (sig_nid)
+      {
+         case NID_sha256WithRSAEncryption:
+            cert_info->signature_algorithm = PGAGROAL_SIG_ALG_SHA256_WITH_RSA;
+            strncpy(cert_info->signature_algorithm_name, PGAGROAL_SIG_ALG_NAME_SHA256_WITH_RSA, sizeof(cert_info->signature_algorithm_name) - 1);
+            break;
+         case NID_sha384WithRSAEncryption:
+            cert_info->signature_algorithm = PGAGROAL_SIG_ALG_SHA384_WITH_RSA;
+            strncpy(cert_info->signature_algorithm_name, PGAGROAL_SIG_ALG_NAME_SHA384_WITH_RSA, sizeof(cert_info->signature_algorithm_name) - 1);
+            break;
+         case NID_sha512WithRSAEncryption:
+            cert_info->signature_algorithm = PGAGROAL_SIG_ALG_SHA512_WITH_RSA;
+            strncpy(cert_info->signature_algorithm_name, PGAGROAL_SIG_ALG_NAME_SHA512_WITH_RSA, sizeof(cert_info->signature_algorithm_name) - 1);
+            break;
+         case NID_ecdsa_with_SHA256:
+            cert_info->signature_algorithm = PGAGROAL_SIG_ALG_ECDSA_WITH_SHA256;
+            strncpy(cert_info->signature_algorithm_name, PGAGROAL_SIG_ALG_NAME_ECDSA_WITH_SHA256, sizeof(cert_info->signature_algorithm_name) - 1);
+            break;
+         case NID_ecdsa_with_SHA384:
+            cert_info->signature_algorithm = PGAGROAL_SIG_ALG_ECDSA_WITH_SHA384;
+            strncpy(cert_info->signature_algorithm_name, PGAGROAL_SIG_ALG_NAME_ECDSA_WITH_SHA384, sizeof(cert_info->signature_algorithm_name) - 1);
+            break;
+         case NID_ecdsa_with_SHA512:
+            cert_info->signature_algorithm = PGAGROAL_SIG_ALG_ECDSA_WITH_SHA512;
+            strncpy(cert_info->signature_algorithm_name, PGAGROAL_SIG_ALG_NAME_ECDSA_WITH_SHA512, sizeof(cert_info->signature_algorithm_name) - 1);
+            break;
+         case NID_ED25519:
+            cert_info->signature_algorithm = PGAGROAL_SIG_ALG_ED25519;
+            strncpy(cert_info->signature_algorithm_name, PGAGROAL_SIG_ALG_NAME_ED25519, sizeof(cert_info->signature_algorithm_name) - 1);
+            break;
+         default:
+            cert_info->signature_algorithm = PGAGROAL_SIG_ALG_UNKNOWN;
+            strncpy(cert_info->signature_algorithm_name, PGAGROAL_SIG_ALG_NAME_UNKNOWN, sizeof(cert_info->signature_algorithm_name) - 1);
+            break;
+      }
+   }
+
+   // Check if this is a CA certificate - compatible with older OpenSSL versions
+   X509_EXTENSION* ext = NULL;
+   BASIC_CONSTRAINTS* bc = NULL;
+   int ca_idx = X509_get_ext_by_NID(cert, NID_basic_constraints, -1);
+   if (ca_idx >= 0)
+   {
+      ext = X509_get_ext(cert, ca_idx);
+      if (ext)
+      {
+         bc = X509V3_EXT_d2i(ext);
+         if (bc)
+         {
+            cert_info->is_ca = (bc->ca == 0xFF); // ASN1_BOOLEAN true is 0xFF
+            BASIC_CONSTRAINTS_free(bc);
+         }
+      }
+   }
+
+   // Success path - clean up and return 0
+   if (cert)
+   {
+      X509_free(cert);
+   }
+   if (fp)
+   {
+      fclose(fp);
+   }
+   return 0;
+
+error:
+   // Error cleanup
+   if (cert)
+   {
+      X509_free(cert);
+   }
+   if (fp)
+   {
+      fclose(fp);
+   }
+   return 1;
+}
+
+int
+pgagroal_update_main_certificate_metrics(struct main_configuration* config)
+{
+   struct main_prometheus* prometheus;
+   struct certificate_metrics* cert_metrics;
+   struct certificate_info* cert_info;
+   int cert_index = 0;
+   time_t current_time = time(NULL);
+   time_t expiring_threshold = current_time + (CERT_EXPIRING_THRESHOLD_DAYS * 24 * 60 * 60);
+   size_t copy_len;
+
+   if (!config || !prometheus_shmem)
+   {
+      return 1;
+   }
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
+   cert_metrics = &prometheus->cert_metrics;
+
+   // Reset counters
+   atomic_store(&cert_metrics->total, 0);
+   atomic_store(&cert_metrics->valid, 0);
+   atomic_store(&cert_metrics->expired, 0);
+   atomic_store(&cert_metrics->expiring_soon, 0);
+   atomic_store(&cert_metrics->parse_errors, 0);
+   atomic_store(&cert_metrics->inaccessible, 0);
+   atomic_store(&cert_metrics->configured, 0);
+
+   // Parse main TLS certificate
+   if (strlen(config->common.tls_cert_file) > 0)
+   {
+      cert_info = &cert_metrics->certs[cert_index];
+      atomic_fetch_add(&cert_metrics->configured, 1);
+
+      if (parse_certificate_file(config->common.tls_cert_file, cert_info) == 0)
+      {
+         copy_len = strlen(PGAGROAL_CERT_TYPE_MAIN);
+         if (copy_len < sizeof(cert_info->type))
+         {
+            memcpy(cert_info->type, PGAGROAL_CERT_TYPE_MAIN, copy_len);
+            cert_info->type[copy_len] = '\0';
+         }
+
+         copy_len = strlen(PGAGROAL_SERVER_NAME_MAIN);
+         if (copy_len < sizeof(cert_info->server_name))
+         {
+            memcpy(cert_info->server_name, PGAGROAL_SERVER_NAME_MAIN, copy_len);
+            cert_info->server_name[copy_len] = '\0';
+         }
+
+         atomic_fetch_add(&cert_metrics->total, 1);
+         if (cert_info->is_valid)
+         {
+            atomic_fetch_add(&cert_metrics->valid, 1);
+         }
+         else if (cert_info->expiry_time > 0 && cert_info->expiry_time <= current_time)
+         {
+            atomic_fetch_add(&cert_metrics->expired, 1);
+         }
+         if (cert_info->expiry_time > 0 && cert_info->expiry_time <= expiring_threshold && cert_info->expiry_time > current_time)
+         {
+            atomic_fetch_add(&cert_metrics->expiring_soon, 1);
+         }
+      }
+      else
+      {
+         // Still create an entry for invalid certificates
+         copy_len = strlen(PGAGROAL_CERT_TYPE_MAIN);
+         if (copy_len < sizeof(cert_info->type))
+         {
+            memcpy(cert_info->type, PGAGROAL_CERT_TYPE_MAIN, copy_len);
+            cert_info->type[copy_len] = '\0';
+         }
+
+         copy_len = strlen(PGAGROAL_SERVER_NAME_MAIN);
+         if (copy_len < sizeof(cert_info->server_name))
+         {
+            memcpy(cert_info->server_name, PGAGROAL_SERVER_NAME_MAIN, copy_len);
+            cert_info->server_name[copy_len] = '\0';
+         }
+
+         copy_len = strlen(config->common.tls_cert_file);
+         if (copy_len < sizeof(cert_info->path))
+         {
+            memcpy(cert_info->path, config->common.tls_cert_file, copy_len);
+            cert_info->path[copy_len] = '\0';
+         }
+
+         cert_info->last_checked = time(NULL);
+
+         if (!cert_info->is_accessible)
+         {
+            atomic_fetch_add(&cert_metrics->inaccessible, 1);
+         }
+         else if (cert_info->parse_error)
+         {
+            atomic_fetch_add(&cert_metrics->parse_errors, 1);
+         }
+      }
+      cert_index++;
+   }
+
+   // Parse metrics TLS certificate
+   if (strlen(config->common.metrics_cert_file) > 0)
+   {
+      cert_info = &cert_metrics->certs[cert_index];
+      atomic_fetch_add(&cert_metrics->configured, 1);
+
+      if (parse_certificate_file(config->common.metrics_cert_file, cert_info) == 0)
+      {
+         copy_len = strlen(PGAGROAL_CERT_TYPE_METRICS);
+         if (copy_len < sizeof(cert_info->type))
+         {
+            memcpy(cert_info->type, PGAGROAL_CERT_TYPE_METRICS, copy_len);
+            cert_info->type[copy_len] = '\0';
+         }
+
+         copy_len = strlen(PGAGROAL_SERVER_NAME_METRICS);
+         if (copy_len < sizeof(cert_info->server_name))
+         {
+            memcpy(cert_info->server_name, PGAGROAL_SERVER_NAME_METRICS, copy_len);
+            cert_info->server_name[copy_len] = '\0';
+         }
+
+         atomic_fetch_add(&cert_metrics->total, 1);
+         if (cert_info->is_valid)
+         {
+            atomic_fetch_add(&cert_metrics->valid, 1);
+         }
+         else if (cert_info->expiry_time > 0 && cert_info->expiry_time <= current_time)
+         {
+            atomic_fetch_add(&cert_metrics->expired, 1);
+         }
+         if (cert_info->expiry_time > 0 && cert_info->expiry_time <= expiring_threshold && cert_info->expiry_time > current_time)
+         {
+            atomic_fetch_add(&cert_metrics->expiring_soon, 1);
+         }
+      }
+      else
+      {
+         copy_len = strlen(PGAGROAL_CERT_TYPE_METRICS);
+         if (copy_len < sizeof(cert_info->type))
+         {
+            memcpy(cert_info->type, PGAGROAL_CERT_TYPE_METRICS, copy_len);
+            cert_info->type[copy_len] = '\0';
+         }
+
+         copy_len = strlen(PGAGROAL_SERVER_NAME_METRICS);
+         if (copy_len < sizeof(cert_info->server_name))
+         {
+            memcpy(cert_info->server_name, PGAGROAL_SERVER_NAME_METRICS, copy_len);
+            cert_info->server_name[copy_len] = '\0';
+         }
+
+         copy_len = strlen(config->common.metrics_cert_file);
+         if (copy_len < sizeof(cert_info->path))
+         {
+            memcpy(cert_info->path, config->common.metrics_cert_file, copy_len);
+            cert_info->path[copy_len] = '\0';
+         }
+
+         cert_info->last_checked = time(NULL);
+
+         if (!cert_info->is_accessible)
+         {
+            atomic_fetch_add(&cert_metrics->inaccessible, 1);
+         }
+         else if (cert_info->parse_error)
+         {
+            atomic_fetch_add(&cert_metrics->parse_errors, 1);
+         }
+      }
+      cert_index++;
+   }
+
+   // Parse server TLS certificates
+   for (int i = 0; i < config->number_of_servers && cert_index < MAX_CERTIFICATES; i++)
+   {
+      if (strlen(config->servers[i].tls_cert_file) > 0)
+      {
+         cert_info = &cert_metrics->certs[cert_index];
+         atomic_fetch_add(&cert_metrics->configured, 1);
+
+         if (parse_certificate_file(config->servers[i].tls_cert_file, cert_info) == 0)
+         {
+            copy_len = strlen(PGAGROAL_CERT_TYPE_SERVER);
+            if (copy_len < sizeof(cert_info->type))
+            {
+               memcpy(cert_info->type, PGAGROAL_CERT_TYPE_SERVER, copy_len);
+               cert_info->type[copy_len] = '\0';
+            }
+
+            copy_len = strlen(config->servers[i].name);
+            if (copy_len < sizeof(cert_info->server_name))
+            {
+               memcpy(cert_info->server_name, config->servers[i].name, copy_len);
+               cert_info->server_name[copy_len] = '\0';
+            }
+
+            atomic_fetch_add(&cert_metrics->total, 1);
+            if (cert_info->is_valid)
+            {
+               atomic_fetch_add(&cert_metrics->valid, 1);
+            }
+            else if (cert_info->expiry_time > 0 && cert_info->expiry_time <= current_time)
+            {
+               atomic_fetch_add(&cert_metrics->expired, 1);
+            }
+            if (cert_info->expiry_time > 0 && cert_info->expiry_time <= expiring_threshold && cert_info->expiry_time > current_time)
+            {
+               atomic_fetch_add(&cert_metrics->expiring_soon, 1);
+            }
+         }
+         else
+         {
+            copy_len = strlen(PGAGROAL_CERT_TYPE_SERVER);
+            if (copy_len < sizeof(cert_info->type))
+            {
+               memcpy(cert_info->type, PGAGROAL_CERT_TYPE_SERVER, copy_len);
+               cert_info->type[copy_len] = '\0';
+            }
+
+            copy_len = strlen(config->servers[i].name);
+            if (copy_len < sizeof(cert_info->server_name))
+            {
+               memcpy(cert_info->server_name, config->servers[i].name, copy_len);
+               cert_info->server_name[copy_len] = '\0';
+            }
+
+            copy_len = strlen(config->servers[i].tls_cert_file);
+            if (copy_len < sizeof(cert_info->path))
+            {
+               memcpy(cert_info->path, config->servers[i].tls_cert_file, copy_len);
+               cert_info->path[copy_len] = '\0';
+            }
+
+            cert_info->last_checked = time(NULL);
+
+            if (!cert_info->is_accessible)
+            {
+               atomic_fetch_add(&cert_metrics->inaccessible, 1);
+            }
+            else if (cert_info->parse_error)
+            {
+               atomic_fetch_add(&cert_metrics->parse_errors, 1);
+            }
+         }
+         cert_index++;
+      }
+   }
+
+   atomic_store(&cert_metrics->cert_count, cert_index);
+
+   pgagroal_log_debug("Certificate metrics updated: configured=%lu, total=%lu, valid=%lu, expired=%lu, expiring_soon=%lu, inaccessible=%lu, parse_errors=%lu",
+                      atomic_load(&cert_metrics->configured),
+                      atomic_load(&cert_metrics->total),
+                      atomic_load(&cert_metrics->valid),
+                      atomic_load(&cert_metrics->expired),
+                      atomic_load(&cert_metrics->expiring_soon),
+                      atomic_load(&cert_metrics->inaccessible),
+                      atomic_load(&cert_metrics->parse_errors));
+
+   return 0;
+}
+
+static void
+certificate_information(SSL* client_ssl, int client_fd)
+{
+   char* data = NULL;
+   struct main_prometheus* prometheus;
+   struct certificate_metrics* cert_metrics;
+
+   prometheus = (struct main_prometheus*)prometheus_shmem;
+   cert_metrics = &prometheus->cert_metrics;
+
+   // Summary metrics - always show these as they represent the total state
+   data = pgagroal_append(data, "\n#HELP pgagroal_certificates_total Total number of TLS certificates configured\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_certificates_total gauge\n");
+   data = pgagroal_append(data, "pgagroal_certificates_total ");
+   data = pgagroal_append_ulong(data, atomic_load(&cert_metrics->configured));
+   data = pgagroal_append(data, "\n\n");
+
+   data = pgagroal_append(data, "#HELP pgagroal_certificates_accessible Number of accessible TLS certificates\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_certificates_accessible gauge\n");
+   data = pgagroal_append(data, "pgagroal_certificates_accessible ");
+   data = pgagroal_append_ulong(data, atomic_load(&cert_metrics->total));
+   data = pgagroal_append(data, "\n\n");
+
+   data = pgagroal_append(data, "#HELP pgagroal_certificates_valid Number of valid TLS certificates\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_certificates_valid gauge\n");
+   data = pgagroal_append(data, "pgagroal_certificates_valid ");
+   data = pgagroal_append_ulong(data, atomic_load(&cert_metrics->valid));
+   data = pgagroal_append(data, "\n\n");
+
+   data = pgagroal_append(data, "#HELP pgagroal_certificates_expired Number of expired TLS certificates\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_certificates_expired gauge\n");
+   data = pgagroal_append(data, "pgagroal_certificates_expired ");
+   data = pgagroal_append_ulong(data, atomic_load(&cert_metrics->expired));
+   data = pgagroal_append(data, "\n\n");
+
+   data = pgagroal_append(data, "#HELP pgagroal_certificates_expiring_soon Number of TLS certificates expiring within 30 days\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_certificates_expiring_soon gauge\n");
+   data = pgagroal_append(data, "pgagroal_certificates_expiring_soon ");
+   data = pgagroal_append_ulong(data, atomic_load(&cert_metrics->expiring_soon));
+   data = pgagroal_append(data, "\n\n");
+
+   data = pgagroal_append(data, "#HELP pgagroal_certificates_inaccessible Number of inaccessible TLS certificate files\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_certificates_inaccessible gauge\n");
+   data = pgagroal_append(data, "pgagroal_certificates_inaccessible ");
+   data = pgagroal_append_ulong(data, atomic_load(&cert_metrics->inaccessible));
+   data = pgagroal_append(data, "\n\n");
+
+   data = pgagroal_append(data, "#HELP pgagroal_certificates_parse_errors Number of TLS certificates with parsing errors\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_certificates_parse_errors gauge\n");
+   data = pgagroal_append(data, "pgagroal_certificates_parse_errors ");
+   data = pgagroal_append_ulong(data, atomic_load(&cert_metrics->parse_errors));
+   data = pgagroal_append(data, "\n\n");
+
+   // Individual certificate metrics
+   int cert_count = atomic_load(&cert_metrics->cert_count);
+   bool has_valid_certs = false;
+
+   // Check if we have at least one valid certificate for detailed metrics
+   for (int i = 0; i < cert_count && i < MAX_CERTIFICATES; i++)
+   {
+      struct certificate_info* cert = &cert_metrics->certs[i];
+      if (cert->expiry_time > 0)
+      {
+         has_valid_certs = true;
+         break;
+      }
+   }
+
+   // Always show status metric if we have any certificates configured (valid or invalid)
+   if (cert_count > 0)
+   {
+      // Certificate status metric (for all certificates including invalid ones)
+      data = pgagroal_append(data, "#HELP pgagroal_tls_certificate_status Certificate status (1=valid, 0=invalid/inaccessible)\n");
+      data = pgagroal_append(data, "#TYPE pgagroal_tls_certificate_status gauge\n");
+      for (int i = 0; i < cert_count && i < MAX_CERTIFICATES; i++)
+      {
+         struct certificate_info* cert = &cert_metrics->certs[i];
+
+         data = pgagroal_append(data, "pgagroal_tls_certificate_status{server=\"");
+         data = pgagroal_append(data, cert->server_name);
+         data = pgagroal_append(data, "\",path=\"");
+         data = pgagroal_append(data, cert->path);
+         data = pgagroal_append(data, "\"} ");
+
+         if (cert->expiry_time > 0 && cert->is_accessible && !cert->parse_error)
+         {
+            data = pgagroal_append(data, "1");  // Valid certificate
+         }
+         else
+         {
+            data = pgagroal_append(data, "0");  // Invalid/inaccessible certificate
+         }
+         data = pgagroal_append(data, "\n");
+      }
+      data = pgagroal_append(data, "\n");
+   }
+
+   // Only show detailed metrics if we have at least one valid certificate
+   if (has_valid_certs)
+   {
+      // Expiration seconds (only for valid certificates)
+      data = pgagroal_append(data, "#HELP pgagroal_tls_certificate_expiration_seconds TLS certificate expiration time\n");
+      data = pgagroal_append(data, "#TYPE pgagroal_tls_certificate_expiration_seconds gauge\n");
+      for (int i = 0; i < cert_count && i < MAX_CERTIFICATES; i++)
+      {
+         struct certificate_info* cert = &cert_metrics->certs[i];
+         if (cert->expiry_time > 0)
+         {
+            data = pgagroal_append(data, "pgagroal_tls_certificate_expiration_seconds{server=\"");
+            data = pgagroal_append(data, cert->server_name);
+            data = pgagroal_append(data, "\"} ");
+            data = pgagroal_append_ulong(data, (unsigned long)cert->expiry_time);
+            data = pgagroal_append(data, "\n");
+         }
+      }
+      data = pgagroal_append(data, "\n");
+
+      // Key size bits
+      data = pgagroal_append(data, "#HELP pgagroal_tls_certificate_key_size_bits TLS certificate key size in bits\n");
+      data = pgagroal_append(data, "#TYPE pgagroal_tls_certificate_key_size_bits gauge\n");
+      for (int i = 0; i < cert_count && i < MAX_CERTIFICATES; i++)
+      {
+         struct certificate_info* cert = &cert_metrics->certs[i];
+         if (cert->expiry_time > 0)
+         {
+            data = pgagroal_append(data, "pgagroal_tls_certificate_key_size_bits{server=\"");
+            data = pgagroal_append(data, cert->server_name);
+            data = pgagroal_append(data, "\"} ");
+            data = pgagroal_append_int(data, cert->key_size);
+            data = pgagroal_append(data, "\n");
+         }
+      }
+      data = pgagroal_append(data, "\n");
+
+      // Is CA
+      data = pgagroal_append(data, "#HELP pgagroal_tls_certificate_is_ca Whether certificate is a CA certificate\n");
+      data = pgagroal_append(data, "#TYPE pgagroal_tls_certificate_is_ca gauge\n");
+      for (int i = 0; i < cert_count && i < MAX_CERTIFICATES; i++)
+      {
+         struct certificate_info* cert = &cert_metrics->certs[i];
+         if (cert->expiry_time > 0)
+         {
+            data = pgagroal_append(data, "pgagroal_tls_certificate_is_ca{server=\"");
+            data = pgagroal_append(data, cert->server_name);
+            data = pgagroal_append(data, "\"} ");
+            data = pgagroal_append_int(data, cert->is_ca ? 1 : 0);
+            data = pgagroal_append(data, "\n");
+         }
+      }
+      data = pgagroal_append(data, "\n");
+
+      // Key type
+      data = pgagroal_append(data, "#HELP pgagroal_tls_certificate_key_type TLS certificate key type\n");
+      data = pgagroal_append(data, "#TYPE pgagroal_tls_certificate_key_type gauge\n");
+      for (int i = 0; i < cert_count && i < MAX_CERTIFICATES; i++)
+      {
+         struct certificate_info* cert = &cert_metrics->certs[i];
+         if (cert->expiry_time > 0)
+         {
+            data = pgagroal_append(data, "pgagroal_tls_certificate_key_type{server=\"");
+            data = pgagroal_append(data, cert->server_name);
+            data = pgagroal_append(data, "\"} ");
+            data = pgagroal_append_int(data, cert->key_type);
+            data = pgagroal_append(data, "\n");
+         }
+      }
+      data = pgagroal_append(data, "\n");
+
+      // Signature algorithm
+      data = pgagroal_append(data, "#HELP pgagroal_tls_certificate_signature_algorithm TLS certificate signature algorithm\n");
+      data = pgagroal_append(data, "#TYPE pgagroal_tls_certificate_signature_algorithm gauge\n");
+      for (int i = 0; i < cert_count && i < MAX_CERTIFICATES; i++)
+      {
+         struct certificate_info* cert = &cert_metrics->certs[i];
+         if (cert->expiry_time > 0)
+         {
+            data = pgagroal_append(data, "pgagroal_tls_certificate_signature_algorithm{server=\"");
+            data = pgagroal_append(data, cert->server_name);
+            data = pgagroal_append(data, "\"} ");
+            data = pgagroal_append_int(data, cert->signature_algorithm);
+            data = pgagroal_append(data, "\n");
+         }
+      }
+      data = pgagroal_append(data, "\n");
+
+      // Certificate info metric with all metadata (at the end)
+      data = pgagroal_append(data, "#HELP pgagroal_tls_certificate_info TLS certificate metadata\n");
+      data = pgagroal_append(data, "#TYPE pgagroal_tls_certificate_info gauge\n");
+      for (int i = 0; i < cert_count && i < MAX_CERTIFICATES; i++)
+      {
+         struct certificate_info* cert = &cert_metrics->certs[i];
+         if (cert->expiry_time > 0)
+         {
+            data = pgagroal_append(data, "pgagroal_tls_certificate_info{");
+            data = pgagroal_append(data, "server=\"");
+            data = pgagroal_append(data, cert->server_name);
+            data = pgagroal_append(data, "\",subject=\"");
+            data = pgagroal_append(data, cert->subject);
+            data = pgagroal_append(data, "\",issuer=\"");
+            data = pgagroal_append(data, cert->issuer);
+            data = pgagroal_append(data, "\",serial_number=\"");
+            data = pgagroal_append(data, cert->serial_number);
+            data = pgagroal_append(data, "\",expires_date=\"");
+            data = pgagroal_append(data, cert->expires_date);
+            data = pgagroal_append(data, "\",valid_from_date=\"");
+            data = pgagroal_append(data, cert->valid_from_date);
+            data = pgagroal_append(data, "\",key_type_name=\"");
+            data = pgagroal_append(data, cert->key_type_name);
+            data = pgagroal_append(data, "\",signature_algorithm_name=\"");
+            data = pgagroal_append(data, cert->signature_algorithm_name);
+            data = pgagroal_append(data, "\",key_size=\"");
+            data = pgagroal_append_int(data, cert->key_size);
+            data = pgagroal_append(data, "\"} 1\n");
+         }
+      }
+      data = pgagroal_append(data, "\n");
+   }
+
+   send_chunk(client_ssl, client_fd, data);
+   metrics_cache_append(data);
+   free(data);
+   data = NULL;
 }
