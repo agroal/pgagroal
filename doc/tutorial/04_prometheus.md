@@ -147,9 +147,9 @@ openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out c
 openssl pkcs12 -export -out client.p12 -inkey client.key -in client.crt -certfile ca.crt -passout pass:<your_password>
 ```
 
-Edit `pgmoneta.conf` to add the following keys under pgmoneta section:
+Edit `pgagroal.conf` to add the following keys under pgagroal section:
 ```
-[pgmoneta]
+[pgagroal]
 .
 .
 .
