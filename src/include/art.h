@@ -114,6 +114,16 @@ uintptr_t
 pgagroal_art_search(struct art* t, char* key);
 
 /**
+ * Searches for a value in the ART tree, and also returns its type
+ * @param t The tree
+ * @param key The key
+ * @param [out] type The type of the value, ValueNone if the key doesn't exist
+ * @return 0 if the item was not found, otherwise the value data is returned
+ */
+uintptr_t
+pgagroal_art_search_typed(struct art* t, char* key, enum value_type* type);
+
+/**
  * Deletes a value from the ART tree
  * @param t The tree
  * @param key The key

@@ -134,6 +134,16 @@ uintptr_t
 pgagroal_json_get(struct json* item, char* tag);
 
 /**
+ * Get the value data and its type from json item
+ * @param item The item
+ * @param tag The tag
+ * @param type [out] The value type, ValueNone if tag not found
+ * @return The value data, 0 if not found
+ */
+uintptr_t
+pgagroal_json_get_typed(struct json* item, char* tag, enum value_type* type);
+
+/**
  * Check if the json item contains the given key
  * @param item The json item
  * @param key The key

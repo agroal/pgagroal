@@ -40,6 +40,7 @@ typedef void (*data_destroy_cb)(uintptr_t data);
 typedef char* (*data_to_string_cb)(uintptr_t data, int32_t format, char* tag, int indent);
 
 enum value_type {
+   ValueNone,
    ValueInt8,
    ValueUInt8,
    ValueInt16,
@@ -126,6 +127,14 @@ pgagroal_value_destroy(struct value* value);
  */
 uintptr_t
 pgagroal_value_data(struct value* value);
+
+/**
+ * Get the type of the value
+ * @param value The value
+ * @return The value type, or ValueNone if value is NULL
+ */
+enum value_type
+pgagroal_value_type(struct value* value);
 
 /**
  * Convert a value to string

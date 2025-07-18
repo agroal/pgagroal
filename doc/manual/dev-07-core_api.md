@@ -33,6 +33,7 @@ We support the following value types:
 
 | type            | type enum        | free behavior<br/> (no-op if left blank)                                 |
 |:----------------|:-----------------|:------------------------------------------------------------------------|
+| `none`          | `ValueNone`      |                                                                         |
 | `int8_t`        | `ValueInt8`      |                                                                         |
 | `uint8_t`       | `ValueUInt8`     |                                                                         |
 | `int16_t`       | `ValueInt16`     |                                                                         |
@@ -115,6 +116,9 @@ For `ValueMem` and `ValueRef`, the pointer to the memory will be printed.
 
 #### pgagroal_value_data
 Reader function to unwrap the data from the value wrapper. This is especially handy when you fetched the value with wrapper from the iterator.
+
+#### pgagroal_value_type
+Reader function to get the type from the value wrapper. The function returns `ValueNone` if the input is NULL.
 
 #### pgagroal_value_destroy
 Destroy a value, this invokes the destroy callback to destroy the wrapped data.
@@ -342,6 +346,11 @@ Check if a key exists in ART.
 Search a value inside the ART by its key. The ART unwraps the value and return the raw data. If key is not found, it returns 0.
 So if you need to tell whether it returns a zero value or the key does not exist, use `pgagroal_art_contains_key`.
 
+#### pgagroal_art_search_typed
+Search a value inside the ART by its key. The ART unwraps the value and return the raw data. 
+It also returns the value type through the output `type` parameter.
+If key is not found, it returns 0, and the type is set to `ValueNone`. So you can also use it to tell if a value exists.
+
 #### pgagroal_art_delete
 Delete a key from ART. Note that the function returns success(i.e. 0) even if the key does not exist.
 
@@ -414,6 +423,11 @@ The JSON object will fall back to undefined status.
 
 #### pgagroal_json_get
 Get and unwrap the value data from a JSON item. If the JSON object is an array, the function returns 0.
+
+#### pgagroal_json_get_typed
+Get and unwrap the value data from a JSON item, also returns the value type through output `type` parameter.
+If the JSON object is an array, the function returns 0. If the key is not found, the function sets `type` to `ValueNone`.
+So you can also use it to check if a key exists.
 
 #### pgagroal_json_contains_key
 Check if the JSON item contains a specific key. It always returns false if the object is an array.
