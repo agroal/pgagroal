@@ -110,11 +110,9 @@ static int status(SSL* ssl, int socket, uint8_t compression, uint8_t encryption,
 static int switch_to(SSL* ssl, int socket, char* server, uint8_t compression, uint8_t encryption, int32_t output_format);
 
 static int process_result(SSL* ssl, int socket, int32_t output_format);
-static int process_ls_result(SSL* ssl, int socket, int32_t output_format);
 static int process_get_result(SSL* ssl, int socket, char* config_key, int32_t output_format);
 static int process_set_result(SSL* ssl, int socket, char* config_key, int32_t output_format);
 
-static int get_conf_path_result(struct json* j, uintptr_t* r);
 static int get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t output_format);
 static int conf_alias(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t output_format);
 static int process_alias_result(SSL* ssl, int socket, int32_t output_format);
@@ -1262,7 +1260,7 @@ conf_ls(SSL* ssl, int socket, uint8_t compression, uint8_t encryption, int32_t o
       goto error;
    }
 
-   if (process_ls_result(ssl, socket, output_format))
+   if (process_result(ssl, socket, output_format))
    {
       goto error;
    }
@@ -1361,53 +1359,6 @@ error:
 
    pgagroal_json_destroy(read);
 
-   return 1;
-}
-
-static int
-process_ls_result(SSL* ssl, int socket, int32_t output_format)
-{
-   struct json* read = NULL;
-   struct json* json_res = NULL;
-   uintptr_t res;
-
-   if (pgagroal_management_read_json(ssl, socket, NULL, NULL, &read))
-   {
-      goto error;
-   }
-
-   if (get_conf_path_result(read, &res))
-   {
-      goto error;
-   }
-
-   json_res = (struct json*)res;
-
-   if (MANAGEMENT_OUTPUT_FORMAT_JSON == output_format)
-   {
-      pgagroal_json_print(json_res, FORMAT_JSON_COMPACT);
-   }
-   else
-   {
-      struct json_iterator* iter = NULL;
-      pgagroal_json_iterator_create(json_res, &iter);
-      while (pgagroal_json_iterator_next(iter))
-      {
-         char* value = pgagroal_value_to_string(iter->value, FORMAT_TEXT, NULL, 0);
-         printf("%s\n", value);
-         free(value);
-      }
-      pgagroal_json_iterator_destroy(iter);
-   }
-
-   pgagroal_json_destroy(read);
-   pgagroal_json_destroy(json_res);
-   return 0;
-
-error:
-
-   pgagroal_json_destroy(read);
-   pgagroal_json_destroy(json_res);
    return 1;
 }
 
@@ -1847,61 +1798,6 @@ error:
    return 1;
 }
 
-static int
-get_conf_path_result(struct json* j, uintptr_t* r)
-{
-   struct json* conf_path_response = NULL;
-   struct json* response = NULL;
-
-   response = (struct json*)pgagroal_json_get(j, MANAGEMENT_CATEGORY_RESPONSE);
-
-   if (!response)
-   {
-      goto error;
-   }
-
-   if (pgagroal_json_create(&conf_path_response))
-   {
-      goto error;
-   }
-
-   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_ADMIN_CONF_PATH))
-   {
-      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_ADMIN_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_ADMIN_CONF_PATH), ValueString);
-   }
-   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_MAIN_CONF_PATH))
-   {
-      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_MAIN_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_MAIN_CONF_PATH), ValueString);
-   }
-   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_USER_CONF_PATH))
-   {
-      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_USER_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_USER_CONF_PATH), ValueString);
-   }
-   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_HBA_CONF_PATH))
-   {
-      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_HBA_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_HBA_CONF_PATH), ValueString);
-   }
-   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_FRONTEND_USERS_CONF_PATH))
-   {
-      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_FRONTEND_USERS_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_FRONTEND_USERS_CONF_PATH), ValueString);
-   }
-   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_LIMIT_CONF_PATH))
-   {
-      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_LIMIT_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_LIMIT_CONF_PATH), ValueString);
-   }
-   if (pgagroal_json_contains_key(response, CONFIGURATION_ARGUMENT_SUPERUSER_CONF_PATH))
-   {
-      pgagroal_json_put(conf_path_response, CONFIGURATION_ARGUMENT_SUPERUSER_CONF_PATH, (uintptr_t)pgagroal_json_get(response, CONFIGURATION_ARGUMENT_SUPERUSER_CONF_PATH), ValueString);
-   }
-
-   *r = (uintptr_t)conf_path_response;
-
-   return 0;
-error:
-
-   return 1;
-
-}
 static int
 process_alias_result(SSL* ssl, int socket, int32_t output_format)
 {
