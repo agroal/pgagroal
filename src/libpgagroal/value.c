@@ -44,7 +44,7 @@ static void art_destroy_cb(uintptr_t data);
 static void deque_destroy_cb(uintptr_t data);
 static void json_destroy_cb(uintptr_t data);
 static char* noop_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
-static char* int8_to_string_cb(uintptr_t data, int32_t format, char *tag,  int indent);
+static char* int8_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
 static char* uint8_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
 static char* int16_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
 static char* uint16_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
