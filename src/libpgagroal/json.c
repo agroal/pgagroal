@@ -804,6 +804,7 @@ type_allowed(enum value_type type)
 {
    switch (type)
    {
+      case ValueNone:
       case ValueInt8:
       case ValueUInt8:
       case ValueInt16:

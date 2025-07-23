@@ -44,7 +44,7 @@ static void art_destroy_cb(uintptr_t data);
 static void deque_destroy_cb(uintptr_t data);
 static void json_destroy_cb(uintptr_t data);
 static char* noop_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
-static char* int8_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
+static char* int8_to_string_cb(uintptr_t data, int32_t format, char *tag,  int indent);
 static char* uint8_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
 static char* int16_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
 static char* uint16_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent);
@@ -75,6 +75,9 @@ pgagroal_value_create(enum value_type type, uintptr_t data, struct value** value
    val->type = type;
    switch (type)
    {
+      case ValueNone:
+         val->to_string = noop_to_string_cb;
+         break;
       case ValueInt8:
          val->to_string = int8_to_string_cb;
          break;
@@ -312,12 +315,13 @@ pgagroal_value_to_ref(enum value_type type)
    }
 }
 
-#ifdef DEBUG
 char*
 pgagroal_value_type_to_string(enum value_type type)
 {
    switch (type)
    {
+      case ValueNone:
+         return "none";
       case ValueInt8:
          return "int8";
       case ValueUInt8:
@@ -370,7 +374,6 @@ pgagroal_value_type_to_string(enum value_type type)
          return "unknown type";
    }
 }
-#endif
 
 static void
 noop_destroy_cb(uintptr_t data)
