@@ -1848,6 +1848,7 @@ accept_mgt_cb(struct io_watcher* watcher)
       req = (struct json*)pgagroal_json_get(payload, MANAGEMENT_CATEGORY_REQUEST);
       server = (char*)pgagroal_json_get(req, MANAGEMENT_ARGUMENT_SERVER);
 
+      pgagroal_log_debug("pgagroal: Attempting to switch to server: %s", server);
       for (int i = 0; old_primary == -1 && i < config->number_of_servers; i++)
       {
          server_state = atomic_load(&config->servers[i].state);
@@ -1859,6 +1860,7 @@ accept_mgt_cb(struct io_watcher* watcher)
 
       if (!pgagroal_server_switch(server))
       {
+         pgagroal_log_info("pgagroal: Successfully switched to server: %s", server);
          if (!fork())
          {
             shutdown_ports();
@@ -1873,11 +1875,15 @@ accept_mgt_cb(struct io_watcher* watcher)
             }
          }
          pgagroal_prometheus_failed_servers();
+         end_time = time(NULL);
+         pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
       }
-
-      end_time = time(NULL);
-
-      pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+      else
+      {
+         pgagroal_log_warn("pgagroal: Failed to switch to server: %s (server not found or invalid)", server);
+         end_time = time(NULL);
+         pgagroal_management_response_error(NULL, client_fd, NULL, MANAGEMENT_ERROR_SWITCH_TO_FAILED, compression, encryption, payload);
+      }
    }
    else if (id == MANAGEMENT_RELOAD)
    {

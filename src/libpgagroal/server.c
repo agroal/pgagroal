@@ -316,43 +316,70 @@ pgagroal_server_clear(char* server)
 int
 pgagroal_server_switch(char* server)
 {
-   int old_primary;
-   int new_primary;
+   int old_primary = -1;
+   int new_primary = -1;
    signed char state;
    struct main_configuration* config = NULL;
 
    config = (struct main_configuration*)shmem;
 
-   old_primary = -1;
-   new_primary = -1;
+   pgagroal_log_debug("pgagroal: Attempting to switch to server '%s'", server);
 
+   // Find current primary server
    for (int i = 0; i < config->number_of_servers; i++)
    {
       state = atomic_load(&config->servers[i].state);
-
       if (state == SERVER_PRIMARY)
       {
          old_primary = i;
+         break;
       }
-      else if (!strcmp(config->servers[i].name, server))
+   }
+   // Find target server by name
+   for (int i = 0; i < config->number_of_servers; i++)
+   {
+      if (!strcmp(config->servers[i].name, server))
       {
          new_primary = i;
+         break;
       }
    }
 
    if (old_primary != -1 && new_primary != -1)
    {
-      atomic_store(&config->servers[old_primary].state, SERVER_FAILED);
-      atomic_store(&config->servers[new_primary].state, SERVER_PRIMARY);
-      return 0;
+      if (old_primary == new_primary)
+      {
+         pgagroal_log_info("pgagroal: Server '%s' is already the primary - no switch needed", server);
+         return 0;
+      }
+      else
+      {
+         pgagroal_log_info("pgagroal: Switching primary from '%s' to '%s'",
+                           config->servers[old_primary].name,
+                           config->servers[new_primary].name);
+         atomic_store(&config->servers[old_primary].state, SERVER_FAILED);
+         atomic_store(&config->servers[new_primary].state, SERVER_PRIMARY);
+         return 0;
+      }
    }
    else if (old_primary == -1 && new_primary != -1)
    {
+      pgagroal_log_info("pgagroal: Setting '%s' as primary server (no previous primary found)",
+                        config->servers[new_primary].name);
       atomic_store(&config->servers[new_primary].state, SERVER_PRIMARY);
       return 0;
    }
-
-   return 1;
+   else if (old_primary != -1 && new_primary == -1)
+   {
+      pgagroal_log_warn("pgagroal: Switch to server '%s' failed: server not found in configuration (current primary: '%s')", 
+                        server, config->servers[old_primary].name);
+      return 1;
+   }
+   else
+   {
+      pgagroal_log_warn("pgagroal: Switch to server '%s' failed: no current primary server found and target server not found in configuration", server);
+      return 1;
+   }
 }
 
 static int

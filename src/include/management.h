@@ -167,6 +167,8 @@ extern "C" {
 #define MANAGEMENT_ERROR_CONF_ALIAS_NETWORK                   1201
 #define MANAGEMENT_ERROR_CONF_ALIAS_ERROR                     1202
 
+#define MANAGEMENT_ERROR_SWITCH_TO_FAILED                     1300
+
 /**
  * Output formats
  */
