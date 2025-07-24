@@ -1381,7 +1381,7 @@ process_get_result(SSL* ssl, int socket, char* config_key, int32_t output_format
       if (MANAGEMENT_OUTPUT_FORMAT_JSON == output_format)
       {
          json_res = (struct json*)res;
-         pgagroal_json_print(json_res, FORMAT_JSON_COMPACT);
+         pgagroal_json_print(json_res, FORMAT_JSON);
       }
       else
       {
@@ -1410,7 +1410,7 @@ process_get_result(SSL* ssl, int socket, char* config_key, int32_t output_format
       if (MANAGEMENT_OUTPUT_FORMAT_JSON == output_format)
       {
          json_res = (struct json*)res;
-         pgagroal_json_print(json_res, FORMAT_JSON_COMPACT);
+         pgagroal_json_print(json_res, FORMAT_JSON);
       }
       else
       {
@@ -1559,6 +1559,8 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
 
    struct json* configuration_js = NULL;
    struct json* filtered_response = NULL;
+   struct json* full_response = NULL;
+   struct json* outcome_section = NULL;
    struct json* response = NULL;
    struct json* outcome = NULL;
    struct json_iterator* iter;
@@ -1576,8 +1578,14 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
       return 0;
    }
 
+   if (pgagroal_json_clone(j, &full_response))
+   {
+      goto error;
+   }
+
    if (pgagroal_json_create(&filtered_response))
    {
+      pgagroal_json_destroy(full_response);
       goto error;
    }
 
@@ -1746,18 +1754,18 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
       goto error;
    }
 
+   pgagroal_json_put(full_response, MANAGEMENT_CATEGORY_RESPONSE, (uintptr_t)filtered_response, ValueJSON);
+
    if (output_format == MANAGEMENT_OUTPUT_FORMAT_JSON || !config_key)
    {
-      *r = (uintptr_t)filtered_response;
-
+      *r = (uintptr_t)full_response;
       free(config_value);
       config_value = NULL;
-
    }
    else
    {
       *r = (uintptr_t)config_value;
-      pgagroal_json_destroy(filtered_response);
+      pgagroal_json_destroy(full_response);
    }
 
    // Clean up parts
@@ -1776,16 +1784,29 @@ error:
 
    if (output_format == MANAGEMENT_OUTPUT_FORMAT_JSON)
    {
-      pgagroal_json_put(filtered_response, "Outcome", (uintptr_t)false, ValueBool);
-      *r = (uintptr_t)filtered_response;
+      // Update the Outcome section to indicate failure
+      if (full_response)
+      {
+         outcome_section = (struct json*)pgagroal_json_get(full_response, MANAGEMENT_CATEGORY_OUTCOME);
+         if (outcome_section)
+         {
+            pgagroal_json_put(outcome_section, MANAGEMENT_ARGUMENT_STATUS, (uintptr_t)false, ValueBool);
+         }
+         // Set empty response section
+         pgagroal_json_put(full_response, MANAGEMENT_CATEGORY_RESPONSE, (uintptr_t)filtered_response, ValueJSON);
+         *r = (uintptr_t)full_response;
+      }
+      else
+      {
+         pgagroal_json_put(filtered_response, "Outcome", (uintptr_t)false, ValueBool);
+         *r = (uintptr_t)filtered_response;
+      }
 
       free(config_value);
       config_value = NULL;
-
    }
    else
    {
-
       free(config_value);
       config_value = NULL;
 
@@ -1796,6 +1817,10 @@ error:
       }
       *r = (uintptr_t)config_value;
       pgagroal_json_destroy(filtered_response);
+      if (full_response)
+      {
+         pgagroal_json_destroy(full_response);
+      }
    }
 
    // Clean up parts on error
