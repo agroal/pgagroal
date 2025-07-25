@@ -263,6 +263,17 @@ psql -h localhost -p 2345 -U myuser mydb
 pgagroal-cli -c pgagroal.conf shutdown
 ```
 
+## Logging levels
+
+| Level | Description |
+| :------- | :------ |
+| TRACE | Information for developers including values of variables |
+| DEBUG | Higher level information for developers - typically about flow control and the value of key variables |
+| INFO | A user command was successful or general health information about the system |
+| WARN | A user command didn't complete correctly so attention is needed |
+| ERROR | Something unexpected happened - try to give information to help identify the problem |
+| FATAL | We can't recover - display as much information as we can about the problem and `exit(1)` |
+
 ## C programming
 
 [**pgagroal**](https://github.com/pgagroal/pgagroal) is developed using the [C programming language](https://en.wikipedia.org/wiki/C_(programming_language)) so it is a good
