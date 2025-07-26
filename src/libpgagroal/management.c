@@ -142,27 +142,17 @@ pgagroal_management_config_alias(SSL* ssl, int socket, uint8_t compression, uint
 {
    struct json* response = NULL;
    struct main_configuration* config;
-   struct json* output = NULL;
    struct json* aliases_array = NULL;
    struct json* entry = NULL;
    struct json* alias_list = NULL;
-   struct json* alias_item = NULL;
 
    config = (struct main_configuration*)shmem;
 
-   // Create response using the existing function
    if (pgagroal_management_create_response(payload, -1, &response))
    {
       goto error;
    }
 
-   // Create the main output structure
-   if (pgagroal_json_create(&output))
-   {
-      goto error;
-   }
-
-   // Create aliases array
    if (pgagroal_json_create(&aliases_array))
    {
       goto error;
@@ -176,12 +166,10 @@ pgagroal_management_config_alias(SSL* ssl, int socket, uint8_t compression, uint
          goto error;
       }
 
-      pgagroal_json_put(entry, "database", (uintptr_t)config->limits[i].database, ValueString);
-      pgagroal_json_put(entry, "username", (uintptr_t)config->limits[i].username, ValueString);
-      pgagroal_json_put(entry, "aliases_count", (uintptr_t)config->limits[i].aliases_count, ValueInt32);
-      pgagroal_json_put(entry, "max_size", (uintptr_t)config->limits[i].max_size, ValueInt64);
-      pgagroal_json_put(entry, "initial_size", (uintptr_t)config->limits[i].initial_size, ValueInt64);
-      pgagroal_json_put(entry, "min_size", (uintptr_t)config->limits[i].min_size, ValueInt64);
+      pgagroal_json_put(entry, CONFIGURATION_ARGUMENT_LIMIT_USERNAME, (uintptr_t)config->limits[i].username, ValueString);
+      pgagroal_json_put(entry, CONFIGURATION_ARGUMENT_LIMIT_MAX_SIZE, (uintptr_t)config->limits[i].max_size, ValueInt64);
+      pgagroal_json_put(entry, CONFIGURATION_ARGUMENT_LIMIT_INITIAL_SIZE, (uintptr_t)config->limits[i].initial_size, ValueInt64);
+      pgagroal_json_put(entry, CONFIGURATION_ARGUMENT_LIMIT_MIN_SIZE, (uintptr_t)config->limits[i].min_size, ValueInt64);
 
       if (config->limits[i].aliases_count > 0)
       {
@@ -193,37 +181,29 @@ pgagroal_management_config_alias(SSL* ssl, int socket, uint8_t compression, uint
 
          for (int j = 0; j < config->limits[i].aliases_count; j++)
          {
-            alias_item = NULL;
-            if (pgagroal_json_create(&alias_item))
-            {
-               goto error;
-            }
-            pgagroal_json_put(alias_item, "alias", (uintptr_t)config->limits[i].aliases[j], ValueString);
-            pgagroal_json_append(alias_list, (uintptr_t)alias_item, ValueJSON);
+            pgagroal_json_append(alias_list, (uintptr_t)config->limits[i].aliases[j], ValueString);
          }
-         pgagroal_json_put(entry, "aliases", (uintptr_t)alias_list, ValueJSON);
+         pgagroal_json_put(entry, CONFIGURATION_ARGUMENT_LIMIT_ALIASES, (uintptr_t)alias_list, ValueJSON);
+      }
+      else
+      {
+         if (pgagroal_json_create(&alias_list))
+         {
+            goto error;
+         }
+         pgagroal_json_put(entry, CONFIGURATION_ARGUMENT_LIMIT_ALIASES, (uintptr_t)alias_list, ValueJSON);
       }
 
-      pgagroal_json_append(aliases_array, (uintptr_t)entry, ValueJSON);
+      pgagroal_json_put(aliases_array, config->limits[i].database, (uintptr_t)entry, ValueJSON);
    }
 
-   // Put the aliases array into the output object
-   pgagroal_json_put(output, "aliases", (uintptr_t)aliases_array, ValueJSON);
+   pgagroal_json_put(response, MANAGEMENT_ARGUMENT_DATABASES, (uintptr_t)aliases_array, ValueJSON);
 
-   // Put the output into the response
-   pgagroal_json_put(response, "output", (uintptr_t)output, ValueJSON);
-
-   // Send response - use the correct function signature
-   if (pgagroal_management_response_ok(ssl, socket, 0, 0, compression, encryption, response))
+   if (pgagroal_management_response_ok(ssl, socket, 0, 0, compression, encryption, payload))
    {
       goto error;
    }
 
-   // Cleanup and exit - only destroy response here since all other JSON objects
-   // are children of response and will be cleaned up automatically
-   pgagroal_json_destroy(response);
-
-   // Don't destroy payload here - it will be handled by the caller
    pgagroal_disconnect(socket);
 
    pgagroal_memory_destroy();
@@ -232,11 +212,6 @@ pgagroal_management_config_alias(SSL* ssl, int socket, uint8_t compression, uint
    exit(0);
 
 error:
-   if (response)
-   {
-      pgagroal_json_destroy(response);
-   }
-   // Don't destroy payload in error case either
    pgagroal_disconnect(socket);
 
    pgagroal_memory_destroy();

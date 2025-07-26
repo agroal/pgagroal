@@ -1860,21 +1860,21 @@ process_alias_result(SSL* ssl, int socket, int32_t output_format)
    }
 
    // Text format output
-   output = (struct json*)pgagroal_json_get(json, "output");
+   output = (struct json*)pgagroal_json_get(json, MANAGEMENT_CATEGORY_RESPONSE);
    if (!output)
    {
       printf("No alias data found.\n");
-      pgagroal_log_debug("No output object found in JSON response");
+      pgagroal_log_debug("No response object found in JSON response");
       result = 1;
       goto cleanup;
    }
 
-   aliases_obj = (struct json*)pgagroal_json_get(output, "aliases");
+   aliases_obj = (struct json*)pgagroal_json_get(output, MANAGEMENT_ARGUMENT_DATABASES);
    if (!aliases_obj)
    {
       printf("No alias data found.\n");
       result = 1;
-      pgagroal_log_debug("No aliases object found in output");
+      pgagroal_log_debug("No databases object found in response");
       goto cleanup;
    }
 
@@ -1889,12 +1889,11 @@ process_alias_result(SSL* ssl, int socket, int32_t output_format)
          struct json* entry = (struct json*)iter->value->data;
          struct json_iterator* alias_iter = NULL;
 
-         char* database = (char*)pgagroal_json_get(entry, "database");
-         char* username = (char*)pgagroal_json_get(entry, "username");
-         int aliases_count = (int)(uintptr_t)pgagroal_json_get(entry, "aliases_count");
-         int max_size = (int)(uintptr_t)pgagroal_json_get(entry, "max_size");
-         int initial_size = (int)(uintptr_t)pgagroal_json_get(entry, "initial_size");
-         int min_size = (int)(uintptr_t)pgagroal_json_get(entry, "min_size");
+         char* database = iter->key;
+         char* username = (char*)pgagroal_json_get(entry, CONFIGURATION_ARGUMENT_LIMIT_USERNAME);
+         int max_size = (int)(uintptr_t)pgagroal_json_get(entry, CONFIGURATION_ARGUMENT_LIMIT_MAX_SIZE);
+         int initial_size = (int)(uintptr_t)pgagroal_json_get(entry, CONFIGURATION_ARGUMENT_LIMIT_INITIAL_SIZE);
+         int min_size = (int)(uintptr_t)pgagroal_json_get(entry, CONFIGURATION_ARGUMENT_LIMIT_MIN_SIZE);
 
          if (!database || !username)
          {
@@ -1907,45 +1906,41 @@ process_alias_result(SSL* ssl, int socket, int32_t output_format)
          char db_alias_string[DB_ALIAS_STRING_LENGTH];
          snprintf(db_alias_string, sizeof(db_alias_string), "%s", database);
 
-         if (aliases_count > 0)
+         struct json* alias_list = (struct json*)pgagroal_json_get(entry, CONFIGURATION_ARGUMENT_LIMIT_ALIASES);
+
+         if (alias_list)
          {
-            struct json* alias_list = (struct json*)pgagroal_json_get(entry, "aliases");
-
-            if (alias_list)
+            if (pgagroal_json_iterator_create(alias_list, &alias_iter) == 0)
             {
-               // Add equals sign and first alias
-               strcat(db_alias_string, "=");
-               if (pgagroal_json_iterator_create(alias_list, &alias_iter) == 0)
+               bool first = true;
+               while (pgagroal_json_iterator_next(alias_iter))
                {
-                  bool first = true;
-                  while (pgagroal_json_iterator_next(alias_iter))
+                  if (first)
                   {
-                     struct json* alias_item = (struct json*)alias_iter->value->data;
-
-                     char* alias = (char*)pgagroal_json_get(alias_item, "alias");
-
-                     if (!alias)
-                     {
-                        pgagroal_log_debug("Error: Corrupted alias data - missing alias field");
-                        pgagroal_json_iterator_destroy(alias_iter);
-                        result = 1;
-                        goto cleanup;
-                     }
-
-                     if (!first)
-                     {
-                        strcat(db_alias_string, ",");
-                     }
-                     strcat(db_alias_string, alias);
-                     first = false;
+                     strcat(db_alias_string, "=");
                   }
-                  pgagroal_json_iterator_destroy(alias_iter);
-                  alias_iter = NULL;
 
+                  // Aliases are simple strings
+                  char* alias = (char*)alias_iter->value->data;
+
+                  if (!alias)
+                  {
+                     pgagroal_log_debug("Error: Corrupted alias data - missing alias field");
+                     pgagroal_json_iterator_destroy(alias_iter);
+                     result = 1;
+                     goto cleanup;
+                  }
+
+                  if (!first)
+                  {
+                     strcat(db_alias_string, ",");
+                  }
+                  strcat(db_alias_string, alias);
+                  first = false;
                }
-
+               pgagroal_json_iterator_destroy(alias_iter);
+               alias_iter = NULL;
             }
-
          }
 
          // Print in compact configuration format
