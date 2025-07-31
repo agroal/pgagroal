@@ -144,6 +144,7 @@ pgagroal_init_configuration(void* shm)
    config->failover = false;
    config->common.tls = false;
    config->gracefully = false;
+   config->keep_running = true;
    config->pipeline = PIPELINE_AUTO;
    config->authquery = false;
    config->blocking_timeout = DEFAULT_BLOCKING_TIMEOUT;

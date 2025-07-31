@@ -101,7 +101,6 @@ static void create_pidfile_or_exit(void);
 static void remove_pidfile(void);
 static void shutdown_ports(void);
 
-static volatile int keep_running = 1;
 static char** argv_ptr;
 static struct event_loop* main_loop = NULL;
 static struct accept_io io_main[MAX_FDS];
@@ -1390,7 +1389,7 @@ accept_main_cb(struct io_watcher* watcher)
    client_fd = watcher->fds.main.client_fd;
    if (client_fd == -1)
    {
-      if (accept_fatal(errno) && keep_running)
+      if (accept_fatal(errno) && config->keep_running)
       {
          char pgsql[MISC_LENGTH];
 
@@ -1518,7 +1517,7 @@ accept_mgt_cb(struct io_watcher* watcher)
 
    if (client_fd == -1)
    {
-      if (accept_fatal(errno) && keep_running)
+      if (accept_fatal(errno) && config->keep_running)
       {
          pgagroal_log_warn("Restarting management due to: %s (%d)", strerror(errno), client_fd);
 
@@ -1726,6 +1725,8 @@ accept_mgt_cb(struct io_watcher* watcher)
       end_time = time(NULL);
 
       pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
+
+      config->keep_running = false;
 
       pgagroal_event_loop_break();
    }
@@ -2035,13 +2036,20 @@ accept_mgt_cb(struct io_watcher* watcher)
       goto error;
    }
 
-   if (keep_running && config->gracefully)
+   if (config->gracefully)
    {
-      if (atomic_load(&config->active_connections) == 0)
+      if (config->keep_running)
       {
-         pgagroal_pool_status();
-
-         pgagroal_event_loop_break();
+         if (atomic_load(&config->active_connections) == 0)
+         {
+            pgagroal_log_debug("pgagroal: graceful shutdown triggered  - connections=0, gracefully=true, keep_running=true");
+            pgagroal_pool_status();
+            pgagroal_event_loop_break();
+         }
+      }
+      else
+      {
+         pgagroal_log_info("pgagroal: graceful shutdown check skipped - server shutdown already in progress (keep_running=false)");
       }
    }
 
@@ -2084,7 +2092,7 @@ accept_transfer_cb(struct io_watcher* watcher)
 
    if (client_fd == -1)
    {
-      if (accept_fatal(errno) && keep_running)
+      if (accept_fatal(errno) && config->keep_running)
       {
          pgagroal_log_warn("Restarting transfer due to: %s (%d)", strerror(errno), client_fd);
 
@@ -2259,7 +2267,7 @@ accept_metrics_cb(struct io_watcher* watcher)
 
    if (client_fd == -1)
    {
-      if (accept_fatal(errno) && keep_running)
+      if (accept_fatal(errno) && config->keep_running)
       {
          pgagroal_log_warn("Restarting listening port due to: %s (%d)", strerror(errno), client_fd);
 
@@ -2341,7 +2349,7 @@ accept_management_cb(struct io_watcher* watcher)
 
    if (client_fd == -1)
    {
-      if (accept_fatal(errno) && keep_running)
+      if (accept_fatal(errno) && config->keep_running)
       {
          pgagroal_log_warn("Restarting listening port due to: %s (%d)", strerror(errno), client_fd);
 
@@ -2403,10 +2411,12 @@ accept_management_cb(struct io_watcher* watcher)
 static void
 shutdown_cb(void)
 {
+   struct main_configuration* config = (struct main_configuration*)shmem;
+
    pgagroal_log_debug("pgagroal: shutdown requested");
+   config->keep_running = false;
    pgagroal_pool_status();
    pgagroal_event_loop_break();
-   keep_running = 0;
 }
 
 static void

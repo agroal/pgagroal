@@ -44,6 +44,7 @@
 
 /* system */
 #include <assert.h>
+#include <errno.h>
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -61,6 +62,7 @@ static bool do_prefill(char* username, char* database, int size);
 static bool is_alias_of_limit(char* database, int limit_index);
 static int get_connection_count_for_limit_rule(int rule_index, char* username);
 static char* resolve_database_name(char* database, int best_rule);
+static void check_graceful_shutdown_trigger(void);
 
 int
 pgagroal_get_connection(char* username, char* database, bool reuse, bool transaction_mode, int* slot, SSL** ssl)
@@ -512,6 +514,12 @@ pgagroal_return_connection(int slot, SSL* ssl, bool transaction_mode)
          atomic_store(&config->states[slot], STATE_FREE);
          atomic_fetch_sub(&config->active_connections, 1);
 
+         pgagroal_log_debug("Connection returned: slot=%d, active_connections=%d, gracefully=%s",
+                            slot, atomic_load(&config->active_connections), config->gracefully ? "true" : "false");
+
+         // Check for graceful shutdown after successful connection return
+         check_graceful_shutdown_trigger();
+
          pgagroal_prometheus_connection_return();
 
          return 0;
@@ -519,6 +527,9 @@ pgagroal_return_connection(int slot, SSL* ssl, bool transaction_mode)
       else if (state == STATE_GRACEFULLY)
       {
          pgagroal_write_terminate(ssl, config->connections[slot].fd);
+
+         // Check for graceful shutdown after graceful connection termination
+         check_graceful_shutdown_trigger();
       }
    }
 
@@ -608,6 +619,9 @@ pgagroal_kill_connection(int slot, SSL* ssl)
       }
 
       atomic_fetch_sub(&config->active_connections, 1);
+
+      // Check for graceful shutdown after killing connection
+      check_graceful_shutdown_trigger();
    }
 
    memset(&config->connections[slot].username, 0, sizeof(config->connections[slot].username));
@@ -1448,6 +1462,65 @@ remove_connection(char* username, char* database)
    }
 
    return false;
+}
+
+static void
+check_graceful_shutdown_trigger(void)
+{
+   struct main_configuration* config = (struct main_configuration*)shmem;
+
+   int remaining_connections = atomic_load(&config->active_connections);
+
+   if (remaining_connections == 0 && config->gracefully)
+   {
+      if (config->keep_running)
+      {
+         pgagroal_log_debug("pgagroal: graceful shutdown conditions met - connections=0, gracefully=true, keep_running=true - proceeding with shutdown");
+      }
+      else
+      {
+         pgagroal_log_debug("pgagroal: graceful shutdown skipped - connections=0, gracefully=true, but keep_running=false (race condition prevented)");
+         return;
+      }
+   }
+
+   if (remaining_connections == 0 && config->gracefully && config->keep_running)
+   {
+      // Double-check to handle race conditions with new connections
+      usleep(1000); // 1ms delay to let any concurrent operations complete
+
+      // Verify all three conditions are still met after brief delay
+      int final_connections = atomic_load(&config->active_connections);
+      if (final_connections == 0 && config->gracefully && config->keep_running)
+      {
+         pgagroal_log_debug("pgagroal: graceful shutdown confirmed - triggering shutdown");
+
+         pid_t parent_pid = getppid();
+         if (kill(parent_pid, SIGTRAP) == -1)
+         {
+            if (errno == ESRCH)
+            {
+               pgagroal_log_debug("Parent process already exited, worker shutting down");
+            }
+            else
+            {
+               pgagroal_log_debug("Failed to signal parent process (PID: %d): %s", parent_pid, strerror(errno));
+            }
+         }
+         else
+         {
+            pgagroal_log_debug("Graceful shutdown signal sent to parent process (PID: %d)", parent_pid);
+         }
+      }
+      else
+      {
+         int final_connections_check = atomic_load(&config->active_connections);
+         pgagroal_log_debug("Graceful shutdown conditions - connections=%d, gracefully=%s, keep_running=%s",
+                            final_connections_check,
+                            config->gracefully ? "true" : "false",
+                            config->keep_running ? "true" : "false");
+      }
+   }
 }
 
 static void

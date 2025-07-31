@@ -638,6 +638,7 @@ struct main_configuration
 
    int management;         /**< The management port */
    bool gracefully;        /**< Is pgagroal in gracefully mode */
+   bool keep_running;      /**< Is pgagroal still running */
 
    bool all_disabled;                                      /**< Are all databases disabled */
    char disabled[NUMBER_OF_DISABLED][MAX_DATABASE_LENGTH]; /**< Which databases are disabled */
