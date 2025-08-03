@@ -14,6 +14,10 @@ set(PGAGROAL_HBA_CONF_SRC_FILE "${CMAKE_CURRENT_SOURCE_DIR}/man/pgagroal_hba.con
 set(PGAGROAL_HBA_CONF_DST_FILE "${CMAKE_CURRENT_BINARY_DIR}/pgagroal_hba.conf.5")
 set(PGAGROAL_DATABASES_CONF_SRC_FILE "${CMAKE_CURRENT_SOURCE_DIR}/man/pgagroal_databases.conf.5.rst")
 set(PGAGROAL_DATABASES_CONF_DST_FILE "${CMAKE_CURRENT_BINARY_DIR}/pgagroal_databases.conf.5")
+set(PGAGROAL_VAULT_SRC_FILE "${CMAKE_CURRENT_SOURCE_DIR}/man/pgagroal-vault.1.rst")
+set(PGAGROAL_VAULT_DST_FILE "${CMAKE_CURRENT_BINARY_DIR}/pgagroal-vault.1")
+set(PGAGROAL_VAULT_CONF_SRC_FILE "${CMAKE_CURRENT_SOURCE_DIR}/man/pgagroal_vault.conf.5.rst")
+set(PGAGROAL_VAULT_CONF_DST_FILE "${CMAKE_CURRENT_BINARY_DIR}/pgagroal_vault.conf.5")
 
 # pgagroal.1
 add_custom_command(
@@ -63,15 +67,33 @@ add_custom_command(
   COMMENT "Generating man page: pgagroal_databases.conf.5"
 )
 
+# pgagroal-vault.1
+add_custom_command(
+  OUTPUT ${PGAGROAL_VAULT_DST_FILE}
+  COMMAND ${RST2MAN_EXECUTABLE} ${PGAGROAL_VAULT_SRC_FILE} ${PGAGROAL_VAULT_DST_FILE}
+  DEPENDS ${PGAGROAL_VAULT_SRC_FILE}
+  COMMENT "Generating man page: pgagroal-vault.1"
+)
+
+# pgagroal_vault.conf.5
+add_custom_command(
+  OUTPUT ${PGAGROAL_VAULT_CONF_DST_FILE}
+  COMMAND ${RST2MAN_EXECUTABLE} ${PGAGROAL_VAULT_CONF_SRC_FILE} ${PGAGROAL_VAULT_CONF_DST_FILE}
+  DEPENDS ${PGAGROAL_VAULT_CONF_SRC_FILE}
+  COMMENT "Generating man page: pgagroal_vault.conf.5"
+)
+
 # Group man page outputs into a target
 add_custom_target(manpages ALL
   DEPENDS
     ${PGAGROAL_DST_FILE}
     ${PGAGROAL_CLI_DST_FILE}
     ${PGAGROAL_ADMIN_DST_FILE}
+    ${PGAGROAL_VAULT_DST_FILE}
     ${PGAGROAL_CONF_DST_FILE}
     ${PGAGROAL_HBA_CONF_DST_FILE}
     ${PGAGROAL_DATABASES_CONF_DST_FILE}
+    ${PGAGROAL_VAULT_CONF_DST_FILE}
 )
 
 add_dependencies(man manpages)
@@ -88,9 +110,11 @@ install(DIRECTORY images/ DESTINATION share/doc/pgagroal/images FILES_MATCHING P
 install(FILES ${PGAGROAL_DST_FILE} DESTINATION share/man/man1)
 install(FILES ${PGAGROAL_CLI_DST_FILE} DESTINATION share/man/man1)
 install(FILES ${PGAGROAL_ADMIN_DST_FILE} DESTINATION share/man/man1)
+install(FILES ${PGAGROAL_VAULT_DST_FILE} DESTINATION share/man/man1)
 install(FILES ${PGAGROAL_CONF_DST_FILE} DESTINATION share/man/man5)
 install(FILES ${PGAGROAL_HBA_CONF_DST_FILE} DESTINATION share/man/man5)
 install(FILES ${PGAGROAL_DATABASES_CONF_DST_FILE} DESTINATION share/man/man5)
+install(FILES ${PGAGROAL_VAULT_CONF_DST_FILE} DESTINATION share/man/man5)
 
 #
 # Generate manual
