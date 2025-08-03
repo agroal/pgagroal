@@ -78,6 +78,8 @@ static void route_not_found(char** response);
 static void route_found(char** response, char* password);
 static void route_redirect(char** response, char* redirect_link);
 static int router(SSL* ccl, SSL* ssl, int client_fd);
+static void route_status(char** response);
+static bool test_pgagroal_connectivity(struct vault_configuration* config);
 static int get_connection_state(struct vault_configuration* config, int client_fd);
 
 static char** argv_ptr;
@@ -153,6 +155,23 @@ router(SSL* c_ssl, SSL* s_ssl, int client_fd)
          sscanf(path, "/users/%128s", username);
          // Call the appropriate handler function with the username
          route_users(username, &response, s_ssl, client_fd);
+      }
+      else if (strncmp(path, "/status", 7) == 0 && strcmp(method, "GET") == 0)
+      {
+         pgagroal_log_debug("router: Processing status endpoint request");
+         route_status(&response);
+         if (response == NULL)
+         {
+            pgagroal_log_debug("router: Status response generation failed, sending 500 error");
+            response = pgagroal_append(response, "HTTP/1.1 500 Internal Server Error\r\n");
+            response = pgagroal_append(response, "Content-Type: text/plain\r\n");
+            response = pgagroal_append(response, "\r\n");
+            response = pgagroal_append(response, "Internal Server Error\n");
+         }
+         else
+         {
+            pgagroal_log_debug("router: Status response generated successfully");
+         }
       }
       else
       {
@@ -259,6 +278,142 @@ cleanup:
 }
 
 static void
+route_status(char** response)
+{
+   // Declare all variables at the top
+   char* tmp_response = NULL;
+   char timestamp[64];
+   char pid_str[32];
+   char port_str[32];
+   char metrics_port_str[32];
+   char pgagroal_port_str[32];
+   time_t now;
+   struct tm* utc_tm;
+   struct vault_configuration* config;
+   int is_connected = 0;
+   int metrics_tls_enabled;
+
+   config = (struct vault_configuration*)shmem;
+
+   if (test_pgagroal_connectivity(config))
+   {
+      is_connected = 1;
+   }
+
+   // Get current timestamp
+   now = time(NULL);
+   utc_tm = gmtime(&now);
+   if (utc_tm == NULL)
+   {
+      strcpy(timestamp, "1970-01-01T00:00:00Z");
+   }
+   else
+   {
+      strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", utc_tm);
+   }
+
+   // Prepare numeric strings
+   snprintf(pid_str, sizeof(pid_str), "%d", getpid());
+   snprintf(port_str, sizeof(port_str), "%d", config->common.port);
+   snprintf(pgagroal_port_str, sizeof(pgagroal_port_str), "%d", config->vault_server.server.port);
+
+   // Build HTTP response
+   tmp_response = pgagroal_append(tmp_response, "HTTP/1.1 200 OK\r\n");
+   tmp_response = pgagroal_append(tmp_response, "Content-Type: application/json\r\n\r\n");
+
+   // Build JSON body
+   tmp_response = pgagroal_append(tmp_response, "{\n");
+   tmp_response = pgagroal_append(tmp_response, "  \"status\": \"ok\",\n");
+   tmp_response = pgagroal_append(tmp_response, "  \"timestamp\": \"");
+   tmp_response = pgagroal_append(tmp_response, timestamp);
+   tmp_response = pgagroal_append(tmp_response, "\",\n");
+
+   // Vault information
+   tmp_response = pgagroal_append(tmp_response, "  \"vault\": {\n");
+   tmp_response = pgagroal_append(tmp_response, "    \"version\": \"");
+   tmp_response = pgagroal_append(tmp_response, PGAGROAL_VERSION);
+   tmp_response = pgagroal_append(tmp_response, "\",\n");
+   tmp_response = pgagroal_append(tmp_response, "    \"pid\": ");
+   tmp_response = pgagroal_append(tmp_response, pid_str);
+   tmp_response = pgagroal_append(tmp_response, "\n");
+   tmp_response = pgagroal_append(tmp_response, "  },\n");
+
+   // Configuration information
+   tmp_response = pgagroal_append(tmp_response, "  \"configuration\": {\n");
+   tmp_response = pgagroal_append(tmp_response, "    \"host\": \"");
+   tmp_response = pgagroal_append(tmp_response, config->common.host);
+   tmp_response = pgagroal_append(tmp_response, "\",\n");
+   tmp_response = pgagroal_append(tmp_response, "    \"port\": ");
+   tmp_response = pgagroal_append(tmp_response, port_str);
+   tmp_response = pgagroal_append(tmp_response, ",\n");
+   tmp_response = pgagroal_append(tmp_response, "    \"tls_enabled\": ");
+   tmp_response = pgagroal_append(tmp_response, config->common.tls ? "true" : "false");
+
+   // Add metrics configuration if enabled
+   if (config->common.metrics > 0)
+   {
+      snprintf(metrics_port_str, sizeof(metrics_port_str), "%d", config->common.metrics);
+
+      metrics_tls_enabled = 0;
+      if (strlen(config->common.metrics_cert_file) > 0 && strlen(config->common.metrics_key_file) > 0)
+      {
+         metrics_tls_enabled = 1;
+      }
+
+      tmp_response = pgagroal_append(tmp_response, ",\n");
+      tmp_response = pgagroal_append(tmp_response, "    \"metrics_port\": ");
+      tmp_response = pgagroal_append(tmp_response, metrics_port_str);
+      tmp_response = pgagroal_append(tmp_response, ",\n");
+      tmp_response = pgagroal_append(tmp_response, "    \"metrics_tls_enabled\": ");
+      if (metrics_tls_enabled)
+      {
+         tmp_response = pgagroal_append(tmp_response, "true");
+      }
+      else
+      {
+         tmp_response = pgagroal_append(tmp_response, "false");
+      }
+   }
+
+   tmp_response = pgagroal_append(tmp_response, "\n");
+   tmp_response = pgagroal_append(tmp_response, "  },\n");
+
+   // pgagroal connection status
+   tmp_response = pgagroal_append(tmp_response, "  \"pgagroal_connection\": {\n");
+   tmp_response = pgagroal_append(tmp_response, "    \"status\": \"");
+   if (is_connected)
+   {
+      tmp_response = pgagroal_append(tmp_response, "connected");
+   }
+   else
+   {
+      tmp_response = pgagroal_append(tmp_response, "disconnected");
+   }
+   tmp_response = pgagroal_append(tmp_response, "\",\n");
+   tmp_response = pgagroal_append(tmp_response, "    \"host\": \"");
+   tmp_response = pgagroal_append(tmp_response, config->vault_server.server.host);
+   tmp_response = pgagroal_append(tmp_response, "\",\n");
+   tmp_response = pgagroal_append(tmp_response, "    \"port\": ");
+   tmp_response = pgagroal_append(tmp_response, pgagroal_port_str);
+   tmp_response = pgagroal_append(tmp_response, "\n");
+   tmp_response = pgagroal_append(tmp_response, "  }\n");
+   tmp_response = pgagroal_append(tmp_response, "}\n");
+
+   if (tmp_response == NULL)
+   {
+      goto error;
+   }
+
+   pgagroal_log_debug("Status request completed");
+   *response = tmp_response;
+
+error:
+   pgagroal_log_warn("Status endpoint: Failed to generate response");
+   *response = NULL;
+
+}
+
+static void
 route_not_found(char** response)
 {
    char* tmp_response = NULL;
@@ -329,6 +484,59 @@ connect_pgagroal(struct vault_configuration* config, char* username, char* passw
 
    *s_ssl = s;
    return 0;
+}
+
+static bool
+test_pgagroal_connectivity(struct vault_configuration* config)
+{
+   int client_pgagroal_fd = -1;
+   SSL* mgmt_ssl = NULL;
+   struct json* read = NULL;
+   bool is_connected = false;
+
+   pgagroal_log_debug("test_pgagroal_connectivity: Testing connection to %s:%d",
+                      config->vault_server.server.host,
+                      config->vault_server.server.port);
+
+   if (connect_pgagroal(config, config->vault_server.user.username, config->vault_server.user.password, &mgmt_ssl, &client_pgagroal_fd))
+   {
+      pgagroal_log_debug("test_pgagroal_connectivity: Connection failed");
+      return false;
+   }
+
+   // Make a request for a non-existent user - this tests the full protocol
+   if (pgagroal_management_request_get_password(mgmt_ssl, client_pgagroal_fd, "__vault_test_nonexistent_user__", COMPRESSION_NONE, ENCRYPTION_AES_256_CBC, MANAGEMENT_OUTPUT_FORMAT_JSON))
+   {
+      pgagroal_log_debug("test_pgagroal_connectivity: Failed to send test request");
+      goto cleanup;
+   }
+
+   // Try to read the response - even if user doesn't exist, we should get a response
+   if (pgagroal_management_read_json(mgmt_ssl, client_pgagroal_fd, NULL, NULL, &read) == 0)
+   {
+      // We got a response (success or failure doesn't matter - server is responding)
+      is_connected = true;
+   }
+
+   pgagroal_log_debug("test_pgagroal_connectivity: %s", is_connected ? "Ok - server responded" : "Failure - cannot read response");
+
+cleanup:
+
+   if (mgmt_ssl != NULL)
+   {
+      SSL_shutdown(mgmt_ssl);
+      SSL_free(mgmt_ssl);
+   }
+   if (client_pgagroal_fd != -1)
+   {
+      pgagroal_disconnect(client_pgagroal_fd);
+   }
+   if (read != NULL)
+   {
+      pgagroal_json_destroy(read);
+   }
+
+   return is_connected;
 }
 
 static int

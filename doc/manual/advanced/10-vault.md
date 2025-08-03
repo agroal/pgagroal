@@ -126,6 +126,47 @@ HTTP/1.1 404 Not Found
 
 ```
 
+## Monitor the vault
+
+### Status endpoint
+
+The vault provides a status endpoint for health monitoring and operational visibility:
+
+```
+curl http://localhost:2500/status
+```
+
+This endpoint:
+* Requires no authentication
+* Returns JSON with vault status information
+* Tests pgagroal connection in real-time
+* Shows configuration details
+* Available over both HTTP and HTTPS
+
+**Example response:**
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2025-01-08T10:30:45Z",
+  "vault": {
+    "version": "2.0.0",
+    "pid": 12345
+  },
+  "configuration": {
+    "host": "localhost",
+    "port": 2500,
+    "tls_enabled": false,
+    "metrics_port": 2501,
+    "metrics_tls_enabled": false
+  },
+  "pgagroal_connection": {
+    "status": "connected",
+    "host": "localhost",
+    "port": 2347
+  }
+}
+```
 
 ## Transport Level Security (TLS)
 

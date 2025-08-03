@@ -152,3 +152,50 @@ Output
 ```
 HTTP/1.1 404 Not Found
 ```
+
+### Monitor vault status
+
+You can check the vault status and health using the status endpoint:
+
+```
+curl http://localhost:2500/status
+```
+
+This will return JSON with comprehensive vault information including:
+* Vault health status and version
+* Current timestamp (UTC)
+* Process ID
+* Configuration details (host, port, TLS settings)
+* Metrics configuration (if enabled)
+* Real-time pgagroal connection status
+
+**Example:**
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2025-01-08T10:30:45Z",
+  "vault": {
+    "version": "2.0.0",
+    "pid": 12345
+  },
+  "configuration": {
+    "host": "localhost",
+    "port": 2500,
+    "tls_enabled": false
+  },
+  "pgagroal_connection": {
+    "status": "connected",
+    "host": "localhost",
+    "port": 2347
+  }
+}
+```
+
+The status endpoint is useful for:
+* Health checks in production environments
+* Monitoring vault connectivity to pgagroal
+* Troubleshooting connection issues
+* Integration with monitoring systems
+
+**Note:** The status endpoint requires no authentication and is available on the same host:port as the vault server.
