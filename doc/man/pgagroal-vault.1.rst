@@ -31,6 +31,9 @@ OPTIONS
 -u, --users USERS_FILE
   Set the path to the pgagroal_vault_users.conf file
 
+-d, --daemon
+  Run as a daemon
+
 -?, --help
   Display help
 

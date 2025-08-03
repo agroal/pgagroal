@@ -371,7 +371,7 @@ pgagroal_server_switch(char* server)
    }
    else if (old_primary != -1 && new_primary == -1)
    {
-      pgagroal_log_warn("pgagroal: Switch to server '%s' failed: server not found in configuration (current primary: '%s')", 
+      pgagroal_log_warn("pgagroal: Switch to server '%s' failed: server not found in configuration (current primary: '%s')",
                         server, config->servers[old_primary].name);
       return 1;
    }

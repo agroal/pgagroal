@@ -52,6 +52,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -431,6 +432,7 @@ usage(void)
    printf("  -c, --config CONFIG_FILE           Set the path to the pgagroal_vault.conf file\n");
    printf("                                     Default: %s\n", PGAGROAL_DEFAULT_VAULT_CONF_FILE);
    printf("  -u, --users  USERS_FILE            Set the password for the admin user of management port\n");
+   printf("  -d, --daemon                       Run as a daemon\n");
    printf("  -?, --help                         Display help\n");
    printf("\n");
    printf("pgagroal: %s\n", PGAGROAL_HOMEPAGE);
@@ -450,6 +452,8 @@ main(int argc, char** argv)
    size_t prometheus_shmem_size = 0;
    size_t prometheus_cache_shmem_size = 0;
    size_t size;
+   int daemon = 0;
+   pid_t pid, sid;
    struct vault_configuration* config = NULL;
    char message[MISC_LENGTH]; // a generic message used for errors
 
@@ -459,10 +463,11 @@ main(int argc, char** argv)
       {
          {"config", required_argument, 0, 'c'},
          {"users", required_argument, 0, 'u'},
+         {"daemon", no_argument, 0, 'd'},
          {"help", no_argument, 0, '?'}
       };
 
-      c = getopt_long(argc, argv, "?c:u:",
+      c = getopt_long(argc, argv, "?c:u:d",
                       long_options, &option_index);
 
       if (c == -1)
@@ -477,6 +482,9 @@ main(int argc, char** argv)
             break;
          case 'u':
             users_path = optarg;
+            break;
+         case 'd':
+            daemon = 1;
             break;
          case '?':
             usage();
@@ -599,6 +607,38 @@ read_users_path:
       // so try the default one and allow it to be missing
       users_path = PGAGROAL_DEFAULT_VAULT_USERS_FILE;
       goto read_users_path;
+   }
+
+   if (daemon)
+   {
+      if (config->common.log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
+      {
+#ifdef HAVE_SYSTEMD
+         sd_notify(0, "STATUS=Daemon mode can't be used with console logging");
+#endif
+         errx(1, "pgagroal-vault: Daemon mode can't be used with console logging");
+      }
+
+      pid = fork();
+      if (pid < 0)
+      {
+#ifdef HAVE_SYSTEMD
+         sd_notify(0, "STATUS=Daemon mode failed");
+#endif
+         errx(1, "pgagroal-vault: Daemon mode failed");
+      }
+
+      if (pid > 0)
+      {
+         exit(0); // Parent process exits
+      }
+
+      umask(0);
+      sid = setsid();
+      if (sid < 0)
+      {
+         exit(1);
+      }
    }
 
    // -- Bind & Listen at the given hostname and port --
