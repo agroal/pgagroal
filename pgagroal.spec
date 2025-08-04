@@ -4,7 +4,7 @@ Release:       1%{dist}
 Summary:       High-performance connection pool for PostgreSQL
 License:       BSD
 URL:           https://github.com/agroal/pgagroal
-Source0:       https://github.com/agroal/pgagroal/archive/%{version}.tar.gz
+Source0:       %{name}-%{version}.tar.gz
 
 BuildRequires: gcc cmake make python3-docutils
 BuildRequires: liburing liburing-devel openssl openssl-devel systemd systemd-devel libatomic zlib zlib-devel libzstd libzstd-devel lz4 lz4-devel bzip2 bzip2-devel binutils
@@ -59,8 +59,8 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/images/perf-prepared.png %{buildroot}%{_docdir}/%{name}/images/perf-prepared.png
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/images/perf-readonly.png %{buildroot}%{_docdir}/%{name}/images/perf-readonly.png
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/images/perf-simple.png %{buildroot}%{_docdir}/%{name}/images/perf-simple.png
-%{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/shell_comp/pgagroal_comp.bash %{buildroot}%{_docdir}/%{name}/shell_comp/pgagroal_comp.bash
-%{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/shell_comp/pgagroal_comp.zsh %{buildroot}%{_docdir}/%{name}/shell_comp/pgagroal_comp.zsh
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/contrib/shell_comp/pgagroal_comp.bash %{buildroot}%{_docdir}/%{name}/shell_comp/pgagroal_comp.bash
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/contrib/shell_comp/pgagroal_comp.zsh %{buildroot}%{_docdir}/%{name}/shell_comp/pgagroal_comp.zsh
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/01_install.md %{buildroot}%{_docdir}/%{name}/tutorial/01_install.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/02_prefill.md %{buildroot}%{_docdir}/%{name}/tutorial/02_prefill.md
 %{__install} -m 644 %{_builddir}/%{name}-%{version}/doc/tutorial/03_remote_management.md %{buildroot}%{_docdir}/%{name}/tutorial/03_remote_management.md
@@ -120,7 +120,6 @@ cd %{buildroot}%{_libdir}/
 %{_docdir}/%{name}/images/perf-extended.png
 %{_docdir}/%{name}/images/perf-prepared.png
 %{_docdir}/%{name}/images/perf-readonly.png
-%{_docdir}/%{name}/images/perf-simple.png
 %{_docdir}/%{name}/images/perf-simple.png
 %{_docdir}/%{name}/shell_comp/pgagroal_comp.bash
 %{_docdir}/%{name}/shell_comp/pgagroal_comp.zsh
