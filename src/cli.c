@@ -800,16 +800,7 @@ username:
    }
    else if (parsed.cmd->action == MANAGEMENT_RELOAD)
    {
-      if (configuration_path == NULL)
-      {
-         warnx("Configuration path has to specified to use <reload>");
-         parsed.cmd = NULL;
-         goto done;
-      }
-      else
-      {
          exit_code = reload(s_ssl, socket, compression, encryption, output_format);
-      }
    }
    else if (parsed.cmd->action == MANAGEMENT_CONFIG_LS)
    {
@@ -840,14 +831,12 @@ done:
    if (s_ssl != NULL)
    {
       int res;
-      SSL_CTX* ctx = SSL_get_SSL_CTX(s_ssl);
       res = SSL_shutdown(s_ssl);
       if (res == 0)
       {
          SSL_shutdown(s_ssl);
       }
       SSL_free(s_ssl);
-      SSL_CTX_free(ctx);
    }
 
    pgagroal_disconnect(socket);

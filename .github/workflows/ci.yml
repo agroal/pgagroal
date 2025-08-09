@@ -40,6 +40,7 @@ jobs:
             clang \
             net-tools \
             gcovr \
+            openssl \
             pandoc texlive texlive-latex-extra texlive-fonts-extra texlive-xetex \
             texlive-luatex texlive-science texlive-extra-utils
 
@@ -95,6 +96,14 @@ jobs:
 
       - name: Run config tests
         run: $(which bash) ./testsuite.sh run-configs
+        working-directory: /home/runner/work/pgagroal/pgagroal/build
+
+      - name: Run CLI comprehensive test (Standard mode) - Run ${{ matrix.count }}
+        run: $(which bash) ./test_cli_comprehensive.sh --debug
+        working-directory: /home/runner/work/pgagroal/pgagroal/build
+
+      - name: Run CLI comprehensive test (TLS mode) - Run ${{ matrix.count }}
+        run: $(which bash) ./test_cli_comprehensive.sh --debug --tls
         working-directory: /home/runner/work/pgagroal/pgagroal/build
 
 # === Generate coverage reports ===
@@ -180,7 +189,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew update
-          brew install openssl libev zstd lz4 libssh bzip2 docutils check graphviz doxygen
+          brew install openssl libev zstd lz4 libssh bzip2 docutils check graphviz doxygen coreutils
           brew install postgresql${POSTGRESQL_VERSION}
           
       - name: Add PostgreSQL to Path
@@ -215,6 +224,14 @@ jobs:
       - name: Clean up after Clang tests
         working-directory: ${{ env.BUILD_DIR }}
         run: $(which bash) ./testsuite.sh clean
+
+      - name: Run cli_tests with Clang build (Standard mode) - Run ${{ matrix.count }}
+        working-directory: ${{ env.BUILD_DIR }}
+        run: $(which bash) ./test_cli_comprehensive.sh --debug
+
+      - name: Run cli_tests with Clang build (TLS mode) - Run ${{ matrix.count }}
+        working-directory: ${{ env.BUILD_DIR }}
+        run: $(which bash) ./test_cli_comprehensive.sh --debug --tls
 
       - name: Show logs on failure
         if: failure()
@@ -313,7 +330,8 @@ jobs:
               hs-pandoc \
               texlive-base \
               texlive-texmf \
-              graphviz 
+              graphviz \
+              jq
             # Initialize Graphviz plugins after installation
             dot -c
       - name: Build Project
@@ -333,6 +351,18 @@ jobs:
         run: |
           cd ${GITHUB_WORKSPACE}/build
           bash ./testsuite.sh clean
+      - name: Run CLI comprehensive test (Standard mode) - Run ${{ matrix.count }}
+        shell: freebsd {0}
+        run: |
+          cd "${GITHUB_WORKSPACE}/build"
+          bash ./test_cli_comprehensive.sh --debug
+
+      - name: Run CLI comprehensive test (TLS mode) - Run ${{ matrix.count }}
+        shell: freebsd {0}
+        run: |
+          cd "${GITHUB_WORKSPACE}/build"
+          bash ./test_cli_comprehensive.sh --debug --tls
+
       - name: Upload Build Artifacts
         if: always()
         uses: actions/upload-artifact@v4
