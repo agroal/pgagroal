@@ -840,14 +840,12 @@ done:
    if (s_ssl != NULL)
    {
       int res;
-      SSL_CTX* ctx = SSL_get_SSL_CTX(s_ssl);
       res = SSL_shutdown(s_ssl);
       if (res == 0)
       {
          SSL_shutdown(s_ssl);
       }
       SSL_free(s_ssl);
-      SSL_CTX_free(ctx);
    }
 
    pgagroal_disconnect(socket);
