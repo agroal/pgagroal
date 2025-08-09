@@ -124,6 +124,12 @@ file(
 
 file(
     COPY
+    "${CMAKE_SOURCE_DIR}/test/test_cli_comprehensive.sh"
+    DESTINATION "${CMAKE_BINARY_DIR}/"
+)
+
+file(
+    COPY
     "${CMAKE_SOURCE_DIR}/test/conf"
     DESTINATION "${CMAKE_BINARY_DIR}/"
 )
