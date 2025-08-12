@@ -153,13 +153,21 @@ pgagroal_recv_message(struct io_watcher* watcher, struct message** msg)
    struct main_configuration* config = (struct main_configuration*)shmem;
    struct worker_io* wi = (struct worker_io*)watcher;
 
-   if (wi->server_ssl)
+   int rfd = watcher->fds.worker.rcv_fd;
+
+   /* Use the correct TLS context for the receiving endpoint */
+   if (rfd == wi->client_fd && wi->client_ssl != NULL)
+   {
+      return ssl_read_message(wi->client_ssl, 0, msg);
+   }
+   if (rfd == wi->server_fd && wi->server_ssl != NULL)
    {
       return ssl_read_message(wi->server_ssl, 0, msg);
    }
+
    if (config->ev_backend != PGAGROAL_EVENT_BACKEND_IO_URING)
    {
-      return read_message(watcher->fds.worker.rcv_fd, false, 0, msg);
+      return read_message(rfd, false, 0, msg);
    }
    return read_message_from_buffer(watcher, msg);
 }
@@ -170,13 +178,21 @@ pgagroal_send_message(struct io_watcher* watcher, struct message* msg)
    struct main_configuration* config = (struct main_configuration*)shmem;
    struct worker_io* wi = (struct worker_io*)watcher;
 
-   if (wi->server_ssl)
+   int sfd = watcher->fds.worker.snd_fd;
+
+   /* Use the correct TLS context for the sending endpoint */
+   if (sfd == wi->client_fd && wi->client_ssl != NULL)
+   {
+      return ssl_write_message(wi->client_ssl, msg);
+   }
+   if (sfd == wi->server_fd && wi->server_ssl != NULL)
    {
       return ssl_write_message(wi->server_ssl, msg);
    }
+
    if (config->ev_backend != PGAGROAL_EVENT_BACKEND_IO_URING)
    {
-      return write_message(watcher->fds.worker.snd_fd, msg);
+      return write_message(sfd, msg);
    }
    return write_message_from_buffer(watcher, msg);
 }
@@ -1451,6 +1467,8 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
    ssize_t numbytes;
    time_t start_time;
    struct message* m = NULL;
+
+   pgagroal_memory_init();
 
    if (unlikely(timeout > 0))
    {
