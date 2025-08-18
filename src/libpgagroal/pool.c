@@ -100,17 +100,6 @@ start:
    do_init = false;
    has_lock = false;
 
-   if (best_rule >= 0)
-   {
-      // ENHANCED: Use alias-aware connection counting
-      connections = get_connection_count_for_limit_rule(best_rule, username);
-      if (connections >= config->limits[best_rule].max_size)
-      {
-         goto retry;
-      }
-
-   }
-
    connections = atomic_fetch_add(&config->active_connections, 1);
    has_lock = true;
    if (connections >= config->max_connections)
@@ -158,6 +147,16 @@ start:
 
    if (*slot == -1 && !transaction_mode)
    {
+
+      if (best_rule >= 0)
+      {
+         int rule_count = get_connection_count_for_limit_rule(best_rule, username);
+         if (rule_count >= config->limits[best_rule].max_size)
+         {
+            goto retry;
+         }
+      }
+
       /* Ok, try and create a new connection */
       for (int i = 0; *slot == -1 && i < config->max_connections; i++)
       {
