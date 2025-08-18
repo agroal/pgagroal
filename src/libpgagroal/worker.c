@@ -182,7 +182,6 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       }
 
       pgagroal_event_loop_run();
-      pgagroal_event_loop_destroy();
 
       if (config->pipeline == PIPELINE_TRANSACTION)
       {
@@ -221,6 +220,7 @@ pgagroal_worker(int client_fd, char* address, char** argv)
       {
          p.stop(loop, &client_io);
          pgagroal_prometheus_session_time(difftime(time(NULL), start_time));
+         pgagroal_event_loop_destroy();
       }
 
       if ((auth_status == AUTH_SUCCESS || auth_status == AUTH_BAD_PASSWORD) &&

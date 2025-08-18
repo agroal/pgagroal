@@ -126,8 +126,6 @@ start:
                if (!strcmp((const char*)(&config->connections[i].database), real_database))
                {
                   can_reuse = true;
-                  pgagroal_log_debug("Reusing connection: client_db='%s' matches stored_db='%s'",
-                                     database, config->connections[i].database);
                }
                // Check if both are aliases of the same real database
 
@@ -1818,8 +1816,6 @@ resolve_database_name(char* database, int best_rule)
    {
       if (!strcmp(database, config->limits[best_rule].aliases[j]))
       {
-         pgagroal_log_debug("Resolving alias '%s' to real database '%s'",
-                            database, config->limits[best_rule].database);
          return config->limits[best_rule].database; // Return real database name
       }
    }

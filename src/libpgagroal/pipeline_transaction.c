@@ -169,10 +169,10 @@ transaction_stop(struct event_loop* loop, struct worker_io* w)
       if (in_tx)
       {
          /* ROLLBACK */
-         pgagroal_write_rollback(NULL, config->connections[slot].fd);
+         pgagroal_write_rollback(w->server_ssl, config->connections[slot].fd);
       }
 
-      pgagroal_io_stop((struct io_watcher*)&server_io);
+      pgagroal_io_stop(&server_io.io);
       pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION_STOP, w->slot);
       pgagroal_return_connection(slot, w->server_ssl, true);
       slot = -1;
@@ -213,9 +213,11 @@ transaction_client(struct io_watcher* watcher)
          goto get_error;
       }
 
-      wi->server_fd = config->connections[slot].fd;
+      wi->server_fd = fds[slot];
       wi->server_ssl = s_ssl;
       wi->slot = slot;
+
+      pgagroal_event_worker_init(&wi->io, wi->client_fd, wi->server_fd, transaction_client);
 
       memcpy(&config->connections[slot].appname[0], &appname[0], MAX_APPLICATION_NAME);
 
@@ -309,6 +311,7 @@ transaction_client(struct io_watcher* watcher)
       else if (msg->kind == 'X')
       {
          saw_x = true;
+         pgagroal_event_loop_break();
       }
    }
    else if (status == MESSAGE_STATUS_ZERO)
@@ -392,10 +395,6 @@ transaction_server(struct io_watcher* watcher)
    wi = (struct worker_io*)watcher;
    config = (struct main_configuration*)shmem;
 
-   /* We can't use the information from wi except from client_fd/client_ssl */
-   wi->server_fd = config->connections[slot].fd;
-   wi->slot = slot;
-
    if (!pgagroal_socket_isvalid(wi->client_fd))
    {
       goto client_error;
@@ -469,7 +468,7 @@ transaction_server(struct io_watcher* watcher)
       {
          if (has_z && !in_tx && slot != -1)
          {
-            pgagroal_io_stop((struct io_watcher*)&server_io);
+            pgagroal_io_stop(&server_io.io);
 
             if (deallocate)
             {
@@ -490,7 +489,7 @@ transaction_server(struct io_watcher* watcher)
       {
          if (has_z && !in_tx && slot != -1)
          {
-            pgagroal_io_stop((struct io_watcher*)&server_io);
+            pgagroal_io_stop(&server_io.io);
 
             exit_code = WORKER_SERVER_FATAL;
             pgagroal_event_loop_break();
@@ -506,7 +505,6 @@ transaction_server(struct io_watcher* watcher)
       goto server_error;
    }
 
-   pgagroal_event_loop_break();
    return;
 
 client_error:
@@ -568,7 +566,7 @@ shutdown_mgt(struct event_loop* loop __attribute__((unused)))
    config = (struct main_configuration*)shmem;
 
    memset(&p, 0, sizeof(p));
-   snprintf(&p[0], sizeof(p), ".s.%d", getpid());
+   snprintf(&p[0], sizeof(p), ".s.pgagroal.%d", getpid());
 
    pgagroal_io_stop(&io_mgt);
    pgagroal_disconnect(unix_socket);
@@ -588,7 +586,7 @@ accept_cb(struct io_watcher* watcher)
 
    config = (struct main_configuration*)shmem;
 
-   client_fd = watcher->fds.worker.snd_fd;
+   client_fd = watcher->fds.main.client_fd;
    if (client_fd == -1)
    {
       pgagroal_log_debug("accept: %s (%d)", strerror(errno), client_fd);
