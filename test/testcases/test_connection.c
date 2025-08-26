@@ -26,19 +26,39 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PGAGROAL_TEST2_H
-#define PGAGROAL_TEST2_H
+#include <tsclient.h>
+#include <tssuite.h>
 
-#include <check.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+// simple
+START_TEST(test_pgagroal_connection)
+{
+   int found = 0;
+   found = !pgagroal_tsclient_execute_pgbench(user, database, true, 0, 0, 0);
+   ck_assert_msg(found, "success status not found");
+}
 
-/**
- * Set up a suite of test cases for pgagroal
- * @return The result
- */
+// baseline
+START_TEST(test_pgagroal_connection_load)
+{
+   int found = 0;
+   found = !pgagroal_tsclient_execute_pgbench(user, database, true, 8, 0, 1000);
+   ck_assert_msg(found, "success status not found");
+}
+
 Suite*
-pgagroal_test2_suite();
+pgagroal_test_connection_suite()
+{
+   Suite* s;
+   TCase* tc_core;
 
-#endif // PGAGROAL_TEST2_H
+   s = suite_create("pgagroal_test_connection");
+
+   tc_core = tcase_create("Core");
+
+   tcase_set_timeout(tc_core, 60);
+   tcase_add_test(tc_core, test_pgagroal_connection);
+   tcase_add_test(tc_core, test_pgagroal_connection_load);
+   suite_add_tcase(s, tc_core);
+
+   return s;
+}

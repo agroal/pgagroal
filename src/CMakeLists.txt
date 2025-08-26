@@ -27,16 +27,6 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     ${LZ4_INCLUDE_DIRS}
   )
 
-  find_program(GCOV_PATH gcov)
-  find_program(GCOVR_PATH gcovr)
-  # Enable coverage only if both gcov and gcovr are found and compiler is GCC
- if(GCOV_PATH AND GCOVR_PATH AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
-  set(ENABLE_COVERAGE ON)
-  message(STATUS "Coverage tools (gcov and gcovr) found and compiler is GCC: Code coverage ENABLED")
- else()
-  message(STATUS "Coverage tools not found or compiler is not GCC: Code coverage SKIPPED")
- endif()
-
   #
   # Library directories
   #
@@ -170,14 +160,6 @@ add_compile_options(-D_GNU_SOURCE)
 add_compile_options(-Wno-deprecated)
 add_compile_options(-Wno-deprecated-declarations)
 
-if(ENABLE_COVERAGE)
-  add_compile_options(--coverage -O0 -g)
-  add_link_options(--coverage)
-  message(STATUS "Building with coverage enabled")
-else()
-  message(STATUS "Building without coverage")
-endif()
-
 #
 # version number and string management
 #
@@ -254,6 +236,9 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
   endif()
 
   if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(-fprofile-instr-generate)
+    add_compile_options(-fcoverage-mapping)
+    add_link_options(-fprofile-instr-generate)
     if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
       if (NOT ${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
         if (CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 3.2)
@@ -286,6 +271,8 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
       endif()
     endif()
   elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(--coverage -O0 -g)
+    add_link_options(--coverage)
     if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
       if (NOT ${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
         if (CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 4.8)

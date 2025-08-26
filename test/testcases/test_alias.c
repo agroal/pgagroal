@@ -26,19 +26,57 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PGAGROAL_TEST1_H
-#define PGAGROAL_TEST1_H
+#include <tsclient.h>
+#include <tssuite.h>
 
-#include <check.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+// Test connecting with first database alias
+START_TEST(test_pgagroal_database_alias1)
+{
+   int found = 0;
+   found = !pgagroal_tsclient_execute_pgbench(user, "pgalias1", true, 0, 0, 0);
+   ck_assert_msg(found, "Connection to database alias1 failed");
+}
 
-/**
- * Set up a suite of test cases for pgagroal
- * @return The result
- */
+// Test connecting with second database alias
+START_TEST(test_pgagroal_database_alias2)
+{
+   int found = 0;
+   found = !pgagroal_tsclient_execute_pgbench(user, "pgalias2", true, 0, 0, 0);
+   ck_assert_msg(found, "Connection to database alias2 failed");
+}
+
+// Test connecting with first database alias
+START_TEST(test_pgagroal_database_alias1_load)
+{
+   int found = 0;
+   found = !pgagroal_tsclient_execute_pgbench(user, "pgalias1", true, 8, 0, 1000);
+   ck_assert_msg(found, "Connection to database alias1 failed");
+}
+
+// Test connecting with second database alias
+START_TEST(test_pgagroal_database_alias2_load)
+{
+   int found = 0;
+   found = !pgagroal_tsclient_execute_pgbench(user, "pgalias2", true, 8, 0, 1000);
+   ck_assert_msg(found, "Connection to database alias2 failed");
+}
+
 Suite*
-pgagroal_test1_suite();
+pgagroal_test_alias_suite()
+{
+   Suite* s;
+   TCase* tc_core;
 
-#endif // PGAGROAL_TEST1_H
+   s = suite_create("pgagroal_test_alias");
+
+   tc_core = tcase_create("Core");
+
+   tcase_set_timeout(tc_core, 60);
+   tcase_add_test(tc_core, test_pgagroal_database_alias1);
+   tcase_add_test(tc_core, test_pgagroal_database_alias2);
+   tcase_add_test(tc_core, test_pgagroal_database_alias1_load);
+   tcase_add_test(tc_core, test_pgagroal_database_alias2_load);
+   suite_add_tcase(s, tc_core);
+
+   return s;
+}
