@@ -418,8 +418,12 @@ pgagroal_art_delete(struct art* t, char* key)
       return 1;
    }
    l = art_node_delete(t->root, &t->root, 0, (unsigned char*)key, strlen(key) + 1);
-   t->size--;
-   pgagroal_value_destroy(l->value);
+   if (l != NULL)
+   {
+      t->size--;
+      pgagroal_value_destroy(l->value);
+   }
+
    free(l);
    return 0;
 }
@@ -696,7 +700,14 @@ art_node_insert(struct art_node* node, struct art_node** node_ref, uint32_t dept
       if (leaf_match(GET_LEAF(node), key, key_len))
       {
          old_val = GET_LEAF(node)->value;
-         pgagroal_value_create(type, value, &(GET_LEAF(node)->value));
+         if (config != NULL)
+         {
+            pgagroal_value_create_with_config(value, config, &(GET_LEAF(node)->value));
+         }
+         else
+         {
+            pgagroal_value_create(type, value, &(GET_LEAF(node)->value));
+         }
          return old_val;
       }
       // If the key does not match with existing key, old key and new key diverged some point after depth
@@ -1262,6 +1273,7 @@ node4_remove_child(struct art_node4* node, struct art_node** node_ref, unsigned 
       if (IS_LEAF(child))
       {
          // replace directly
+         free(node);
          *node_ref = child;
          return;
       }
