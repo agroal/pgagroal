@@ -800,7 +800,7 @@ username:
    }
    else if (parsed.cmd->action == MANAGEMENT_RELOAD)
    {
-      exit_code = reload(s_ssl, socket, compression, encryption, output_format);
+         exit_code = reload(s_ssl, socket, compression, encryption, output_format);
    }
    else if (parsed.cmd->action == MANAGEMENT_CONFIG_LS)
    {
