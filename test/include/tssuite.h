@@ -26,58 +26,26 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PGAGROAL_TSCLIENT_H
-#define PGAGROAL_TSCLIENT_H
+#ifndef PGAGROAL_TEST_SUITE_H
+#define PGAGROAL_TEST_SUITE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <json.h>
-
+#include <check.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define BUFFER_SIZE 8192
-
-#define PGBENCH_LOG_FILE_TRAIL          "/log/pgbench.log"
-#define PGAGROAL_CONFIGURATION_TRAIL    "/pgagroal-testsuite/conf/pgagroal.conf"
-
-extern char project_directory[BUFFER_SIZE];
-extern char* user;
-extern char* database;
+/**
+ * Set up a connection test suite for pgagroal
+ * @return The result
+ */
+Suite*
+pgagroal_test_connection_suite();
 
 /**
- * Initialize the tsclient API
- * @param base_dir path to base
- * @return 0 upon success, otherwise 1
+ * Set up a alias test suite for pgagroal
+ * @return The result
  */
-int
-pgagroal_tsclient_init(char* base_dir);
-
-/**
- * Destroy the tsclient (must be used after pgagroal_tsclient_init)
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_tsclient_destroy();
-
-/**
- * A wrapper around pgbench specific to our usecase [benchmark options supported: '-c', '-j', '-t']
- * Execute a pgbench command for a set of instructions, assuming we are connecting to the 1st server
- * @param database name of the database
- * @param select_only true if we are only doing selects
- * @param client_count number of clients
- * @param thread_count number of threads
- * @param transaction_count number of transactions
- * @return 0 upon success, otherwise 1
- */
-int
-pgagroal_tsclient_execute_pgbench(char* user, char* database, bool select_only, int client_count, int thread_count, int transaction_count);
-
-#ifdef __cplusplus
-}
-#endif
+Suite*
+pgagroal_test_alias_suite();
 
 #endif

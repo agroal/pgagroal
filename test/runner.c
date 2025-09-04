@@ -27,17 +27,18 @@
  */
 
 #include <tsclient.h>
+#include <tssuite.h>
 
-#include "testcases/pgagroal_test_1.h"
-#include "testcases/pgagroal_test_2.h"
+char* user = NULL;
+char* database = NULL;
 
 int
 main(int argc, char* argv[])
 {
 
-   if (argc != 2)
+   if (argc != 4)
    {
-      printf("Usage: %s <project_directory>\n", argv[0]);
+      printf("Usage: %s <project_directory> <user> <database>\n", argv[0]);
       return 1;
    }
 
@@ -46,13 +47,16 @@ main(int argc, char* argv[])
    Suite* s2;
    SRunner* sr;
 
+   user = strdup(argv[2]);
+   database = strdup(argv[3]);
+
    if (pgagroal_tsclient_init(argv[1]))
    {
       goto error;
    }
 
-   s1 = pgagroal_test1_suite();
-   s2 = pgagroal_test2_suite();
+   s1 = pgagroal_test_connection_suite();
+   s2 = pgagroal_test_alias_suite();
 
    sr = srunner_create(s1);
    srunner_add_suite(sr, s2);
@@ -61,11 +65,15 @@ main(int argc, char* argv[])
    srunner_run_all(sr, CK_VERBOSE);
    number_failed = srunner_ntests_failed(sr);
    srunner_free(sr);
+   free(user);
+   free(database);
 
    pgagroal_tsclient_destroy();
    return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 
 error:
    pgagroal_tsclient_destroy();
+   free(user);
+   free(database);
    return EXIT_FAILURE;
 }

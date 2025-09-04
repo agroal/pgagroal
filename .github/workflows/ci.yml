@@ -37,6 +37,7 @@ jobs:
             check \
             graphviz \
             doxygen \
+            llvm \
             clang \
             net-tools \
             gcovr \
@@ -90,11 +91,7 @@ jobs:
               export ASAN_OPTIONS=detect_leaks=0,verify_asan_link_order=0
             fi
           fi
-          $(which bash) ./testsuite.sh
-        working-directory: /home/runner/work/pgagroal/pgagroal/build
-
-      - name: Run config tests
-        run: $(which bash) ./testsuite.sh run-configs
+          $(which bash) ./check.sh run-configs-ci-nonbuild
         working-directory: /home/runner/work/pgagroal/pgagroal/build
 
 # === Generate coverage reports ===
@@ -142,12 +139,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: logs-${{ matrix.compiler }}-${{ matrix.build_type }}
-          path: /home/runner/work/pgagroal/pgagroal/build/log
+          path: |
+           /home/runner/work/pgagroal/pgagroal/log
+           /tmp/pgagroal-test/*
           retention-days: 90
-
-      - name: Clean Testsuite
-        run: $(which bash) ./testsuite.sh clean
-        working-directory: /home/runner/work/pgagroal/pgagroal/build
 
       - name: Upload Generated Documentation Artifact
         if: matrix.compiler == 'gcc' && matrix.build_type == 'Release'
@@ -181,11 +176,11 @@ jobs:
         run: |
           brew update
           brew install openssl libev zstd lz4 libssh bzip2 docutils check graphviz doxygen
-          brew install postgresql${POSTGRESQL_VERSION}
+          # brew install postgresql${POSTGRESQL_VERSION}
           
-      - name: Add PostgreSQL to Path
-        run: |
-          echo "$(brew --prefix postgresql${POSTGRESQL_VERSION})/bin" >> $GITHUB_PATH
+      # - name: Add PostgreSQL to Path
+      #   run: |
+      #     echo "$(brew --prefix postgresql${POSTGRESQL_VERSION})/bin" >> $GITHUB_PATH
      
       # - name: Start PostgreSQL
       #   run: |
@@ -208,30 +203,30 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=Debug ..
           make -j$(sysctl -n hw.ncpu)
       
-      - name: Run tests with Clang build
-        working-directory: ${{ env.BUILD_DIR }}
-        run: $(which bash) ./testsuite.sh
+      # - name: Run tests with Clang build
+      #   working-directory: ${{ env.BUILD_DIR }}
+      #   run: $(which bash) ./testsuite.sh
   
-      - name: Clean up after Clang tests
-        working-directory: ${{ env.BUILD_DIR }}
-        run: $(which bash) ./testsuite.sh clean
+      # - name: Clean up after Clang tests
+      #   working-directory: ${{ env.BUILD_DIR }}
+      #   run: $(which bash) ./testsuite.sh clean
 
-      - name: Show logs on failure
-        if: failure()
-        working-directory: ${{ env.BUILD_DIR }}
-        run: |
-          cat ./log/logfile || echo "logfile not found"
-          cat ./log/pgagroal.log || echo "pgagroal.log not found"
+      # - name: Show logs on failure
+      #   if: failure()
+      #   working-directory: ${{ env.BUILD_DIR }}
+      #   run: |
+      #     cat ./log/logfile || echo "logfile not found"
+      #     cat ./log/pgagroal.log || echo "pgagroal.log not found"
 
-      - name: Upload logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-build-logs
-          path: |
-            ${{ env.BUILD_DIR }}/log/
-            /tmp/*.log
-          retention-days: 7
+      # - name: Upload logs on failure
+      #   if: failure()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: macos-build-logs
+      #     path: |
+      #       ${{ env.BUILD_DIR }}/log/
+      #       /tmp/*.log
+      #     retention-days: 7
 
       # - name: Run pgagroal and test
       #   run: |
@@ -323,22 +318,22 @@ jobs:
           cd $GITHUB_WORKSPACE/build
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} "$GITHUB_WORKSPACE"
           make -j$(sysctl -n hw.ncpu)
-      - name: Debug Testsuite Path
-        shell: freebsd {0}
-        run: |
-          cd "${GITHUB_WORKSPACE}/build"
-          bash ./testsuite.sh
-      - name: Clean Testsuite
-        shell: freebsd {0}
-        run: |
-          cd ${GITHUB_WORKSPACE}/build
-          bash ./testsuite.sh clean
-      - name: Upload Build Artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: freebsd-${{ matrix.compiler }}-${{ matrix.build_type }}-logs
-          path: |
-            $GITHUB_WORKSPACE/build/log/*
-            /tmp/*.log
-          retention-days: 7
+      # - name: Debug Testsuite Path
+      #   shell: freebsd {0}
+      #   run: |
+      #     cd "${GITHUB_WORKSPACE}/build"
+      #     bash ./testsuite.sh
+      # - name: Clean Testsuite
+      #   shell: freebsd {0}
+      #   run: |
+      #     cd ${GITHUB_WORKSPACE}/build
+      #     bash ./testsuite.sh clean
+      # - name: Upload Build Artifacts
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: freebsd-${{ matrix.compiler }}-${{ matrix.build_type }}-logs
+      #     path: |
+      #       $GITHUB_WORKSPACE/build/log/*
+      #       /tmp/*.log
+      #     retention-days: 7

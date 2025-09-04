@@ -1,0 +1,60 @@
+#!/bin/bash
+# Copyright (C) 2025 The pgagroal community
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list
+# of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice, this
+# list of conditions and the following disclaimer in the documentation and/or other
+# materials provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its contributors may
+# be used to endorse or promote products derived from this software without specific
+# prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+# THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+# OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+# TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+export PG_MAX_CONNECTIONS=${PG_MAX_CONNECTIONS:-100}
+export PG_SHARED_BUFFERS=${PG_SHARED_BUFFERS:-256MB}
+export PG_WORK_MEM=${PG_WORK_MEM:-4MB}
+export PG_MAX_PARALLEL_WORKERS=${PG_MAX_PARALLEL_WORKERS:-8}
+export PG_EFFECTIVE_CACHE_SIZE=${PG_EFFECTIVE_CACHE_SIZE:-4GB}
+export PG_MAX_WAL_SIZE=${PG_MAX_WAL_SIZE:-1GB}
+export PG_LOG_LEVEL=${PG_LOG_LEVEL:-debug5}
+
+/usr/lib/postgresql/17/bin/initdb -k -X /pgwal/ /pgdata/
+
+sed -i "s/PG_MAX_CONNECTIONS/$PG_MAX_CONNECTIONS/g" /conf/postgresql.conf
+sed -i "s/PG_SHARED_BUFFERS/$PG_SHARED_BUFFERS/g" /conf/postgresql.conf
+sed -i "s/PG_WORK_MEM/$PG_WORK_MEM/g" /conf/postgresql.conf
+sed -i "s/PG_MAX_PARALLEL_WORKERS/$PG_MAX_PARALLEL_WORKERS/g" /conf/postgresql.conf
+sed -i "s/PG_EFFECTIVE_CACHE_SIZE/$PG_EFFECTIVE_CACHE_SIZE/g" /conf/postgresql.conf
+sed -i "s/PG_MAX_WAL_SIZE/$PG_MAX_WAL_SIZE/g" /conf/postgresql.conf
+sed -i "s/PG_LOG_LEVEL/$PG_LOG_LEVEL/g" /conf/postgresql.conf
+
+sed -i "s/PG_DATABASE/$PG_DATABASE/g" /conf/pg_hba.conf
+sed -i "s/PG_USER_NAME/$PG_USER_NAME/g" /conf/pg_hba.conf
+sed -i "s/PG_REPL_USER_NAME/$PG_REPL_USER_NAME/g" /conf/pg_hba.conf
+
+cp /conf/postgresql.conf /pgdata/
+cp /conf/pg_hba.conf /pgdata/
+
+sed -i "s/PG_DATABASE/$PG_DATABASE/g" /conf/setup.sql
+sed -i "s/PG_USER_NAME/$PG_USER_NAME/g" /conf/setup.sql
+sed -i "s/PG_USER_PASSWORD/$PG_USER_PASSWORD/g" /conf/setup.sql
+sed -i "s/PG_REPL_USER_NAME/$PG_REPL_USER_NAME/g" /conf/setup.sql
+sed -i "s/PG_REPL_PASSWORD/$PG_REPL_PASSWORD/g" /conf/setup.sql
+
+/usr/lib/postgresql/17/bin/pg_ctl -D /pgdata/ start
+/usr/lib/postgresql/17/bin/psql -q -h /tmp -f /conf/setup.sql postgres

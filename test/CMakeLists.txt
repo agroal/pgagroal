@@ -1,11 +1,12 @@
 if (check)
 
-  set(SOURCES
-    runner.c
-    tsclient.c
-    testcases/pgagroal_test_1.c
-    testcases/pgagroal_test_2.c
-  )
+  file(GLOB_RECURSE TEST_SOURCES
+    "libpgagroaltest/*.c"
+    "testcases/*.c")
+  file(GLOB_RECURSE TEST_HEADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
+
+  set(SOURCES ${TEST_SOURCES} ${TEST_HEADERS})
 
   if (CMAKE_BUILD_TYPE MATCHES Debug)
     add_compile_options(-O0)
@@ -88,7 +89,7 @@ if (check)
     endif()
   endif()
 
-  add_executable(pgagroal_test ${SOURCES})
+  add_executable(pgagroal_test runner.c ${SOURCES})
   target_include_directories(pgagroal_test PRIVATE ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR}/test/include)
 
   if(EXISTS "/etc/debian_version")
@@ -108,7 +109,7 @@ endif()
 if(container)
 
 add_test(NAME container_test
-           COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/coverage.sh
+           COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/check.sh
            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 set_property(TEST container_test
@@ -118,22 +119,11 @@ endif()
 
 file(
     COPY
-    "${CMAKE_SOURCE_DIR}/test/testsuite.sh"
-    DESTINATION "${CMAKE_BINARY_DIR}/"
-)
-
-file(
-    COPY
     "${CMAKE_SOURCE_DIR}/test/conf"
     DESTINATION "${CMAKE_BINARY_DIR}/"
 )
 configure_file(
-  "${CMAKE_SOURCE_DIR}/test/coverage.sh"
-  "${CMAKE_BINARY_DIR}/coverage.sh"
-  COPYONLY
-)
-configure_file(
-  "${CMAKE_SOURCE_DIR}/test/Dockerfile.testsuite"
-  "${CMAKE_BINARY_DIR}/Dockerfile.testsuite"
+  "${CMAKE_SOURCE_DIR}/test/check.sh"
+  "${CMAKE_BINARY_DIR}/check.sh"
   COPYONLY
 )
