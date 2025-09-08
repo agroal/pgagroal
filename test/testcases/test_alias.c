@@ -28,6 +28,7 @@
 
 #include <tsclient.h>
 #include <tssuite.h>
+#include <tscommon.h>
 
 // Test connecting with first database alias
 START_TEST(test_pgagroal_database_alias1)
@@ -72,6 +73,7 @@ pgagroal_test_alias_suite()
    tc_core = tcase_create("Core");
 
    tcase_set_timeout(tc_core, 60);
+   tcase_add_checked_fixture(tc_core, pgagroal_test_setup, pgagroal_test_teardown);
    tcase_add_test(tc_core, test_pgagroal_database_alias1);
    tcase_add_test(tc_core, test_pgagroal_database_alias2);
    tcase_add_test(tc_core, test_pgagroal_database_alias1_load);

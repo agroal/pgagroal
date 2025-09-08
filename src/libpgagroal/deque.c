@@ -108,6 +108,10 @@ pgagroal_deque_create(bool thread_safe, struct deque** deque)
 int
 pgagroal_deque_add(struct deque* deque, char* tag, uintptr_t data, enum value_type type)
 {
+   if (deque == NULL || type == ValueNone)
+   {
+      return 1;
+   }
    deque_offer(deque, tag, data, type, NULL);
    return 0;
 }

@@ -28,6 +28,7 @@
 
 #include <tsclient.h>
 #include <tssuite.h>
+#include <tscommon.h>
 
 // simple
 START_TEST(test_pgagroal_connection)
@@ -56,6 +57,7 @@ pgagroal_test_connection_suite()
    tc_core = tcase_create("Core");
 
    tcase_set_timeout(tc_core, 60);
+   tcase_add_checked_fixture(tc_core, pgagroal_test_setup, pgagroal_test_teardown);
    tcase_add_test(tc_core, test_pgagroal_connection);
    tcase_add_test(tc_core, test_pgagroal_connection_load);
    suite_add_tcase(s, tc_core);

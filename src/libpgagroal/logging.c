@@ -303,6 +303,7 @@ pgagroal_stop_logging(void)
 void
 pgagroal_log_line(int level, char* file, int line, char* fmt, ...)
 {
+   FILE* output = NULL;
    signed char isfree;
    struct configuration* config;
 
@@ -331,6 +332,15 @@ pgagroal_log_line(int level, char* file, int line, char* fmt, ...)
             break;
          default:
             break;
+      }
+
+      if (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
+      {
+         output = stdout;
+      }
+      else if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
+      {
+         output = (log_file != NULL) ? log_file : stdout;
       }
 
 retry:
@@ -367,25 +377,28 @@ retry:
          if (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
          {
             buf[strftime(buf, sizeof(buf), config->log_line_prefix, tm)] = '\0';
-            fprintf(stdout, "%s %s%-5s\x1b[0m \x1b[90m%s:%d\x1b[0m ",
+            fprintf(output, "%s %s%-5s\x1b[0m \x1b[90m%s:%d\x1b[0m ",
                     buf, colors[level - 1], levels[level - 1],
                     filename, line);
-            vfprintf(stdout, fmt, vl);
-            fprintf(stdout, "\n");
-            fflush(stdout);
+            vfprintf(output, fmt, vl);
+            fprintf(output, "\n");
+            fflush(output);
          }
          else if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
          {
             buf[strftime(buf, sizeof(buf), config->log_line_prefix, tm)] = '\0';
-            fprintf(log_file, "%s %-5s %s:%d ",
+            fprintf(output, "%s %-5s %s:%d ",
                     buf, levels[level - 1], filename, line);
-            vfprintf(log_file, fmt, vl);
-            fprintf(log_file, "\n");
-            fflush(log_file);
+            vfprintf(output, fmt, vl);
+            fprintf(output, "\n");
+            fflush(output);
 
-            if (log_rotation_required())
+            if (output == log_file && log_file != NULL)
             {
-               log_file_rotate();
+               if (log_rotation_required())
+               {
+                  log_file_rotate();
+               }
             }
          }
          else if (config->log_type == PGAGROAL_LOGGING_TYPE_SYSLOG)
@@ -432,6 +445,7 @@ pgagroal_log_mem(void* data, size_t size)
 {
    signed char isfree;
    struct configuration* config;
+   FILE* out = NULL;
 
    config = (struct configuration*)shmem;
 
@@ -493,17 +507,23 @@ retry:
             k++;
          }
 
-         if (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
          {
-            fprintf(stdout, "%s", buf);
-            fprintf(stdout, "\n");
-            fflush(stdout);
-         }
-         else if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
-         {
-            fprintf(log_file, "%s", buf);
-            fprintf(log_file, "\n");
-            fflush(log_file);
+
+            if (config->log_type == PGAGROAL_LOGGING_TYPE_CONSOLE)
+            {
+               out = stdout;
+            }
+            else if (config->log_type == PGAGROAL_LOGGING_TYPE_FILE)
+            {
+               out = (log_file != NULL) ? log_file : stdout;
+            }
+
+            if (out != NULL)
+            {
+               fprintf(out, "%s", buf);
+               fprintf(out, "\n");
+               fflush(out);
+            }
          }
 
          atomic_store(&config->log_lock, STATE_FREE);

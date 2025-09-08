@@ -47,6 +47,7 @@ PG_LOG_DIR="$PGAGROAL_ROOT_DIR/pg_log"
 
 # BASE DIR holds all the run time data
 CONFIGURATION_DIRECTORY=$BASE_DIR/conf
+RESOURCE_DIRECTORY=$BASE_DIR/resource
 
 PG_DATABASE=mydb
 PG_USER_NAME=myuser
@@ -378,11 +379,19 @@ export_pgagroal_test_variables() {
 
   echo "export PGAGROAL_TEST_CONF=$CONFIGURATION_DIRECTORY/pgagroal.conf"
   export PGAGROAL_TEST_CONF=$CONFIGURATION_DIRECTORY/pgagroal.conf
+
+  echo "export PGAGROAL_TEST_CONF_DIR=$CONFIGURATION_DIRECTORY"
+  export PGAGROAL_TEST_CONF_DIR=$CONFIGURATION_DIRECTORY
+
+  echo "export PGAGROAL_TEST_RESOURCE_DIR=$RESOURCE_DIRECTORY"
+  export PGAGROAL_TEST_RESOURCE_DIR=$RESOURCE_DIRECTORY
 }
 
 unset_pgagroal_test_variables() {
   unset PGAGROAL_TEST_BASE_DIR
   unset PGAGROAL_TEST_CONF
+  unset PGAGROAL_TEST_CONF_DIR
+  unset PGAGROAL_TEST_RESOURCE_DIR
   unset LLVM_PROFILE_FILE
   unset CK_RUN_CASE
   unset CK_RUN_SUITE
@@ -509,8 +518,14 @@ run_tests() {
   sudo rm -Rf "$PGAGROAL_ROOT_DIR"
   mkdir -p "$PGAGROAL_ROOT_DIR"
   mkdir -p "$LOG_DIR" "$PG_LOG_DIR" "$COVERAGE_DIR" "$BASE_DIR"
-  mkdir -p "$CONFIGURATION_DIRECTORY"
+  mkdir -p "$CONFIGURATION_DIRECTORY" "$RESOURCE_DIRECTORY"
   mkdir -p "$PROJECT_DIRECTORY/log"
+  cp -R "$PROJECT_DIRECTORY/test/resource" $BASE_DIR
+  # Validate required ART resource exists
+  if [[ ! -f "$BASE_DIR/resource/art_advanced_test/words.txt" ]]; then
+    echo "Missing $BASE_DIR/resource/art_advanced_test/words.txt. Please add the original words.txt under test/resource/art_advanced_test/ in the repository."
+    exit 1
+  fi
   # Check if pgbench is available
   if ! command -v pgbench &> /dev/null; then
     echo "Warning: pgbench not found in PATH. Tests may fail."

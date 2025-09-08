@@ -28,6 +28,7 @@
 
 #include <tsclient.h>
 #include <tssuite.h>
+#include <tscommon.h>
 
 char* user = NULL;
 char* database = NULL;
@@ -45,10 +46,15 @@ main(int argc, char* argv[])
    int number_failed;
    Suite* s1;
    Suite* s2;
+   Suite* art_suite;
+   Suite* deque_suite;
+   Suite* json_suite;
    SRunner* sr;
 
    user = strdup(argv[2]);
    database = strdup(argv[3]);
+
+   pgagroal_test_setup();
 
    if (pgagroal_tsclient_init(argv[1]))
    {
@@ -57,9 +63,15 @@ main(int argc, char* argv[])
 
    s1 = pgagroal_test_connection_suite();
    s2 = pgagroal_test_alias_suite();
+   art_suite = pgagroal_test_art_suite();
+   deque_suite = pgagroal_test_deque_suite();
+   json_suite = pgagroal_test_json_suite();
 
    sr = srunner_create(s1);
    srunner_add_suite(sr, s2);
+   srunner_add_suite(sr, art_suite);
+   srunner_add_suite(sr, deque_suite);
+   srunner_add_suite(sr, json_suite);
 
    // Run the tests in verbose mode
    srunner_run_all(sr, CK_VERBOSE);

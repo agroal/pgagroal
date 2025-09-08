@@ -26,44 +26,49 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PGAGROAL_TEST_SUITE_H
-#define PGAGROAL_TEST_SUITE_H
+#ifndef PGAGROAL_TSCOMMON_H
+#define PGAGROAL_TSCOMMON_H
 
-#include <check.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-/**
- * Set up a connection test suite for pgagroal
- * @return The result
- */
-Suite*
-pgagroal_test_connection_suite();
-
-/**
- * Set up a alias test suite for pgagroal
- * @return The result
- */
-Suite*
-pgagroal_test_alias_suite();
-
-/**
- * Set up an art suite for pgagroal
- * @return The result
- */
-Suite* pgagroal_test_art_suite();
-
-/**
- * Set up a deque suite for pgagroal
- * @return The result
- */
-Suite* pgagroal_test_deque_suite();
-
-/**
- * Set up a json suite for pgagroal
- * @return The result
- */
-Suite* pgagroal_test_json_suite();
-
+#ifdef __cplusplus
+extern "C" {
 #endif
+
+#include <pgagroal.h>
+#include <stdbool.h>
+#include <stddef.h>
+
+#define ENV_VAR_BASE_DIR "PGAGROAL_TEST_BASE_DIR"
+#define ENV_VAR_CONF_PATH "PGAGROAL_TEST_CONF_DIR"
+#define ENV_VAR_RESTORE_DIR "PGAGROAL_TEST_RESOURCE_DIR"
+
+/*
+ * Base directory for tests. Populated by pgagroal_test_setup() from
+ * PGAGROAL_TEST_BASE_DIR or derived from project path.
+ */
+extern char TEST_BASE_DIR[MAX_PATH];
+
+/* Directories under TEST_BASE_DIR provisioned by check.sh */
+extern char TEST_CONF_DIR[MAX_PATH];      /* $BASE_DIR/conf */
+extern char TEST_RESOURCE_DIR[MAX_PATH];  /* $BASE_DIR/resource */
+
+/* Note: old TEST_RESTORE_DIR and TEST_CONFIG_SAMPLE_PATH removed */
+
+/* Create per-test environment (idempotent) */
+void pgagroal_test_setup(void);
+
+/* Teardown per-test environment (currently no-op) */
+void pgagroal_test_teardown(void);
+
+/* Explicit helpers if a test needs them */
+void pgagroal_test_environment_create(void);
+void pgagroal_test_environment_destroy(void);
+void pgagroal_test_basedir_cleanup(void);
+
+/* Verify essential directories exist; returns 0 on success */
+int pgagroal_test_verify_layout(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* PGAGROAL_TSCOMMON_H */
