@@ -4,7 +4,11 @@ IMAGE_NAME = pgagroal-test-postgresql17-rocky9
 CONTAINER_NAME = pgagroal-test-postgresql17
 
 # Detect container engine
-CONTAINER_ENGINE := $(shell command -v docker 2> /dev/null || command -v podman 2> /dev/null)
+CONTAINER_ENGINE := $(shell \
+	if command -v podman >/dev/null 2>&1; then echo podman; \
+	elif command -v docker >/dev/null 2>&1; then echo "sudo docker"; \
+	else echo "Neither Docker nor Podman is installed" >&2; exit 1; \
+	fi)
 
 .PHONY: all build clean run stop
 

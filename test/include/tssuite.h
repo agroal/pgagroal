@@ -48,4 +48,25 @@ pgagroal_test_connection_suite();
 Suite*
 pgagroal_test_alias_suite();
 
+/**
+ * Set up an art suite for pgagroal
+ * @return The result
+ */
+Suite*
+pgagroal_test_art_suite();
+
+/**
+ * Set up a deque suite for pgagroal
+ * @return The result
+ */
+Suite*
+pgagroal_test_deque_suite();
+
+/**
+ * Set up a json suite for pgagroal
+ * @return The result
+ */
+Suite*
+pgagroal_test_json_suite();
+
 #endif

@@ -507,6 +507,11 @@ deque_offer(struct deque* deque, char* tag, uintptr_t data, enum value_type type
    struct deque_node* n = NULL;
    struct deque_node* last = NULL;
 
+   if (type == ValueNone)
+   {
+      return;
+   }
+
    deque_node_create(data, type, tag, config, &n);
    deque_write_lock(deque);
    deque->size++;

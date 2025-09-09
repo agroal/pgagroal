@@ -47,6 +47,7 @@ PG_LOG_DIR="$PGAGROAL_ROOT_DIR/pg_log"
 
 # BASE DIR holds all the run time data
 CONFIGURATION_DIRECTORY=$BASE_DIR/conf
+RESOURCE_DIRECTORY=$BASE_DIR/resource
 
 PG_DATABASE=mydb
 PG_USER_NAME=myuser
@@ -60,7 +61,7 @@ PORT=6432
 
 # Detect container engine: Docker or Podman
 if command -v docker &> /dev/null; then
-  CONTAINER_ENGINE="docker"
+  CONTAINER_ENGINE="sudo docker"
 elif command -v podman &> /dev/null; then
   CONTAINER_ENGINE="podman"
 else
@@ -508,7 +509,8 @@ run_tests() {
   export LLVM_PROFILE_FILE="$COVERAGE_DIR/coverage-%m-%p.profraw"
   sudo rm -Rf "$PGAGROAL_ROOT_DIR"
   mkdir -p "$PGAGROAL_ROOT_DIR"
-  mkdir -p "$LOG_DIR" "$PG_LOG_DIR" "$COVERAGE_DIR" "$BASE_DIR"
+  mkdir -p "$LOG_DIR" "$PG_LOG_DIR" "$COVERAGE_DIR" "$BASE_DIR" "$RESOURCE_DIRECTORY"
+  cp -R "$PROJECT_DIRECTORY/test/resource" $BASE_DIR
   mkdir -p "$CONFIGURATION_DIRECTORY"
   mkdir -p "$PROJECT_DIRECTORY/log"
   # Check if pgbench is available

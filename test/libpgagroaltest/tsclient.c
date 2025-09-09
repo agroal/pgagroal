@@ -29,6 +29,7 @@
 #include <pgagroal.h>
 #include <configuration.h>
 #include <json.h>
+#include <logging.h>
 #include <network.h>
 #include <shmem.h>
 #include <tsclient.h>
@@ -81,6 +82,7 @@ pgagroal_tsclient_init(char* base_dir)
    {
       goto error;
    }
+   pgagroal_start_logging();
 
    free(configuration_path);
    return 0;
@@ -95,6 +97,7 @@ pgagroal_tsclient_destroy()
    size_t size;
 
    size = sizeof(struct main_configuration);
+   pgagroal_stop_logging();
    return pgagroal_destroy_shared_memory(shmem, size);
 }
 
