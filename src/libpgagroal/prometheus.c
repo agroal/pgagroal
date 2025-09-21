@@ -2801,43 +2801,17 @@ write_os_kernel_version(SSL* client_ssl, int client_fd)
       goto error;
    }
 
-#if defined(HAVE_LINUX)
-   data = pgagroal_append(data, "# HELP pgagroal_os_linux Kernel version as major.minor.patch\n");
-   data = pgagroal_append(data, "# TYPE pgagroal_os_linux gauge\n");
-   data = pgagroal_append(data, "pgagroal_os_linux{os=\"");
-
-#elif defined(HAVE_OPENBSD) || defined(HAVE_FREEBSD)
-   data = pgagroal_append(data, "# HELP pgagroal_os_bsd operating system version as major.minor\n");
-   data = pgagroal_append(data, "# TYPE pgagroal_os_bsd gauge\n");
-   data = pgagroal_append(data, "pgagroal_os_bsd{os=\"");
-
-#elif defined(HAVE_OSX)
-   data = pgagroal_append(data, "# HELP pgagroal_os_macos Kernel version as major.minor.patch\n");
-   data = pgagroal_append(data, "# TYPE pgagroal_os_macos gauge\n");
-   data = pgagroal_append(data, "pgagroal_os_macos{os=\"");
-
-#else
-   // For unsupported platforms
-   pgagroal_log_error("OS not supported for kernel version metrics");
-   goto error;
-
-#endif
-
+   data = pgagroal_append(data, "#HELP pgagroal_os_info Operating system version information\n");
+   data = pgagroal_append(data, "#TYPE pgagroal_os_info gauge\n");
+   data = pgagroal_append(data, "pgagroal_os_info{os=\"");
    data = pgagroal_append(data, os);
    data = pgagroal_append(data, "\", major=\"");
    data = pgagroal_append_int(data, major);
    data = pgagroal_append(data, "\", minor=\"");
    data = pgagroal_append_int(data, minor);
-
-#if defined(HAVE_LINUX) || defined(HAVE_OSX)
-   // Include patch version for Linux and macOS
    data = pgagroal_append(data, "\", patch=\"");
    data = pgagroal_append_int(data, patch);
-#endif
-
-   data = pgagroal_append(data, "\"} ");
-   data = pgagroal_append_int(data, 1); // 1 indicates success
-   data = pgagroal_append(data, "\n");
+   data = pgagroal_append(data, "\"} 1\n");
 
    send_chunk(client_ssl, client_fd, data);
    metrics_cache_append(data);
@@ -3077,7 +3051,7 @@ connection_awaiting_information(SSL* client_ssl, int client_fd)
    data = pgagroal_append(data, "#TYPE pgagroal_connection_awaiting gauge\n");
    data = pgagroal_append(data, "pgagroal_connection_awaiting ");
    data = pgagroal_append_ulong(data, atomic_load(&prometheus->connections_awaiting_total));
-   data = pgagroal_append(data, "\n\n");
+   data = pgagroal_append(data, "\n");
 
    if (config->number_of_limits > 0)
    {
