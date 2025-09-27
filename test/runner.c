@@ -48,6 +48,7 @@ main(int argc, char* argv[])
    Suite* art_suite;
    Suite* deque_suite;
    Suite* json_suite;
+   Suite* utf8_suite;
    SRunner* sr;
 
    user = strdup(argv[2]);
@@ -60,6 +61,7 @@ main(int argc, char* argv[])
 
    connection_suite = pgagroal_test_connection_suite();
    alias_suite = pgagroal_test_alias_suite();
+   utf8_suite = pgagroal_test_utf8_suite();
    art_suite = pgagroal_test_art_suite();
    deque_suite = pgagroal_test_deque_suite();
    json_suite = pgagroal_test_json_suite();
@@ -69,6 +71,7 @@ main(int argc, char* argv[])
    srunner_add_suite(sr, art_suite);
    srunner_add_suite(sr, deque_suite);
    srunner_add_suite(sr, json_suite);
+   srunner_add_suite(sr, utf8_suite);
 
    // Run the tests in verbose mode
    srunner_run_all(sr, CK_VERBOSE);
