@@ -35,8 +35,9 @@ export PG_LOG_LEVEL=${PG_LOG_LEVEL:-debug5}
 
 if [ -z "${PG_DATABASE}" ] ||
    [ -z "${PG_USER_NAME}" ] || [ -z "${PG_USER_PASSWORD}" ] ||
-   [ -z "${PG_REPL_USER_NAME}" ] || [ -z "${PG_REPL_PASSWORD}" ]; then
-    echo "PG_DATABASE, PG_USER_NAME, PG_USER_PASSWORD, PG_REPL_USER_NAME and PG_REPL_PASSWORD needs to be defined."
+   [ -z "${PG_REPL_USER_NAME}" ] || [ -z "${PG_REPL_PASSWORD}" ] ||
+   [ -z "${PG_UTF8_USER_NAME}" ] || [ -z "${PG_UTF8_USER_PASSWORD}" ] || [ -z "${PG_UTF8_DATABASE}" ]; then
+    echo "PG_DATABASE, PG_USER_NAME, PG_USER_PASSWORD, PG_REPL_USER_NAME, PG_REPL_PASSWORD, PG_UTF8_USER_NAME, PG_UTF8_USER_PASSWORD, and PG_UTF8_DATABASE needs to be defined."
     exit 1
 fi
 
@@ -45,6 +46,9 @@ export PG_USER_NAME=${PG_USER_NAME}
 export PG_USER_PASSWORD=${PG_USER_PASSWORD}
 export PG_REPL_USER_NAME=${PG_REPL_USER_NAME}
 export PG_REPL_PASSWORD=${PG_REPL_PASSWORD}
+export PG_UTF8_USER_NAME=${PG_UTF8_USER_NAME}
+export PG_UTF8_USER_PASSWORD=${PG_UTF8_USER_PASSWORD}
+export PG_UTF8_DATABASE=${PG_UTF8_DATABASE}
 /usr/pgsql-17/bin/initdb -k -X /pgwal/ /pgdata/
 
 sed -i "s/PG_MAX_CONNECTIONS/$PG_MAX_CONNECTIONS/g" /conf/postgresql.conf
@@ -65,6 +69,9 @@ cp /conf/pg_hba.conf /pgdata/
 sed -i "s/PG_DATABASE/$PG_DATABASE/g" /conf/setup.sql
 sed -i "s/PG_USER_NAME/$PG_USER_NAME/g" /conf/setup.sql
 sed -i "s/PG_USER_PASSWORD/$PG_USER_PASSWORD/g" /conf/setup.sql
+sed -i "s/PG_UTF8_USER_NAME/$PG_UTF8_USER_NAME/g" /conf/setup.sql
+sed -i "s/PG_UTF8_USER_PASSWORD/$PG_UTF8_USER_PASSWORD/g" /conf/setup.sql
+sed -i "s/PG_UTF8_DATABASE/$PG_UTF8_DATABASE/g" /conf/setup.sql
 sed -i "s/PG_REPL_USER_NAME/$PG_REPL_USER_NAME/g" /conf/setup.sql
 sed -i "s/PG_REPL_PASSWORD/$PG_REPL_PASSWORD/g" /conf/setup.sql
 

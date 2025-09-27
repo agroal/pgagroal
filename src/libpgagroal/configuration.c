@@ -37,6 +37,7 @@
 #include <security.h>
 #include <shmem.h>
 #include <utils.h>
+#include <utf8.h>
 #include <prometheus.h>
 
 /* system */
@@ -57,6 +58,7 @@
 #endif
 
 #define LINE_LENGTH 512
+#define MAX_PASSWORD_CHARS 256  /* Maximum UTF-8 characters in password */
 
 static int extract_key_value(char* str, char** key, char** value);
 static int extract_syskey_value(char* str, char** key, char** value);
@@ -1579,24 +1581,42 @@ pgagroal_read_users_configuration(void* shm, char* filename)
             goto error;
          }
 
+         // Validate password is valid UTF-8
+         if (!pgagroal_utf8_valid((unsigned char*)password, strlen(password)))
+         {
+            pgagroal_log_warn("Invalid UTF-8 password for user '%s'", username);
+            printf("pgagroal: Invalid USER entry\n");
+            printf("%s\n", line);
+            free(password);
+            free(decoded);
+            password = NULL;
+            decoded = NULL;
+            continue;
+         }
+
+         // Check character length
+         size_t char_count = pgagroal_utf8_char_length((unsigned char*)password, strlen(password));
          if (strlen(username) < MAX_USERNAME_LENGTH &&
-             strlen(password) < MAX_PASSWORD_LENGTH)
+             strlen(password) < MAX_PASSWORD_LENGTH &&
+             char_count != (size_t)-1 && char_count <= MAX_PASSWORD_CHARS)
          {
             memcpy(&config->users[index].username, username, strlen(username));
             memcpy(&config->users[index].password, password, strlen(password));
          }
          else
          {
+            if (char_count > MAX_PASSWORD_CHARS)
+            {
+               pgagroal_log_warn("Password too long for user '%s' (%zu characters)", username, char_count);
+            }
             printf("pgagroal: Invalid USER entry\n");
             printf("%s\n", line);
          }
 
          free(password);
          free(decoded);
-
          password = NULL;
          decoded = NULL;
-
          index++;
       }
    }
@@ -1701,24 +1721,42 @@ pgagroal_read_frontend_users_configuration(void* shm, char* filename)
             goto error;
          }
 
+         // Validate password is valid UTF-8
+         if (!pgagroal_utf8_valid((unsigned char*)password, strlen(password)))
+         {
+            pgagroal_log_warn("Invalid UTF-8 password for frontend user '%s'", username);
+            printf("pgagroal: Invalid FRONTEND USER entry\n");
+            printf("%s\n", line);
+            free(password);
+            free(decoded);
+            password = NULL;
+            decoded = NULL;
+            continue;
+         }
+
+         // Check character length
+         size_t char_count = pgagroal_utf8_char_length((unsigned char*)password, strlen(password));
          if (strlen(username) < MAX_USERNAME_LENGTH &&
-             strlen(password) < MAX_PASSWORD_LENGTH)
+             strlen(password) < MAX_PASSWORD_LENGTH &&
+             char_count != (size_t)-1 && char_count <= MAX_PASSWORD_CHARS)
          {
             memcpy(&config->frontend_users[index].username, username, strlen(username));
             memcpy(&config->frontend_users[index].password, password, strlen(password));
          }
          else
          {
+            if (char_count > MAX_PASSWORD_CHARS)
+            {
+               pgagroal_log_warn("Password too long for frontend user '%s' (%zu characters)", username, char_count);
+            }
             printf("pgagroal: Invalid FRONTEND USER entry\n");
             printf("%s\n", line);
          }
 
          free(password);
          free(decoded);
-
          password = NULL;
          decoded = NULL;
-
          index++;
       }
    }
@@ -1848,14 +1886,30 @@ pgagroal_read_admins_configuration(void* shm, char* filename)
             goto error;
          }
 
+         // Strict UTF-8 validation after decryption
+         if (!pgagroal_utf8_valid((const unsigned char*)password, strlen(password)))
+         {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
+            goto error;
+         }
+
+         // Check character length
+         size_t char_count = pgagroal_utf8_char_length((const unsigned char*)password, strlen(password));
+
          if (strlen(username) < MAX_USERNAME_LENGTH &&
-             strlen(password) < MAX_PASSWORD_LENGTH)
+             strlen(password) < MAX_PASSWORD_LENGTH &&
+             char_count != (size_t)-1 && char_count <= MAX_PASSWORD_CHARS)
          {
             memcpy(&config->admins[index].username, username, strlen(username));
             memcpy(&config->admins[index].password, password, strlen(password));
          }
          else
          {
+            if (char_count > MAX_PASSWORD_CHARS)
+            {
+               pgagroal_log_warn("Password too long for admin user '%s' (%zu characters)",
+                                 username, char_count);
+            }
             printf("pgagroal: Invalid ADMIN entry\n");
             printf("%s\n", line);
          }
@@ -1961,14 +2015,30 @@ pgagroal_vault_read_users_configuration(void* shm, char* filename)
             goto error;
          }
 
+         // Strict UTF-8 validation after decryption
+         if (!pgagroal_utf8_valid((const unsigned char*)password, strlen(password)))
+         {
+            status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
+            goto error;
+         }
+
+         // Check character length
+         size_t char_count = pgagroal_utf8_char_length((const unsigned char*)password, strlen(password));
+
          if (strlen(username) < MAX_USERNAME_LENGTH &&
              strlen(password) < MAX_PASSWORD_LENGTH &&
+             char_count != (size_t)-1 && char_count <= MAX_PASSWORD_CHARS &&
              !strcmp(config->vault_server.user.username, username))
          {
             memcpy(&config->vault_server.user.password, password, strlen(password));
          }
          else
          {
+            if (char_count > MAX_PASSWORD_CHARS)
+            {
+               pgagroal_log_warn("Password too long for vault user '%s' (%zu characters)",
+                                 username, char_count);
+            }
             printf("pgagroal: Invalid ADMIN entry\n");
             printf("%s\n", line);
          }
@@ -2094,17 +2164,36 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
-
          }
 
+         // Validate password is valid UTF-8
+         if (!pgagroal_utf8_valid((unsigned char*)password, strlen(password)))
+         {
+            pgagroal_log_warn("Invalid UTF-8 password for superuser '%s'", username);
+            printf("pgagroal: Invalid SUPERUSER entry\n");
+            printf("%s\n", line);
+            free(password);
+            free(decoded);
+            password = NULL;
+            decoded = NULL;
+            continue;
+         }
+
+         // Check character length
+         size_t char_count = pgagroal_utf8_char_length((unsigned char*)password, strlen(password));
          if (strlen(username) < MAX_USERNAME_LENGTH &&
-             strlen(password) < MAX_PASSWORD_LENGTH)
+             strlen(password) < MAX_PASSWORD_LENGTH &&
+             char_count != (size_t)-1 && char_count <= MAX_PASSWORD_CHARS)
          {
             memcpy(&config->superuser.username, username, strlen(username));
             memcpy(&config->superuser.password, password, strlen(password));
          }
          else
          {
+            if (char_count > MAX_PASSWORD_CHARS)
+            {
+               pgagroal_log_warn("Password too long for superuser '%s' (%zu characters)", username, char_count);
+            }
             printf("pgagroal: Invalid SUPERUSER entry\n");
             printf("%s\n", line);
          }
