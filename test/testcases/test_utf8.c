@@ -26,54 +26,42 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PGAGROAL_TEST_SUITE_H
-#define PGAGROAL_TEST_SUITE_H
-
-#include <check.h>
-#include <stdio.h>
+#include <tsclient.h>
+#include <tssuite.h>
 #include <stdlib.h>
-#include <string.h>
 
-/**
- * Set up a connection test suite for pgagroal
- * @return The result
- */
+#define UTF8_USER "utf8user"
+#define UTF8_DATABASE "utf8db"
+
+// Simple connection test for UTF-8 user
+START_TEST(test_pgagroal_utf8_simple)
+{
+   int found = 0;
+   found = !pgagroal_tsclient_execute_pgbench(UTF8_USER, UTF8_DATABASE, true, 0, 0, 0);
+   ck_assert_msg(found, "Connection to UTF-8 user failed");
+}
+
+// Load test for UTF-8 user
+START_TEST(test_pgagroal_utf8_load)
+{
+   int found = 0;
+   found = !pgagroal_tsclient_execute_pgbench(UTF8_USER, UTF8_DATABASE, true, 8, 0, 1000);
+   ck_assert_msg(found, "Load test for UTF-8 user failed");
+}
+
 Suite*
-pgagroal_test_connection_suite();
+pgagroal_test_utf8_suite()
+{
+   Suite* s;
+   TCase* tc_core;
 
-/**
- * Set up a alias test suite for pgagroal
- * @return The result
- */
-Suite*
-pgagroal_test_alias_suite();
+   s = suite_create("pgagroal_test_utf8");
+   tc_core = tcase_create("Core");
 
-/**
- * Set up an art suite for pgagroal
- * @return The result
- */
-Suite*
-pgagroal_test_art_suite();
+   tcase_set_timeout(tc_core, 60);
+   tcase_add_test(tc_core, test_pgagroal_utf8_simple);
+   tcase_add_test(tc_core, test_pgagroal_utf8_load);
+   suite_add_tcase(s, tc_core);
 
-/**
- * Set up a deque suite for pgagroal
- * @return The result
- */
-Suite*
-pgagroal_test_deque_suite();
-
-/**
- * Set up a json suite for pgagroal
- * @return The result
- */
-Suite*
-pgagroal_test_json_suite();
-
-/**
- * Set up a UTF-8 user test suite for pgagroal
- * @return The result
- */
-Suite*
-pgagroal_test_utf8_suite();
-
-#endif
+   return s;
+}

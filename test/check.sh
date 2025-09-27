@@ -54,6 +54,9 @@ PG_USER_NAME=myuser
 PG_USER_PASSWORD=yourpassword
 PG_REPL_USER_NAME=repl
 PG_REPL_PASSWORD=replpass
+PG_UTF8_USER_NAME=utf8user
+PG_UTF8_USER_PASSWORD=HelloПриветمرحبا你好नमस्तेสวัสดีこんにちは안녕하세요𠜎𡃁𩷶
+PG_UTF8_DATABASE=utf8db
 PGAGROAL_PORT=2345
 USER=$(whoami)
 MODE="dev"
@@ -254,6 +257,9 @@ start_postgresql_container() {
   -e PG_USER_PASSWORD=$PG_USER_PASSWORD \
   -e PG_REPL_USER_NAME=$PG_REPL_USER_NAME \
   -e PG_REPL_PASSWORD=$PG_REPL_PASSWORD \
+  -e PG_UTF8_USER_NAME=$PG_UTF8_USER_NAME \
+  -e PG_UTF8_USER_PASSWORD=$PG_UTF8_USER_PASSWORD \
+  -e PG_UTF8_DATABASE=$PG_UTF8_DATABASE \
   -e PG_LOG_LEVEL=debug5 \
   $IMAGE_NAME
 
@@ -306,6 +312,9 @@ start_postgresql() {
   export PG_USER_PASSWORD=${PG_USER_PASSWORD}
   export PG_REPL_USER_NAME=${PG_REPL_USER_NAME}
   export PG_REPL_PASSWORD=${PG_REPL_PASSWORD}
+  export PG_UTF8_USER_NAME=${PG_UTF8_USER_NAME}
+  export PG_UTF8_USER_PASSWORD=${PG_UTF8_USER_PASSWORD}
+  export PG_UTF8_DATABASE=${PG_UTF8_DATABASE}
 
   sudo -E -u postgres /root/usr/bin/run-postgresql-local
   set -e
@@ -361,8 +370,12 @@ EOF
    echo "Add user $PG_USER_NAME to pgagroal_users.conf file ... ok"
    
    # Add system user for test executable compatibility
-   $EXECUTABLE_DIRECTORY/pgagroal-admin -f $CONFIGURATION_DIRECTORY/pgagroal_users.conf -U $USER -P $PG_USER_PASSWORD user add
-   echo "Add user $USER to pgagroal_users.conf file ... ok"
+  $EXECUTABLE_DIRECTORY/pgagroal-admin -f $CONFIGURATION_DIRECTORY/pgagroal_users.conf -U $USER -P $PG_USER_PASSWORD user add
+  echo "Add user $USER to pgagroal_users.conf file ... ok"
+
+  # Add UTF-8 test user
+  $EXECUTABLE_DIRECTORY/pgagroal-admin -f $CONFIGURATION_DIRECTORY/pgagroal_users.conf -U "$PG_UTF8_USER_NAME" -P "$PG_UTF8_USER_PASSWORD" user add
+  echo "Add UTF-8 user $PG_UTF8_USER_NAME to pgagroal_users.conf file ... ok"
    
    # Create empty frontend users configuration to avoid default path conflicts
    cat <<EOF >$CONFIGURATION_DIRECTORY/pgagroal_frontend_users.conf
@@ -542,15 +555,25 @@ run_tests() {
     start_postgresql_container
   fi
 
-  # Initialize pgbench database
-  echo "Initializing pgbench database..."
-  pgbench -i -s 1 -h localhost -p "$PORT" -U "$PG_USER_NAME" -d "$PG_DATABASE"
+  # Initialize pgbench database for main user
+  echo "Initializing pgbench database for main user..."
+  PGPASSWORD="$PG_USER_PASSWORD" pgbench -i -s 1 -h localhost -p "$PORT" -U "$PG_USER_NAME" -d "$PG_DATABASE"
   if [[ $? -ne 0 ]]; then
-    echo "pgbench initialization failed!"
+    echo "pgbench initialization failed for main user!"
     cleanup_postgresql_image
     exit 1
   fi
-  echo "pgbench initialization completed."
+  echo "pgbench initialization for main user completed."
+
+  # Initialize pgbench database for UTF-8 user
+  echo "Initializing pgbench database for UTF-8 user..."
+  PGPASSWORD="$PG_UTF8_USER_PASSWORD" pgbench -i -s 1 -h localhost -p "$PORT" -U "$PG_UTF8_USER_NAME" -d "$PG_UTF8_DATABASE"
+  if [[ $? -ne 0 ]]; then
+    echo "pgbench initialization failed for UTF-8 user!"
+    cleanup_postgresql_image
+    exit 1
+  fi
+  echo "pgbench initialization for UTF-8 user completed."
 
   echo "Initialize pgagroal"
   pgagroal_initialize_configuration

@@ -53,6 +53,9 @@ cp /conf/pg_hba.conf /pgdata/
 sed -i "s/PG_DATABASE/$PG_DATABASE/g" /conf/setup.sql
 sed -i "s/PG_USER_NAME/$PG_USER_NAME/g" /conf/setup.sql
 sed -i "s/PG_USER_PASSWORD/$PG_USER_PASSWORD/g" /conf/setup.sql
+sed -i "s/PG_UTF8_USER_NAME/$PG_UTF8_USER_NAME/g" /conf/setup.sql
+sed -i "s/PG_UTF8_USER_PASSWORD/$PG_UTF8_USER_PASSWORD/g" /conf/setup.sql
+sed -i "s/PG_UTF8_DATABASE/$PG_UTF8_DATABASE/g" /conf/setup.sql
 sed -i "s/PG_REPL_USER_NAME/$PG_REPL_USER_NAME/g" /conf/setup.sql
 sed -i "s/PG_REPL_PASSWORD/$PG_REPL_PASSWORD/g" /conf/setup.sql
 

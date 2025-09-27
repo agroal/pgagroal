@@ -39,6 +39,7 @@
 #include <server.h>
 #include <tracker.h>
 #include <utils.h>
+#include <utf8.h>
 
 /* system */
 #include <stdatomic.h>
@@ -60,6 +61,8 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#define MAX_PASSWORD_CHARS 256  /* Maximum UTF-8 characters in password */
 
 static int get_auth_type(struct message* msg, int* auth_type);
 static int compare_auth_response(struct message* orig, struct message* response, int auth_type);
@@ -3539,27 +3542,30 @@ error:
 static int
 sasl_prep(char* password, char** password_prep)
 {
-   char* p = NULL;
+   size_t char_count;
 
-   /* Only support ASCII for now */
-   for (unsigned long i = 0; i < strlen(password); i++)
+   if (!password || !password_prep)
    {
-      if ((unsigned char)(*(password + i)) & 0x80)
-      {
-         goto error;
-      }
+      goto error;
+   }
+   // Validate password is valid UTF-8
+   if (!pgagroal_utf8_valid((const unsigned char*)password, strlen(password)))
+   {
+      goto error;
    }
 
-   p = strdup(password);
+   // Validate the character count in the password
+   char_count = pgagroal_utf8_char_length((const unsigned char*)password, strlen(password));
+   if (char_count == (size_t)-1 || char_count > MAX_PASSWORD_CHARS)
+   {
+      goto error;
+   }
 
-   *password_prep = p;
-
+   *password_prep = strdup(password);
    return 0;
 
 error:
-
    *password_prep = NULL;
-
    return 1;
 }
 
