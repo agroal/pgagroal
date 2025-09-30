@@ -62,8 +62,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define MAX_PASSWORD_CHARS 256  /* Maximum UTF-8 characters in password */
-
 static int get_auth_type(struct message* msg, int* auth_type);
 static int compare_auth_response(struct message* orig, struct message* response, int auth_type);
 

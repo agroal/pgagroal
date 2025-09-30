@@ -39,6 +39,7 @@
 #include <shmem.h>
 #include <utils.h>
 #include <prometheus.h>
+#include <utf8.h>
 
 /* system */
 #include <arpa/inet.h>
@@ -462,15 +463,29 @@ connect_pgagroal(struct vault_configuration* config, char* username, char* passw
    pgagroal_log_debug("connect_pgagroal: Authenticating the remote management access to %s:%d", config->vault_server.server.host, config->vault_server.server.port);
    username = config->vault_server.user.username;
 
-   for (unsigned long i = 0; i < strlen(password); i++)
+   // Validate password is valid UTF-8
+   if (!pgagroal_utf8_valid((const unsigned char*)password, strlen(password)))
    {
-      if ((unsigned char)(*(password + i)) & 0x80)
-      {
-         pgagroal_log_debug("pgagroal-vault: Bad credentials for %s", username);
-         pgagroal_disconnect(*client_socket);
-         *client_socket = -1;
-         return 1;
-      }
+      pgagroal_log_debug("pgagroal-vault: Invalid UTF-8 encoding in password");
+      pgagroal_disconnect(*client_socket);
+      *client_socket = -1;
+      return 1;
+   }
+   // Check character length
+   size_t char_count = pgagroal_utf8_char_length((const unsigned char*)password, strlen(password));
+   if (char_count == (size_t)-1)
+   {
+      pgagroal_log_debug("pgagroal-vault: Invalid UTF-8 encoding in password");
+      pgagroal_disconnect(*client_socket);
+      *client_socket = -1;
+      return 1;
+   }
+   if (char_count > MAX_PASSWORD_CHARS)
+   {
+      pgagroal_log_debug("pgagroal-vault: Password too long (max %d characters)", MAX_PASSWORD_CHARS);
+      pgagroal_disconnect(*client_socket);
+      *client_socket = -1;
+      return 1;
    }
 
    /* Authenticate */

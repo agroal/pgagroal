@@ -51,8 +51,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define MAX_PASSWORD_CHARS 256
-
 static int master_key(char* password, bool generate_pwd, int pwd_length, int32_t output_format);
 static int add_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length, int32_t output_format);
 static int update_user(char* users_path, char* username, char* password, bool generate_pwd, int pwd_length, int32_t output_format);
@@ -416,11 +414,39 @@ master_key(char* password, bool generate_pwd, int pwd_length, int32_t output_for
                password = pgagroal_get_password();
                printf("\n");
 
-               if (password != NULL && strlen(password) < MIN_PASSWORD_LENGTH)
+               if (password != NULL)
                {
-                  printf("Invalid key length, must be at least %d chars.\n", MIN_PASSWORD_LENGTH);
-                  free(password);
-                  password = NULL;
+                  // Validate password is valid UTF-8
+                  if (!pgagroal_utf8_valid((const unsigned char*)password, strlen(password)))
+                  {
+                     printf("Invalid UTF-8 sequence in master key.\n");
+                     free(password);
+                     password = NULL;
+                     continue;
+                  }
+                  // Check character length
+                  size_t char_count = pgagroal_utf8_char_length((const unsigned char*)password, strlen(password));
+                  if (char_count == (size_t)-1)
+                  {
+                     printf("Error counting UTF-8 characters in master key.\n");
+                     free(password);
+                     password = NULL;
+                     continue;
+                  }
+                  if (char_count < MIN_PASSWORD_LENGTH)
+                  {
+                     printf("Invalid key length, must be at least %d characters.\n", MIN_PASSWORD_LENGTH);
+                     free(password);
+                     password = NULL;
+                     continue;
+                  }
+                  if (char_count > MAX_PASSWORD_CHARS)
+                  {
+                     printf("Master key too long (%zu characters). Maximum allowed: %d characters.\n", char_count, MAX_PASSWORD_CHARS);
+                     free(password);
+                     password = NULL;
+                     continue;
+                  }
                }
             }
          }

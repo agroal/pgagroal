@@ -85,6 +85,7 @@ extern "C" {
 #define DEFAULT_PASSWORD_LENGTH 64
 #define MIN_PASSWORD_LENGTH      8
 #define MAX_PASSWORD_LENGTH   1024
+#define MAX_PASSWORD_CHARS     256
 #define MAX_APPLICATION_NAME    64
 #define MAX_ALIASES              8
 #define MAX_CERTIFICATES        70

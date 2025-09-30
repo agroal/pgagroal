@@ -38,6 +38,7 @@
 #include <shmem.h>
 #include <utils.h>
 #include <value.h>
+#include <utf8.h>
 
 /* system */
 #include <getopt.h>
@@ -733,13 +734,23 @@ username:
          printf("\n");
       }
 
-      for (unsigned long i = 0; i < strlen(password); i++)
+      // Validate password is valid UTF-8
+      if (!pgagroal_utf8_valid((const unsigned char*)password, strlen(password)))
       {
-         if ((unsigned char)(*(password + i)) & 0x80)
-         {
-            warnx("pgagroal-cli: Bad credentials for %s\n", username);
-            goto done;
-         }
+         warnx("pgagroal-cli: Invalid UTF-8 encoding in password");
+         goto done;
+      }
+      // Check character length
+      size_t char_count = pgagroal_utf8_char_length((const unsigned char*)password, strlen(password));
+      if (char_count == (size_t)-1)
+      {
+         warnx("pgagroal-cli: Invalid UTF-8 encoding in password");
+         goto done;
+      }
+      if (char_count > MAX_PASSWORD_CHARS)
+      {
+         warnx("pgagroal-cli: Password too long (max %d characters)", MAX_PASSWORD_CHARS);
+         goto done;
       }
 
       /* Authenticate */
