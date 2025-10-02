@@ -407,6 +407,7 @@ route_status(char** response)
 
    pgagroal_log_debug("Status request completed");
    *response = tmp_response;
+   return;
 
 error:
    pgagroal_log_warn("Status endpoint: Failed to generate response");
