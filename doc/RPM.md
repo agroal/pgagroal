@@ -28,8 +28,11 @@ make package_source
 ## Create RPM package
 
 ```sh
+VERSION=$(grep -Po "Version:\s*\K(\d+\.\d+\.\d+)" ../pgagroal.spec)
 cp pgagroal-$VERSION.tar.gz ~/rpmbuild/SOURCES
-QA_RPATHS=0x0001 rpmbuild -bb pgagroal.spec
+cd ..
+cp pgagroal.spec ~/rpmbuild/SPECS  # Copy spec to standard RPM location
+QA_RPATHS=0x0001 rpmbuild -bb ~/rpmbuild/SPECS/pgagroal.spec
 ```
 
 The resulting RPM will be located in `~/rpmbuild/RPMS/x86_64/`, if your architecture is `x86_64`.
