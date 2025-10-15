@@ -195,6 +195,24 @@ pgagroal_is_ssl_request(int client_fd);
 int
 pgagroal_extract_server_parameters(int slot, struct deque** server_parameters);
 
+/**
+ * Extract client identity from SSL certificate
+ * Checks SAN (Subject Alternative Name) first, then falls back to CN (Common Name)
+ * @param ssl The SSL connection
+ * @return Dynamically allocated string containing the identity (must be freed by caller), or NULL if not found
+ */
+char*
+pgagroal_extract_cert_identity(SSL* ssl);
+
+/**
+ * Check if certificate identity is authorized for the requested username
+ * @param cert_identity The identity extracted from the certificate
+ * @param requested_username The username being requested
+ * @return True if authorized, false otherwise
+ */
+bool
+pgagroal_is_cert_authorized(const char* cert_identity, const char* requested_username);
+
 #ifdef __cplusplus
 }
 #endif

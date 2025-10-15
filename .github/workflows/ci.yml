@@ -166,13 +166,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache Homebrew packages
-        uses: actions/cache@v3
-        with:
-          path: ~/Library/Caches/Homebrew
-          key: ${{ runner.os }}-homebrew-${{ hashFiles('.github/workflows/build-macos.yml') }}
-          restore-keys: ${{ runner.os }}-homebrew-
-
       - name: Install dependencies
         run: |
           brew update

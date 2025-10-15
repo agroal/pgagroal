@@ -104,6 +104,11 @@ tls_key_file
 tls_ca_file
   Certificate Authority (CA) file for TLS. Changes require restart in the server section.
 
+tls_cert_auth_mode
+  Certificate authentication mode when tls_ca_file is set. ``verify-ca`` verifies only the CA signature.
+  ``verify-full`` additionally verifies that the certificate's CN or SAN matches the username.
+  Default is verify-ca
+
 The options for the main section are
 
 host

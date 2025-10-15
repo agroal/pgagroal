@@ -819,6 +819,7 @@ pgagroal_vault_init_configuration(void* shm)
 
    config->common.port = 0;
    config->common.tls = false;
+   config->tls_cert_auth_mode = TLS_CERT_AUTH_MODE_VERIFY_CA;
 
    config->vault_server.server.port = 0;
    config->vault_server.server.tls = false;
@@ -1056,6 +1057,19 @@ pgagroal_vault_validate_configuration (void* shm)
    if (config->ev_backend == PGAGROAL_EVENT_BACKEND_AUTO || !is_supported_backend(config->ev_backend))
    {
       config->ev_backend = DEFAULT_EVENT_BACKEND;
+   }
+
+   // Validate TLS certificate authentication mode
+   if (config->common.tls && strlen(config->common.tls_ca_file) > 0)
+   {
+      if (config->tls_cert_auth_mode == TLS_CERT_AUTH_MODE_VERIFY_CA)
+      {
+         pgagroal_log_warn("pgagroal-vault: Using 'verify-ca' mode - certificate SANs/CN will NOT be verified against username. Consider using 'verify-full' for enhanced security.");
+      }
+      else if (config->tls_cert_auth_mode == TLS_CERT_AUTH_MODE_VERIFY_FULL)
+      {
+         pgagroal_log_info("pgagroal-vault: Using 'verify-full' mode - certificate SANs/CN will be verified against username");
+      }
    }
 
 #if HAVE_LINUX
@@ -5800,6 +5814,21 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
          max = MAX_PATH - 1;
       }
       memcpy(config->common.tls_key_file, value, max);
+   }
+   else if (key_in_section("tls_cert_auth_mode", section, key, true, &unknown))
+   {
+      if (!strcasecmp(value, "verify-ca"))
+      {
+         config->tls_cert_auth_mode = TLS_CERT_AUTH_MODE_VERIFY_CA;
+      }
+      else if (!strcasecmp(value, "verify-full"))
+      {
+         config->tls_cert_auth_mode = TLS_CERT_AUTH_MODE_VERIFY_FULL;
+      }
+      else
+      {
+         unknown = true;
+      }
    }
    else if (key_in_section("metrics", section, key, true, &unknown))
    {

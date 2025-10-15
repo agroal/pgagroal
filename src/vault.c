@@ -78,6 +78,7 @@ static void route_users(char* username, char** response, SSL* s_ssl, int client_
 static void route_not_found(char** response);
 static void route_found(char** response, char* password);
 static void route_redirect(char** response, char* redirect_link);
+static void route_forbidden(char** response, char* reason);
 static int router(SSL* ccl, SSL* ssl, int client_fd);
 static void route_status(char** response);
 static bool test_pgagroal_connectivity(struct vault_configuration* config);
@@ -154,6 +155,39 @@ router(SSL* c_ssl, SSL* s_ssl, int client_fd)
       {
          // Extract the username from the path
          sscanf(path, "/users/%128s", username);
+
+         // Certificate-based authorization check (if TLS with client cert)
+         if (c_ssl != NULL && config->common.tls_ca_file[0] != '\0')
+         {
+            // In verify-full mode, check that certificate CN/SAN matches username
+            if (config->tls_cert_auth_mode == TLS_CERT_AUTH_MODE_VERIFY_FULL)
+            {
+               char* cert_identity = pgagroal_extract_cert_identity(c_ssl);
+               if (cert_identity == NULL)
+               {
+                  pgagroal_log_warn("Certificate authentication enabled but no client certificate identity provided");
+                  route_forbidden(&response, "Client certificate identity required");
+                  goto send;
+               }
+
+               if (!pgagroal_is_cert_authorized(cert_identity, username))
+               {
+                  pgagroal_log_warn("Certificate identity '%s' does not match requested user '%s'", cert_identity, username);
+                  route_forbidden(&response, "Certificate identity does not match requested user");
+                  free(cert_identity);
+                  goto send;
+               }
+
+               pgagroal_log_info("Certificate authentication successful for user '%s' (verify-full mode)", cert_identity);
+               free(cert_identity);
+            }
+            else
+            {
+               // In verify-ca mode, only CA signature is verified (done by SSL layer)
+               pgagroal_log_debug("Certificate authenticated via CA signature only (verify-ca mode)");
+            }
+         }
+
          // Call the appropriate handler function with the username
          route_users(username, &response, s_ssl, client_fd);
       }
@@ -446,6 +480,19 @@ route_redirect(char** response, char* redirect_link)
    tmp_response = pgagroal_append(tmp_response, "Location: ");
    tmp_response = pgagroal_append(tmp_response, redirect_link);
    tmp_response = pgagroal_append(tmp_response, "\r\n");
+   *response = tmp_response;
+}
+
+static void
+route_forbidden(char** response, char* reason)
+{
+   char* tmp_response = NULL;
+   tmp_response = pgagroal_append(tmp_response, "HTTP/1.1 403 Forbidden\r\n");
+   tmp_response = pgagroal_append(tmp_response, "Content-Type: text/plain\r\n");
+   tmp_response = pgagroal_append(tmp_response, "\r\n");
+   tmp_response = pgagroal_append(tmp_response, "Access Denied: ");
+   tmp_response = pgagroal_append(tmp_response, reason);
+   tmp_response = pgagroal_append(tmp_response, "\n");
    *response = tmp_response;
 }
 

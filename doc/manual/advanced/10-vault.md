@@ -208,3 +208,65 @@ tls_ca_file = </path/to/client_root_ca.crt>
 ```
 curl --cert </path/to/client.crt> --key </path/to/client.key> --cacert </path/to/server_root_ca.crt> -i https://localhost:2500/users/<frontend_user>
 ```
+
+### Certificate Authentication Modes
+
+When `tls_ca_file` is configured, the vault supports two certificate authentication modes controlled by the `tls_cert_auth_mode` setting:
+
+**verify-ca (default)**: The vault verifies that the client certificate is signed by a trusted CA. This is the default mode and provides a balance between security and ease of use.
+
+```
+tls = on
+tls_cert_file = </path/to/server.crt>
+tls_key_file = </path/to/server.key>
+tls_ca_file = </path/to/client_root_ca.crt>
+tls_cert_auth_mode = verify-ca
+```
+
+**verify-full**: In addition to CA verification, the vault also verifies that the certificate's Subject Alternative Name (SAN) or Common Name (CN) matches the username being accessed. This provides the highest level of security by ensuring certificate ownership.
+
+```
+tls = on
+tls_cert_file = </path/to/server.crt>
+tls_key_file = </path/to/server.key>
+tls_ca_file = </path/to/client_root_ca.crt>
+tls_cert_auth_mode = verify-full
+```
+
+With `verify-full` mode enabled, if a client attempts to access `/users/alice`, the client certificate must contain "alice" in the SAN extension or in the CN field (if no SAN exists).
+
+#### Certificate Identity Priority
+
+When using `verify-full` mode, the vault extracts the username from the client certificate using this priority:
+
+1. **Subject Alternative Name (SAN)** - Checked first. The vault examines DNS, Email, then URI types in order and uses the first valid value found (non-empty, no null bytes).
+2. **Common Name (CN)** - Only checked if no SAN extension exists, or no valid SAN value is found.
+
+**Important:** CN is **completely ignored** if any valid SAN value exists in the certificate, even if the SAN value doesn't match the requested username.
+
+**How identity extraction works:**
+1. Check SAN extension: If present, examine DNS type first, then Email, then URI
+2. Use the first valid SAN value found and stop (remaining SANs and CN are ignored)
+3. If no SAN extension exists or no valid SAN values, check CN as fallback
+4. The extracted identity is then compared (case-sensitive) against the requested username
+
+**Recommendation:** For simplicity, use `CN=username` with no SAN entries, or a SAN entry with a single DNS value.
+
+Example certificate with CN only:
+```bash
+openssl req -new -key user.key -out user.csr -subj "/CN=alice"
+```
+
+**Examples:**
+```
+Certificate: CN=alice (no SAN extension)
+Access: /users/alice => Success (CN used)
+
+Certificate: SAN DNS=alice
+Access: /users/alice => Success (SAN DNS used, CN ignored)
+
+Certificate: SAN DNS=alice, CN=bob
+Access: /users/alice => Success (SAN used, CN completely ignored)
+Access: /users/bob => Fails (CN ignored when SAN present)
+
+```

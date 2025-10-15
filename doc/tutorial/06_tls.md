@@ -120,3 +120,22 @@ tls_ca_file = </path/to/client_root_ca.crt>
 ```
 curl --cert </path/to/client.crt> --key </path/to/client.key> --cacert </path/to/server_root_ca.crt> -i https://localhost:2500/users/<frontend_user>
 ```
+
+**Certificate Authentication Modes**
+
+When `tls_ca_file` is configured, you can control how client certificates are verified using the `tls_cert_auth_mode` setting:
+
+- `verify-ca` (default): Only verifies the client certificate is signed by the trusted CA
+- `verify-full`: Additionally verifies that the certificate's CN or SAN matches the username
+
+For example, with `verify-full` mode:
+
+```
+tls = on
+tls_cert_file = </path/to/server.crt>
+tls_key_file = </path/to/server.key>
+tls_ca_file = </path/to/client_root_ca.crt>
+tls_cert_auth_mode = verify-full
+```
+
+In this mode, accessing `https://localhost:2500/users/myuser` requires a client certificate with CN or SAN of "myuser".

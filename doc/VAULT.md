@@ -46,6 +46,21 @@ The available keys and their accepted values are reported in the table below.
 | tls_cert_file | | String | No | Certificate file for TLS. This file must be owned by either the user running pgagroal or root. |
 | tls_key_file | | String | No | Private key file for TLS. This file must be owned by either the user running pgagroal or root. Additionally permissions must be at least `0640` when owned by root or `0600` otherwise. |
 | tls_ca_file | | String | No | Certificate Authority (CA) file for TLS. This file must be owned by either the user running pgagroal or root.  |
+| tls_cert_auth_mode | verify-ca | String | No | Certificate authentication mode when `tls_ca_file` is set. `verify-ca` verifies only the CA signature. `verify-full` additionally verifies that the certificate's CN or SAN matches the username. |
+
+### Certificate Identity Extraction
+
+When using `verify-full` mode, the vault extracts the username from the client certificate using this priority order:
+
+1. **Subject Alternative Name (SAN)** - If present, checks DNS, Email, then URI types in order. Uses the first valid value found and **stops immediately** (CN is never checked).
+2. **Common Name (CN)** - Only checked if the certificate has no SAN extension at all, or all SAN values are invalid.
+
+**Important:** 
+- CN is **completely ignored** if any valid SAN value exists in the certificate
+- Identity matching is case-sensitive
+- Once any valid identity is found, the search stops
+
+**Recommendation:** For simplicity, use `CN=username` with no SAN entries, or a SAN entry with a single DNS value.
 
 ## [main]
 

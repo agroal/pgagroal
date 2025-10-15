@@ -151,6 +151,9 @@ extern "C" {
 #define HUGEPAGE_TRY 1
 #define HUGEPAGE_ON  2
 
+#define TLS_CERT_AUTH_MODE_VERIFY_CA   0
+#define TLS_CERT_AUTH_MODE_VERIFY_FULL 1
+
 #define ENCRYPTION_NONE         0
 #define ENCRYPTION_AES_256_CBC  1
 #define ENCRYPTION_AES_192_CBC  2
@@ -621,6 +624,7 @@ struct vault_configuration
    char users_path[MAX_PATH];        /**< The configuration path */
    int number_of_users;  /**< The number of users */
    int ev_backend;          /**< Selected ev backend */
+   int tls_cert_auth_mode;  /**< TLS certificate authentication mode: verify-ca (0) or verify-full (1) */
    struct vault_server vault_server; /**< The vault servers */
 } __attribute__ ((aligned (64)));
 

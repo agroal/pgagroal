@@ -53,6 +53,8 @@
 #include <arpa/inet.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
 #include <openssl/hmac.h>
 #include <openssl/md5.h>
 #include <openssl/rand.h>
@@ -5895,6 +5897,208 @@ pgagroal_is_ssl_request(int client_fd)
    }
 
    return ssl_req;
+}
+
+char*
+pgagroal_extract_cert_identity(SSL* ssl)
+{
+   X509* cert = NULL;
+   X509_NAME* subject_name = NULL;
+   GENERAL_NAMES* san_names = NULL;
+   char* identity = NULL;
+   char cn_buf[256];
+   int cn_len;
+   int critical = 0;
+
+   if (ssl == NULL)
+   {
+      pgagroal_log_trace("pgagroal_extract_cert_identity: NULL SSL context provided");
+      return NULL;
+   }
+
+   // Get peer certificate - this is a borrowed reference in OpenSSL 1.0.2+
+   // Returns NULL if no certificate was presented or verification failed
+   cert = SSL_get_peer_certificate(ssl);
+   if (cert == NULL)
+   {
+      pgagroal_log_debug("pgagroal_extract_cert_identity: No peer certificate found");
+      return NULL;
+   }
+
+   // Check Subject Alternative Name (SAN) first
+   // This is the preferred modern method for certificate identity
+   // X509_get_ext_d2i returns NULL if extension not present (not an error)
+   san_names = X509_get_ext_d2i(cert, NID_subject_alt_name, &critical, NULL);
+   if (san_names != NULL)
+   {
+      int san_count = sk_GENERAL_NAME_num(san_names);
+      pgagroal_log_trace("pgagroal_extract_cert_identity: Found %d SAN entries", san_count);
+
+      // Iterate through all SAN entries to find a suitable identity
+      for (int i = 0; i < san_count; i++)
+      {
+         GENERAL_NAME* san = sk_GENERAL_NAME_value(san_names, i);
+
+         if (san == NULL)
+         {
+            continue;
+         }
+
+         // Support multiple SAN types for flexibility:
+         // - GEN_DNS: DNS name (e.g., "user.example.com")
+         // - GEN_EMAIL: Email address (e.g., "user@example.com")
+         // - GEN_URI: URI (e.g., "uri:user@example.com")
+         if (san->type == GEN_DNS || san->type == GEN_EMAIL || san->type == GEN_URI)
+         {
+            ASN1_STRING* san_string = NULL;
+            const unsigned char* san_data = NULL;
+            int san_len = 0;
+
+            // Extract the appropriate field based on SAN type
+            if (san->type == GEN_DNS)
+            {
+               san_string = san->d.dNSName;
+            }
+            else if (san->type == GEN_EMAIL)
+            {
+               san_string = san->d.rfc822Name;
+            }
+            else if (san->type == GEN_URI)
+            {
+               san_string = san->d.uniformResourceIdentifier;
+            }
+
+            if (san_string != NULL)
+            {
+               san_data = ASN1_STRING_get0_data(san_string);
+               san_len = ASN1_STRING_length(san_string);
+
+               // Validate that the string is not empty and doesn't contain null bytes
+               if (san_data != NULL && san_len > 0)
+               {
+                  // Check for embedded null bytes (security: prevent truncation attacks)
+                  if (memchr(san_data, '\0', san_len) == NULL)
+                  {
+                     identity = strndup((const char*)san_data, san_len);
+                     if (identity != NULL)
+                     {
+                        pgagroal_log_debug("pgagroal_extract_cert_identity: Extracted from SAN (type=%d): %s",
+                                           san->type, identity);
+                        break;
+                     }
+                  }
+                  else
+                  {
+                     pgagroal_log_warn("pgagroal_extract_cert_identity: SAN contains null bytes, skipping");
+                  }
+               }
+            }
+         }
+      }
+
+      // Clean up SAN names structure
+      GENERAL_NAMES_free(san_names);
+   }
+
+   // Fall back to Common Name (CN) from Subject DN
+   // Only if no suitable SAN was found (legacy compatibility)
+   if (identity == NULL)
+   {
+      subject_name = X509_get_subject_name(cert);
+      if (subject_name != NULL)
+      {
+         // X509_NAME_get_text_by_NID returns -1 on error, otherwise length written (excluding null terminator)
+         // Buffer must have space for null terminator
+         memset(cn_buf, 0, sizeof(cn_buf));
+         cn_len = X509_NAME_get_text_by_NID(subject_name, NID_commonName, cn_buf, sizeof(cn_buf) - 1);
+
+         if (cn_len > 0 && cn_len < (int)(sizeof(cn_buf) - 1))
+         {
+            // Validate CN doesn't contain null bytes (security)
+            if (memchr(cn_buf, '\0', cn_len) == NULL)
+            {
+               cn_buf[cn_len] = '\0';  // Ensure null termination
+               identity = strdup(cn_buf);
+               if (identity != NULL)
+               {
+                  pgagroal_log_debug("pgagroal_extract_cert_identity: Extracted from CN: %s", identity);
+               }
+            }
+            else
+            {
+               pgagroal_log_warn("pgagroal_extract_cert_identity: CN contains null bytes");
+            }
+         }
+         else if (cn_len > 0)
+         {
+            pgagroal_log_warn("pgagroal_extract_cert_identity: CN too long (%d bytes, max %zu)",
+                              cn_len, sizeof(cn_buf) - 1);
+         }
+      }
+   }
+
+   // Free the certificate (SSL_get_peer_certificate increments reference count)
+   X509_free(cert);
+
+   if (identity == NULL)
+   {
+      pgagroal_log_warn("pgagroal_extract_cert_identity: No valid identity found in certificate (no SAN or CN)");
+   }
+
+   return identity;
+}
+
+bool
+pgagroal_is_cert_authorized(const char* cert_identity, const char* requested_username)
+{
+   size_t identity_len;
+   size_t username_len;
+
+   // Input validation
+   if (cert_identity == NULL || requested_username == NULL)
+   {
+      pgagroal_log_trace("pgagroal_is_cert_authorized: NULL parameter provided");
+      return false;
+   }
+
+   // Length validation (prevent buffer overflow in logging)
+   identity_len = strlen(cert_identity);
+   username_len = strlen(requested_username);
+
+   if (identity_len == 0 || username_len == 0)
+   {
+      pgagroal_log_warn("pgagroal_is_cert_authorized: Empty identity or username");
+      return false;
+   }
+
+   // Fast-fail: if lengths differ, strings can't match
+   if (identity_len != username_len)
+   {
+      pgagroal_log_debug("pgagroal_is_cert_authorized: Identity '%s' does NOT match requested user '%s' (length mismatch)",
+                         cert_identity, requested_username);
+      return false;
+   }
+
+   if (identity_len > MAX_USERNAME_LENGTH || username_len > MAX_USERNAME_LENGTH)
+   {
+      pgagroal_log_warn("pgagroal_is_cert_authorized: Identity or username exceeds maximum length (%d)",
+                        MAX_USERNAME_LENGTH);
+      return false;
+   }
+
+   // Exact case-sensitive comparison
+   // For certificate authentication, we enforce exact match (case-sensitive)
+   // to maintain maximum security and avoid ambiguity
+   if (strcmp(cert_identity, requested_username) == 0)
+   {
+      pgagroal_log_debug("pgagroal_is_cert_authorized: Identity '%s' matches requested user '%s'",
+                         cert_identity, requested_username);
+      return true;
+   }
+
+   pgagroal_log_debug("pgagroal_is_cert_authorized: Identity '%s' does NOT match requested user '%s'",
+                      cert_identity, requested_username);
+   return false;
 }
 
 static char*
