@@ -865,6 +865,12 @@ read_users_path:
       }
    }
 
+   // -- Validate TLS configuration if enabled --
+   if (pgagroal_vault_tls_valid())
+   {
+      errx(1, "pgagroal-vault: Invalid TLS configuration");
+   }
+
    // -- Bind & Listen at the given hostname and port --
 
    if (pgagroal_bind(config->common.host, config->common.port, &server_fds, &server_fds_length, false, -1))

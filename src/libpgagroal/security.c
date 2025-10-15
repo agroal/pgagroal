@@ -3537,6 +3537,117 @@ error:
    return 1;
 }
 
+int
+pgagroal_vault_tls_valid(void)
+{
+   struct vault_configuration* config;
+   struct stat st = {0};
+
+   config = (struct vault_configuration*)shmem;
+
+   if (config->common.tls)
+   {
+      if (strlen(config->common.tls_cert_file) == 0)
+      {
+         pgagroal_log_fatal("pgagroal-vault: TLS is enabled but no tls_cert_file is defined");
+         goto error;
+      }
+
+      if (strlen(config->common.tls_key_file) == 0)
+      {
+         pgagroal_log_fatal("pgagroal-vault: TLS is enabled but no tls_key_file is defined");
+         goto error;
+      }
+
+      if (stat(config->common.tls_cert_file, &st) == -1)
+      {
+         pgagroal_log_fatal("pgagroal-vault: Can't locate TLS certificate file: %s", config->common.tls_cert_file);
+         goto error;
+      }
+
+      if (!S_ISREG(st.st_mode))
+      {
+         pgagroal_log_fatal("pgagroal-vault: TLS certificate file is not a regular file: %s", config->common.tls_cert_file);
+         goto error;
+      }
+
+      if (st.st_uid && st.st_uid != geteuid())
+      {
+         pgagroal_log_fatal("pgagroal-vault: TLS certificate file not owned by user or root: %s", config->common.tls_cert_file);
+         goto error;
+      }
+
+      memset(&st, 0, sizeof(struct stat));
+
+      if (stat(config->common.tls_key_file, &st) == -1)
+      {
+         pgagroal_log_fatal("pgagroal-vault: Can't locate TLS private key file: %s", config->common.tls_key_file);
+         goto error;
+      }
+
+      if (!S_ISREG(st.st_mode))
+      {
+         pgagroal_log_fatal("pgagroal-vault: TLS private key file is not a regular file: %s", config->common.tls_key_file);
+         goto error;
+      }
+
+      if (st.st_uid == geteuid())
+      {
+         if (st.st_mode & (S_IRWXG | S_IRWXO))
+         {
+            pgagroal_log_fatal("pgagroal-vault: TLS private key file must have 0600 permissions when owned by a non-root user: %s", config->common.tls_key_file);
+            goto error;
+         }
+      }
+      else if (st.st_uid == 0)
+      {
+         if (st.st_mode & (S_IWGRP | S_IXGRP | S_IRWXO))
+         {
+            pgagroal_log_fatal("pgagroal-vault: TLS private key file must have at least 0640 permissions when owned by root: %s", config->common.tls_key_file);
+            goto error;
+         }
+      }
+      else
+      {
+         pgagroal_log_fatal("pgagroal-vault: TLS private key file not owned by user or root: %s", config->common.tls_key_file);
+         goto error;
+      }
+
+      if (strlen(config->common.tls_ca_file) > 0)
+      {
+         memset(&st, 0, sizeof(struct stat));
+
+         if (stat(config->common.tls_ca_file, &st) == -1)
+         {
+            pgagroal_log_fatal("pgagroal-vault: Can't locate TLS CA file: %s", config->common.tls_ca_file);
+            goto error;
+         }
+
+         if (!S_ISREG(st.st_mode))
+         {
+            pgagroal_log_fatal("pgagroal-vault: TLS CA file is not a regular file: %s", config->common.tls_ca_file);
+            goto error;
+         }
+
+         if (st.st_uid && st.st_uid != geteuid())
+         {
+            pgagroal_log_fatal("pgagroal-vault: TLS CA file not owned by user or root: %s", config->common.tls_ca_file);
+            goto error;
+         }
+      }
+      else
+      {
+         pgagroal_log_debug("pgagroal-vault: No TLS CA file - client certificate authentication disabled");
+      }
+   }
+
+   return 0;
+
+error:
+
+   return 1;
+}
+
 static int
 sasl_prep(char* password, char** password_prep)
 {

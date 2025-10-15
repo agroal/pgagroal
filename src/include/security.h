@@ -118,6 +118,13 @@ int
 pgagroal_tls_valid(void);
 
 /**
+ * @brief Validate the vault TLS configuration
+ * @return 0 upon success, otherwise 1
+ */
+int
+pgagroal_vault_tls_valid(void);
+
+/**
  * @brief Generate a random ASCII password have size of pwd_length
  * @param password the resultant password
  * @param password_length length of the password
