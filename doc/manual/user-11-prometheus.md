@@ -6,259 +6,175 @@
 
 ## pgagroal_state
 
-The state of pgagroal
-
-| Attribute | Description |
-|-----------|------------------------------------|
-|value      | State                              |
-|           |   * Running                        |
-|           |   * Graceful shutdown              |
+Provides the operational status of the pgagroal connection pooler service, indicating if it's running normally (1) or in graceful shutdown mode (2).
 
 ## pgagroal_pipeline_mode
 
-The mode of pipeline
-
-| Attribute | Description |
-|-----------|------------------------------------|
-|value 	    | Mode                               |
-|           | * Performance                      |
-|           | * Session                          |
-|           | * Transaction                      |
-
-## pgagroal_logging_info
-
-The number of INFO statements
-
-## pgagroal_logging_warn
-
-The number of WARN statements
-
-## pgagroal_logging_error
-
-The number of ERROR statements
-
-## pgagroal_logging_fatal
-
-The number of FATAL statements
+Shows the current pipeline mode configuration of pgagroal, determining how connection pipelining is handled.
 
 ## pgagroal_server_error
 
-Errors for servers
+Counts the total number of errors encountered per configured PostgreSQL server backend.
 
 | Attribute | Description |
-|-----------|------------------------------------|
-|name 	    | The name of the server             |
-|state 	    | The server state                   |
-|           | * not_init                         |
-|           | * primary                          |
-|           | * replica                          |
-|           | * failover                         |
-|           | * failed                           |
+| :-------- | :---------- |
+| name | The configured name/identifier for the PostgreSQL server. |
+| state | Current state of the server (not_init, init, free, in_use, gracefully, etc.). |
+
+## pgagroal_logging_info
+
+Accumulates the total number of informational (INFO level) log messages produced by pgagroal since its last startup.
+
+## pgagroal_logging_warn
+
+Counts the total number of warning (WARN level) messages logged by pgagroal, potentially indicating recoverable issues.
+
+## pgagroal_logging_error
+
+Tallies the total number of error (ERROR level) messages from pgagroal, often signaling problems needing investigation.
+
+## pgagroal_logging_fatal
+
+Records the total count of fatal (FATAL level) errors encountered by pgagroal, usually indicating service termination.
 
 ## pgagroal_failed_servers
 
-The number of failed servers.
-
-Only set if failover is enabled
+Reports the current number of PostgreSQL backend servers that are in a failed state and unavailable for connections.
 
 ## pgagroal_wait_time
 
-The waiting time of clients
+Measures the current waiting time in seconds for clients waiting for available connections from the pool.
 
 ## pgagroal_query_count
 
-The number of queries.
-
-Only session and transaction modes are supported
+Tracks the total cumulative number of SQL queries that have been processed through pgagroal since startup.
 
 ## pgagroal_connection_query_count
 
-The number of queries per connection.
-
-Only session and transaction modes are supported
+Counts the number of queries processed per individual connection slot in the connection pool.
 
 | Attribute | Description |
-|-----------|------------------------------------|
-|id 	    | The connection identifier          |
-|user 	    | The user name                      |
-|database 	| The database                       |
-|application_name |	The application name         |
+| :-------- | :---------- |
+| id | The connection slot identifier (0-based index). |
+| user | The PostgreSQL username associated with this connection (empty if unassigned). |
+| database | The PostgreSQL database name for this connection (empty if unassigned). |
+| application_name | The application name reported by the client (empty if unassigned). |
 
 ## pgagroal_tx_count
 
-The number of transactions. Only session and transaction modes are supported
+Tracks the total cumulative number of database transactions that have been processed through pgagroal.
 
 ## pgagroal_active_connections
 
-The number of active connections
+Shows the current number of connections in the pool that are actively being used by clients.
 
 ## pgagroal_total_connections
 
-The number of total connections
+Reports the current total number of connections in the pool (active + idle + initializing).
 
 ## pgagroal_max_connections
 
-The maximum number of connections
+Displays the maximum number of connections that can be maintained in the pgagroal connection pool (configured limit).
 
 ## pgagroal_connection
 
-Connection information
+Provides detailed information about each individual connection slot in the pool.
 
-| Attribute | Description |
-|-----------|------------------------------------|
-|id 	    | The connection identifier          |
-|user 	    | The user name                      |
-|database 	| The database                       |
-|application_name |	The application name         |
-|state 	    | The connection state               |
-|           | * not_init                         |
-|           | * init                             |
-|           | * free                             |
-|           | * in_use                           |
-|           | * gracefully                       |
-|           | * flush                            |
-|           | * idle_check                       |
-|           | * max_connection_age               |
-|           | * validation                       |
-|           | * remove                           |
+| Attribute | Description | Values |
+| :-------- | :---------- | :----- |
+| id | The connection slot identifier (0-based index). | 0: Connection slot is available/idle., 1: Connection slot is in use. |
+| user | The PostgreSQL username for this connection (empty if not assigned). | |
+| database | The PostgreSQL database name for this connection (empty if not assigned). | |
+| application_name | The application name for this connection (empty if not assigned). | |
+| state | Current state of the connection (not_init, init, free, in_use, gracefully, flush, idle_check, max_connection_age, validation, remove). | |
 
-## pgagroal_limit
+## pgagroal_session_time_seconds
 
-Limit information
-
-| Attribute | Description |
-|-----------|------------------------------------|
-|user 	    | The user name                      |
-|database 	| The database                       |
-|type 	    | The information type               |
-|           | * not_init                         |
-|           | * min                              |
-|           | * initial                          |
-|           | * max                              |
-|           | * active                           |
-
-## pgagroal_limit_awaiting
-
-Connections awaiting on hold reported by limit entries
-
-| Attribute | Description |
-|-----------|------------------------------------|
-|user 	    | The user name                      |
-|database 	| The database                       |
-
-## pgagroal_session_time
-
-Histogram of session times
+The session times
 
 ## pgagroal_connection_error
 
-Number of connection errors
+Counts the total number of connection errors encountered when attempting to establish or maintain database connections.
 
 ## pgagroal_connection_kill
 
-Number of connection kills
+Tracks the total number of connections that have been forcibly killed or terminated.
 
 ## pgagroal_connection_remove
 
-Number of connection removes
+Counts the total number of connections that have been removed from the pool (due to errors, expiration, etc.).
 
 ## pgagroal_connection_timeout
 
-Number of connection time outs
+Records the total number of connection attempts that have timed out.
 
 ## pgagroal_connection_return
 
-Number of connection returns
+Tracks the total number of connections that have been successfully returned to the pool after use.
 
 ## pgagroal_connection_invalid
 
-Number of connection invalids
+Counts the total number of connections that were determined to be invalid and discarded.
 
 ## pgagroal_connection_get
 
-Number of connection gets
+Records the total number of requests to obtain a connection from the pool.
 
 ## pgagroal_connection_idletimeout
 
-Number of connection idle timeouts
+Counts the total number of connections that were closed due to idle timeout.
 
 ## pgagroal_connection_max_connection_age
 
-Number of connection max age timeouts
+Tracks the total number of connections that were closed due to reaching maximum connection age.
 
 ## pgagroal_connection_flush
 
-Number of connection flushes
+Counts the total number of connection flush operations performed.
 
 ## pgagroal_connection_success
 
-Number of connection successes
-
-## pgagroal_connection_awaiting
-
-Number of connection suspended due to blocking_timeout
+Records the total number of successful connection establishments to PostgreSQL backends.
 
 ## pgagroal_auth_user_success
 
-Number of successful user authentications
+Tracks the total number of successful user authentication attempts.
 
 ## pgagroal_auth_user_bad_password
 
-Number of bad passwords during user authentication
+Counts the total number of authentication failures due to incorrect passwords.
 
 ## pgagroal_auth_user_error
 
-Number of errors during user authentication
+Records the total number of authentication errors (other than bad passwords) encountered.
 
 ## pgagroal_client_wait
 
-Number of waiting clients
+Shows the current number of clients waiting for an available connection from the pool.
 
 ## pgagroal_client_active
 
-Number of active clients
+Reports the current number of active client connections being served by pgagroal.
 
 ## pgagroal_network_sent
 
-Bytes sent by clients. Only session and transaction modes are supported
+Measures the total number of bytes sent from pgagroal to clients since startup.
 
 ## pgagroal_network_received
 
-Bytes received from servers. Only session and transaction modes are supported
+Measures the total number of bytes received by pgagroal from PostgreSQL servers since startup.
 
 ## pgagroal_client_sockets
 
-Number of sockets the client used
+Shows the current number of network sockets being used for client connections.
 
 ## pgagroal_self_sockets
 
-Number of sockets used by pgagroal itself
+Reports the current number of network sockets being used by pgagroal itself (management, metrics, etc.).
 
-[**pgagroal-vault**][pgagroal-vault] has the following [Prometheus][prometheus] metrics.
+## pgagroal_connection_awaiting
 
-## pgagroal_vault_logging_info
-
-The number of INFO statements
-
-## pgagroal_vault_logging_warn
-
-The number of WARN statements
-
-## pgagroal_vault_logging_error
-
-The number of ERROR statements
-
-## pgagroal_vault_logging_fatal
-
-The number of FATAL statements
-
-## pgagroal_vault_client_sockets
-
-Number of sockets the client used
-
-## pgagroal_vault_self_sockets
-
-Number of sockets used by pgagroal-vault itself
+Shows the current number of connections that are on hold/awaiting due to blocking timeout configuration.
 
 ## pgagroal_os_info
 
@@ -269,44 +185,36 @@ Displays the operating system version information of the host system running pga
 | os | Operating system name (Linux, OpenBSD, FreeBSD, Darwin). |
 | major | Major version number. |
 | minor | Minor version number. |
-| patch | Patch version number (0 for BSD systems, actual patch for Linux/Darwin). |
-
-
-## TLS Certificate Metrics
-
-pgagroal automatically monitors all configured TLS certificates and exposes comprehensive metrics about their status, expiration, and properties.
-
-### Certificate Overview Metrics
-
-These metrics are **always exposed** when certificates are configured in `pgagroal.conf`, providing an overview of certificate health even when all certificates are invalid:
+| patch | Patch version number (0 for BSD systems, actual patch for Linux/macOS). |
 
 ## pgagroal_certificates_total
 
-Total number of TLS certificates configured across all components (main server, metrics endpoint, database connections)
+Reports the total number of TLS/SSL certificates configured for pgagroal (main, metrics, server certificates).
 
 ## pgagroal_certificates_accessible
 
-Number of TLS certificate files that can be read from disk
+Shows the number of configured TLS certificates that are accessible and readable by pgagroal.
 
 ## pgagroal_certificates_valid
 
-Number of TLS certificates that are valid and properly formatted
+Counts the number of TLS certificates that are currently valid (not expired, properly formatted).
 
 ## pgagroal_certificates_expired
 
-Number of TLS certificates that have expired
+Reports the number of TLS certificates that have already expired.
 
 ## pgagroal_certificates_expiring_soon
 
-Number of TLS certificates expiring within 30 days
+Shows the number of TLS certificates that will expire within the next 30 days.
 
 ## pgagroal_certificates_inaccessible
 
-Number of TLS certificate files that cannot be read (missing or permission issues)
+Counts the number of configured TLS certificate files that cannot be accessed or read.
 
 ## pgagroal_certificates_parse_errors
 
-Number of TLS certificates with parsing or format errors
+Reports the number of TLS certificates that could not be parsed due to formatting or corruption issues.
+
 
 ### Certificate Status Monitoring
 

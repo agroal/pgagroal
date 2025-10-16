@@ -1,0 +1,176 @@
+pgagroal_state
++ Provides the operational status of the pgagroal connection pooler service, indicating if it's running normally (1) or in graceful shutdown mode (2).
+* 1: Running normally
+* 2: Graceful shutdown mode
+
+pgagroal_pipeline_mode
++ Shows the current pipeline mode configuration of pgagroal, determining how connection pipelining is handled.
+* 0: Pipeline mode disabled
+* 1: Transaction pipeline mode
+* 2: Session pipeline mode
+
+pgagroal_server_error
++ Counts the total number of errors encountered per configured PostgreSQL server backend.
+* name: The configured name/identifier for the PostgreSQL server.
+* state: Current state of the server (not_init, init, free, in_use, gracefully, etc.).
+
+pgagroal_logging_info
++ Accumulates the total number of informational (INFO level) log messages produced by pgagroal since its last startup.
+
+pgagroal_logging_warn
++ Counts the total number of warning (WARN level) messages logged by pgagroal, potentially indicating recoverable issues.
+* Monitor for increases, may indicate configuration issues or recoverable problems.
+
+pgagroal_logging_error
++ Tallies the total number of error (ERROR level) messages from pgagroal, often signaling problems needing investigation.
+* Non-zero values usually indicate problems with connections or configuration, requiring investigation.
+
+pgagroal_logging_fatal
++ Records the total count of fatal (FATAL level) errors encountered by pgagroal, usually indicating service termination.
+* Any non-zero value indicates pgagroal likely terminated or failed critically.
+
+pgagroal_failed_servers
++ Reports the current number of PostgreSQL backend servers that are in a failed state and unavailable for connections.
+
+pgagroal_wait_time
++ Measures the current waiting time in seconds for clients waiting for available connections from the pool.
+
+pgagroal_query_count
++ Tracks the total cumulative number of SQL queries that have been processed through pgagroal since startup.
+
+pgagroal_connection_query_count
++ Counts the number of queries processed per individual connection slot in the connection pool.
+* id: The connection slot identifier (0-based index).
+* user: The PostgreSQL username associated with this connection (empty if unassigned).
+* database: The PostgreSQL database name for this connection (empty if unassigned).
+* application_name: The application name reported by the client (empty if unassigned).
+
+pgagroal_tx_count
++ Tracks the total cumulative number of database transactions that have been processed through pgagroal.
+
+pgagroal_active_connections
++ Shows the current number of connections in the pool that are actively being used by clients.
+
+pgagroal_total_connections
++ Reports the current total number of connections in the pool (active + idle + initializing).
+
+pgagroal_max_connections
++ Displays the maximum number of connections that can be maintained in the pgagroal connection pool (configured limit).
+
+pgagroal_connection
++ Provides detailed information about each individual connection slot in the pool.
+* id: The connection slot identifier (0-based index).
+* user: The PostgreSQL username for this connection (empty if not assigned).
+* database: The PostgreSQL database name for this connection (empty if not assigned).
+* application_name: The application name for this connection (empty if not assigned).
+* state: Current state of the connection (not_init, init, free, in_use, gracefully, flush, idle_check, max_connection_age, validation, remove).
+* 0: Connection slot is available/idle.
+* 1: Connection slot is in use.
+
+pgagroal_session_time_seconds_bucket
++ Histogram buckets tracking the distribution of session durations in seconds, showing how long client sessions typically last.
+* le: Upper bound for the bucket (5, 10, 20, 30, 45, 60, 300, 600, 1200, 1800, 2700, 3600, 7200, 14400, 21600, 43200, 86400, +Inf seconds).
+
+pgagroal_session_time_seconds_sum
++ Total cumulative session time across all completed sessions in seconds.
+
+pgagroal_session_time_seconds_count
++ Total number of completed sessions tracked by the histogram.
+
+pgagroal_connection_error
++ Counts the total number of connection errors encountered when attempting to establish or maintain database connections.
+
+pgagroal_connection_kill
++ Tracks the total number of connections that have been forcibly killed or terminated.
+
+pgagroal_connection_remove
++ Counts the total number of connections that have been removed from the pool (due to errors, expiration, etc.).
+
+pgagroal_connection_timeout
++ Records the total number of connection attempts that have timed out.
+
+pgagroal_connection_return
++ Tracks the total number of connections that have been successfully returned to the pool after use.
+
+pgagroal_connection_invalid
++ Counts the total number of connections that were determined to be invalid and discarded.
+
+pgagroal_connection_get
++ Records the total number of requests to obtain a connection from the pool.
+
+pgagroal_connection_idletimeout
++ Counts the total number of connections that were closed due to idle timeout.
+
+pgagroal_connection_max_connection_age
++ Tracks the total number of connections that were closed due to reaching maximum connection age.
+
+pgagroal_connection_flush
++ Counts the total number of connection flush operations performed.
+
+pgagroal_connection_success
++ Records the total number of successful connection establishments to PostgreSQL backends.
+
+pgagroal_auth_user_success
++ Tracks the total number of successful user authentication attempts.
+
+pgagroal_auth_user_bad_password
++ Counts the total number of authentication failures due to incorrect passwords.
+* Monitor for increases, may indicate brute force attacks or misconfigured applications.
+
+pgagroal_auth_user_error
++ Records the total number of authentication errors (other than bad passwords) encountered.
+
+pgagroal_client_wait
++ Shows the current number of clients waiting for an available connection from the pool.
+
+pgagroal_client_active
++ Reports the current number of active client connections being served by pgagroal.
+
+pgagroal_network_sent
++ Measures the total number of bytes sent from pgagroal to clients since startup.
+
+pgagroal_network_received
++ Measures the total number of bytes received by pgagroal from PostgreSQL servers since startup.
+
+pgagroal_client_sockets
++ Shows the current number of network sockets being used for client connections.
+
+pgagroal_self_sockets
++ Reports the current number of network sockets being used by pgagroal itself (management, metrics, etc.).
+
+pgagroal_connection_awaiting
++ Shows the current number of connections that are on hold/awaiting due to blocking timeout configuration.
+* Tracks connections waiting when pool limits are reached and blocking_timeout is configured.
+
+pgagroal_os_info
++ Displays the operating system version information of the host system running pgagroal.
+* os: Operating system name (Linux, OpenBSD, FreeBSD, Darwin).
+* major: Major version number.
+* minor: Minor version number.
+* patch: Patch version number (0 for BSD systems, actual patch for Linux/Darwin).
+* Value is always 1, version info is in the labels.
+
+pgagroal_certificates_total
++ Reports the total number of TLS/SSL certificates configured for pgagroal (main, metrics, server certificates).
+
+pgagroal_certificates_accessible
++ Shows the number of configured TLS certificates that are accessible and readable by pgagroal.
+
+pgagroal_certificates_valid
++ Counts the number of TLS certificates that are currently valid (not expired, properly formatted).
+
+pgagroal_certificates_expired
++ Reports the number of TLS certificates that have already expired.
+* Any non-zero value requires immediate attention to maintain TLS functionality.
+
+pgagroal_certificates_expiring_soon
++ Shows the number of TLS certificates that will expire within the next 30 days.
+* Monitor this metric to plan certificate renewals before expiration.
+
+pgagroal_certificates_inaccessible
++ Counts the number of configured TLS certificate files that cannot be accessed or read.
+* Non-zero values indicate file permission issues or missing certificate files.
+
+pgagroal_certificates_parse_errors
++ Reports the number of TLS certificates that could not be parsed due to formatting or corruption issues.
+* Non-zero values indicate corrupted or improperly formatted certificate files.
