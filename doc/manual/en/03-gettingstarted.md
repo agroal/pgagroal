@@ -1,4 +1,6 @@
-# Getting started with pgagroal
+\newpage
+
+# Getting started
 
 First of all, make sure that [**pgagroal**](https://github.com/agroal/pgagroal) is installed and in your path by
 using `pgagroal -?`. You should see
@@ -274,7 +276,7 @@ See [Configuration](./CONFIGURATION.md) for more information on these subjects.
 
 Please, read the manual for a full description of all the features available.
 
-## Closing
+## Contribute
 
 The [pgagroal](https://github.com/agroal/pgagroal) community hopes that you find
 the project interesting.
