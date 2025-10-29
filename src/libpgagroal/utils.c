@@ -439,13 +439,20 @@ pgagroal_write_long(void* data, long l)
    {
       // If little-endian, reverse the bytes as before.
       char* ptr = (char*)&l;
-      *((char*)(data + 7)) = *ptr; ptr++;
-      *((char*)(data + 6)) = *ptr; ptr++;
-      *((char*)(data + 5)) = *ptr; ptr++;
-      *((char*)(data + 4)) = *ptr; ptr++;
-      *((char*)(data + 3)) = *ptr; ptr++;
-      *((char*)(data + 2)) = *ptr; ptr++;
-      *((char*)(data + 1)) = *ptr; ptr++;
+      *((char*)(data + 7)) = *ptr;
+      ptr++;
+      *((char*)(data + 6)) = *ptr;
+      ptr++;
+      *((char*)(data + 5)) = *ptr;
+      ptr++;
+      *((char*)(data + 4)) = *ptr;
+      ptr++;
+      *((char*)(data + 3)) = *ptr;
+      ptr++;
+      *((char*)(data + 2)) = *ptr;
+      ptr++;
+      *((char*)(data + 1)) = *ptr;
+      ptr++;
       *((char*)(data + 0)) = *ptr;
    }
 }
