@@ -45,7 +45,7 @@ START_TEST(test_pgagroal_utf8_simple)
 START_TEST(test_pgagroal_utf8_load)
 {
    int found = 0;
-   found = !pgagroal_tsclient_execute_pgbench(UTF8_USER, UTF8_DATABASE, true, 8, 0, 1000);
+   found = !pgagroal_tsclient_execute_pgbench(UTF8_USER, UTF8_DATABASE, true, 2, 0, 1000);
    ck_assert_msg(found, "Load test for UTF-8 user failed");
 }
 

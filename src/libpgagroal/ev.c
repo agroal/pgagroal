@@ -793,13 +793,23 @@ ev_io_uring_handler(struct io_uring_cqe* cqe)
    if (!watcher)
    {
       rc = cqe->res;
-      if (rc == -ENOENT || rc == -EINVAL)
+      if (rc == -ENOENT)
       {
-         /* shouldn't happen */
-         pgagroal_log_fatal("io_uring_prep_cancel error: %s", strerror(-rc));
+         /* Operation not found - normal in high-load scenarios */
+         pgagroal_log_trace("io_uring_prep_cancel: operation not found: %s", strerror(-rc));
       }
-      if (rc == -EALREADY)
+      else if (rc == -EINVAL)
       {
+         /* Invalid operation - log but continue */
+         pgagroal_log_debug("io_uring_prep_cancel: invalid operation: %s", strerror(-rc));
+      }
+      else if (rc == -EALREADY)
+      {
+         pgagroal_log_trace("io_uring_prep_cancel: operation already in progress: %s", strerror(-rc));
+      }
+      else if (rc < 0)
+      {
+         /* Other errors - log but don't fatal */
          pgagroal_log_warn("io_uring_prep_cancel error: %s", strerror(-rc));
       }
       return PGAGROAL_EVENT_RC_OK;
@@ -1086,8 +1096,21 @@ ev_epoll_io_start(struct io_watcher* watcher)
 
    if (epoll_ctl(loop->epollfd, EPOLL_CTL_ADD, fd, &event) == -1)
    {
-      pgagroal_log_error("epoll_ctl error when adding fd %d : %s", fd, strerror(errno));
-      return PGAGROAL_EVENT_RC_FATAL;
+      if (errno == EEXIST)
+      {
+         /* FD already exists, modify it instead */
+         pgagroal_log_debug("epoll_ctl: fd %d already exists, modifying instead", fd);
+         if (epoll_ctl(loop->epollfd, EPOLL_CTL_MOD, fd, &event) == -1)
+         {
+            pgagroal_log_error("epoll_ctl error when modifying fd %d : %s", fd, strerror(errno));
+            return PGAGROAL_EVENT_RC_FATAL;
+         }
+      }
+      else
+      {
+         pgagroal_log_error("epoll_ctl error when adding fd %d : %s", fd, strerror(errno));
+         return PGAGROAL_EVENT_RC_FATAL;
+      }
    }
 
    return PGAGROAL_EVENT_RC_OK;
@@ -1353,8 +1376,16 @@ ev_kqueue_io_start(struct io_watcher* watcher)
 
    if (kevent(loop->kqueuefd, &kev, 1, NULL, 0, NULL) == -1)
    {
-      pgagroal_log_error("kevent error: %s", strerror(errno));
-      return PGAGROAL_EVENT_RC_ERROR;
+      if (errno == EBADF)
+      {
+         /* File descriptor already closed */
+         pgagroal_log_debug("kevent: fd already closed: %s", strerror(errno));
+      }
+      else
+      {
+         pgagroal_log_error("kevent error: %s", strerror(errno));
+         return PGAGROAL_EVENT_RC_ERROR;
+      }
    }
 
    return PGAGROAL_EVENT_RC_OK;
@@ -1369,15 +1400,31 @@ ev_kqueue_io_stop(struct io_watcher* watcher)
    EV_SET(&kev, watcher->fds.__fds[0], filter, EV_DELETE, 0, 0, NULL);
    if (kevent(loop->kqueuefd, &kev, 1, NULL, 0, NULL) == -1)
    {
-      pgagroal_log_error("%s: kevent delete failed", __func__);
-      return PGAGROAL_EVENT_RC_ERROR;
+      if (errno == EBADF || errno == ENOENT)
+      {
+         /* File descriptor already closed or event not found */
+         pgagroal_log_debug("%s: kevent delete on closed/invalid fd[0]: %s", __func__, strerror(errno));
+      }
+      else
+      {
+         pgagroal_log_error("%s: kevent delete failed for fd[0]: %s", __func__, strerror(errno));
+         return PGAGROAL_EVENT_RC_ERROR;
+      }
    }
 
    EV_SET(&kev, watcher->fds.__fds[1], filter, EV_DELETE, 0, 0, NULL);
    if (kevent(loop->kqueuefd, &kev, 1, NULL, 0, NULL) == -1)
    {
-      pgagroal_log_error("%s: kevent delete failed", __func__);
-      return PGAGROAL_EVENT_RC_ERROR;
+      if (errno == EBADF || errno == ENOENT)
+      {
+         /* File descriptor already closed or event not found */
+         pgagroal_log_debug("%s: kevent delete on closed/invalid fd[1]: %s", __func__, strerror(errno));
+      }
+      else
+      {
+         pgagroal_log_error("%s: kevent delete failed for fd[1]: %s", __func__, strerror(errno));
+         return PGAGROAL_EVENT_RC_ERROR;
+      }
    }
 
    return PGAGROAL_EVENT_RC_OK;
