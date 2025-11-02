@@ -2459,7 +2459,9 @@ static void
 sigchld_cb(void)
 {
    while (waitpid(-1, NULL, WNOHANG) > 0)
+   {
       ;
+   }
 }
 
 static void

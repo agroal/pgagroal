@@ -2445,7 +2445,9 @@ extract_key_value(char* str, char** key, char** value)
    // the key does not allow spaces and is whatever is
    // on the left of the '='
    while (str[c] != ' ' && str[c] != '=' && c < length)
+   {
       c++;
+   }
 
    if (c < length)
    {
@@ -2458,7 +2460,9 @@ extract_key_value(char* str, char** key, char** value)
       *key = k;
 
       while ((str[c] == ' ' || str[c] == '\t' || str[c] == '=') && c < length)
+      {
          c++;
+      }
 
       offset = c;
 
@@ -3010,7 +3014,9 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
             {
                // Trim whitespace
                while (*token == ' ' || *token == '\t')
+               {
                   token++;
+               }
                char* end = token + strlen(token) - 1;
                while (end > token && (*end == ' ' || *end == '\t'))
                {
