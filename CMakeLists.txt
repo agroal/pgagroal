@@ -159,8 +159,7 @@ if (DOCS)
   endif()
 endif()
 
-find_package(Doxygen
-  REQUIRED dot)
+find_package(Doxygen)
 
 if (DOXYGEN_FOUND)
   message(status "Doxygen found: ${DOXYGEN_EXECUTABLE}")
