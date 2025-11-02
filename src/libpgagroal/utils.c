@@ -33,6 +33,7 @@
 #include <server.h>
 
 /* system */
+#include <ctype.h>
 #include <err.h>
 #include <ev.h>
 #include <pwd.h>
@@ -1664,4 +1665,323 @@ pgagroal_normalize_path(char* directory_path, char* filename, char* default_path
    // No directory specified and no default path provided
    pgagroal_log_warn("No path specified for config file %s", filename);
    return 1;
+}
+
+static void
+append_bounded(char** out, const char* s, size_t current_len, size_t cap)
+{
+   if (s == NULL || cap <= current_len)
+   {
+      return;
+   }
+
+   size_t remain = cap - current_len;
+   size_t slen = strlen(s);
+   size_t to_copy = (slen > remain) ? remain : slen;
+
+   if (to_copy == 0)
+   {
+      return;
+   }
+
+   char* chunk = (char*)malloc(to_copy + 1);
+   if (chunk == NULL)
+   {
+      return;
+   }
+
+   memcpy(chunk, s, to_copy);
+   chunk[to_copy] = '\0';
+   *out = pgagroal_append(*out, chunk);
+   free(chunk);
+}
+
+static void
+append_char_bounded(char** out, char c, size_t current_len, size_t cap)
+{
+   if (current_len < cap)
+   {
+      *out = pgagroal_append_char(*out, c);
+   }
+}
+
+static int
+hvsnprintf(char* buf, size_t n, const char* fmt, va_list ap)
+{
+   size_t cap = 8192;
+   if (n > 0 && (n - 1) < cap)
+   {
+      cap = n - 1;
+   }
+
+   char* out = NULL;
+   const char* p = (fmt != NULL) ? fmt : "";
+   char scratch[128];
+
+   while (*p != '\0')
+   {
+      if (*p != '%')
+      {
+         size_t cur = (out != NULL) ? strlen(out) : 0;
+         append_char_bounded(&out, *p, cur, cap);
+         p++;
+         continue;
+      }
+
+      p++;
+      if (*p == '%')
+      {
+         size_t cur = (out != NULL) ? strlen(out) : 0;
+         append_char_bounded(&out, '%', cur, cap);
+         p++;
+         continue;
+      }
+
+      /* Parse flags (support '0' for zero-padding) */
+      bool flag_zero = false;
+      while (*p == '0')
+      {
+         flag_zero = true;
+         p++;
+      }
+
+      /* Parse width */
+      int width = -1;
+      if (isdigit((unsigned char)*p))
+      {
+         width = 0;
+         while (isdigit((unsigned char)*p))
+         {
+            width = width * 10 + (*p - '0');
+            p++;
+         }
+      }
+
+      /* Length modifier */
+      enum { LM_NONE, LM_L, LM_LL, LM_Z } lm = LM_NONE;
+      if (*p == 'l')
+      {
+         p++;
+         if (*p == 'l')
+         {
+            lm = LM_LL;
+            p++;
+         }
+         else
+         {
+            lm = LM_L;
+         }
+      }
+      else if (*p == 'z')
+      {
+         lm = LM_Z;
+         p++;
+      }
+
+      char conv = *p;
+      if (conv == '\0')
+      {
+         break;
+      }
+      p++;
+
+      scratch[0] = '\0';
+
+      switch (conv)
+      {
+         case 's':
+         {
+            char* s = va_arg(ap, char*);
+            if (s == NULL)
+            {
+               s = "(null)";
+            }
+            size_t cur = (out != NULL) ? strlen(out) : 0;
+            append_bounded(&out, s, cur, cap);
+            break;
+         }
+         case 'c':
+         {
+            int ch = va_arg(ap, int);
+            size_t cur = (out != NULL) ? strlen(out) : 0;
+            append_char_bounded(&out, (char)ch, cur, cap);
+            break;
+         }
+         case 'd':
+         case 'i':
+         {
+            long long v;
+            if (lm == LM_LL)
+            {
+               v = va_arg(ap, long long);
+            }
+            else if (lm == LM_L)
+            {
+               v = va_arg(ap, long);
+            }
+            else if (lm == LM_Z)
+            {
+               v = (ssize_t)va_arg(ap, ssize_t);
+            }
+            else
+            {
+               v = va_arg(ap, int);
+            }
+
+            if (width >= 0)
+            {
+               (void)snprintf(scratch, sizeof(scratch),
+                              flag_zero ? "%0*lld" : "%*lld", width, v);
+            }
+            else
+            {
+               (void)snprintf(scratch, sizeof(scratch), "%lld", v);
+            }
+            size_t cur = (out != NULL) ? strlen(out) : 0;
+            append_bounded(&out, scratch, cur, cap);
+            break;
+         }
+         case 'u':
+         {
+            unsigned long long v;
+            if (lm == LM_LL)
+            {
+               v = va_arg(ap, unsigned long long);
+            }
+            else if (lm == LM_L)
+            {
+               v = va_arg(ap, unsigned long);
+            }
+            else if (lm == LM_Z)
+            {
+               v = (size_t)va_arg(ap, size_t);
+            }
+            else
+            {
+               v = va_arg(ap, unsigned int);
+            }
+
+            if (width >= 0)
+            {
+               (void)snprintf(scratch, sizeof(scratch),
+                              flag_zero ? "%0*llu" : "%*llu", width, v);
+            }
+            else
+            {
+               (void)snprintf(scratch, sizeof(scratch), "%llu", v);
+            }
+            size_t cur = (out != NULL) ? strlen(out) : 0;
+            append_bounded(&out, scratch, cur, cap);
+            break;
+         }
+         case 'x':
+         case 'X':
+         {
+            unsigned long long v;
+            if (lm == LM_LL)
+            {
+               v = va_arg(ap, unsigned long long);
+            }
+            else if (lm == LM_L)
+            {
+               v = va_arg(ap, unsigned long);
+            }
+            else if (lm == LM_Z)
+            {
+               v = (size_t)va_arg(ap, size_t);
+            }
+            else
+            {
+               v = va_arg(ap, unsigned int);
+            }
+
+            if (width >= 0)
+            {
+               if (conv == 'x')
+               {
+                  (void)snprintf(scratch, sizeof(scratch),
+                                 flag_zero ? "%0*llx" : "%*llx", width, v);
+               }
+               else
+               {
+                  (void)snprintf(scratch, sizeof(scratch),
+                                 flag_zero ? "%0*llX" : "%*llX", width, v);
+               }
+            }
+            else
+            {
+               (void)snprintf(scratch, sizeof(scratch),
+                              (conv == 'x') ? "%llx" : "%llX", v);
+            }
+
+            size_t cur = (out != NULL) ? strlen(out) : 0;
+            append_bounded(&out, scratch, cur, cap);
+            break;
+         }
+         case 'p':
+         {
+            void* ptr = va_arg(ap, void*);
+            (void)snprintf(scratch, sizeof(scratch), "%p", ptr);
+            size_t cur = (out != NULL) ? strlen(out) : 0;
+            append_bounded(&out, scratch, cur, cap);
+            break;
+         }
+         case 'f':
+         case 'F':
+         case 'g':
+         case 'G':
+         case 'e':
+         case 'E':
+         {
+            double dv = va_arg(ap, double);
+            (void)snprintf(scratch, sizeof(scratch), "%g", dv);
+            size_t cur = (out != NULL) ? strlen(out) : 0;
+            append_bounded(&out, scratch, cur, cap);
+            break;
+         }
+         default:
+         {
+            size_t cur = (out != NULL) ? strlen(out) : 0;
+            append_char_bounded(&out, '%', cur, cap);
+            cur = (out != NULL) ? strlen(out) : 0;
+            append_char_bounded(&out, conv, cur, cap);
+            break;
+         }
+      }
+   }
+
+   size_t produced_len = (out != NULL) ? strlen(out) : 0;
+
+   if (buf != NULL && n > 0)
+   {
+      size_t to_copy = (produced_len < (n - 1)) ? produced_len : (n - 1);
+      if (to_copy > 0 && out != NULL)
+      {
+         memcpy(buf, out, to_copy);
+      }
+      if (n > 0)
+      {
+         buf[to_copy] = '\0';
+      }
+   }
+
+   if (out != NULL)
+   {
+      free(out);
+   }
+
+   return (int)produced_len;
+}
+
+int
+pgagroal_snprintf(char* buf, size_t n, const char* fmt, ...)
+{
+   va_list ap;
+   int ret;
+
+   va_start(ap, fmt);
+   ret = hvsnprintf(buf, n, fmt, ap);
+   va_end(ap);
+
+   return ret;
 }
