@@ -560,6 +560,7 @@ retry:
             {
                size_t offset = 0;
                size_t remaining = size;
+               bool full_line = false;
 
                while (remaining > 0)
                {
@@ -585,6 +586,22 @@ retry:
                      else
                      {
                         n = pgagroal_append_char(n, '?');
+                     }
+                  }
+
+                  if (strlen(l) == LINE_LENGTH * 2)
+                  {
+                     full_line = true;
+                  }
+                  else if (full_line)
+                  {
+                     if (strlen(l) < LINE_LENGTH * 2)
+                     {
+                        int chars_missing = (LINE_LENGTH * 2) - strlen(l);
+                        for (int i = 0; i < chars_missing; i++)
+                        {
+                           l = pgagroal_append_char(l, ' ');
+                        }
                      }
                   }
 
