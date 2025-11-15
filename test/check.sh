@@ -355,7 +355,9 @@ EOF
 #
 # DATABASE=ALIAS1,ALIAS2 USER MAX_SIZE INITIAL_SIZE MIN_SIZE
 #
-$PG_DATABASE=pgalias1,pgalias2 $PG_USER_NAME 8 2 1
+$PG_DATABASE=pgalias1,pgalias2 $PG_USER_NAME 6 6 1
+$PG_UTF8_DATABASE $PG_UTF8_USER_NAME 2 2 1
+
 EOF
 
    echo "Add test configuration to pgagroal.conf ... ok"
