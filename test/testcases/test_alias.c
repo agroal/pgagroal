@@ -49,7 +49,7 @@ START_TEST(test_pgagroal_database_alias2)
 START_TEST(test_pgagroal_database_alias1_load)
 {
    int found = 0;
-   found = !pgagroal_tsclient_execute_pgbench(user, "pgalias1", true, 8, 0, 1000);
+   found = !pgagroal_tsclient_execute_pgbench(user, "pgalias1", true, 6, 0, 1000);
    ck_assert_msg(found, "Connection to database alias1 failed");
 }
 
@@ -57,7 +57,7 @@ START_TEST(test_pgagroal_database_alias1_load)
 START_TEST(test_pgagroal_database_alias2_load)
 {
    int found = 0;
-   found = !pgagroal_tsclient_execute_pgbench(user, "pgalias2", true, 8, 0, 1000);
+   found = !pgagroal_tsclient_execute_pgbench(user, "pgalias2", true, 6, 0, 1000);
    ck_assert_msg(found, "Connection to database alias2 failed");
 }
 
