@@ -277,7 +277,6 @@ START_TEST(test_art_iterator_read)
    struct art* t = NULL;
    struct art_iterator* iter = NULL;
    void* mem = NULL;
-   enum value_type type = ValueNone;
    struct art_test_obj* obj = NULL;
 
    pgagroal_art_create(&t);
@@ -353,7 +352,6 @@ START_TEST(test_art_iterator_remove)
    struct art* t = NULL;
    struct art_iterator* iter = NULL;
    void* mem = NULL;
-   enum value_type type = ValueNone;
    struct art_test_obj* obj = NULL;
 
    pgagroal_art_create(&t);
@@ -463,7 +461,6 @@ START_TEST(test_art_insert_search_extensive)
       line++;
    }
 
-   uintptr_t nlines = line - 1;
    // Seek back to the start
    fseek(f, 0, SEEK_SET);
    line = 1;
@@ -554,7 +551,6 @@ START_TEST(test_art_random_delete)
       line++;
    }
 
-   uintptr_t nlines = line - 1;
    // Seek back to the start
    fseek(f, 0, SEEK_SET);
    line = 1;
