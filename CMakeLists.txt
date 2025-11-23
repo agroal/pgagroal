@@ -39,7 +39,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 message(STATUS "pgagroal ${VERSION_STRING}")
 
-set(generation TRUE)
 set(check TRUE)
 set(container FALSE)
 
@@ -147,7 +146,7 @@ if (DOCS)
     message(STATUS "pandoc found")
   else ()
     set(DOCS FALSE)
-    message(STATUS "pandoc needed. The generation process will be skipped.")
+    message(STATUS "pandoc needed. The documentation will be skipped.")
   endif()
 
   find_package(Pdflatex)
@@ -155,7 +154,7 @@ if (DOCS)
     message(STATUS "pdflatex found")
   else ()
     set(DOCS FALSE)
-    message(STATUS "pdflatex needed. The generation process will be skipped.")
+    message(STATUS "pdflatex needed. The documentation will be skipped.")
   endif()
 endif()
 

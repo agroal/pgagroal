@@ -57,9 +57,9 @@ This process is optional. If you choose not to generate the API HTML files, you 
 
 Download dependencies
 
-    ``` sh
-    dnf install graphviz doxygen
-    ```
+``` sh
+dnf install graphviz doxygen
+```
 
 ### Build
 
