@@ -28,7 +28,7 @@ pgagroal documentation is organized to serve different audiences and use cases. 
 | **Use Git workflow**                   | [Git guide](#git-guide) \| [71-git.md](71-git.md)                                                              |
 | **Build RPM packages**                 | [RPM](#rpm) \| [73-rpm.md](73-rpm.md)                                                                          |
 | **Analyze code coverage**              | [Code Coverage](#code-coverage) \| [75-codecoverage.md](75-codecoverage.md)                                    |
-| **Work with core APIs**                | [Core API](#core-api) \| [77-core_api.md](77-core_api.md)                                                      |
+| **Work with core APIs**                | [Core API](#core-apis) \| [77-core_api.md](77-core_api.md)                                                     |
 | **Understand event loop**              | [Event Loop](#event-loop) \| [76-eventloop.md](76-eventloop.md)                                                |
 | **Configure security/TLS**             | [Transport Level Security (TLS)](#transport-level-security-tls) \| [08-tls.md](08-tls.md)                     |
 | **Use command-line tools**             | [Command Line Tools](#command-line-tools) \| [13-cli-tools.md](13-cli-tools.md)                               |
@@ -85,7 +85,7 @@ pgagroal documentation is organized to serve different audiences and use cases. 
 | [Building pgagroal](#building-pgagroal)                          | [74-building.md](74-building.md)                                 | Compiling pgagroal from source                                               |
 | [Code Coverage](#code-coverage)                                  | [75-codecoverage.md](75-codecoverage.md)                         | Code coverage analysis and testing practices                                 |
 | [Event Loop](#event-loop)                                        | [76-eventloop.md](76-eventloop.md)                               | Understanding the event loop implementation                                   |
-| [Core API](#core-api)                                            | [77-core_api.md](77-core_api.md)                                 | Reference for core API functions                                             |
+| [Core API](#core-apis)                                           | [77-core_api.md](77-core_api.md)                                 | Reference for core API functions                                             |
 | [Test Suite](#test-suite)                                        | [78-test.md](78-test.md)                                         | Testing frameworks and procedures                                             |
 | [Distribution Installation](#distribution-specific-installation) | [79-distributions.md](79-distributions.md)                       | Platform-specific installation notes                                         |
 
@@ -94,7 +94,7 @@ pgagroal documentation is organized to serve different audiences and use cases. 
 | Chapter                                   | File                                                              | Description                                                                   |
 |-------------------------------------------|-------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | [Acknowledgements](#acknowledgement)     | [97-acknowledgement.md](97-acknowledgement.md)                   | Credits and contributors                                                      |
-| [Licenses](#licenses)                    | [98-licenses.md](98-licenses.md)                                 | License information                                                           |
+| [Licenses](#license)                     | [98-licenses.md](98-licenses.md)                                 | License information                                                           |
 | [References](#references)                | [99-references.md](99-references.md)                             | Additional resources and references                                           |
 
 #### Additional User Resources
@@ -150,7 +150,7 @@ Essential reading for contributors and developers:
 | [Test Suite](#test-suite)                | [78-test.md](78-test.md)                                         | Testing frameworks and procedures                                 |
 | [Code Coverage](#code-coverage)          | [75-codecoverage.md](75-codecoverage.md)                         | Code coverage analysis and testing practices                     |
 | [Event Loop](#event-loop)                | [76-eventloop.md](76-eventloop.md)                               | Understanding the event loop implementation                       |
-| [Core API](#core-api)                    | [77-core_api.md](77-core_api.md)                                 | Reference for core API functions                                 |
+| [Core API](#core-apis)                   | [77-core_api.md](77-core_api.md)                                 | Reference for core API functions                                 |
 | [RPM](#rpm)                              | [73-rpm.md](73-rpm.md)                                           | Building and using RPM packages                                  |
 
 **Additional developer resources (supplements manual chapters):**
@@ -247,7 +247,7 @@ Complete command-line and configuration reference in `doc/man/`:
 | Chapter                                   | File                                                  | Description                         |
 |-------------------------------------------|-------------------------------------------------------|-------------------------------------|
 | [Acknowledgements](#acknowledgement)     | [97-acknowledgement.md](97-acknowledgement.md)       | Credits and contributors            |
-| [Licenses](#licenses)                    | [98-licenses.md](98-licenses.md)                     | License information                 |
+| [Licenses](#license)                     | [98-licenses.md](98-licenses.md)                     | License information                 |
 | [References](#references)                | [99-references.md](99-references.md)                 | Additional resources and references |
 
 ## Development Environment Setup
