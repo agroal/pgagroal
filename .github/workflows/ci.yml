@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
 
       - name: Update system
         run: sudo apt update
@@ -103,7 +103,6 @@ jobs:
           root: /home/runner/work/pgagroal/pgagroal
           html-details: true
           html-out: coverage.html
-  
 
       - name: Generate Cobertura Report
         if: matrix.compiler == 'gcc' && matrix.build_type == 'Debug'
@@ -129,7 +128,7 @@ jobs:
 
       - name: Upload All Coverage Reports as Artifact
         if: matrix.compiler == 'gcc' && matrix.build_type == 'Debug'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-reports-${{ matrix.compiler }}-${{ matrix.build_type }}
           path: coverage-report
@@ -137,7 +136,7 @@ jobs:
 
       - name: Upload Build and Run Logs as Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: logs-${{ matrix.compiler }}-${{ matrix.build_type }}
           path: |
@@ -147,14 +146,11 @@ jobs:
 
       - name: Upload Generated Documentation Artifact
         if: matrix.compiler == 'gcc' && matrix.build_type == 'Release'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: generated-docs
           path: /home/runner/work/pgagroal/pgagroal/build/doc
           retention-days: 90
-
-
-
 
   build-macos:
     runs-on: macos-latest
@@ -164,30 +160,12 @@ jobs:
       POSTGRESQL_VERSION: "@17"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install dependencies
         run: |
           brew update
           brew install openssl libev zstd lz4 libssh bzip2 docutils check graphviz doxygen
-          # brew install postgresql${POSTGRESQL_VERSION}
-          
-      # - name: Add PostgreSQL to Path
-      #   run: |
-      #     echo "$(brew --prefix postgresql${POSTGRESQL_VERSION})/bin" >> $GITHUB_PATH
-     
-      # - name: Start PostgreSQL
-      #   run: |
-      #     brew services start postgresql@17
-      #     # Wait for PostgreSQL to start
-      #     for i in {1..30}; do
-      #       if pg_isready; then
-      #         echo "PostgreSQL is ready"
-      #         break
-      #       fi
-      #       echo "Waiting for PostgreSQL to start..."
-      #       sleep 1
-      #     done
 
       - name: Configure and build with clang
         run: |
@@ -196,66 +174,19 @@ jobs:
           cd build
           cmake -DCMAKE_BUILD_TYPE=Debug ..
           make -j$(sysctl -n hw.ncpu)
-      
-      # - name: Run tests with Clang build
-      #   working-directory: ${{ env.BUILD_DIR }}
-      #   run: $(which bash) ./testsuite.sh
-  
-      # - name: Clean up after Clang tests
-      #   working-directory: ${{ env.BUILD_DIR }}
-      #   run: $(which bash) ./testsuite.sh clean
-
-      # - name: Show logs on failure
-      #   if: failure()
-      #   working-directory: ${{ env.BUILD_DIR }}
-      #   run: |
-      #     cat ./log/logfile || echo "logfile not found"
-      #     cat ./log/pgagroal.log || echo "pgagroal.log not found"
-
-      # - name: Upload logs on failure
-      #   if: failure()
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: macos-build-logs
-      #     path: |
-      #       ${{ env.BUILD_DIR }}/log/
-      #       /tmp/*.log
-      #     retention-days: 7
-
-      # - name: Run pgagroal and test
-      #   run: |
-      #     sudo mkdir -p /etc/pgagroal
-      #     sudo cp doc/etc/*.conf /etc/pgagroal
-      #     cd build/src
-      #     ./pgagroal > /dev/null 2>&1 &
-      #     # Give pgagroal time to start
-      #     sleep 5
-      #     # Test if pgagroal is running
-      #     if ! ./pgagroal-cli ping; then
-      #       echo "pgagroal failed to start"
-      #       exit 1
-      #     fi
-      #     # Shutdown pgagroal
-      #     ./pgagroal-cli shutdown
-
-      # - name: Stop PostgreSQL
-      #   run: |
-      #     brew services stop postgresql@14
-      #   if: always()
-
 
   build-freebsd:
     runs-on: ubuntu-latest
     name: FreeBSD Build and Test
     timeout-minutes: 30
-    strategy:  
+    strategy:
       matrix:
         compiler: [clang]
         build_type: [Debug, Release]
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install QEMU dependencies
         run: |
           sudo apt-get update
@@ -302,7 +233,7 @@ jobs:
               hs-pandoc \
               texlive-base \
               texlive-texmf \
-              graphviz 
+              graphviz
             # Initialize Graphviz plugins after installation
             dot -c
       - name: Build Project
@@ -312,22 +243,3 @@ jobs:
           cd $GITHUB_WORKSPACE/build
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} "$GITHUB_WORKSPACE"
           make -j$(sysctl -n hw.ncpu)
-      # - name: Debug Testsuite Path
-      #   shell: freebsd {0}
-      #   run: |
-      #     cd "${GITHUB_WORKSPACE}/build"
-      #     bash ./testsuite.sh
-      # - name: Clean Testsuite
-      #   shell: freebsd {0}
-      #   run: |
-      #     cd ${GITHUB_WORKSPACE}/build
-      #     bash ./testsuite.sh clean
-      # - name: Upload Build Artifacts
-      #   if: always()
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: freebsd-${{ matrix.compiler }}-${{ matrix.build_type }}-logs
-      #     path: |
-      #       $GITHUB_WORKSPACE/build/log/*
-      #       /tmp/*.log
-      #     retention-days: 7
