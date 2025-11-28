@@ -92,6 +92,58 @@ dnf install graphviz doxygen
 
 These packages will be detected during `cmake` and built as part of the main build.
 
+### Policy and guidelines for using AI
+
+Our goal in the pgmoneta project is to develop an excellent software system. This requires careful attention to
+detail in every change we integrate. Maintainer time and attention is very limited, so it's important that changes
+you ask us to review represent your best work.
+
+You are encouraged to use tools that help you write good code, including AI tools. However, as noted above, you always
+need to understand and explain the changes you're proposing to make, whether or not you used an LLM as part of
+your process to produce them. The answer to “Why did you make change X?” should never be “I'm not sure. The AI did it.”
+
+Do not submit an AI-generated PR you haven't personally understood and tested, as this wastes maintainers' time.
+PRs that appear to violate this guideline will be closed without review. Using AI as a coding assistant and help you
+create a skeleton for your code.
+
+* Don't skip becoming familiar with the part of the codebase you're working on. This will let you write better prompts
+  and validate their output if you use an LLM. Code assistants can be a useful search engine/discovery tool in this process,
+  but don't trust claims they make about how pgmoneta works. LLMs are often wrong, even about details that are clearly
+  answered in the pgmoneta documentation and surrounding code
+* Don't simply ask an LLM to add code comments, as it will likely produce a bunch of text that unnecessarily explains
+  what's already clear from the code. If using an LLM to generate comments, be really specific in your request,
+  demand succinctness, and carefully edit the result.
+
+**Using AI for communication**
+
+As noted above, pgmoneta's contributors are expected to communicate with intention, to avoid wasting maintainer time
+with long, sloppy writing. We strongly prefer clear and concise communication about points that actually require discussion
+over long AI-generated comments.
+
+When you use an LLM to write a message for you, it remains your responsibility to read through the whole thing and make sure
+that it makes sense to you and represents your ideas concisely. A good rule of thumb is that if you can't make yourself
+carefully read some LLM output that you generated, nobody else wants to read it either.
+
+Here are some concrete guidelines for using LLMs as part of your communication workflows.
+
+* When writing a pull request description, do not include anything that's obvious from looking at your changes directly
+  (e.g., files changed, functions updated, etc.). Instead, focus on the why behind your changes. Don't ask an LLM to
+  generate a PR description on your behalf based on your code changes, as it will simply regurgitate the information
+  that's already there.
+* Similarly, when responding to a pull request comment, explain your reasoning. Don't prompt an LLM to re-describe what
+  can already be seen from the code.
+* Verify that everything you write is accurate, whether or not an LLM generated any part of it. pgmoneta's maintainers
+  will be unable to review your contributions if you misrepresent your work (e.g., misdescribing your code changes,
+  their effect, or your testing process).
+* Complete all parts of the PR description template, maybe with screenshots and the self-review checklist.
+  Don't simply overwrite the template with LLM output.
+* Clarity and succinctness are much more important than perfect grammar, so you shouldn't feel obliged to pass your writing
+  through an LLM. If you do ask an LLM to clean up your writing style, be sure it does not make it longer in the process.
+  Demand succinctness in your prompt.
+* Quoting an LLM answer is usually less helpful than linking to relevant primary sources, like source code,
+  reference documentation, or web standards. If you do need to quote an LLM answer in a pgmoneta conversation,
+  put the answer in a pgmoneta quote block, to distinguish LLM output from your own thoughts.
+
 ### Sanitizer
 
 Before building pgagroal with sanitizer support, ensure you have the required packages installed:
