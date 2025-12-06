@@ -556,6 +556,42 @@ main(int argc, char** argv)
 
    // the main configuration file is mandatory!
    configuration_path = configuration_path != NULL ? configuration_path : PGAGROAL_DEFAULT_CONF_FILE;
+
+   int cfg_ret = pgagroal_validate_config_file(configuration_path);
+
+   if (cfg_ret)
+   {
+      switch (cfg_ret)
+      {
+         case ENOENT:
+#ifdef HAVE_SYSTEMD
+            sd_notifyf(0, "STATUS=Configuration file not found or not a regular file: %s", configuration_path);
+#endif
+            errx(1, "Configuration file not found or not a regular file: %s", configuration_path);
+            break;
+
+         case EACCES:
+#ifdef HAVE_SYSTEMD
+            sd_notifyf(0, "STATUS=Can't read configuration file: %s", configuration_path);
+#endif
+            errx(1, "Can't read configuration file: %s", configuration_path);
+            break;
+
+         case EINVAL:
+#ifdef HAVE_SYSTEMD
+            sd_notifyf(0, "STATUS=Configuration file contains binary data or invalid path: %s", configuration_path);
+#endif
+            errx(1, "Configuration file contains binary data or invalid path: %s", configuration_path);
+            break;
+
+         default:
+#ifdef HAVE_SYSTEMD
+            sd_notifyf(0, "STATUS=Configuration file validation failed: %s", configuration_path);
+#endif
+            errx(1, "Configuration file validation failed: %s", configuration_path);
+      }
+   }
+
    if ((ret = pgagroal_read_configuration(shmem, configuration_path, true)) != PGAGROAL_CONFIGURATION_STATUS_OK)
    {
       // the configuration has some problem, build up a descriptive message

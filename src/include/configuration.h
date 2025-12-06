@@ -257,6 +257,17 @@ int
 pgagroal_read_hba_configuration(void* shmem, char* filename);
 
 /**
+ * Validate a configuration file for existence, type, readability and binary content
+ * @param path The file path
+ * @return 0 if the file is valid, otherwise a positive error value:
+ *         ENOENT  = file does not exist or is not a regular file
+ *         EACCES  = file is not readable
+ *         EINVAL  = path is NULL or file contains binary data
+ */
+int
+pgagroal_validate_config_file(char* path);
+
+/**
  * Validate the HBA configuration from a file
  * @param shmem The shared memory segment
  * @return 0 upon success, otherwise 1

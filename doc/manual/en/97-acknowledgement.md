@@ -29,6 +29,7 @@ Sangkeun J.C. Kim <jchrys@me.com>
 Arshdeep Singh <balarsh535@gmail.com>
 Vanes Angelo <k124k3n@gmail.com>
 Bassam Adnan <mailbassam@gmail.com>
+Sara Nabih <nabihsara8@gmail.com>
 ```
 
 ## Committers

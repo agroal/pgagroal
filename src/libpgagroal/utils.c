@@ -569,7 +569,7 @@ pgagroal_get_password(void)
 }
 
 bool
-pgagroal_exists(char* f)
+pgagroal_exists(const char* f)
 {
    if (access(f, F_OK) == 0)
    {
@@ -577,6 +577,24 @@ pgagroal_exists(char* f)
    }
 
    return false;
+}
+
+bool
+pgagroal_is_file(const char* f)
+{
+   struct stat st = {0};
+
+   if (f == NULL)
+   {
+      return false;
+   }
+
+   if (stat(f, &st) != 0)
+   {
+      return false;
+   }
+
+   return S_ISREG(st.st_mode);
 }
 
 int
