@@ -106,6 +106,7 @@ static int pgagroal_write_limit_config_value(char* buffer, char* database, char*
 static int pgagroal_apply_hba_configuration(struct hba* hba, char* context, char* value);
 static int pgagroal_apply_limit_configuration_string(struct limit* limit, char* context, char* value);
 static int pgagroal_apply_limit_configuration_int(struct limit* limit, char* context, int value);
+static bool pgagroal_is_binary_file(const char* path);
 
 static int to_string(char* where, char* value, size_t max_length);
 static int to_bool(char* where, bool value);
@@ -1193,6 +1194,40 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
    fclose(file);
 
    return PGAGROAL_CONFIGURATION_STATUS_OK;
+}
+
+/**
+ *
+ */
+int
+pgagroal_validate_config_file(char* path)
+{
+   if (path == NULL)
+   {
+      return EINVAL;
+   }
+
+   if (!pgagroal_exists(path))
+   {
+      return ENOENT;
+   }
+
+   if (!pgagroal_is_file(path))
+   {
+      return ENOENT;
+   }
+
+   if (access(path, R_OK) != 0)
+   {
+      return EACCES;
+   }
+
+   if (pgagroal_is_binary_file(path))
+   {
+      return EINVAL;
+   }
+
+   return 0;
 }
 
 /**
@@ -6856,4 +6891,40 @@ is_valid_config_key(const char* config_key, struct config_key_info* key_info)
    }
 
    return true;
+}
+
+static bool
+pgagroal_is_binary_file(const char* path)
+{
+   FILE* fp = NULL;
+   unsigned char buffer[1024];
+   size_t bytes;
+   int error;
+
+   fp = fopen(path, "rb");
+   if (fp == NULL)
+   {
+      goto error;
+   }
+
+   while ((bytes = fread(buffer, 1, sizeof(buffer), fp)) > 0)
+   {
+      for (size_t i = 0; i < bytes; i++)
+      {
+         if (buffer[i] == '\0' || buffer[i] > 0X7F)
+         {
+            fclose(fp);
+            goto error;
+         }
+      }
+   }
+
+   error = ferror(fp);
+   fclose(fp);
+
+   return error != 0;
+
+error:
+   return true;
+
 }

@@ -311,7 +311,15 @@ pgagroal_get_password(void);
  * @return The result
  */
 bool
-pgagroal_exists(char* f);
+pgagroal_exists(const char* f);
+
+/**
+ * Path is a regular file
+ * @param f The path
+ * @return The result
+ */
+bool
+pgagroal_is_file(const char* f);
 
 /**
  * BASE64 encode a string
