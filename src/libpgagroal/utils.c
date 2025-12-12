@@ -46,6 +46,8 @@
 #include <openssl/pem.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #ifdef HAVE_EXECINFO_H
 #include <execinfo.h>
 #endif
