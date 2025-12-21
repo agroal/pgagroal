@@ -184,6 +184,14 @@ log_file_open(void);
 void
 log_file_rotate(void);
 
+/**
+ * The function parses PostgreSQL wire-protocol from
+ * raw data stream and logs message type and length information.
+ * @param msg The message containing raw PostgreSQL wire protocol data
+ */
+void
+pgagroal_log_postgres(struct message* msg);
+
 #ifdef __cplusplus
 }
 #endif
