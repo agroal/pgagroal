@@ -75,7 +75,7 @@ static int client_password(SSL* c_ssl, int client_fd, char* username, char* pass
 static int client_md5(SSL* c_ssl, int client_fd, char* username, char* password, int slot);
 static int client_scram256(SSL* c_ssl, int client_fd, char* username, char* password, int slot);
 static int client_ok(SSL* c_ssl, int client_fd, int slot);
-static int server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd, int slot);
+static int server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, SSL* s_ssl, int client_fd, int slot);
 static int server_authenticate(struct message* msg, int auth_type, char* username, char* password,
                                int slot, SSL* server_ssl);
 static int server_trust(int slot, SSL* server_ssl);
@@ -1612,7 +1612,7 @@ use_unpooled_connection(struct message* request_msg, SSL* c_ssl, int client_fd, 
 
    if (password == NULL)
    {
-      if (server_passthrough(msg, auth_type, c_ssl, client_fd, slot))
+      if (server_passthrough(msg, auth_type, c_ssl, *server_ssl, client_fd, slot))
       {
          goto error;
       }
@@ -2211,7 +2211,7 @@ error:
 }
 
 static int
-server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd, int slot)
+server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, SSL* s_ssl, int client_fd, int slot)
 {
    int status = MESSAGE_STATUS_ERROR;
    int server_fd;
@@ -2270,14 +2270,14 @@ server_passthrough(struct message* msg, int auth_type, SSL* c_ssl, int client_fd
       memcpy(&config->connections[slot].security_messages[auth_index], msg->data, msg->length);
       auth_index++;
 
-      status = pgagroal_write_message(NULL, server_fd, msg);
+      status = pgagroal_write_message(s_ssl, server_fd, msg);
       if (status != MESSAGE_STATUS_OK)
       {
          goto error;
       }
       pgagroal_clear_message(msg);
 
-      status = pgagroal_read_block_message(NULL, server_fd, &msg);
+      status = pgagroal_read_block_message(s_ssl, server_fd, &msg);
       if (status != MESSAGE_STATUS_OK)
       {
          goto error;
