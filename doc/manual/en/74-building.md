@@ -94,7 +94,7 @@ These packages will be detected during `cmake` and built as part of the main bui
 
 ### Policy and guidelines for using AI
 
-Our goal in the pgmoneta project is to develop an excellent software system. This requires careful attention to
+Our goal in the pgagroal project is to develop an excellent software system. This requires careful attention to
 detail in every change we integrate. Maintainer time and attention is very limited, so it's important that changes
 you ask us to review represent your best work.
 
@@ -108,15 +108,15 @@ create a skeleton for your code.
 
 * Don't skip becoming familiar with the part of the codebase you're working on. This will let you write better prompts
   and validate their output if you use an LLM. Code assistants can be a useful search engine/discovery tool in this process,
-  but don't trust claims they make about how pgmoneta works. LLMs are often wrong, even about details that are clearly
-  answered in the pgmoneta documentation and surrounding code
+  but don't trust claims they make about how pgagroal works. LLMs are often wrong, even about details that are clearly
+  answered in the pgagroal documentation and surrounding code
 * Don't simply ask an LLM to add code comments, as it will likely produce a bunch of text that unnecessarily explains
   what's already clear from the code. If using an LLM to generate comments, be really specific in your request,
   demand succinctness, and carefully edit the result.
 
 **Using AI for communication**
 
-As noted above, pgmoneta's contributors are expected to communicate with intention, to avoid wasting maintainer time
+As noted above, pgagroal's contributors are expected to communicate with intention, to avoid wasting maintainer time
 with long, sloppy writing. We strongly prefer clear and concise communication about points that actually require discussion
 over long AI-generated comments.
 
@@ -132,7 +132,7 @@ Here are some concrete guidelines for using LLMs as part of your communication w
   that's already there.
 * Similarly, when responding to a pull request comment, explain your reasoning. Don't prompt an LLM to re-describe what
   can already be seen from the code.
-* Verify that everything you write is accurate, whether or not an LLM generated any part of it. pgmoneta's maintainers
+* Verify that everything you write is accurate, whether or not an LLM generated any part of it. pgagroal's maintainers
   will be unable to review your contributions if you misrepresent your work (e.g., misdescribing your code changes,
   their effect, or your testing process).
 * Complete all parts of the PR description template, maybe with screenshots and the self-review checklist.
@@ -141,8 +141,8 @@ Here are some concrete guidelines for using LLMs as part of your communication w
   through an LLM. If you do ask an LLM to clean up your writing style, be sure it does not make it longer in the process.
   Demand succinctness in your prompt.
 * Quoting an LLM answer is usually less helpful than linking to relevant primary sources, like source code,
-  reference documentation, or web standards. If you do need to quote an LLM answer in a pgmoneta conversation,
-  put the answer in a pgmoneta quote block, to distinguish LLM output from your own thoughts.
+  reference documentation, or web standards. If you do need to quote an LLM answer in a pgagroal conversation,
+  put the answer in a pgagroal quote block, to distinguish LLM output from your own thoughts.
 
 ### Sanitizer
 
