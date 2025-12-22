@@ -73,10 +73,10 @@ enum value_type {
  */
 struct value
 {
-   enum value_type type;          /**< The type of value data */
-   uintptr_t data;                /**< The data, could be passed by value or by reference */
-   data_destroy_cb destroy_data;  /**< The callback to destroy data */
-   data_to_string_cb to_string;   /**< The callback to convert data to string */
+   enum value_type type;         /**< The type of value data */
+   uintptr_t data;               /**< The data, could be passed by value or by reference */
+   data_destroy_cb destroy_data; /**< The callback to destroy data */
+   data_to_string_cb to_string;  /**< The callback to convert data to string */
 };
 
 /**
@@ -86,7 +86,7 @@ struct value
 struct value_config
 {
    data_destroy_cb destroy_data; /**< The callback to destroy data */
-   data_to_string_cb to_string; /**< The callback to convert data to string */
+   data_to_string_cb to_string;  /**< The callback to convert data to string */
 };
 
 /**

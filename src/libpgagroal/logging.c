@@ -49,29 +49,27 @@ static void output_log_line(char* l);
 
 FILE* log_file;
 
-time_t next_log_rotation_age;  /* number of seconds at which the next location will happen */
+time_t next_log_rotation_age; /* number of seconds at which the next location will happen */
 
 char current_log_path[MAX_PATH]; /* the current log file */
 
 static const char* levels[] =
-{
-   "TRACE",
-   "DEBUG",
-   "INFO",
-   "WARN",
-   "ERROR",
-   "FATAL"
-};
+   {
+      "TRACE",
+      "DEBUG",
+      "INFO",
+      "WARN",
+      "ERROR",
+      "FATAL"};
 
 static const char* colors[] =
-{
-   "\x1b[37m",
-   "\x1b[36m",
-   "\x1b[32m",
-   "\x1b[91m",
-   "\x1b[31m",
-   "\x1b[35m"
-};
+   {
+      "\x1b[37m",
+      "\x1b[36m",
+      "\x1b[32m",
+      "\x1b[91m",
+      "\x1b[31m",
+      "\x1b[35m"};
 
 bool
 log_rotation_enabled(void)
@@ -89,8 +87,7 @@ log_rotation_enabled(void)
 
    // log rotation is enabled if either log_rotation_age or
    // log_rotation_size is enabled
-   return config->log_rotation_age != PGAGROAL_LOGGING_ROTATION_DISABLED
-          || config->log_rotation_size != PGAGROAL_LOGGING_ROTATION_DISABLED;
+   return config->log_rotation_age != PGAGROAL_LOGGING_ROTATION_DISABLED || config->log_rotation_size != PGAGROAL_LOGGING_ROTATION_DISABLED;
 }
 
 void

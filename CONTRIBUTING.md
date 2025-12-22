@@ -34,7 +34,7 @@ Don't forget to indicate your pgagroal version.
 You can use the follow command, if you are using a [Fedora](https://getfedora.org/) based platform:
 
 ```
-dnf install git gcc cmake make liburing liburing-devel openssl openssl-devel systemd systemd-devel python3-docutils libasan libasan-static binutils
+dnf install git gcc cmake make liburing liburing-devel openssl openssl-devel systemd systemd-devel python3-docutils libasan libasan-static binutils clang clang-analyzer clang-tools-extra
 ```
 
 in order to get the necessary dependencies.
@@ -191,10 +191,10 @@ Here are some concrete guidelines for using LLMs as part of your communication w
 
 Please, follow the coding style of the project.
 
-You can use the [uncrustify](http://uncrustify.sourceforge.net/) tool to help with the formatting, by running
+You can use the [clang-format](https://clang.llvm.org/docs/ClangFormat.html) tool to help with the formatting, by running
 
 ```
-./uncrustify.sh
+./clang-format.sh
 ```
 
 and verify the changes.

@@ -53,9 +53,9 @@ enum json_type {
 struct json
 {
    // a json object can only be item or array
-   enum json_type type;            /**< The json object type */
+   enum json_type type; /**< The json object type */
    // if the object is an array, it can have at most one json element
-   void* elements;                /**< The json elements, could be an array or some kv pairs */
+   void* elements; /**< The json elements, could be an array or some kv pairs */
 };
 
 /** @struct json_iterator
@@ -63,10 +63,10 @@ struct json
  */
 struct json_iterator
 {
-   void* iter;            /**< The internal iterator */
-   struct json* obj;      /**< The json object */
-   char* key;             /**< The current key, if it's json item */
-   struct value* value;   /**< The current value or entry */
+   void* iter;          /**< The internal iterator */
+   struct json* obj;    /**< The json object */
+   char* key;           /**< The current key, if it's json item */
+   struct value* value; /**< The current value or entry */
 };
 
 /**

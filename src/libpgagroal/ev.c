@@ -140,13 +140,13 @@ static struct signal_watcher* signal_watchers[PGAGROAL_NSIG] = {0};
 #if HAVE_LINUX
 
 static struct io_uring_params params; /* io_uring argument params */
-static int ring_size;                   /* io_uring sqe ring_size */
+static int ring_size;                 /* io_uring sqe ring_size */
 
-static int epoll_flags;               /* Flags for epoll instance creation */
+static int epoll_flags; /* Flags for epoll instance creation */
 
 #else
 
-static int kqueue_flags;              /* Flags for kqueue instance creation */
+static int kqueue_flags; /* Flags for kqueue instance creation */
 
 #endif /* HAVE_LINUX */
 
@@ -229,7 +229,6 @@ setup_ops(void)
 struct event_loop*
 pgagroal_event_loop_init(void)
 {
-
    static bool context_is_set = false;
 
    loop = calloc(1, sizeof(struct event_loop));
@@ -237,7 +236,6 @@ pgagroal_event_loop_init(void)
 
    if (!context_is_set)
    {
-
 #if HAVE_LINUX
       /* io_uring context */
 
@@ -440,7 +438,7 @@ pgagroal_periodic_init(struct periodic_watcher* watcher, periodic_cb cb, int mse
 int
 pgagroal_periodic_start(struct periodic_watcher* watcher)
 {
-   assert (loop->events_nr + 1 < MAX_EVENTS);
+   assert(loop->events_nr + 1 < MAX_EVENTS);
 
    loop->events[loop->events_nr] = (event_watcher_t*)watcher;
    loop->events_nr++;
@@ -451,7 +449,7 @@ pgagroal_periodic_start(struct periodic_watcher* watcher)
 int __attribute__((unused))
 pgagroal_periodic_stop(struct periodic_watcher* watcher)
 {
-   assert (watcher != NULL && loop->events_nr + 1 < MAX_EVENTS);
+   assert(watcher != NULL && loop->events_nr + 1 < MAX_EVENTS);
    event_watcher_t* p;
    int i;
    for (i = 0; i < loop->events_nr; i++)
@@ -610,7 +608,7 @@ ev_io_uring_io_stop(struct io_watcher* target)
    int rc = PGAGROAL_EVENT_RC_OK;
    struct io_uring_sqe* sqe;
    struct io_uring_cqe* cqe;
-   struct __kernel_timespec ts = { .tv_sec = 2, .tv_nsec = 0 };
+   struct __kernel_timespec ts = {.tv_sec = 2, .tv_nsec = 0};
 
    /* When io_stop is called it may never return to a loop
     * where sqes are submitted. Flush these sqes so the get call
@@ -637,10 +635,9 @@ ev_io_uring_io_stop(struct io_watcher* target)
 static int
 ev_io_uring_periodic_init(struct periodic_watcher* watcher, int msec)
 {
-   watcher->ts = (struct __kernel_timespec) {
+   watcher->ts = (struct __kernel_timespec){
       .tv_sec = msec / 1000,
-      .tv_nsec = (msec % 1000) * 1000000
-   };
+      .tv_nsec = (msec % 1000) * 1000000};
    return PGAGROAL_EVENT_RC_OK;
 }
 
@@ -1479,13 +1476,13 @@ pgagroal_signal_stop(struct signal_watcher* target)
    if (target->signum != SIGINT)
    {
 #endif
-   if (sigprocmask(SIG_UNBLOCK, &tmp, NULL) == -1)
-   {
-      pgagroal_log_fatal("sigprocmask error: %s");
-      return PGAGROAL_EVENT_RC_FATAL;
-   }
+      if (sigprocmask(SIG_UNBLOCK, &tmp, NULL) == -1)
+      {
+         pgagroal_log_fatal("sigprocmask error: %s");
+         return PGAGROAL_EVENT_RC_FATAL;
+      }
 #if !HAVE_LINUX
-}
+   }
 #endif
 
    return rc;

@@ -40,7 +40,8 @@ dnf install git gcc cmake make    \
             libzstd libzstd-devel \
             lz4 lz4-devel         \
             bzip2 bzip2-devel     \
-            binutils
+            binutils              \
+            clang clang-analyzer clang-tools-extra
 ```
 
 Please note that, on Rocky Linux, in order to install the `python3-docutils`
@@ -70,7 +71,7 @@ pkg install cmake          	\
 For Fedora systems, use:
 
 ```sh
-dnf install git gcc cmake make liburing liburing-devel openssl openssl-devel systemd systemd-devel python3-docutils libatomic zlib zlib-devel libzstd libzstd-devel lz4 lz4-devel bzip2 bzip2-devel libasan libasan-static binutils
+dnf install git gcc cmake make liburing liburing-devel openssl openssl-devel systemd systemd-devel python3-docutils libatomic zlib zlib-devel libzstd libzstd-devel lz4 lz4-devel bzip2 bzip2-devel libasan libasan-static binutils clang clang-analyzer clang-tools-extra
 ```
 
 ### Ubuntu / Debian

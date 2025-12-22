@@ -50,7 +50,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-static int  transaction_initialize(void*, void**, size_t*);
+static int transaction_initialize(void*, void**, size_t*);
 static void transaction_start(struct event_loop* loop, struct worker_io*);
 static void transaction_client(struct io_watcher* watcher);
 static void transaction_server(struct io_watcher* watcher);

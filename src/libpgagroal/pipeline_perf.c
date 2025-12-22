@@ -44,7 +44,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-static int  performance_initialize(void*, void**, size_t*);
+static int performance_initialize(void*, void**, size_t*);
 static void performance_start(struct event_loop* loop, struct worker_io*);
 static void performance_client(struct io_watcher* watcher);
 static void performance_server(struct io_watcher* watcher);
@@ -206,7 +206,6 @@ performance_server(struct io_watcher* watcher)
 
    if (likely(status == MESSAGE_STATUS_OK))
    {
-
       status = pgagroal_send_message(watcher, msg);
 
       if (unlikely(status != MESSAGE_STATUS_OK))

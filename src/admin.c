@@ -58,6 +58,7 @@ static int remove_user(char* users_path, char* username, int32_t output_format);
 static int list_users(char* users_path, int32_t output_format);
 static int create_response(char* users_path, struct json* json, struct json** response);
 
+// clang-format off
 const struct pgagroal_command command_table[] =
 {
    {
@@ -101,6 +102,7 @@ const struct pgagroal_command command_table[] =
       .log_message = "<user ls>",
    },
 };
+// clang-format on
 
 static void
 version(void)
@@ -158,6 +160,7 @@ main(int argc, char** argv)
 
    while (1)
    {
+      // clang-format off
       static struct option long_options[] =
       {
          {"user", required_argument, 0, 'U'},
@@ -169,6 +172,7 @@ main(int argc, char** argv)
          {"format", required_argument, 0, 'F'},
          {"help", no_argument, 0, '?'}
       };
+      // clang-format on
 
       c = getopt_long(argc, argv, "gV?f:U:P:l:F:",
                       long_options, &option_index);
@@ -268,7 +272,6 @@ main(int argc, char** argv)
    }
    else if (parsed.cmd->action == MANAGEMENT_REMOVE_USER)
    {
-
       if (remove_user(file_path, username, output_format))
       {
          errx(1, "Error for <user del>");
@@ -276,12 +279,10 @@ main(int argc, char** argv)
    }
    else if (parsed.cmd->action == MANAGEMENT_LIST_USERS)
    {
-
       if (list_users(file_path, output_format))
       {
          errx(1, "Error for <user ls>");
       }
-
    }
 
    exit(0);
@@ -386,11 +387,11 @@ master_key(char* password, bool generate_pwd, int pwd_length, int32_t output_for
       goto error;
    }
 
-   #if defined(HAVE_OSX)
-      #define PGAGROAL_GETENV(name) getenv(name)
-   #else
-      #define PGAGROAL_GETENV(name) secure_getenv(name)
-   #endif
+#if defined(HAVE_OSX)
+#define PGAGROAL_GETENV(name) getenv(name)
+#else
+#define PGAGROAL_GETENV(name) secure_getenv(name)
+#endif
 
    if (password == NULL)
    {

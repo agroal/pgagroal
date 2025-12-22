@@ -128,7 +128,6 @@ start:
                   can_reuse = true;
                }
                // Check if both are aliases of the same real database
-
             }
 
             if (can_reuse)
@@ -145,7 +144,6 @@ start:
 
    if (*slot == -1 && !transaction_mode)
    {
-
       if (best_rule >= 0)
       {
          int rule_count = get_connection_count_for_limit_rule(best_rule, username);
@@ -365,7 +363,6 @@ retry2:
          {
             SLEEP_AND_GOTO(1000L, start)
          }
-
       }
    }
 
@@ -417,7 +414,7 @@ pgagroal_return_connection(int slot, SSL* ssl, bool transaction_mode)
       if (atomic_compare_exchange_strong(&config->states[slot], &in_use, age_check))
       {
          double age = difftime(now, config->connections[slot].start_time);
-         if ((age >= (double) config->max_connection_age && !config->connections[slot].tx_mode) ||
+         if ((age >= (double)config->max_connection_age && !config->connections[slot].tx_mode) ||
              !atomic_compare_exchange_strong(&config->states[slot], &age_check, STATE_IN_USE))
          {
             pgagroal_prometheus_connection_max_connection_age();

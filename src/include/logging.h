@@ -37,33 +37,33 @@ extern "C" {
 
 #include <stdlib.h>
 
-#define PGAGROAL_LOGGING_TYPE_CONSOLE 0
-#define PGAGROAL_LOGGING_TYPE_FILE    1
-#define PGAGROAL_LOGGING_TYPE_SYSLOG  2
+#define PGAGROAL_LOGGING_TYPE_CONSOLE            0
+#define PGAGROAL_LOGGING_TYPE_FILE               1
+#define PGAGROAL_LOGGING_TYPE_SYSLOG             2
 
-#define PGAGROAL_LOGGING_LEVEL_DEBUG5  1
-#define PGAGROAL_LOGGING_LEVEL_DEBUG4  1
-#define PGAGROAL_LOGGING_LEVEL_DEBUG3  1
-#define PGAGROAL_LOGGING_LEVEL_DEBUG2  1
-#define PGAGROAL_LOGGING_LEVEL_DEBUG1  2
-#define PGAGROAL_LOGGING_LEVEL_INFO    3
-#define PGAGROAL_LOGGING_LEVEL_WARN    4
-#define PGAGROAL_LOGGING_LEVEL_ERROR   5
-#define PGAGROAL_LOGGING_LEVEL_FATAL   6
+#define PGAGROAL_LOGGING_LEVEL_DEBUG5            1
+#define PGAGROAL_LOGGING_LEVEL_DEBUG4            1
+#define PGAGROAL_LOGGING_LEVEL_DEBUG3            1
+#define PGAGROAL_LOGGING_LEVEL_DEBUG2            1
+#define PGAGROAL_LOGGING_LEVEL_DEBUG1            2
+#define PGAGROAL_LOGGING_LEVEL_INFO              3
+#define PGAGROAL_LOGGING_LEVEL_WARN              4
+#define PGAGROAL_LOGGING_LEVEL_ERROR             5
+#define PGAGROAL_LOGGING_LEVEL_FATAL             6
 
-#define PGAGROAL_LOGGING_MODE_CREATE 0
-#define PGAGROAL_LOGGING_MODE_APPEND 1
+#define PGAGROAL_LOGGING_MODE_CREATE             0
+#define PGAGROAL_LOGGING_MODE_APPEND             1
 
-#define PGAGROAL_LOGGING_ROTATION_DISABLED 0
+#define PGAGROAL_LOGGING_ROTATION_DISABLED       0
 
 #define PGAGROAL_LOGGING_DEFAULT_LOG_LINE_PREFIX "%Y-%m-%d %H:%M:%S"
 
-#define pgagroal_log_trace(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_DEBUG5, __FILE__, __LINE__, __VA_ARGS__)
-#define pgagroal_log_debug(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_DEBUG1, __FILE__, __LINE__, __VA_ARGS__)
-#define pgagroal_log_info(...)  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_INFO, __FILE__, __LINE__, __VA_ARGS__)
-#define pgagroal_log_warn(...)  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_WARN, __FILE__, __LINE__, __VA_ARGS__)
-#define pgagroal_log_error(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_ERROR, __FILE__, __LINE__, __VA_ARGS__)
-#define pgagroal_log_fatal(...) pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_FATAL, __FILE__, __LINE__, __VA_ARGS__)
+#define pgagroal_log_trace(...)                  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_DEBUG5, __FILE__, __LINE__, __VA_ARGS__)
+#define pgagroal_log_debug(...)                  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_DEBUG1, __FILE__, __LINE__, __VA_ARGS__)
+#define pgagroal_log_info(...)                   pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_INFO, __FILE__, __LINE__, __VA_ARGS__)
+#define pgagroal_log_warn(...)                   pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_WARN, __FILE__, __LINE__, __VA_ARGS__)
+#define pgagroal_log_error(...)                  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_ERROR, __FILE__, __LINE__, __VA_ARGS__)
+#define pgagroal_log_fatal(...)                  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_FATAL, __FILE__, __LINE__, __VA_ARGS__)
 
 /**
  * Initialize the logging system

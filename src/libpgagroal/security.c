@@ -89,11 +89,11 @@ static bool is_allowed_database(char* database, char* entry);
 static bool is_allowed_address(char* address, char* entry);
 static bool is_disabled(char* database);
 
-static int   get_hba_method(int index);
+static int get_hba_method(int index);
 static char* get_password(char* username);
 static char* get_frontend_password(char* username);
 static char* get_admin_password(char* username);
-static int   get_salt(void* data, char** salt);
+static int get_salt(void* data, char** salt);
 
 static int sasl_prep(char* password, char** password_prep);
 static int generate_nounce(char** nounce);
@@ -109,22 +109,22 @@ static int verify_client_proof(char* stored_key, int stored_key_length,
                                char* client_first_message_bare, size_t client_first_message_bare_length,
                                char* server_first_message, size_t server_first_message_length,
                                char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length);
-static int  salted_password(char* password, char* salt, int salt_length, int iterations, unsigned char** result, int* result_length);
-static int  salted_password_key(unsigned char* salted_password, int salted_password_length, char* key,
-                                unsigned char** result, int* result_length);
-static int  stored_key(unsigned char* client_key, int client_key_length, unsigned char** result, int* result_length);
-static int  generate_salt(char** salt, int* size);
-static int  server_signature(char* password, char* salt, int salt_length, int iterations,
-                             char* server_key, int server_key_length,
-                             char* client_first_message_bare, size_t client_first_message_bare_length,
-                             char* server_first_message, size_t server_first_message_length,
-                             char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length,
-                             unsigned char** result, size_t* result_length);
+static int salted_password(char* password, char* salt, int salt_length, int iterations, unsigned char** result, int* result_length);
+static int salted_password_key(unsigned char* salted_password, int salted_password_length, char* key,
+                               unsigned char** result, int* result_length);
+static int stored_key(unsigned char* client_key, int client_key_length, unsigned char** result, int* result_length);
+static int generate_salt(char** salt, int* size);
+static int server_signature(char* password, char* salt, int salt_length, int iterations,
+                            char* server_key, int server_key_length,
+                            char* client_first_message_bare, size_t client_first_message_bare_length,
+                            char* server_first_message, size_t server_first_message_length,
+                            char* client_final_message_wo_proof, size_t client_final_message_wo_proof_length,
+                            unsigned char** result, size_t* result_length);
 
 static bool is_tls_user(char* username, char* database);
-static int  create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, SSL** ssl);
-static int  establish_client_tls_connection(int server, int fd, SSL** ssl);
-static int  create_client_tls_connection(int fd, SSL** ssl, char* tls_key_file, char* tls_cert_file, char* tls_ca_file);
+static int create_ssl_client(SSL_CTX* ctx, char* key, char* cert, char* root, int socket, SSL** ssl);
+static int establish_client_tls_connection(int server, int fd, SSL** ssl);
+static int create_client_tls_connection(int fd, SSL** ssl, char* tls_key_file, char* tls_cert_file, char* tls_ca_file);
 
 static int auth_query(SSL* c_ssl, int client_fd, int slot, char* username, char* database, int hba_method);
 static int auth_query_get_connection(char* username, char* password, char* database, int* server_fd, SSL** server_ssl);
@@ -904,7 +904,6 @@ pgagroal_remote_management_scram_sha256(char* username, char* password, int serv
          {
             if (S_ISREG(st.st_mode))
             {
-
                status = pgagroal_create_ssl_message(&sslrequest_msg);
                if (status != MESSAGE_STATUS_OK)
                {
@@ -1863,7 +1862,6 @@ retry:
          {
             SLEEP_AND_GOTO(100000000L, retry)
          }
-
       }
    }
 
@@ -1983,7 +1981,6 @@ retry:
          {
             SLEEP_AND_GOTO(100000000L, retry)
          }
-
       }
    }
 
@@ -3496,7 +3493,6 @@ pgagroal_tls_valid(void)
             pgagroal_log_error("TLS private key file must have at least 0640 permissions when owned by root: %s", config->common.tls_key_file);
             goto error;
          }
-
       }
       else
       {
@@ -4473,7 +4469,7 @@ int
 pgagroal_create_ssl_server(SSL_CTX* ctx, char* key_file, char* cert_file, char* ca_file, int socket, SSL** ssl)
 {
    SSL* s = NULL;
-   STACK_OF(X509_NAME) * root_cert_list = NULL;
+   STACK_OF(X509_NAME)* root_cert_list = NULL;
 
    if (strlen(cert_file) == 0)
    {
@@ -4743,7 +4739,6 @@ retry:
    {
       if (config->blocking_timeout > 0)
       {
-
          /* Sleep for 100ms */
          SLEEP(100000000L)
 
@@ -5353,7 +5348,6 @@ retry:
          {
             SLEEP_AND_GOTO(100000000L, retry)
          }
-
       }
    }
 
@@ -5464,7 +5458,6 @@ retry:
          {
             SLEEP_AND_GOTO(100000000L, retry)
          }
-
       }
    }
 
@@ -5771,7 +5764,7 @@ pgagroal_generate_password(int pwd_length, char** password)
 {
    char* pwd;
 
-   pwd = (char*) malloc((pwd_length + 1) * sizeof(char));
+   pwd = (char*)malloc((pwd_length + 1) * sizeof(char));
    if (!pwd)
    {
       pgagroal_log_fatal("Couldn't allocate memory while generating password");
@@ -5780,24 +5773,24 @@ pgagroal_generate_password(int pwd_length, char** password)
 
    for (int i = 0; i < pwd_length; i++)
    {
-      pwd[i] = (char) (32 + rand() % (126 - 32 + 1));
+      pwd[i] = (char)(32 + rand() % (126 - 32 + 1));
    }
    pwd[pwd_length] = '\0';
 
    // avoid leading/trailing/consecutive spaces.
    if (pwd[0] == ' ')
    {
-      pwd[0] = (char) (33 + rand() % (126 - 33 + 1));
+      pwd[0] = (char)(33 + rand() % (126 - 33 + 1));
    }
    if (pwd[pwd_length - 1] == ' ')
    {
-      pwd[pwd_length - 1] = (char) (33 + rand() % (126 - 33 + 1));
+      pwd[pwd_length - 1] = (char)(33 + rand() % (126 - 33 + 1));
    }
    for (int i = 2; i < pwd_length - 1; i++)
    {
       if (pwd[i] == ' ' && pwd[i - 1] == ' ')
       {
-         pwd[i] = (char) (33 + rand() % (126 - 33 + 1));
+         pwd[i] = (char)(33 + rand() % (126 - 33 + 1));
       }
    }
    *password = pwd;
@@ -5839,7 +5832,7 @@ pgagroal_extract_server_parameters(int slot, struct deque** server_parameters)
             {
                name = pgagroal_read_string(msg->data + 5);
                value = pgagroal_read_string(msg->data + strlen(name) + 6);
-               pgagroal_deque_add(sp, name, (uintptr_t) value, ValueString);
+               pgagroal_deque_add(sp, name, (uintptr_t)value, ValueString);
             }
             pgagroal_free_message(msg);
          }
@@ -5848,7 +5841,6 @@ pgagroal_extract_server_parameters(int slot, struct deque** server_parameters)
 
    *server_parameters = sp;
    return 0;
-
 }
 
 void
@@ -5890,8 +5882,7 @@ pgagroal_is_ssl_request(int client_fd)
    if (
       ((unsigned char)peek_buffer[0] == 0x16) &&
       ((unsigned char)peek_buffer[1] == 0x03) &&
-      ((unsigned char)peek_buffer[2] == 0x01 || (unsigned char)peek_buffer[2] == 0x02 || (unsigned char)peek_buffer[2] == 0x03 || (unsigned char)peek_buffer[2] == 0x04)
-      )
+      ((unsigned char)peek_buffer[2] == 0x01 || (unsigned char)peek_buffer[2] == 0x02 || (unsigned char)peek_buffer[2] == 0x03 || (unsigned char)peek_buffer[2] == 0x04))
    {
       ssl_req = true;
    }
@@ -6017,7 +6008,7 @@ pgagroal_extract_cert_identity(SSL* ssl)
             // Validate CN doesn't contain null bytes (security)
             if (memchr(cn_buf, '\0', cn_len) == NULL)
             {
-               cn_buf[cn_len] = '\0';  // Ensure null termination
+               cn_buf[cn_len] = '\0'; // Ensure null termination
                identity = strdup(cn_buf);
                if (identity != NULL)
                {

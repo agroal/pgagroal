@@ -34,7 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define IS_LEAF(x) (((uintptr_t)(x) & 1))
+#define IS_LEAF(x)  (((uintptr_t)(x) & 1))
 #define SET_LEAF(x) ((void*)((uintptr_t)(x) | 1))
 #define GET_LEAF(x) ((struct art_leaf*)((void*)((uintptr_t)(x) & ~1)))
 
@@ -55,11 +55,11 @@ enum art_node_type {
  */
 struct art_node
 {
-   uint32_t prefix_len;                      /**< The actual length of the prefix segment */
-   enum art_node_type type;                  /**< The node type */
-   uint8_t num_children;                     /**< The number of children */
-   unsigned char prefix[MAX_PREFIX_LEN];     /**< The (potentially partial) prefix, only record up to MAX_PREFIX_LEN characters */
-} __attribute__ ((aligned (64)));
+   uint32_t prefix_len;                  /**< The actual length of the prefix segment */
+   enum art_node_type type;              /**< The node type */
+   uint8_t num_children;                 /**< The number of children */
+   unsigned char prefix[MAX_PREFIX_LEN]; /**< The (potentially partial) prefix, only record up to MAX_PREFIX_LEN characters */
+} __attribute__((aligned(64)));
 
 /**
  * The ART leaf with key buffer of arbitrary size
@@ -69,7 +69,7 @@ struct art_leaf
    struct value* value;
    uint32_t key_len;
    unsigned char key[];
-} __attribute__ ((aligned (64)));
+} __attribute__((aligned(64)));
 
 /**
  * The ART node with only 4 children,
@@ -82,7 +82,7 @@ struct art_node4
    struct art_node node;
    unsigned char keys[4];
    struct art_node* children[4];
-} __attribute__ ((aligned (64)));
+} __attribute__((aligned(64)));
 
 /**
  * Similar structure as node4, but with 16 children.
@@ -93,7 +93,7 @@ struct art_node16
    struct art_node node;
    unsigned char keys[16];
    struct art_node* children[16];
-} __attribute__ ((aligned (64)));
+} __attribute__((aligned(64)));
 
 /**
  * A full key array that can be indexed by the key character directly,
@@ -106,7 +106,7 @@ struct art_node48
    struct art_node node;
    unsigned char keys[256];
    struct art_node* children[48];
-} __attribute__ ((aligned (64)));
+} __attribute__((aligned(64)));
 
 /**
  * A direct array of children using key character as index
@@ -115,7 +115,7 @@ struct art_node256
 {
    struct art_node node;
    struct art_node* children[256];
-} __attribute__ ((aligned (64)));
+} __attribute__((aligned(64)));
 
 struct to_string_param
 {
@@ -500,7 +500,7 @@ create_art_node(struct art_node** node, enum art_node_type type)
          struct art_node4* n4 = malloc(sizeof(struct art_node4));
          memset(n4, 0, sizeof(struct art_node4));
          n4->node.type = Node4;
-         n = (struct art_node*) n4;
+         n = (struct art_node*)n4;
          break;
       }
       case Node16:
@@ -508,7 +508,7 @@ create_art_node(struct art_node** node, enum art_node_type type)
          struct art_node16* n16 = malloc(sizeof(struct art_node16));
          memset(n16, 0, sizeof(struct art_node16));
          n16->node.type = Node16;
-         n = (struct art_node*) n16;
+         n = (struct art_node*)n16;
          break;
       }
       case Node48:
@@ -516,7 +516,7 @@ create_art_node(struct art_node** node, enum art_node_type type)
          struct art_node48* n48 = malloc(sizeof(struct art_node48));
          memset(n48, 0, sizeof(struct art_node48));
          n48->node.type = Node48;
-         n = (struct art_node*) n48;
+         n = (struct art_node*)n48;
          break;
       }
       case Node256:
@@ -524,7 +524,7 @@ create_art_node(struct art_node** node, enum art_node_type type)
          struct art_node256* n256 = malloc(sizeof(struct art_node256));
          memset(n256, 0, sizeof(struct art_node256));
          n256->node.type = Node256;
-         n = (struct art_node*) n256;
+         n = (struct art_node*)n256;
          break;
       }
    }
@@ -580,7 +580,7 @@ destroy_art_node(struct art_node* node)
    {
       case Node4:
       {
-         struct art_node4* n = (struct art_node4*) node;
+         struct art_node4* n = (struct art_node4*)node;
          for (int i = 0; i < node->num_children; i++)
          {
             destroy_art_node(n->children[i]);
@@ -589,7 +589,7 @@ destroy_art_node(struct art_node* node)
       }
       case Node16:
       {
-         struct art_node16* n = (struct art_node16*) node;
+         struct art_node16* n = (struct art_node16*)node;
          for (int i = 0; i < node->num_children; i++)
          {
             destroy_art_node(n->children[i]);
@@ -598,7 +598,7 @@ destroy_art_node(struct art_node* node)
       }
       case Node48:
       {
-         struct art_node48* n = (struct art_node48*) node;
+         struct art_node48* n = (struct art_node48*)node;
          for (int i = 0; i < 256; i++)
          {
             int idx = n->keys[i];
@@ -613,7 +613,7 @@ destroy_art_node(struct art_node* node)
 
       case Node256:
       {
-         struct art_node256* n = (struct art_node256*) node;
+         struct art_node256* n = (struct art_node256*)node;
          for (int i = 0; i < 256; i++)
          {
             if (n->children[i] == NULL)
@@ -678,7 +678,7 @@ art_node_insert(struct art_node* node, struct art_node** node_ref, uint32_t dept
    struct art_leaf* leaf = NULL;
    struct art_leaf* min_leaf = NULL;
    uint32_t idx = 0;
-   uint32_t diff_len = 0;  // where the keys diverge
+   uint32_t diff_len = 0; // where the keys diverge
    struct art_node* new_node = NULL;
    struct art_node** next = NULL;
    unsigned char* leaf_key = NULL;
@@ -897,7 +897,7 @@ art_node_iterate(struct art_node* node, art_callback cb, void* data)
    {
       case Node4:
       {
-         struct art_node4* n = (struct art_node4*) node;
+         struct art_node4* n = (struct art_node4*)node;
          for (int i = 0; i < node->num_children; i++)
          {
             child = n->children[i];
@@ -911,7 +911,7 @@ art_node_iterate(struct art_node* node, art_callback cb, void* data)
       }
       case Node16:
       {
-         struct art_node16* n = (struct art_node16*) node;
+         struct art_node16* n = (struct art_node16*)node;
          for (int i = 0; i < node->num_children; i++)
          {
             child = n->children[i];
@@ -925,7 +925,7 @@ art_node_iterate(struct art_node* node, art_callback cb, void* data)
       }
       case Node48:
       {
-         struct art_node48* n = (struct art_node48*) node;
+         struct art_node48* n = (struct art_node48*)node;
          for (int i = 0; i < 256; i++)
          {
             idx = n->keys[i];
@@ -944,7 +944,7 @@ art_node_iterate(struct art_node* node, art_callback cb, void* data)
       }
       case Node256:
       {
-         struct art_node256* n = (struct art_node256*) node;
+         struct art_node256* n = (struct art_node256*)node;
          for (int i = 0; i < 256; i++)
          {
             if (n->children[i] == NULL)
@@ -970,16 +970,16 @@ node_add_child(struct art_node* node, struct art_node** node_ref, unsigned char 
    switch (node->type)
    {
       case Node4:
-         node4_add_child((struct art_node4*) node, node_ref, ch, child);
+         node4_add_child((struct art_node4*)node, node_ref, ch, child);
          break;
       case Node16:
-         node16_add_child((struct art_node16*) node, node_ref, ch, child);
+         node16_add_child((struct art_node16*)node, node_ref, ch, child);
          break;
       case Node48:
-         node48_add_child((struct art_node48*) node, node_ref, ch, child);
+         node48_add_child((struct art_node48*)node, node_ref, ch, child);
          break;
       case Node256:
-         node256_add_child((struct art_node256*) node, ch, child);
+         node256_add_child((struct art_node256*)node, ch, child);
          break;
    }
 }
@@ -1057,7 +1057,7 @@ node48_add_child(struct art_node48* node, struct art_node** node_ref, unsigned c
       {
          pos++;
       }
-      node->children[pos] = (struct art_node*) child;
+      node->children[pos] = (struct art_node*)child;
       node->keys[ch] = pos + 1;
       node->node.num_children++;
    }
@@ -1207,7 +1207,7 @@ node_get_minimum(struct art_node* node)
          }
          case Node48:
          {
-            struct art_node48* n = (struct art_node48*) node;
+            struct art_node48* n = (struct art_node48*)node;
             int idx = 0;
             while (n->keys[idx] == 0)
             {
@@ -1218,7 +1218,7 @@ node_get_minimum(struct art_node* node)
          }
          case Node256:
          {
-            struct art_node256* n = (struct art_node256*) node;
+            struct art_node256* n = (struct art_node256*)node;
             int idx = 0;
             while (n->children[idx] == NULL)
             {
@@ -1435,7 +1435,7 @@ pgagroal_art_iterator_next(struct art_iterator* iter)
       {
          case Node4:
          {
-            struct art_node4* n = (struct art_node4*) node;
+            struct art_node4* n = (struct art_node4*)node;
             for (int i = 0; i < node->num_children; i++)
             {
                child = n->children[i];
@@ -1445,7 +1445,7 @@ pgagroal_art_iterator_next(struct art_iterator* iter)
          }
          case Node16:
          {
-            struct art_node16* n = (struct art_node16*) node;
+            struct art_node16* n = (struct art_node16*)node;
             for (int i = 0; i < node->num_children; i++)
             {
                child = n->children[i];
@@ -1455,7 +1455,7 @@ pgagroal_art_iterator_next(struct art_iterator* iter)
          }
          case Node48:
          {
-            struct art_node48* n = (struct art_node48*) node;
+            struct art_node48* n = (struct art_node48*)node;
             for (int i = 0; i < 256; i++)
             {
                idx = n->keys[i];
@@ -1470,7 +1470,7 @@ pgagroal_art_iterator_next(struct art_iterator* iter)
          }
          case Node256:
          {
-            struct art_node256* n = (struct art_node256*) node;
+            struct art_node256* n = (struct art_node256*)node;
             for (int i = 0; i < 256; i++)
             {
                if (n->children[i] == NULL)
@@ -1578,7 +1578,7 @@ art_search(struct art* t, unsigned char* key, uint32_t key_len)
 static int
 art_to_json_string_cb(void* param, const char* key, struct value* value)
 {
-   struct to_string_param* p = (struct to_string_param*) param;
+   struct to_string_param* p = (struct to_string_param*)param;
    char* str = NULL;
    char* tag = NULL;
    char* translated_key = NULL;
@@ -1602,7 +1602,7 @@ art_to_json_string_cb(void* param, const char* key, struct value* value)
 static int
 art_to_compact_json_string_cb(void* param, const char* key, struct value* value)
 {
-   struct to_string_param* p = (struct to_string_param*) param;
+   struct to_string_param* p = (struct to_string_param*)param;
    char* str = NULL;
    char* tag = NULL;
    char* translated_key = NULL;
@@ -1626,14 +1626,14 @@ art_to_compact_json_string_cb(void* param, const char* key, struct value* value)
 static int
 art_to_text_string_cb(void* param, const char* key, struct value* value)
 {
-   struct to_string_param* p = (struct to_string_param*) param;
+   struct to_string_param* p = (struct to_string_param*)param;
    char* str = NULL;
    char* tag = NULL;
    p->cnt++;
    bool has_next = p->cnt < p->t->size;
    tag = pgagroal_append(tag, (char*)key);
    tag = pgagroal_append(tag, ":");
-   if (value->type == ValueJSON && ((struct json*) value->data)->type != JSONUnknown)
+   if (value->type == ValueJSON && ((struct json*)value->data)->type != JSONUnknown)
    {
       tag = pgagroal_append(tag, "\n");
    }
@@ -1645,7 +1645,7 @@ art_to_text_string_cb(void* param, const char* key, struct value* value)
    {
       if (p->cnt == 1)
       {
-         if (value->type != ValueJSON || ((struct json*) value->data)->type == JSONUnknown)
+         if (value->type != ValueJSON || ((struct json*)value->data)->type == JSONUnknown)
          {
             str = pgagroal_value_to_string(value, FORMAT_TEXT, tag, 0);
          }
@@ -1739,8 +1739,7 @@ to_text_string(struct art* t, char* tag, int indent)
       .str = ret,
       .t = t,
       .cnt = 0,
-      .tag = tag
-   };
+      .tag = tag};
    art_iterate(t, art_to_text_string_cb, &param);
    ret = param.str;
    return ret;

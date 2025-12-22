@@ -39,16 +39,16 @@ extern "C" {
 #include <stdlib.h>
 
 #define PIPELINE_AUTO        -1
-#define PIPELINE_PERFORMANCE  0
-#define PIPELINE_SESSION      1
-#define PIPELINE_TRANSACTION  2
+#define PIPELINE_PERFORMANCE 0
+#define PIPELINE_SESSION     1
+#define PIPELINE_TRANSACTION 2
 
-typedef int (* initialize)(void*, void**, size_t*);
-typedef void (* start)(struct event_loop*, struct worker_io*);
-typedef void (* callback)(struct io_watcher*);
-typedef void (* stop)(struct event_loop*, struct worker_io*);
-typedef void (* destroy)(void*, size_t);
-typedef void (* periodic)(void);
+typedef int (*initialize)(void *, void **, size_t *);
+typedef void (*start)(struct event_loop *, struct worker_io *);
+typedef void (*callback)(struct io_watcher *);
+typedef void (*stop)(struct event_loop *, struct worker_io *);
+typedef void (*destroy)(void *, size_t);
+typedef void (*periodic)(void);
 
 /** @struct pipeline
  * Define the structure for a pipeline

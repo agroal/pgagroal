@@ -62,19 +62,19 @@ extern "C" {
  * Use only negative values for errors, since a positive return
  * value will indicate the number of problems within sections.
  */
-#define PGAGROAL_CONFIGURATION_STATUS_OK 0
-#define PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND -1
-#define PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG -2
-#define PGAGROAL_CONFIGURATION_STATUS_KO -3
-#define PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT -4
+#define PGAGROAL_CONFIGURATION_STATUS_OK                        0
+#define PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND            -1
+#define PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG              -2
+#define PGAGROAL_CONFIGURATION_STATUS_KO                        -3
+#define PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT            -4
 
-#define CONFIGURATION_ARGUMENT_MAIN_CONF_PATH           "main_configuration_path"
-#define CONFIGURATION_ARGUMENT_LIMIT_CONF_PATH          "limit_configuration_path"
-#define CONFIGURATION_ARGUMENT_HBA_CONF_PATH            "hba_configuration_path"
-#define CONFIGURATION_ARGUMENT_USER_CONF_PATH           "users_configuration_path"
-#define CONFIGURATION_ARGUMENT_FRONTEND_USERS_CONF_PATH "frontend_users_configuration_path"
-#define CONFIGURATION_ARGUMENT_ADMIN_CONF_PATH          "admin_configuration_path"
-#define CONFIGURATION_ARGUMENT_SUPERUSER_CONF_PATH      "superuser_configuration_path"
+#define CONFIGURATION_ARGUMENT_MAIN_CONF_PATH                   "main_configuration_path"
+#define CONFIGURATION_ARGUMENT_LIMIT_CONF_PATH                  "limit_configuration_path"
+#define CONFIGURATION_ARGUMENT_HBA_CONF_PATH                    "hba_configuration_path"
+#define CONFIGURATION_ARGUMENT_USER_CONF_PATH                   "users_configuration_path"
+#define CONFIGURATION_ARGUMENT_FRONTEND_USERS_CONF_PATH         "frontend_users_configuration_path"
+#define CONFIGURATION_ARGUMENT_ADMIN_CONF_PATH                  "admin_configuration_path"
+#define CONFIGURATION_ARGUMENT_SUPERUSER_CONF_PATH              "superuser_configuration_path"
 
 #define CONFIGURATION_ARGUMENT_HOST                             "host"
 #define CONFIGURATION_ARGUMENT_PORT                             "port"
@@ -126,35 +126,35 @@ extern "C" {
 #define CONFIGURATION_ARGUMENT_PRIMARY                          "primary"
 
 // HBA configuration argument constants
-#define CONFIGURATION_ARGUMENT_HBA_TYPE                         "type"
-#define CONFIGURATION_ARGUMENT_HBA_DATABASE                     "database"
-#define CONFIGURATION_ARGUMENT_HBA_USERNAME                     "username"
-#define CONFIGURATION_ARGUMENT_HBA_ADDRESS                      "address"
-#define CONFIGURATION_ARGUMENT_HBA_METHOD                       "method"
+#define CONFIGURATION_ARGUMENT_HBA_TYPE     "type"
+#define CONFIGURATION_ARGUMENT_HBA_DATABASE "database"
+#define CONFIGURATION_ARGUMENT_HBA_USERNAME "username"
+#define CONFIGURATION_ARGUMENT_HBA_ADDRESS  "address"
+#define CONFIGURATION_ARGUMENT_HBA_METHOD   "method"
 
 // Limit configuration argument constants
-#define CONFIGURATION_ARGUMENT_LIMIT_DATABASE                   "database"
-#define CONFIGURATION_ARGUMENT_LIMIT_USERNAME                   "username"
-#define CONFIGURATION_ARGUMENT_LIMIT_MAX_SIZE                   "max_size"
-#define CONFIGURATION_ARGUMENT_LIMIT_MIN_SIZE                   "min_size"
-#define CONFIGURATION_ARGUMENT_LIMIT_INITIAL_SIZE               "initial_size"
-#define CONFIGURATION_ARGUMENT_LIMIT_ALIASES                    "aliases"
-#define CONFIGURATION_ARGUMENT_LIMIT_NUMBER_OF_ALIASES          "number_of_aliases"
-#define CONFIGURATION_ARGUMENT_LIMIT_LINENO                     "line_number"
+#define CONFIGURATION_ARGUMENT_LIMIT_DATABASE          "database"
+#define CONFIGURATION_ARGUMENT_LIMIT_USERNAME          "username"
+#define CONFIGURATION_ARGUMENT_LIMIT_MAX_SIZE          "max_size"
+#define CONFIGURATION_ARGUMENT_LIMIT_MIN_SIZE          "min_size"
+#define CONFIGURATION_ARGUMENT_LIMIT_INITIAL_SIZE      "initial_size"
+#define CONFIGURATION_ARGUMENT_LIMIT_ALIASES           "aliases"
+#define CONFIGURATION_ARGUMENT_LIMIT_NUMBER_OF_ALIASES "number_of_aliases"
+#define CONFIGURATION_ARGUMENT_LIMIT_LINENO            "line_number"
 
 // Set configuration argument constants
-#define CONFIGURATION_RESPONSE_STATUS                           "status"
-#define CONFIGURATION_RESPONSE_MESSAGE                          "message"
-#define CONFIGURATION_RESPONSE_CONFIG_KEY                       "config_key"
-#define CONFIGURATION_RESPONSE_REQUESTED_VALUE                  "requested_value"
-#define CONFIGURATION_RESPONSE_CURRENT_VALUE                    "current_value"
-#define CONFIGURATION_RESPONSE_OLD_VALUE                        "old_value"
-#define CONFIGURATION_RESPONSE_NEW_VALUE                        "new_value"
-#define CONFIGURATION_RESPONSE_RESTART_REQUIRED                 "restart_required"
-#define CONFIGURATION_STATUS_SUCCESS                            "success"
-#define CONFIGURATION_STATUS_RESTART_REQUIRED                   "success_restart_required"
-#define CONFIGURATION_MESSAGE_SUCCESS                           "Configuration change applied successfully"
-#define CONFIGURATION_MESSAGE_RESTART_REQUIRED                  "Configuration change requires restart. Current values preserved."
+#define CONFIGURATION_RESPONSE_STATUS           "status"
+#define CONFIGURATION_RESPONSE_MESSAGE          "message"
+#define CONFIGURATION_RESPONSE_CONFIG_KEY       "config_key"
+#define CONFIGURATION_RESPONSE_REQUESTED_VALUE  "requested_value"
+#define CONFIGURATION_RESPONSE_CURRENT_VALUE    "current_value"
+#define CONFIGURATION_RESPONSE_OLD_VALUE        "old_value"
+#define CONFIGURATION_RESPONSE_NEW_VALUE        "new_value"
+#define CONFIGURATION_RESPONSE_RESTART_REQUIRED "restart_required"
+#define CONFIGURATION_STATUS_SUCCESS            "success"
+#define CONFIGURATION_STATUS_RESTART_REQUIRED   "success_restart_required"
+#define CONFIGURATION_MESSAGE_SUCCESS           "Configuration change applied successfully"
+#define CONFIGURATION_MESSAGE_RESTART_REQUIRED  "Configuration change requires restart. Current values preserved."
 
 /**
  * Structure to hold parsed configuration key information.
@@ -172,11 +172,11 @@ extern "C" {
  */
 struct config_key_info
 {
-   char section[MISC_LENGTH];   /**< The section name (e.g., "server", "hba", "limit", or "pgagroal") */
-   char context[MISC_LENGTH];   /**< The context identifier (e.g., server name, username, database name) */
-   char key[MISC_LENGTH];       /**< The parameter name (e.g., "host", "port", "max_size") */
-   bool is_main_section;        /**< True if this refers to the main pgagroal section */
-   int section_type;            /**< Section type: 0=main, 1=server, 2=hba, 3=limit */
+   char section[MISC_LENGTH]; /**< The section name (e.g., "server", "hba", "limit", or "pgagroal") */
+   char context[MISC_LENGTH]; /**< The context identifier (e.g., server name, username, database name) */
+   char key[MISC_LENGTH];     /**< The parameter name (e.g., "host", "port", "max_size") */
+   bool is_main_section;      /**< True if this refers to the main pgagroal section */
+   int section_type;          /**< Section type: 0=main, 1=server, 2=hba, 3=limit */
 };
 
 /**

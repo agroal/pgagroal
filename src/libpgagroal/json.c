@@ -252,8 +252,8 @@ pgagroal_json_iterator_create(struct json* object, struct json_iterator** iter)
    {
       return 1;
    }
-   i = malloc(sizeof (struct json_iterator));
-   memset(i, 0, sizeof (struct json_iterator));
+   i = malloc(sizeof(struct json_iterator));
+   memset(i, 0, sizeof(struct json_iterator));
    i->obj = object;
    if (object->type == JSONItem)
    {
@@ -538,10 +538,10 @@ static bool
 value_start(char ch)
 {
    return (isdigit(ch) || ch == '-' || ch == '+') || // number
-          (ch == '[') || // array
-          (ch == '{') || // item
-          (ch == '"' || ch == 'n') || // string or null string
-          (ch == 't' || ch == 'f'); // potential boolean value
+          (ch == '[') ||                             // array
+          (ch == '{') ||                             // item
+          (ch == '"' || ch == 'n') ||                // string or null string
+          (ch == 't' || ch == 'f');                  // potential boolean value
 }
 
 static int
@@ -677,7 +677,7 @@ handle_escape_char(char* str, uint64_t* index, uint64_t len, char* ch)
 {
    uint64_t idx = *index;
    idx++;
-   if (idx == len)   // security check
+   if (idx == len) // security check
    {
       return 1;
    }

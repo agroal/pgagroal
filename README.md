@@ -88,7 +88,8 @@ dnf install git gcc cmake make      \
             zlib zlib-devel         \
             libzstd libzstd-devel   \
             lz4 lz4-devel           \
-            bzip2 bzip2-devel
+            bzip2 bzip2-devel       \
+            clang clang-analyzer clang-tools-extra
 ```
 
 

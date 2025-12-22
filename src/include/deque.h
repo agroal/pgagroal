@@ -67,10 +67,10 @@ struct deque
  */
 struct deque_iterator
 {
-   struct deque* deque;      /**< The deque */
-   struct deque_node* cur;   /**< The current deque node */
-   char* tag;                /**< The current tag */
-   struct value* value;      /**< The current value */
+   struct deque* deque;    /**< The deque */
+   struct deque_node* cur; /**< The current deque node */
+   char* tag;              /**< The current tag */
+   struct value* value;    /**< The current value */
 };
 
 /**

@@ -35,7 +35,6 @@ char* database = NULL;
 int
 main(int argc, char* argv[])
 {
-
    if (argc != 4)
    {
       printf("Usage: %s <project_directory> <user> <database>\n", argv[0]);
@@ -75,7 +74,7 @@ main(int argc, char* argv[])
 
    // Run the tests in verbose mode
    srunner_run_all(sr, CK_VERBOSE);
-   srunner_set_log (sr, "-");
+   srunner_set_log(sr, "-");
    number_failed = srunner_ntests_failed(sr);
    srunner_free(sr);
    free(user);

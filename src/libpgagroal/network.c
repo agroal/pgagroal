@@ -64,7 +64,7 @@ int
 pgagroal_bind(const char* hostname, int port, int** fds, int* length, bool no_delay, int backlog)
 {
    int default_buffer_size = DEFAULT_BUFFER_SIZE;
-   struct ifaddrs* ifaddr, * ifa;
+   struct ifaddrs *ifaddr, *ifa;
    struct sockaddr_in* sa4;
    struct sockaddr_in6* sa6;
    char addr[50];
@@ -93,12 +93,12 @@ pgagroal_bind(const char* hostname, int port, int** fds, int* length, bool no_de
 
             if (ifa->ifa_addr->sa_family == AF_INET)
             {
-               sa4 = (struct sockaddr_in*) ifa->ifa_addr;
+               sa4 = (struct sockaddr_in*)ifa->ifa_addr;
                inet_ntop(AF_INET, &sa4->sin_addr, addr, sizeof(addr));
             }
             else
             {
-               sa6 = (struct sockaddr_in6*) ifa->ifa_addr;
+               sa6 = (struct sockaddr_in6*)ifa->ifa_addr;
                inet_ntop(AF_INET6, &sa6->sin6_addr, addr, sizeof(addr));
             }
 
@@ -564,7 +564,7 @@ bind_host(const char* hostname, int port, int** fds, int* length, int* buffer_si
    int* result = NULL;
    int index, size;
    int sockfd;
-   struct addrinfo hints, * servinfo, * addr;
+   struct addrinfo hints, *servinfo, *addr;
    int yes = 1;
    int rv;
    char* sport;

@@ -67,7 +67,7 @@
 #define CLIENTSSL_OFF_SERVERSSL_ON  2
 #define CLIENTSSL_OFF_SERVERSSL_OFF 3
 
-#define MAX_FDS 64
+#define MAX_FDS                     64
 
 static void accept_vault_cb(struct io_watcher* watcher);
 static void accept_metrics_cb(struct io_watcher* watcher);
@@ -141,7 +141,7 @@ router(SSL* c_ssl, SSL* s_ssl, int client_fd)
          break;
       case CLIENTSSL_ON_SERVERSSL_OFF:
          pgagroal_log_error("client requests tls connection to http server");
-         __attribute__ ((fallthrough));
+         __attribute__((fallthrough));
       default:
          exit_code = 1;
          goto cleanup;
@@ -446,7 +446,6 @@ route_status(char** response)
 error:
    pgagroal_log_warn("Status endpoint: Failed to generate response");
    *response = NULL;
-
 }
 
 static void
@@ -731,12 +730,11 @@ main(int argc, char** argv)
    while (1)
    {
       static struct option long_options[] =
-      {
-         {"config", required_argument, 0, 'c'},
-         {"users", required_argument, 0, 'u'},
-         {"daemon", no_argument, 0, 'd'},
-         {"help", no_argument, 0, '?'}
-      };
+         {
+            {"config", required_argument, 0, 'c'},
+            {"users", required_argument, 0, 'u'},
+            {"daemon", no_argument, 0, 'd'},
+            {"help", no_argument, 0, '?'}};
 
       c = getopt_long(argc, argv, "?c:u:d",
                       long_options, &option_index);
@@ -824,17 +822,17 @@ main(int argc, char** argv)
    {
       if (pgagroal_vault_init_prometheus(&prometheus_shmem_size, &prometheus_shmem))
       {
-   #ifdef HAVE_SYSTEMD
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Error in creating and initializing prometheus shared memory");
-   #endif
+#endif
          errx(1, "Error in creating and initializing prometheus shared memory");
       }
 
       if (pgagroal_init_prometheus_cache(&prometheus_cache_shmem_size, &prometheus_cache_shmem))
       {
-   #ifdef HAVE_SYSTEMD
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Error in creating and initializing prometheus cache shared memory");
-   #endif
+#endif
          errx(1, "Error in creating and initializing prometheus cache shared memory");
       }
    }
@@ -854,7 +852,6 @@ read_users_path:
       ret = pgagroal_vault_read_users_configuration(shmem, users_path);
       if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
       {
-
          snprintf(message, MISC_LENGTH, "USERS configuration file not found");
          errx(1, "pgagroal-vault: %s (file <%s>)", message, users_path);
       }
@@ -934,7 +931,7 @@ read_users_path:
       exit(1);
    }
 
-//-- Initialize the watcher and start loop --
+   //-- Initialize the watcher and start loop --
    pgagroal_event_set_context(PGAGROAL_CONTEXT_VAULT);
    main_loop = pgagroal_event_loop_init();
    if (!main_loop)
@@ -1011,7 +1008,6 @@ shutdown_cb(void)
 {
    pgagroal_log_debug("pgagroal-vault: Shutdown requested");
    pgagroal_event_loop_break();
-
 }
 
 static void

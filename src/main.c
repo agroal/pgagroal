@@ -71,7 +71,7 @@
 #include <systemd/sd-daemon.h>
 #endif
 
-#define MAX_FDS 64
+#define MAX_FDS        64
 #define SIGNALS_NUMBER 8
 
 static void accept_main_cb(struct io_watcher* watcher);
@@ -366,6 +366,7 @@ main(int argc, char** argv)
 
    while (1)
    {
+      // clang-format off
       static struct option long_options[] =
       {
          {"config", required_argument, 0, 'c'},
@@ -380,10 +381,11 @@ main(int argc, char** argv)
          {"version", no_argument, 0, 'V'},
          {"help", no_argument, 0, '?'}
       };
+      // clang-format on
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "dV?a:c:l:u:F:A:S:D:",
-                       long_options, &option_index);
+      c = getopt_long(argc, argv, "dV?a:c:l:u:F:A:S:D:",
+                      long_options, &option_index);
 
       if (c == -1)
       {
@@ -658,7 +660,6 @@ read_limit_path:
       }
       else if (conf_file_mandatory && ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND)
       {
-
          snprintf(message, MISC_LENGTH, "LIMIT configuration file not found");
          printf("pgagroal: %s (file <%s>)\n", message, limit_path);
 #ifdef HAVE_SYSTEMD
@@ -668,14 +669,12 @@ read_limit_path:
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
-
          snprintf(message, MISC_LENGTH, "Too many limit entries");
 #ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s: %s", message, limit_path);
 #endif
          errx(1, "%s (file <%s>)", message, limit_path);
       }
-
    }
    else
    {
@@ -698,17 +697,14 @@ read_users_path:
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND && conf_file_mandatory)
       {
-
          snprintf(message, MISC_LENGTH, "USERS configuration file not found");
 #ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s : %s", message, users_path);
 #endif
          errx(1, "%s  (file <%s>)", message, users_path);
       }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_KO
-               || ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_KO || ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT)
       {
-
          snprintf(message, MISC_LENGTH, "Invalid master key file");
 #ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s: <%s>", message, users_path);
@@ -717,7 +713,6 @@ read_users_path:
       }
       else if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG)
       {
-
          snprintf(message, MISC_LENGTH, "USERS: too many users defined (%d, max %d)", config->number_of_users, NUMBER_OF_USERS);
 
 #ifdef HAVE_SYSTEMD
@@ -749,8 +744,7 @@ read_frontend_users_path:
 #endif
          errx(1, "%s (file <%s>)", message, frontend_users_path);
       }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT
-               || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
 #ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Invalid master key file: <%s>", frontend_users_path);
@@ -789,15 +783,13 @@ read_admins_path:
       ret = pgagroal_read_admins_configuration(shmem, admins_path);
       if (ret == PGAGROAL_CONFIGURATION_STATUS_FILE_NOT_FOUND && conf_file_mandatory)
       {
-
          snprintf(message, MISC_LENGTH, "ADMINS configuration file not found");
 #ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=%s: %s", message, admins_path);
 #endif
          errx(1, "%s (file <%s>)", message, admins_path);
       }
-      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT
-               || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
+      else if (ret == PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT || ret == PGAGROAL_CONFIGURATION_STATUS_KO)
       {
 #ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Invalid master key file: <%s>", admins_path);
@@ -932,17 +924,17 @@ read_superuser_path:
    {
       if (pgagroal_init_prometheus(&prometheus_shmem_size, &prometheus_shmem))
       {
-   #ifdef HAVE_SYSTEMD
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Error in creating and initializing prometheus shared memory");
-   #endif
+#endif
          errx(1, "Error in creating and initializing prometheus shared memory");
       }
 
       if (pgagroal_init_prometheus_cache(&prometheus_cache_shmem_size, &prometheus_cache_shmem))
       {
-   #ifdef HAVE_SYSTEMD
+#ifdef HAVE_SYSTEMD
          sd_notifyf(0, "STATUS=Error in creating and initializing prometheus cache shared memory");
-   #endif
+#endif
          errx(1, "Error in creating and initializing prometheus cache shared memory");
       }
    }
@@ -1214,37 +1206,37 @@ read_superuser_path:
 
    if (config->idle_timeout > 0)
    {
-      pgagroal_periodic_init (&idle_timeout, idle_timeout_cb,
-                              1000 * MAX(1. * config->idle_timeout / 2., 5.));
-      pgagroal_periodic_start (&idle_timeout);
+      pgagroal_periodic_init(&idle_timeout, idle_timeout_cb,
+                             1000 * MAX(1. * config->idle_timeout / 2., 5.));
+      pgagroal_periodic_start(&idle_timeout);
    }
 
    if (config->max_connection_age > 0)
    {
-      pgagroal_periodic_init (&max_connection_age, max_connection_age_cb,
-                              1000 * MAX(1. * config->max_connection_age / 2., 5.));
-      pgagroal_periodic_start (&max_connection_age);
+      pgagroal_periodic_init(&max_connection_age, max_connection_age_cb,
+                             1000 * MAX(1. * config->max_connection_age / 2., 5.));
+      pgagroal_periodic_start(&max_connection_age);
    }
 
    if (config->validation == VALIDATION_BACKGROUND)
    {
-      pgagroal_periodic_init (&validation, validation_cb,
-                              1000 * MAX(1. * config->background_interval, 5.));
-      pgagroal_periodic_start (&validation);
+      pgagroal_periodic_init(&validation, validation_cb,
+                             1000 * MAX(1. * config->background_interval, 5.));
+      pgagroal_periodic_start(&validation);
    }
 
    if (config->disconnect_client > 0)
    {
-      pgagroal_periodic_init (&disconnect_client, disconnect_client_cb,
-                              1000 * MIN(300., MAX(1. * config->disconnect_client / 2., 1.)));
-      pgagroal_periodic_start (&disconnect_client);
+      pgagroal_periodic_init(&disconnect_client, disconnect_client_cb,
+                             1000 * MIN(300., MAX(1. * config->disconnect_client / 2., 1.)));
+      pgagroal_periodic_start(&disconnect_client);
    }
 
    if (config->rotate_frontend_password_timeout > 0)
    {
-      pgagroal_periodic_init (&rotate_frontend_password, rotate_frontend_password_cb,
-                              1000 * config->rotate_frontend_password_timeout);
-      pgagroal_periodic_start (&rotate_frontend_password);
+      pgagroal_periodic_init(&rotate_frontend_password, rotate_frontend_password_cb,
+                             1000 * config->rotate_frontend_password_timeout);
+      pgagroal_periodic_start(&rotate_frontend_password);
    }
 
    if (config->common.metrics > 0)
@@ -1347,7 +1339,8 @@ read_superuser_path:
    sd_notifyf(0,
               "READY=1\n"
               "STATUS=Running\n"
-              "MAINPID=%lu", (unsigned long)getpid());
+              "MAINPID=%lu",
+              (unsigned long)getpid());
 #endif
 
    pgagroal_event_loop_run();
@@ -1852,7 +1845,6 @@ accept_mgt_cb(struct io_watcher* watcher)
       end_time = time(NULL);
 
       pgagroal_management_response_ok(NULL, client_fd, start_time, end_time, compression, encryption, payload);
-
    }
    else if (id == MANAGEMENT_CLEAR_SERVER)
    {
@@ -2025,7 +2017,6 @@ accept_mgt_cb(struct io_watcher* watcher)
          // Add cleanup - this is needed because we're in a child process
          pgagroal_json_destroy(pyl);
          exit(0);
-
       }
    }
    else if (id == MANAGEMENT_GET_PASSWORD)
@@ -2200,7 +2191,6 @@ accept_transfer_cb(struct io_watcher* watcher)
       }
 
       pgagroal_log_debug("pgagroal: Transfer connection: Slot %d FD %d", slot, fd);
-
    }
    else if (id == CONNECTION_RETURN)
    {
@@ -2613,7 +2603,6 @@ frontend_user_password_startup(struct main_configuration* config)
       }
       config->number_of_frontend_users = config->number_of_users;
    }
-
 }
 
 static void
@@ -2868,7 +2857,6 @@ reload_services_only(void)
    // Restart management
    if (config->management > 0)
    {
-
       free(management_fds);
       management_fds = NULL;
       management_fds_length = 0;
@@ -2907,7 +2895,7 @@ reload_set_configuration(SSL* ssl, int client_fd, uint8_t compression, uint8_t e
    if (config_success && !restart_required)
    {
       pgagroal_log_info("Configuration applied successfully, reloading services");
-      kill(getppid(), SIGUSR1);  // Signal parent to restart services
+      kill(getppid(), SIGUSR1); // Signal parent to restart services
    }
    else if (config_success && restart_required)
    {
@@ -2926,7 +2914,7 @@ static void
 service_reload_cb(void)
 {
    pgagroal_log_debug("pgagroal: service restart requested");
-   reload_services_only();  // Parent process restarts services
+   reload_services_only(); // Parent process restarts services
 }
 
 /**
