@@ -61,12 +61,12 @@ extern "C" {
 #define EXPERIMENTAL_FEATURE_USE_HUGE_ENABLED       0
 #define EXPERIMENTAL_FEATURE_RECV_MULTISHOT_ENABLED 0
 #define EXPERIMENTAL_FEATURE_IOVECS                 0
-#define PGAGROAL_CONTEXT_MAIN  0
-#define PGAGROAL_CONTEXT_VAULT 1
+#define PGAGROAL_CONTEXT_MAIN                       0
+#define PGAGROAL_CONTEXT_VAULT                      1
 
-#define ALIGNMENT sysconf(_SC_PAGESIZE)
-#define MAX_EVENTS   32
-#define INITIAL_BUFFER_COUNT 1
+#define ALIGNMENT                                   sysconf(_SC_PAGESIZE)
+#define MAX_EVENTS                                  32
+#define INITIAL_BUFFER_COUNT                        1
 #if HAVE_LINUX
 #define PGAGROAL_NSIG _NSIG
 #else
@@ -75,11 +75,10 @@ extern "C" {
 #endif
 
 /* Constants used to define the supported event backends */
-typedef enum ev_backend
-{
+typedef enum ev_backend {
    PGAGROAL_EVENT_BACKEND_INVALID = -2,
-   PGAGROAL_EVENT_BACKEND_EMPTY   = -1,
-   PGAGROAL_EVENT_BACKEND_AUTO    =  0,
+   PGAGROAL_EVENT_BACKEND_EMPTY = -1,
+   PGAGROAL_EVENT_BACKEND_AUTO = 0,
    PGAGROAL_EVENT_BACKEND_IO_URING,
    PGAGROAL_EVENT_BACKEND_EPOLL,
    PGAGROAL_EVENT_BACKEND_KQUEUE,
@@ -92,8 +91,7 @@ typedef enum ev_backend
 #endif
 
 /* Enumerates the types of events in the event loop */
-enum event_type
-{
+enum event_type {
    PGAGROAL_EVENT_TYPE_INVALID = 0,
    PGAGROAL_EVENT_TYPE_MAIN,
    PGAGROAL_EVENT_TYPE_WORKER,
@@ -102,9 +100,8 @@ enum event_type
 };
 
 /* Defines return codes for event operations */
-enum ev_return_codes
-{
-   PGAGROAL_EVENT_RC_OK    = 0,
+enum ev_return_codes {
+   PGAGROAL_EVENT_RC_OK = 0,
    PGAGROAL_EVENT_RC_ERROR = 1,
    PGAGROAL_EVENT_RC_FATAL = 2,
    PGAGROAL_EVENT_RC_CONN_CLOSED,
@@ -129,19 +126,19 @@ typedef struct event_watcher
  */
 struct io_watcher
 {
-   event_watcher_t event_watcher;          /**< First member: Pointer to the event watcher in the loop */
+   event_watcher_t event_watcher; /**< First member: Pointer to the event watcher in the loop */
    union
    {
       struct
       {
-         int client_fd;                    /**< Main loop client file descriptor */
-         int listen_fd;                    /**< Main loop accept (listen) file descriptor */
-      } main;                              /**< Struct that holds the file descriptors for the main loop */
+         int client_fd; /**< Main loop client file descriptor */
+         int listen_fd; /**< Main loop accept (listen) file descriptor */
+      } main;           /**< Struct that holds the file descriptors for the main loop */
       struct
       {
-         int rcv_fd;                       /**< File descriptor for receiving messages */
-         int snd_fd;                       /**< File descriptor for sending messages */
-      } worker;                            /**< Struct that holds the file descriptors for the worker */
+         int rcv_fd; /**< File descriptor for receiving messages */
+         int snd_fd; /**< File descriptor for sending messages */
+      } worker;      /**< Struct that holds the file descriptors for the worker */
       int __fds[2];
    } fds;                                  /**< Set of file descriptors used for I/O */
    bool ssl;                               /**< Indicates if SSL/TLS is used on this connection. */
@@ -156,9 +153,9 @@ struct io_watcher
  */
 struct signal_watcher
 {
-   event_watcher_t event_watcher;  /**< First member. Pointer to the event watcher in the loop */
-   int signum;                     /**< Signal number to watch for. */
-   void (*cb)(void);               /**< Event callback. */
+   event_watcher_t event_watcher; /**< First member. Pointer to the event watcher in the loop */
+   int signum;                    /**< Signal number to watch for. */
+   void (*cb)(void);              /**< Event callback. */
 };
 
 /**
@@ -171,12 +168,12 @@ struct periodic_watcher
 {
    event_watcher_t event_watcher; /**< First member. Pointer to the event watcher in the loop */
 #if HAVE_LINUX
-   struct __kernel_timespec ts;   /**< Timespec struct for io_uring loop. */
-   int fd;                        /**< File descriptor for epoll-based periodic watcher. */
+   struct __kernel_timespec ts; /**< Timespec struct for io_uring loop. */
+   int fd;                      /**< File descriptor for epoll-based periodic watcher. */
 #else
-   int interval;                  /**< Interval for kqueue timer. */
-#endif  /* HAVE_LINUX */
-   void (*cb)(void);              /**< Event callback. */
+   int interval; /**< Interval for kqueue timer. */
+#endif               /* HAVE_LINUX */
+   void (*cb)(void); /**< Event callback. */
 };
 
 /**
@@ -195,25 +192,25 @@ struct event_loop
 
    struct
    {
-      struct io_uring_buf_ring* br;     /**< Buffer ring used internally by io_uring */
-      void* buf;                        /**< Pointer to the actual buffer being used */
-      bool pending_send;                /**< A send is still pending */
-      int cnt;                          /**< The number of buffers */
-   } br;                                /**< The buffer ring struct */
+      struct io_uring_buf_ring* br; /**< Buffer ring used internally by io_uring */
+      void* buf;                    /**< Pointer to the actual buffer being used */
+      bool pending_send;            /**< A send is still pending */
+      int cnt;                      /**< The number of buffers */
+   } br;                            /**< The buffer ring struct */
 
 #if HAVE_LINUX
-   struct io_uring ring;                /**< io_uring ring */
-   int bid;                             /**< Next buffer id */
+   struct io_uring ring; /**< io_uring ring */
+   int bid;              /**< Next buffer id */
 #if EXPERIMENTAL_FEATURE_IOVECS
    /* XXX: Test with iovecs for send/recv io_uring */
    int iovecs_nr;
    struct iovec* iovecs;
-#endif /* EXPERIMENTAL_FEATURE_IOVECS */
-   int epollfd;                         /**< File descriptor for the epoll instance (used with epoll backend). */
+#endif          /* EXPERIMENTAL_FEATURE_IOVECS */
+   int epollfd; /**< File descriptor for the epoll instance (used with epoll backend). */
 #else
-   int kqueuefd;                        /**< File descriptor for the kqueue instance (used with kqueue backend). */
-#endif /* HAVE_LINUX */
-   void* buffer;                        /**< Pointer to a buffer used to read in bytes. */
+   int kqueuefd; /**< File descriptor for the kqueue instance (used with kqueue backend). */
+#endif           /* HAVE_LINUX */
+   void* buffer; /**< Pointer to a buffer used to read in bytes. */
 };
 
 /**

@@ -36,7 +36,8 @@ dnf install git gcc cmake make    \
             libzstd libzstd-devel \
             lz4 lz4-devel         \
             bzip2 bzip2-devel     \
-            binutils
+            binutils              \
+            clang clang-analyzer clang-tools-extra
 ```
 
 Please note that, on Rocky Linux, in order to install the `python3-docutils`

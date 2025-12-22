@@ -50,30 +50,30 @@
 #include <time.h>
 #include <errno.h>
 
-#define CHUNK_SIZE 32768
+#define CHUNK_SIZE                   32768
 
-#define PAGE_UNKNOWN 0
-#define PAGE_HOME    1
-#define PAGE_METRICS 2
-#define BAD_REQUEST  3
+#define PAGE_UNKNOWN                 0
+#define PAGE_HOME                    1
+#define PAGE_METRICS                 2
+#define BAD_REQUEST                  3
 
-#define FIVE_SECONDS           5
-#define TEN_SECONDS           10
-#define TWENTY_SECONDS        20
-#define THIRTY_SECONDS        30
-#define FOURTYFIVE_SECONDS    45
-#define ONE_MINUTE            60
-#define FIVE_MINUTES         300
-#define TEN_MINUTES          600
-#define TWENTY_MINUTES      1200
-#define THIRTY_MINUTES      1800
-#define FOURTYFIVE_MINUTES  2700
-#define ONE_HOUR            3600
-#define TWO_HOURS           7200
-#define FOUR_HOURS         14400
-#define SIX_HOURS          21600
-#define TWELVE_HOURS       43200
-#define TWENTYFOUR_HOURS   86400
+#define FIVE_SECONDS                 5
+#define TEN_SECONDS                  10
+#define TWENTY_SECONDS               20
+#define THIRTY_SECONDS               30
+#define FOURTYFIVE_SECONDS           45
+#define ONE_MINUTE                   60
+#define FIVE_MINUTES                 300
+#define TEN_MINUTES                  600
+#define TWENTY_MINUTES               1200
+#define THIRTY_MINUTES               1800
+#define FOURTYFIVE_MINUTES           2700
+#define ONE_HOUR                     3600
+#define TWO_HOURS                    7200
+#define FOUR_HOURS                   14400
+#define SIX_HOURS                    21600
+#define TWELVE_HOURS                 43200
+#define TWENTYFOUR_HOURS             86400
 
 #define CERT_EXPIRING_THRESHOLD_DAYS 30
 
@@ -182,7 +182,6 @@ pgagroal_prometheus(SSL* client_ssl, int client_fd)
 
          exit(0);
       }
-
    }
 
    status = pgagroal_read_timeout_message(client_ssl, client_fd, config->common.authentication_timeout, &msg);
@@ -301,7 +300,7 @@ pgagroal_init_prometheus(size_t* p_size, void** p_shmem)
    struct main_prometheus* prometheus;
    struct main_configuration* config;
 
-   config = (struct main_configuration*) shmem;
+   config = (struct main_configuration*)shmem;
 
    *p_size = 0;
    *p_shmem = NULL;
@@ -399,7 +398,7 @@ pgagroal_vault_init_prometheus(size_t* p_size, void** p_shmem)
    struct vault_prometheus* prometheus;
    struct vault_configuration* config;
 
-   config = (struct vault_configuration*) shmem;
+   config = (struct vault_configuration*)shmem;
 
    *p_size = 0;
    *p_shmem = NULL;
@@ -996,7 +995,7 @@ pgagroal_prometheus_clear(void)
       return;
    }
 
-   config = (struct main_configuration*) shmem;
+   config = (struct main_configuration*)shmem;
    prometheus = (struct main_prometheus*)prometheus_shmem;
    cache = (struct prometheus_cache*)prometheus_cache_shmem;
 
@@ -1100,7 +1099,7 @@ pgagroal_prometheus_failed_servers(void)
    }
 
    prometheus = (struct main_prometheus*)prometheus_shmem;
-   config = (struct main_configuration*) shmem;
+   config = (struct main_configuration*)shmem;
 
    count = 0;
 
@@ -2009,7 +2008,7 @@ retry_cache_locking:
          data = pgagroal_append(data, "Date: ");
          data = pgagroal_append(data, &time_buf[0]);
          data = pgagroal_append(data, "\r\n");
-         metrics_cache_append(data);  // cache here to avoid the chunking for the cache
+         metrics_cache_append(data); // cache here to avoid the chunking for the cache
          data = pgagroal_append(data, "Transfer-Encoding: chunked\r\n");
          data = pgagroal_append(data, "\r\n");
 
@@ -2049,7 +2048,6 @@ retry_cache_locking:
          msg.data = data;
 
          metrics_cache_finalize();
-
       }
 
       // free the cache
@@ -2128,7 +2126,7 @@ retry_cache_locking:
          data = pgagroal_append(data, "Date: ");
          data = pgagroal_append(data, &time_buf[0]);
          data = pgagroal_append(data, "\r\n");
-         metrics_cache_append(data);  // cache here to avoid the chunking for the cache
+         metrics_cache_append(data); // cache here to avoid the chunking for the cache
          data = pgagroal_append(data, "Transfer-Encoding: chunked\r\n");
          data = pgagroal_append(data, "\r\n");
 
@@ -2159,7 +2157,6 @@ retry_cache_locking:
          msg.data = data;
 
          metrics_cache_finalize();
-
       }
 
       // free the cache
@@ -2437,7 +2434,7 @@ connection_information(SSL* client_ssl, int client_fd)
          case STATE_IN_USE:
          case STATE_GRACEFULLY:
             active++;
-            __attribute__ ((fallthrough));
+            __attribute__((fallthrough));
          case STATE_INIT:
          case STATE_FREE:
          case STATE_FLUSH:
@@ -2826,7 +2823,6 @@ error:
    free(os);
    os = NULL;
    return;
-
 }
 
 static void
@@ -3059,7 +3055,6 @@ connection_awaiting_information(SSL* client_ssl, int client_fd)
       data = pgagroal_append(data, "#TYPE pgagroal_limit_awaiting gauge\n");
       for (int i = 0; i < config->number_of_limits; i++)
       {
-
          data = pgagroal_append(data, "pgagroal_limit_awaiting{");
 
          data = pgagroal_append(data, "user=\"");
@@ -3080,7 +3075,6 @@ connection_awaiting_information(SSL* client_ssl, int client_fd)
             free(data);
             data = NULL;
          }
-
       }
    }
 
@@ -3180,7 +3174,7 @@ int
 pgagroal_init_prometheus_cache(size_t* p_size, void** p_shmem)
 {
    struct prometheus_cache* cache;
-   struct configuration* config = (struct configuration*) shmem;
+   struct configuration* config = (struct configuration*)shmem;
    size_t cache_size = 0;
    size_t struct_size = 0;
 
@@ -3188,7 +3182,7 @@ pgagroal_init_prometheus_cache(size_t* p_size, void** p_shmem)
    cache_size = metrics_cache_size_to_alloc();
    struct_size = sizeof(struct prometheus_cache);
 
-   if (pgagroal_create_shared_memory(struct_size + cache_size, config->hugepage, (void*) &cache))
+   if (pgagroal_create_shared_memory(struct_size + cache_size, config->hugepage, (void*)&cache))
    {
       goto error;
    }
@@ -3237,8 +3231,8 @@ metrics_cache_size_to_alloc(void)
    if (is_metrics_cache_configured())
    {
       cache_size = config->common.metrics_cache_max_size > 0
-                   ? MIN(config->common.metrics_cache_max_size, PROMETHEUS_MAX_CACHE_SIZE)
-                   : PROMETHEUS_DEFAULT_CACHE_SIZE;
+                      ? MIN(config->common.metrics_cache_max_size, PROMETHEUS_MAX_CACHE_SIZE)
+                      : PROMETHEUS_DEFAULT_CACHE_SIZE;
    }
 
    return cache_size;
@@ -3347,7 +3341,7 @@ metrics_cache_finalize(void)
 static bool
 is_prometheus_enabled(void)
 {
-   struct prometheus* prometheus = (struct prometheus*) prometheus_shmem;
+   struct prometheus* prometheus = (struct prometheus*)prometheus_shmem;
    struct configuration* config = (struct configuration*)shmem;
    return (config->metrics > 0 && prometheus != NULL);
 }
@@ -3943,11 +3937,11 @@ certificate_information(SSL* client_ssl, int client_fd)
 
          if (cert->expiry_time > 0 && cert->is_accessible && !cert->parse_error)
          {
-            data = pgagroal_append(data, "1");  // Valid certificate
+            data = pgagroal_append(data, "1"); // Valid certificate
          }
          else
          {
-            data = pgagroal_append(data, "0");  // Invalid/inaccessible certificate
+            data = pgagroal_append(data, "0"); // Invalid/inaccessible certificate
          }
          data = pgagroal_append(data, "\n");
       }

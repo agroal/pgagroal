@@ -38,13 +38,13 @@ extern "C" {
 #include <stdlib.h>
 
 // Certificate type constants
-#define PGAGROAL_CERT_TYPE_MAIN     "main"
-#define PGAGROAL_CERT_TYPE_METRICS  "metrics"
-#define PGAGROAL_CERT_TYPE_SERVER   "server"
+#define PGAGROAL_CERT_TYPE_MAIN    "main"
+#define PGAGROAL_CERT_TYPE_METRICS "metrics"
+#define PGAGROAL_CERT_TYPE_SERVER  "server"
 
 // Server name constants
-#define PGAGROAL_SERVER_NAME_MAIN     "pgagroal"
-#define PGAGROAL_SERVER_NAME_METRICS  "metrics"
+#define PGAGROAL_SERVER_NAME_MAIN    "pgagroal"
+#define PGAGROAL_SERVER_NAME_METRICS "metrics"
 
 /*
  * Value to disable the Prometheus cache,

@@ -49,8 +49,8 @@ typedef void (*value_destroy_callback)(void* value);
  */
 struct art
 {
-   struct art_node* root;                 /**< The root node of ART */
-   uint64_t size;                         /**< The size of the ART */
+   struct art_node* root; /**< The root node of ART */
+   uint64_t size;         /**< The size of the ART */
 };
 
 /** @struct art_iterator
@@ -58,11 +58,11 @@ struct art
  */
 struct art_iterator
 {
-   struct deque* que;           /**< The deque */
-   struct art* tree;            /**< The ART */
-   uint32_t count;              /**< The count of the iterator */
-   char* key;                   /**< The key */
-   struct value* value;         /**< The value */
+   struct deque* que;   /**< The deque */
+   struct art* tree;    /**< The ART */
+   uint32_t count;      /**< The count of the iterator */
+   char* key;           /**< The key */
+   struct value* value; /**< The value */
 };
 
 /**

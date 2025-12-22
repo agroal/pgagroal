@@ -657,5 +657,5 @@ test_obj_destroy(struct art_test_obj* obj)
 static void
 test_obj_destroy_cb(uintptr_t obj)
 {
-   test_obj_destroy((struct art_test_obj*) obj);
+   test_obj_destroy((struct art_test_obj*)obj);
 }

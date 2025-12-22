@@ -67,7 +67,7 @@ pgagroal_utf8_sequence_valid(const unsigned char* source, int length)
          {
             return false;
          }
-      /* FALL THRU */
+         /* FALL THRU */
 
       case 3:
          /* Check 3rd byte: must be 10xxxxxx */
@@ -76,7 +76,7 @@ pgagroal_utf8_sequence_valid(const unsigned char* source, int length)
          {
             return false;
          }
-      /* FALL THRU */
+         /* FALL THRU */
 
       case 2:
          /* Check 2nd byte with special cases for specific start bytes */
@@ -127,7 +127,7 @@ pgagroal_utf8_sequence_valid(const unsigned char* source, int length)
                }
                break;
          }
-      /* FALL THRU */
+         /* FALL THRU */
 
       case 1:
          /* Check first byte */
@@ -161,19 +161,19 @@ pgagroal_utf8_sequence_length(unsigned char first_byte)
 {
    if (first_byte < 0x80)
    {
-      return 1;  /* ASCII */
+      return 1; /* ASCII */
    }
    else if ((first_byte & 0xE0) == 0xC0)
    {
-      return 2;  /* 110xxxxx */
+      return 2; /* 110xxxxx */
    }
    else if ((first_byte & 0xF0) == 0xE0)
    {
-      return 3;  /* 1110xxxx */
+      return 3; /* 1110xxxx */
    }
    else if ((first_byte & 0xF8) == 0xF0)
    {
-      return 4;  /* 11110xxx */
+      return 4; /* 11110xxx */
    }
    else
    {

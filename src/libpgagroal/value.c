@@ -66,7 +66,7 @@ int
 pgagroal_value_create(enum value_type type, uintptr_t data, struct value** value)
 {
    struct value* val = NULL;
-   val = (struct value*) malloc(sizeof(struct value));
+   val = (struct value*)malloc(sizeof(struct value));
    if (val == NULL)
    {
       goto error;
@@ -378,31 +378,31 @@ pgagroal_value_type_to_string(enum value_type type)
 static void
 noop_destroy_cb(uintptr_t data)
 {
-   (void) data;
+   (void)data;
 }
 
 static void
 free_destroy_cb(uintptr_t data)
 {
-   free((void*) data);
+   free((void*)data);
 }
 
 static void
 art_destroy_cb(uintptr_t data)
 {
-   pgagroal_art_destroy((struct art*) data);
+   pgagroal_art_destroy((struct art*)data);
 }
 
 static void
 deque_destroy_cb(uintptr_t data)
 {
-   pgagroal_deque_destroy((struct deque*) data);
+   pgagroal_deque_destroy((struct deque*)data);
 }
 
 static void
 json_destroy_cb(uintptr_t data)
 {
-   pgagroal_json_destroy((struct json*) data);
+   pgagroal_json_destroy((struct json*)data);
 }
 
 static char*
@@ -410,8 +410,8 @@ noop_to_string_cb(uintptr_t data, int32_t format, char* tag, int indent)
 {
    char* ret = NULL;
    ret = pgagroal_indent(ret, tag, indent);
-   (void) data;
-   (void) format;
+   (void)data;
+   (void)format;
    return ret;
 }
 
@@ -549,7 +549,7 @@ static char*
 string_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
-   char* str = (char*) data;
+   char* str = (char*)data;
    char buf[MISC_LENGTH];
    char* translated_string = NULL;
 
@@ -594,9 +594,9 @@ static char*
 bool_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
    char* ret = NULL;
-   bool val = (bool) data;
+   bool val = (bool)data;
    ret = pgagroal_indent(ret, tag, indent);
-   ret = pgagroal_append(ret, val?"true":"false");
+   ret = pgagroal_append(ret, val ? "true" : "false");
    return ret;
 }
 
@@ -623,7 +623,7 @@ deque_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char*
 static char*
 art_to_string_cb(uintptr_t data, int32_t format __attribute__((unused)), char* tag, int indent)
 {
-   return pgagroal_art_to_string((struct art*) data, format, tag, indent);
+   return pgagroal_art_to_string((struct art*)data, format, tag, indent);
 }
 
 static char*

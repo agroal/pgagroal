@@ -92,16 +92,16 @@ struct pgagroal_command
    const char* subcommand;                         /**< The sub-command */
    const int accepted_argument_count[MISC_LENGTH]; /**< The array of accepted arguments */
 
-   const int action;                               /**< The action */
-   const int mode;                                 /**< The mode of the action */
-   const char* default_argument;                   /**< The default argument */
-   const char* log_message;                        /**< The log message */
+   const int action;             /**< The action */
+   const int mode;               /**< The mode of the action */
+   const char* default_argument; /**< The default argument */
+   const char* log_message;      /**< The log message */
 
    /* Deprecation information */
-   bool deprecated;                                /**< Is the command deprecated */
-   unsigned int deprecated_since_major;            /**< Deprecated since major */
-   unsigned int deprecated_since_minor;            /**< Deprecated since minor */
-   const char* deprecated_by;                      /**< Deprecated by */
+   bool deprecated;                     /**< Is the command deprecated */
+   unsigned int deprecated_since_major; /**< Deprecated since major */
+   unsigned int deprecated_since_minor; /**< Deprecated since minor */
+   const char* deprecated_by;           /**< Deprecated by */
 };
 
 /** @struct pgagroal_parsed_command

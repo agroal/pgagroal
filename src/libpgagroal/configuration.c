@@ -57,8 +57,8 @@
 #include <systemd/sd-daemon.h>
 #endif
 
-#define LINE_LENGTH 512
-#define MAX_PASSWORD_CHARS 256  /* Maximum UTF-8 characters in password */
+#define LINE_LENGTH        512
+#define MAX_PASSWORD_CHARS 256 /* Maximum UTF-8 characters in password */
 
 static int extract_key_value(char* str, char** key, char** value);
 static int extract_syskey_value(char* str, char** key, char** value);
@@ -201,9 +201,9 @@ pgagroal_init_configuration(void* shm)
  */
 struct config_section
 {
-   char name[LINE_LENGTH];  /**< The name of the section */
-   unsigned int lineno;     /**< The line number for this section */
-   bool main;               /**< Is this the main configuration section or a server one? */
+   char name[LINE_LENGTH]; /**< The name of the section */
+   unsigned int lineno;    /**< The line number for this section */
+   bool main;              /**< Is this the main configuration section or a server one? */
 };
 
 /**
@@ -290,9 +290,7 @@ pgagroal_read_configuration(void* shm, char* filename, bool emit_warnings)
          }
          else
          {
-            if (pgagroal_starts_with(line, "log_path") || pgagroal_starts_with(line, "unix_socket_dir")
-                || pgagroal_starts_with(line, "tls_cert_file") || pgagroal_starts_with(line, "tls_key_file")
-                || pgagroal_starts_with(line, "tls_ca_file") || pgagroal_starts_with(line, "pidfile"))
+            if (pgagroal_starts_with(line, "log_path") || pgagroal_starts_with(line, "unix_socket_dir") || pgagroal_starts_with(line, "tls_cert_file") || pgagroal_starts_with(line, "tls_key_file") || pgagroal_starts_with(line, "tls_ca_file") || pgagroal_starts_with(line, "pidfile"))
             {
                extract_syskey_value(line, &key, &value);
             }
@@ -393,7 +391,7 @@ pgagroal_read_configuration(void* shm, char* filename, bool emit_warnings)
                   sections[i].lineno,
                   sections[j].lineno,
                   filename);
-            return_value++;    // this is an error condition!
+            return_value++; // this is an error condition!
          }
       }
    }
@@ -993,7 +991,7 @@ pgagroal_vault_read_configuration(void* shm, char* filename, bool emit_warnings)
  *
  */
 int
-pgagroal_vault_validate_configuration (void* shm)
+pgagroal_vault_validate_configuration(void* shm)
 {
    struct vault_configuration* config;
    config = (struct vault_configuration*)shm;
@@ -1154,11 +1152,7 @@ pgagroal_read_hba_configuration(void* shm, char* filename)
       {
          extract_hba(line, &type, &database, &username, &address, &method);
 
-         if (pgagroal_apply_hba_configuration(&config->hbas[index], PGAGROAL_HBA_ENTRY_TYPE, type) == 0
-             && pgagroal_apply_hba_configuration(&config->hbas[index], PGAGROAL_HBA_ENTRY_DATABASE, database) == 0
-             && pgagroal_apply_hba_configuration(&config->hbas[index], PGAGROAL_HBA_ENTRY_USERNAME, username) == 0
-             && pgagroal_apply_hba_configuration(&config->hbas[index], PGAGROAL_HBA_ENTRY_ADDRESS, address) == 0
-             && pgagroal_apply_hba_configuration(&config->hbas[index], PGAGROAL_HBA_ENTRY_METHOD, method) == 0)
+         if (pgagroal_apply_hba_configuration(&config->hbas[index], PGAGROAL_HBA_ENTRY_TYPE, type) == 0 && pgagroal_apply_hba_configuration(&config->hbas[index], PGAGROAL_HBA_ENTRY_DATABASE, database) == 0 && pgagroal_apply_hba_configuration(&config->hbas[index], PGAGROAL_HBA_ENTRY_USERNAME, username) == 0 && pgagroal_apply_hba_configuration(&config->hbas[index], PGAGROAL_HBA_ENTRY_ADDRESS, address) == 0 && pgagroal_apply_hba_configuration(&config->hbas[index], PGAGROAL_HBA_ENTRY_METHOD, method) == 0)
          {
             // ok, this configuration has been applied
             index++;
@@ -1332,12 +1326,7 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
             initial_size = initial_size > max_size ? max_size : initial_size;
             min_size = min_size > max_size ? max_size : min_size;
 
-            if (pgagroal_apply_limit_configuration_string(&config->limits[index], PGAGROAL_LIMIT_ENTRY_DATABASE, database) == 0
-                && pgagroal_apply_limit_configuration_string(&config->limits[index], PGAGROAL_LIMIT_ENTRY_USERNAME, username) == 0
-                && pgagroal_apply_limit_configuration_int(&config->limits[index], PGAGROAL_LIMIT_ENTRY_MAX_SIZE, max_size) == 0
-                && pgagroal_apply_limit_configuration_int(&config->limits[index], PGAGROAL_LIMIT_ENTRY_MIN_SIZE, min_size) == 0
-                && pgagroal_apply_limit_configuration_int(&config->limits[index], PGAGROAL_LIMIT_ENTRY_LINENO, lineno) == 0
-                && pgagroal_apply_limit_configuration_int(&config->limits[index], PGAGROAL_LIMIT_ENTRY_INITIAL_SIZE, initial_size) == 0)
+            if (pgagroal_apply_limit_configuration_string(&config->limits[index], PGAGROAL_LIMIT_ENTRY_DATABASE, database) == 0 && pgagroal_apply_limit_configuration_string(&config->limits[index], PGAGROAL_LIMIT_ENTRY_USERNAME, username) == 0 && pgagroal_apply_limit_configuration_int(&config->limits[index], PGAGROAL_LIMIT_ENTRY_MAX_SIZE, max_size) == 0 && pgagroal_apply_limit_configuration_int(&config->limits[index], PGAGROAL_LIMIT_ENTRY_MIN_SIZE, min_size) == 0 && pgagroal_apply_limit_configuration_int(&config->limits[index], PGAGROAL_LIMIT_ENTRY_LINENO, lineno) == 0 && pgagroal_apply_limit_configuration_int(&config->limits[index], PGAGROAL_LIMIT_ENTRY_INITIAL_SIZE, initial_size) == 0)
             {
                // configuration applied
                server_max -= max_size;
@@ -1376,7 +1365,6 @@ pgagroal_read_limit_configuration(void* shm, char* filename)
                   fclose(file);
                   return PGAGROAL_CONFIGURATION_STATUS_FILE_TOO_BIG;
                }
-
             }
             else
             {
@@ -1472,8 +1460,7 @@ pgagroal_validate_limit_configuration(void* shm)
          {
             if (k == i)
             {
-               continue;          // Skip current entry
-
+               continue; // Skip current entry
             }
             for (int l = 0; l < config->limits[k].aliases_count; l++)
             {
@@ -1494,8 +1481,7 @@ pgagroal_validate_limit_configuration(void* shm)
       {
          if (j == i)
          {
-            continue;          // Skip current entry
-
+            continue; // Skip current entry
          }
          for (int k = 0; k < config->limits[j].aliases_count; k++)
          {
@@ -1541,8 +1527,7 @@ pgagroal_validate_limit_configuration(void* shm)
          {
             pgagroal_log_warn("initial_size greater than max_size for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
             pgagroal_log_info("Adjusting initial_size from %d to %d (max_size) for limit entry %d (%s:%d)",
-                              config->limits[i].initial_size, config->limits[i].max_size
-                              , i + 1, config->limit_path, config->limits[i].lineno);
+                              config->limits[i].initial_size, config->limits[i].max_size, i + 1, config->limit_path, config->limits[i].lineno);
             config->limits[i].initial_size = config->limits[i].max_size;
          }
 
@@ -1550,11 +1535,9 @@ pgagroal_validate_limit_configuration(void* shm)
          {
             pgagroal_log_warn("max_size smaller than min_size for limit entry %d (%s:%d)", i + 1, config->limit_path, config->limits[i].lineno);
             pgagroal_log_info("Adjusting min_size from %d to %d (max_size) for limit entry %d (%s:%d)",
-                              config->limits[i].min_size, config->limits[i].max_size
-                              , i + 1, config->limit_path, config->limits[i].lineno);
+                              config->limits[i].min_size, config->limits[i].max_size, i + 1, config->limit_path, config->limits[i].lineno);
             config->limits[i].min_size = config->limits[i].max_size;
          }
-
       }
    }
 
@@ -2214,7 +2197,6 @@ pgagroal_read_superuser_configuration(void* shm, char* filename)
          {
             status = PGAGROAL_CONFIGURATION_STATUS_CANNOT_DECRYPT;
             goto error;
-
          }
 
          if (pgagroal_decrypt(decoded, decoded_length, master_key, &password, ENCRYPTION_AES_256_CBC))
@@ -2509,7 +2491,7 @@ extract_key_value(char* str, char** key, char** value)
             if (quoting_begin == '\0')
             {
                quoting_begin = str[c];
-               offset = c + 1;    // start at the very first character after the quote
+               offset = c + 1; // start at the very first character after the quote
             }
             else if (str[c] == quoting_begin && quoting_end == '\0')
             {
@@ -3005,7 +2987,6 @@ extract_limit(char* str, int server_max, char** database, char** user, int* max_
          pgagroal_log_fatal("Pgagroal_Database Configuration is invalid. Exiting.");
          free(db_part);
          exit(1);
-
       }
 
       // Restore the '=' for normal processing
@@ -3353,7 +3334,6 @@ extract_alias_with_space(char* str, int offset, char** db_part)
             {
                // This space block is before '=', so it's database name space - continue
                continue;
-
             }
             else
             {
@@ -3459,10 +3439,7 @@ transfer_configuration(struct main_configuration* config, struct main_configurat
    /* log_path */
    // if the log main parameters have changed, we need
    // to restart the logging system
-   if (strncmp(config->common.log_path, reload->common.log_path, MISC_LENGTH)
-       || config->common.log_rotation_size != reload->common.log_rotation_size
-       || config->common.log_rotation_age != reload->common.log_rotation_age
-       || config->common.log_mode != reload->common.log_mode)
+   if (strncmp(config->common.log_path, reload->common.log_path, MISC_LENGTH) || config->common.log_rotation_size != reload->common.log_rotation_size || config->common.log_rotation_age != reload->common.log_rotation_age || config->common.log_mode != reload->common.log_mode)
    {
       pgagroal_log_debug("Log restart triggered!");
       pgagroal_stop_logging();
@@ -4034,7 +4011,6 @@ pgagroal_can_prefill(void)
 static bool
 key_in_section(char* wanted, char* section, char* key, bool global, bool* unknown)
 {
-
    // first of all, look for a key match
    if (strncmp(wanted, key, MISC_LENGTH))
    {
@@ -4134,7 +4110,6 @@ section_line(char* line, char* section)
    }
 
    return false;
-
 }
 
 /**
@@ -4287,8 +4262,7 @@ as_bytes(char* str, unsigned int* bytes, unsigned int default_bytes)
          // allow a 'B' suffix on a multiplier
          // like for instance 'MB', but don't allow it
          // for bytes themselves ('BB')
-         if (multiplier == 1
-             || (str[i] != 'b' && str[i] != 'B'))
+         if (multiplier == 1 || (str[i] != 'b' && str[i] != 'B'))
          {
             // another non-digit char not allowed
             goto error;
@@ -4395,7 +4369,6 @@ as_update_process_title(char* str, unsigned int* policy, unsigned int default_po
       *policy = default_policy;
       return 1;
    }
-
 }
 
 int
@@ -4440,7 +4413,6 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
             begin = end = -1;
             continue;
          }
-
       }
 
       if (begin < 0)
@@ -4449,7 +4421,6 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       }
 
       end = i;
-
    }
 
    // if the key has not been found, since there is no ending dot,
@@ -4462,8 +4433,7 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
 
    // force the main section, i.e., global parameters, if and only if
    // there is no section or section is 'pgagroal' without any subsection
-   main_section = (!strlen(section) || !strncmp(section, "pgagroal", MISC_LENGTH))
-                  && !strlen(context);
+   main_section = (!strlen(section) || !strncmp(section, "pgagroal", MISC_LENGTH)) && !strlen(context);
 
    if (!strncmp(section, "server", MISC_LENGTH))
    {
@@ -4479,7 +4449,6 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
    }
    else if (main_section)
    {
-
       /* global configuration settings */
 
       if (!strncmp(key, "host", MISC_LENGTH))
@@ -4510,12 +4479,10 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
       else if (!strncmp(key, "log_rotation_size", MISC_LENGTH))
       {
          return to_int(buffer, config->common.log_rotation_size);
-
       }
       else if (!strncmp(key, "log_rotation_age", MISC_LENGTH))
       {
          return to_int(buffer, config->common.log_rotation_age);
-
       }
       else if (!strncmp(key, "log_connections", MISC_LENGTH))
       {
@@ -4670,7 +4637,7 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
          goto error;
       }
 
-   }    // end of global configuration settings
+   } // end of global configuration settings
    else
    {
       goto error;
@@ -4680,7 +4647,6 @@ pgagroal_write_config_value(char* buffer, char* config_key, size_t buffer_size)
 error:
    pgagroal_log_debug("Unknown configuration key <%s>", config_key);
    return 1;
-
 }
 
 /**
@@ -4736,7 +4702,6 @@ pgagroal_write_server_config_value(char* buffer, char* server_name, char* config
             break;
          default:
             primary = false;
-
       }
 
       return to_bool(buffer, primary);
@@ -4982,7 +4947,6 @@ to_string(char* where, char* value, size_t max_length)
       {
          has_single_quotes = true;
       }
-
    }
 
    needs_quotes = needs_quotes || has_double_quotes || has_single_quotes;
@@ -5003,7 +4967,6 @@ to_string(char* where, char* value, size_t max_length)
       {
          quoting_char = '"';
       }
-
    }
 
    // if here, the size of the string is appropriate,
@@ -5076,7 +5039,6 @@ to_update_process_title(char* where, int value)
 static int
 to_validation(char* where, int value)
 {
-
    if (!where || value < 0)
    {
       return 1;
@@ -5096,7 +5058,6 @@ to_validation(char* where, int value)
    }
 
    return 0;
-
 }
 
 /**
@@ -5152,7 +5113,6 @@ to_log_level(char* where, int value)
 
    switch (value)
    {
-
       case PGAGROAL_LOGGING_LEVEL_DEBUG2:
          snprintf(where, MISC_LENGTH, "%s", "debug2");
          break;
@@ -5171,7 +5131,6 @@ to_log_level(char* where, int value)
       case PGAGROAL_LOGGING_LEVEL_FATAL:
          snprintf(where, MISC_LENGTH, "%s", "fatal");
          break;
-
    }
 
    return 0;
@@ -5195,7 +5154,6 @@ to_log_mode(char* where, int value)
 
    switch (value)
    {
-
       case PGAGROAL_LOGGING_MODE_CREATE:
          snprintf(where, MISC_LENGTH, "%s", "create");
          break;
@@ -5234,7 +5192,6 @@ to_log_type(char* where, int value)
       case PGAGROAL_LOGGING_TYPE_SYSLOG:
          snprintf(where, MISC_LENGTH, "%s", "syslog");
          break;
-
    }
 
    return 0;
@@ -5443,7 +5400,6 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    }
    else if (key_in_section("failover_script", section, key, true, &unknown))
    {
-
       max = strlen(value);
       if (max > MISC_LENGTH - 1)
       {
@@ -5528,7 +5484,6 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    }
    else if (key_in_section("blocking_timeout", section, key, true, &unknown))
    {
-
       if (as_seconds(value, &config->blocking_timeout, DEFAULT_BLOCKING_TIMEOUT))
       {
          unknown = true;
@@ -5660,7 +5615,6 @@ pgagroal_apply_main_configuration(struct main_configuration* config,
    }
    else if (key_in_section("log_connections", section, key, true, &unknown))
    {
-
       if (as_bool(value, &config->common.log_connections))
       {
          unknown = true;
@@ -5969,7 +5923,6 @@ pgagroal_apply_vault_configuration(struct vault_configuration* config,
    }
    else if (key_in_section("log_connections", section, key, true, &unknown))
    {
-
       if (as_bool(value, &config->common.log_connections))
       {
          unknown = true;
@@ -6162,38 +6115,32 @@ pgagroal_apply_hba_configuration(struct hba* hba,
                                  char* context,
                                  char* value)
 {
-
    if (!hba || !context || !strlen(context) || !value || !strlen(value))
    {
       goto error;
    }
 
-   if (!strncmp(context, PGAGROAL_HBA_ENTRY_TYPE, MAX_TYPE_LENGTH)
-       && strlen(value) < MAX_TYPE_LENGTH)
+   if (!strncmp(context, PGAGROAL_HBA_ENTRY_TYPE, MAX_TYPE_LENGTH) && strlen(value) < MAX_TYPE_LENGTH)
    {
       memset(&(hba->type), 0, strlen(hba->type));
       memcpy(&(hba->type), value, strlen(value));
    }
-   else if (!strncmp(context, PGAGROAL_HBA_ENTRY_DATABASE, MAX_DATABASE_LENGTH)
-            && strlen(value) < MAX_DATABASE_LENGTH)
+   else if (!strncmp(context, PGAGROAL_HBA_ENTRY_DATABASE, MAX_DATABASE_LENGTH) && strlen(value) < MAX_DATABASE_LENGTH)
    {
       memset(&(hba->database), 0, strlen(hba->database));
       memcpy(&(hba->database), value, strlen(value));
    }
-   else if (!strncmp(context, PGAGROAL_HBA_ENTRY_USERNAME, MAX_USERNAME_LENGTH)
-            && strlen(value) < MAX_USERNAME_LENGTH)
+   else if (!strncmp(context, PGAGROAL_HBA_ENTRY_USERNAME, MAX_USERNAME_LENGTH) && strlen(value) < MAX_USERNAME_LENGTH)
    {
       memset(&(hba->username), 0, strlen(hba->username));
       memcpy(&(hba->username), value, strlen(value));
    }
-   else if (!strncmp(context, PGAGROAL_HBA_ENTRY_ADDRESS, MAX_ADDRESS_LENGTH)
-            && strlen(value) < MAX_ADDRESS_LENGTH)
+   else if (!strncmp(context, PGAGROAL_HBA_ENTRY_ADDRESS, MAX_ADDRESS_LENGTH) && strlen(value) < MAX_ADDRESS_LENGTH)
    {
       memset(&(hba->address), 0, strlen(hba->address));
       memcpy(&(hba->address), value, strlen(value));
    }
-   else if (!strncmp(context, PGAGROAL_HBA_ENTRY_METHOD, MAX_ADDRESS_LENGTH)
-            && strlen(value) < MAX_ADDRESS_LENGTH)
+   else if (!strncmp(context, PGAGROAL_HBA_ENTRY_METHOD, MAX_ADDRESS_LENGTH) && strlen(value) < MAX_ADDRESS_LENGTH)
    {
       memset(&(hba->method), 0, strlen(hba->method));
       memcpy(&(hba->method), value, strlen(value));
@@ -6220,15 +6167,12 @@ pgagroal_apply_limit_configuration_string(struct limit* limit,
                                           char* context,
                                           char* value)
 {
-
-   if (!strncmp(context, PGAGROAL_LIMIT_ENTRY_DATABASE, MAX_DATABASE_LENGTH)
-       && strlen(value) < MAX_DATABASE_LENGTH)
+   if (!strncmp(context, PGAGROAL_LIMIT_ENTRY_DATABASE, MAX_DATABASE_LENGTH) && strlen(value) < MAX_DATABASE_LENGTH)
    {
       memset(&limit->database, 0, strlen(limit->database));
       memcpy(&limit->database, value, strlen(value));
    }
-   else if (!strncmp(context, PGAGROAL_LIMIT_ENTRY_USERNAME, MAX_USERNAME_LENGTH)
-            && strlen(value) < MAX_USERNAME_LENGTH)
+   else if (!strncmp(context, PGAGROAL_LIMIT_ENTRY_USERNAME, MAX_USERNAME_LENGTH) && strlen(value) < MAX_USERNAME_LENGTH)
    {
       memset(&limit->username, 0, strlen(limit->username));
       memcpy(&limit->username, value, strlen(value));
@@ -6258,7 +6202,6 @@ pgagroal_apply_limit_configuration_string(struct limit* limit,
 
 error:
    return 1;
-
 }
 
 static int
@@ -6266,7 +6209,6 @@ pgagroal_apply_limit_configuration_int(struct limit* limit,
                                        char* context,
                                        int value)
 {
-
    if (!strncmp(context, PGAGROAL_LIMIT_ENTRY_MAX_SIZE, MISC_LENGTH))
    {
       limit->max_size = value;
@@ -6292,7 +6234,6 @@ pgagroal_apply_limit_configuration_int(struct limit* limit,
 
 error:
    return 1;
-
 }
 
 static void
@@ -6367,7 +6308,6 @@ add_servers_configuration_response(struct json* res)
 
    for (int i = 0; i < config->number_of_servers; i++)
    {
-
       if (pgagroal_json_create(&server_conf))
       {
          pgagroal_log_error("Failed to create server configuration JSON for %s",
@@ -6396,7 +6336,6 @@ error:
    pgagroal_json_destroy(server_conf);
    pgagroal_json_destroy(server_section);
    return;
-
 }
 
 static void
@@ -6632,7 +6571,7 @@ pgagroal_conf_set(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compr
       goto error;
    }
 
-   *success = true;  // Configuration succeeded
+   *success = true; // Configuration succeeded
 
    // Configuration succeeded - create success response
    if (pgagroal_management_create_response(payload, -1, &response))
@@ -6926,5 +6865,4 @@ pgagroal_is_binary_file(const char* path)
 
 error:
    return true;
-
 }

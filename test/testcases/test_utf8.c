@@ -30,7 +30,7 @@
 #include <tssuite.h>
 #include <stdlib.h>
 
-#define UTF8_USER "utf8user"
+#define UTF8_USER     "utf8user"
 #define UTF8_DATABASE "utf8db"
 
 // Simple connection test for UTF-8 user

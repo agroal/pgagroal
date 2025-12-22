@@ -475,7 +475,7 @@ process_server_parameters(int server, struct deque* server_parameters)
    struct deque_iterator* iter = NULL;
    struct main_configuration* config;
 
-   config = (struct main_configuration*) shmem;
+   config = (struct main_configuration*)shmem;
 
    config->servers[server].version = 0;
    config->servers[server].minor_version = 0;

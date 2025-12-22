@@ -39,10 +39,10 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
-#define BUFFER_SIZE 8192
+#define BUFFER_SIZE                  8192
 
-#define PGBENCH_LOG_FILE_TRAIL          "/log/pgbench.log"
-#define PGAGROAL_CONFIGURATION_TRAIL    "/pgagroal-testsuite/conf/pgagroal.conf"
+#define PGBENCH_LOG_FILE_TRAIL       "/log/pgbench.log"
+#define PGAGROAL_CONFIGURATION_TRAIL "/pgagroal-testsuite/conf/pgagroal.conf"
 
 extern char project_directory[BUFFER_SIZE];
 extern char* user;

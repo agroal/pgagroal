@@ -170,7 +170,7 @@ status_details(bool details, struct json* response)
          case STATE_IN_USE:
          case STATE_GRACEFULLY:
             active++;
-            __attribute__ ((fallthrough));
+            __attribute__((fallthrough));
          case STATE_INIT:
          case STATE_FREE:
          case STATE_FLUSH:
@@ -265,7 +265,7 @@ status_details(bool details, struct json* response)
          pgagroal_json_create(&js);
 
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)"*", ValueString);
-         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t) !config->all_disabled, ValueBool);
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)!config->all_disabled, ValueBool);
 
          pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
       }

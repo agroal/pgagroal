@@ -50,10 +50,10 @@ extern "C" {
  */
 struct message
 {
-   signed char kind;  /**< The kind of the message */
-   ssize_t length;    /**< The length of the message */
-   void* data;        /**< The message data */
-} __attribute__ ((aligned (64)));
+   signed char kind; /**< The kind of the message */
+   ssize_t length;   /**< The length of the message */
+   void* data;       /**< The message data */
+} __attribute__((aligned(64)));
 
 /**
  * Read a message in blocking mode

@@ -37,19 +37,19 @@ extern "C" {
 
 #include <stdlib.h>
 
-#define TRACKER_CLIENT_START                0
-#define TRACKER_CLIENT_STOP                 1
+#define TRACKER_CLIENT_START               0
+#define TRACKER_CLIENT_STOP                1
 
-#define TRACKER_GET_CONNECTION_SUCCESS      2
-#define TRACKER_GET_CONNECTION_TIMEOUT      3
-#define TRACKER_GET_CONNECTION_ERROR        4
-#define TRACKER_RETURN_CONNECTION_SUCCESS   5
-#define TRACKER_RETURN_CONNECTION_KILL      6
-#define TRACKER_KILL_CONNECTION             7
+#define TRACKER_GET_CONNECTION_SUCCESS     2
+#define TRACKER_GET_CONNECTION_TIMEOUT     3
+#define TRACKER_GET_CONNECTION_ERROR       4
+#define TRACKER_RETURN_CONNECTION_SUCCESS  5
+#define TRACKER_RETURN_CONNECTION_KILL     6
+#define TRACKER_KILL_CONNECTION            7
 
-#define TRACKER_AUTHENTICATE                8
+#define TRACKER_AUTHENTICATE               8
 
-#define TRACKER_BAD_CONNECTION              9
+#define TRACKER_BAD_CONNECTION             9
 #define TRACKER_IDLE_TIMEOUT               10
 #define TRACKER_MAX_CONNECTION_AGE         11
 #define TRACKER_INVALID_CONNECTION         12

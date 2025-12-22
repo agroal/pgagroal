@@ -50,7 +50,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-static int  session_initialize(void*, void**, size_t*);
+static int session_initialize(void*, void**, size_t*);
 static void session_start(struct event_loop* loop, struct worker_io*);
 static void session_client(struct io_watcher* watcher);
 static void session_server(struct io_watcher* watcher);

@@ -258,7 +258,7 @@ For detailed development environment setup, see [Building pgagroal](#building-pg
 
 For Fedora-based systems:
 ```bash
-dnf install git gcc cmake make liburing liburing-devel openssl openssl-devel systemd systemd-devel python3-docutils libatomic zlib zlib-devel libzstd libzstd-devel lz4 lz4-devel bzip2 bzip2-devel libasan libasan-static binutils
+dnf install git gcc cmake make liburing liburing-devel openssl openssl-devel systemd systemd-devel python3-docutils libatomic zlib zlib-devel libzstd libzstd-devel lz4 lz4-devel bzip2 bzip2-devel libasan libasan-static binutils clang clang-analyzer clang-tools-extra
 ```
 
 ### Quick Build

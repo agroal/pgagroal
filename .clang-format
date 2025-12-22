@@ -1,0 +1,75 @@
+# This configuration is intended for clang-format >= 8.
+
+BasedOnStyle: LLVM
+
+# Indentation
+IndentWidth: 3              # matches indent_columns = 3
+TabWidth: 3                 # matches input_tab_size/output_tab_size = 3
+UseTab: Never               # indent_with_tabs = 0 (spaces only)
+ContinuationIndentWidth: 3  # keep wrapped lines on a single extra indent level
+
+# Line length
+ColumnLimit: 0              # code_width = 0 (no enforced wrapping)
+
+# Pointers & references
+# Let clang-format infer the dominant pointer style from existing code,
+# instead of forcing \"type* name\" or \"type *name\" globally.
+DerivePointerAlignment: true
+
+# Spaces
+SpaceBeforeParens: ControlStatements  # "if (x)", "while (x)", but "func(x)"
+SpacesInParentheses: false            # sp_inside_paren = remove
+SpacesInSquareBrackets: false
+SpaceInEmptyParentheses: false
+SpacesInCStyleCastParentheses: false
+SpaceAfterCStyleCast: false          # e.g., (type*)ptr, not (type*) ptr
+SpaceBeforeAssignmentOperators: true # sp_assign = force
+SpaceBeforeRangeBasedForLoopColon: false
+SpacesInAngles: false
+
+# Braces / newlines around blocks
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterEnum: false              # keep "enum X {" as-is (nl_enum_brace = ignore)
+  AfterStruct: true             # "struct X" then brace on its own line
+  AfterUnion: true              # "union X" then brace on its own line
+  AfterFunction: true           # Allman-style for function definitions
+  AfterControlStatement: true   # Allman-style for if/for/while/switch/do
+  AfterCaseLabel: true           # "case X:" then brace on its own line
+  BeforeElse: true              # "else" on its own line after '}'
+  BeforeCatch: true
+  BeforeWhile: true              # "while" on its own line after '}' in do-while
+  IndentBraces: false
+
+# Switch / case, labels, and preprocessor
+IndentCaseLabels: true         # indent "case" relative to "switch"
+IndentGotoLabels: false        # keep labels like "error:" at column 0
+IndentPPDirectives: None       # keep #if/#ifdef at column 0, like current style
+
+# Includes
+SortIncludes: false            # mod_sort_include = false
+IncludeBlocks: Preserve        # keep existing grouping and blank lines
+
+# One-line constructs
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortBlocksOnASingleLine: Never
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignOperands: Align
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: AcrossEmptyLines
+
+# Comments
+ReflowComments: false          # cmt_reflow_mode = 0, cmt_width = 0
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+# Function signatures
+AlwaysBreakAfterReturnType: AllDefinitions
+
+# Misc packing and wrapping
+BinPackArguments: true
+BinPackParameters: true

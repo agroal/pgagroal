@@ -1503,7 +1503,6 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
             case SSL_ERROR_ZERO_RETURN:
                if (timeout > 0)
                {
-
                   if (difftime(time(NULL), start_time) >= timeout)
                   {
                      return MESSAGE_STATUS_ZERO;
@@ -1511,9 +1510,8 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
 
                   /* Sleep for 100ms */
                   SLEEP(100000000L)
-
                }
-               __attribute__ ((fallthrough));
+               __attribute__((fallthrough));
             case SSL_ERROR_WANT_READ:
             case SSL_ERROR_WANT_WRITE:
             case SSL_ERROR_WANT_CONNECT:

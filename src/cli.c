@@ -54,31 +54,31 @@
 
 #include <openssl/ssl.h>
 
-#define HELP 99
-#define DB_ALIAS_STRING_LENGTH   512
+#define HELP                   99
+#define DB_ALIAS_STRING_LENGTH 512
 
-#define COMMAND_CANCELSHUTDOWN  "cancel-shutdown"
-#define COMMAND_CLEAR           "clear"
-#define COMMAND_CLEAR_SERVER    "clear-server"
-#define COMMAND_DISABLEDB       "disable-db"
-#define COMMAND_ENABLEDB        "enable-db"
-#define COMMAND_FLUSH           "flush"
-#define COMMAND_GRACEFULLY      "shutdown-gracefully"
-#define COMMAND_PING            "ping"
-#define COMMAND_RELOAD          "reload"
-#define COMMAND_SHUTDOWN        "shutdown"
-#define COMMAND_STATUS          "status"
-#define COMMAND_STATUS_DETAILS  "status-details"
-#define COMMAND_SWITCH_TO       "switch-to"
-#define COMMAND_CONFIG_LS       "conf-ls"
-#define COMMAND_CONFIG_GET      "conf-get"
-#define COMMAND_CONFIG_SET      "conf-set"
-#define COMMAND_CONFIG_ALIAS    "conf-alias"
+#define COMMAND_CANCELSHUTDOWN "cancel-shutdown"
+#define COMMAND_CLEAR          "clear"
+#define COMMAND_CLEAR_SERVER   "clear-server"
+#define COMMAND_DISABLEDB      "disable-db"
+#define COMMAND_ENABLEDB       "enable-db"
+#define COMMAND_FLUSH          "flush"
+#define COMMAND_GRACEFULLY     "shutdown-gracefully"
+#define COMMAND_PING           "ping"
+#define COMMAND_RELOAD         "reload"
+#define COMMAND_SHUTDOWN       "shutdown"
+#define COMMAND_STATUS         "status"
+#define COMMAND_STATUS_DETAILS "status-details"
+#define COMMAND_SWITCH_TO      "switch-to"
+#define COMMAND_CONFIG_LS      "conf-ls"
+#define COMMAND_CONFIG_GET     "conf-get"
+#define COMMAND_CONFIG_SET     "conf-set"
+#define COMMAND_CONFIG_ALIAS   "conf-alias"
 
-#define OUTPUT_FORMAT_JSON "json"
-#define OUTPUT_FORMAT_TEXT "text"
+#define OUTPUT_FORMAT_JSON     "json"
+#define OUTPUT_FORMAT_TEXT     "text"
 
-#define UNSPECIFIED "Unspecified"
+#define UNSPECIFIED            "Unspecified"
 
 static void display_helper(char* command);
 static void help_cancel_shutdown(void);
@@ -124,6 +124,7 @@ static char* translate_compression(int32_t compression_code);
 static char* translate_encryption(int32_t encryption_code);
 static void translate_json_object(struct json* j);
 
+// clang-format off
 const struct pgagroal_command command_table[] = {
    {
       .command = "flush",
@@ -313,6 +314,7 @@ const struct pgagroal_command command_table[] = {
       .log_message = "<status details>"
    },
 };
+// clang-format on
 
 static void
 version(void)
@@ -412,20 +414,19 @@ main(int argc, char** argv)
    while (1)
    {
       static struct option long_options[] =
-      {
-         {"config", required_argument, 0, 'c'},
-         {"host", required_argument, 0, 'h'},
-         {"port", required_argument, 0, 'p'},
-         {"user", required_argument, 0, 'U'},
-         {"password", required_argument, 0, 'P'},
-         {"logfile", required_argument, 0, 'L'},
-         {"format", required_argument, 0, 'F' },
-         {"compress", required_argument, 0, 'C'},
-         {"encrypt", required_argument, 0, 'E'},
-         {"verbose", no_argument, 0, 'v'},
-         {"version", no_argument, 0, 'V'},
-         {"help", no_argument, 0, '?'}
-      };
+         {
+            {"config", required_argument, 0, 'c'},
+            {"host", required_argument, 0, 'h'},
+            {"port", required_argument, 0, 'p'},
+            {"user", required_argument, 0, 'U'},
+            {"password", required_argument, 0, 'P'},
+            {"logfile", required_argument, 0, 'L'},
+            {"format", required_argument, 0, 'F'},
+            {"compress", required_argument, 0, 'C'},
+            {"encrypt", required_argument, 0, 'E'},
+            {"verbose", no_argument, 0, 'v'},
+            {"version", no_argument, 0, 'V'},
+            {"help", no_argument, 0, '?'}};
 
       c = getopt_long(argc, argv, "vV?c:h:p:U:P:L:F:C:E:",
                       long_options, &option_index);
@@ -646,7 +647,6 @@ main(int argc, char** argv)
          {
             errx(1, "Cannot start the logging subsystem");
          }
-
       }
    }
 
@@ -702,7 +702,6 @@ main(int argc, char** argv)
             warnx("No route to host: %s:%ld\n", host, l_port);
             goto done;
          }
-
       }
 
       /* User name */
@@ -1392,7 +1391,7 @@ process_get_result(SSL* ssl, int socket, char* config_key, int32_t output_format
       goto error;
    }
 
-   if (!config_key)  // error response | complete configuration
+   if (!config_key) // error response | complete configuration
    {
       json_res = (struct json*)res;
 
@@ -1512,7 +1511,6 @@ process_set_result(SSL* ssl, int socket, char* config_key, int32_t output_format
       new_value = (char*)pgagroal_json_get(response, CONFIGURATION_RESPONSE_NEW_VALUE);
       current_value = (char*)pgagroal_json_get(response, CONFIGURATION_RESPONSE_CURRENT_VALUE);
       requested_value = (char*)pgagroal_json_get(response, CONFIGURATION_RESPONSE_REQUESTED_VALUE);
-
    }
 
    // Handle success cases with accurate messaging
@@ -1600,7 +1598,7 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
       goto error;
    }
    memcpy(config_key_copy, config_key, config_key_len);
-   config_key_copy[config_key_len] = '\0';  // Null terminate
+   config_key_copy[config_key_len] = '\0'; // Null terminate
 
    if (!config_key_copy)
    {
@@ -1749,7 +1747,7 @@ get_config_key_result(char* config_key, struct json* j, uintptr_t* r, int32_t ou
 
    pgagroal_json_iterator_destroy(iter);
 
-   if (!config_value)  // if key doesn't match with any field in configuration
+   if (!config_value) // if key doesn't match with any field in configuration
    {
       goto error;
    }
@@ -1826,10 +1824,8 @@ error:
    // Clean up parts on error
    for (int i = 0; i < part_count; i++)
    {
-
       free(parts[i]);
       parts[i] = NULL;
-
    }
 
    free(config_key_copy);
@@ -1955,7 +1951,6 @@ process_alias_result(SSL* ssl, int socket, int32_t output_format)
             // If no limit data, just show database=aliases and username
             printf("%-40s %-10s\n", db_alias_string, username);
          }
-
       }
    }
    else
