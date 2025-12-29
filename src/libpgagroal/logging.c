@@ -632,6 +632,98 @@ retry:
    }
 }
 
+static void*
+dynamic_buffer_append(void* orig, size_t orig_size,
+                      void* append, size_t append_size,
+                      size_t* new_size)
+{
+   void* d = NULL;
+   size_t s;
+
+   if (append != NULL)
+   {
+      s = orig_size + append_size;
+      d = realloc(orig, s);
+      memcpy((char*)d + orig_size, append, append_size);
+   }
+   else
+   {
+      s = orig_size;
+      d = orig;
+   }
+
+   *new_size = s;
+   return d;
+}
+
+static void* partial_buf = NULL;
+static size_t partial_buf_size = 0;
+
+void
+pgagroal_log_postgres(struct message* msg)
+{
+   size_t offset = 0;
+   size_t remaining = 0;
+   uint8_t* buf = NULL;
+   void* new_buf = NULL;
+
+   uint32_t msg_len = 0;
+   uint8_t msg_type = ' ';
+
+   if (!msg)
+   {
+      return;
+   }
+
+   partial_buf = dynamic_buffer_append(partial_buf, partial_buf_size, msg->data, msg->length, &partial_buf_size);
+
+   buf = (uint8_t*)partial_buf;
+
+   while (offset + 5 <= partial_buf_size)
+   {
+      memcpy(&msg_len, buf + offset + 1, 4);
+      msg_len = ntohl(msg_len);
+
+      if (msg_len < 4)
+      {
+         partial_buf_size = 0;
+         break;
+      }
+
+      if (offset + 1 + msg_len > partial_buf_size)
+      {
+         break;
+      }
+
+      msg_type = buf[offset];
+      pgagroal_log_trace("Message type: %c len: %u", msg_type, msg_len);
+
+      offset += (1 + msg_len);
+   }
+
+   if (offset > 0)
+   {
+      remaining = partial_buf_size - offset;
+      if (remaining > 0)
+      {
+         memmove(partial_buf, buf + offset, remaining);
+
+         new_buf = realloc(partial_buf, remaining);
+         if (new_buf)
+         {
+            partial_buf = new_buf;
+         }
+      }
+      else
+      {
+         free(partial_buf);
+         partial_buf = NULL;
+      }
+
+      partial_buf_size = remaining;
+   }
+}
+
 static void
 output_log_line(char* l)
 {

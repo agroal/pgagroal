@@ -65,6 +65,12 @@ extern "C" {
 #define pgagroal_log_error(...)                  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_ERROR, __FILE__, __LINE__, __VA_ARGS__)
 #define pgagroal_log_fatal(...)                  pgagroal_log_line(PGAGROAL_LOGGING_LEVEL_FATAL, __FILE__, __LINE__, __VA_ARGS__)
 
+#ifdef DEBUG
+#define PGAGROAL_LOG_POSTGRES(x) pgagroal_log_postgres(x)
+#else
+#define PGAGROAL_LOG_POSTGRES(x) ((void)(x))
+#endif
+
 /**
  * Initialize the logging system
  * @return 0 upon success, otherwise 1
@@ -183,6 +189,14 @@ log_file_open(void);
  */
 void
 log_file_rotate(void);
+
+/**
+ * The function parses PostgreSQL wire-protocol from
+ * raw data stream and logs message type and length information.
+ * @param msg The message containing raw PostgreSQL wire protocol data
+ */
+void
+pgagroal_log_postgres(struct message* msg);
 
 #ifdef __cplusplus
 }
