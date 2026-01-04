@@ -120,6 +120,7 @@ performance_client(struct io_watcher* watcher)
    wi = (struct worker_io*)watcher;
 
    status = pgagroal_recv_message(watcher, &msg);
+   PGAGROAL_LOG_POSTGRES(msg);
 
    if (likely(status == MESSAGE_STATUS_OK))
    {
