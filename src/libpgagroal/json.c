@@ -574,7 +574,7 @@ fill_value(char* str, char* key, uint64_t* index, struct json* o)
       }
       if (val == NULL)
       {
-         json_add(o, key, (uintptr_t)"", ValueString);
+         json_add(o, key, (uintptr_t) "", ValueString);
       }
       else
       {

@@ -73,7 +73,7 @@ START_TEST(test_art_insert)
    ck_assert(pgagroal_art_insert(t, NULL, 0, ValueInt8));
    ck_assert(pgagroal_art_insert(NULL, "key_none", 0, ValueInt8));
 
-   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t)"value1", ValueString));
+   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t) "value1", ValueString));
    ck_assert(!pgagroal_art_insert(t, "key_int", 1, ValueInt32));
    ck_assert(!pgagroal_art_insert(t, "key_bool", true, ValueBool));
    ck_assert(!pgagroal_art_insert(t, "key_float", pgagroal_value_from_float(2.5), ValueFloat));
@@ -107,7 +107,7 @@ START_TEST(test_art_search)
    ck_assert_int_eq(pgagroal_art_search_typed(t, "key_none", &type), 0);
    ck_assert_int_eq(type, ValueNone);
 
-   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t)"value1", ValueString));
+   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t) "value1", ValueString));
    ck_assert(pgagroal_art_contains_key(t, "key_str"));
    ck_assert_str_eq((char*)pgagroal_art_search(t, "key_str"), "value1");
 
@@ -160,7 +160,7 @@ START_TEST(test_art_basic_delete)
    ck_assert_ptr_nonnull(t);
    test_obj_create(0, &obj);
 
-   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t)"value1", ValueString));
+   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t) "value1", ValueString));
    ck_assert(!pgagroal_art_insert(t, "key_int", 1, ValueInt32));
    ck_assert(!pgagroal_art_insert(t, "key_bool", true, ValueBool));
    ck_assert(!pgagroal_art_insert(t, "key_float", pgagroal_value_from_float(2.5), ValueFloat));
@@ -218,7 +218,7 @@ START_TEST(test_art_double_delete)
 
    ck_assert_ptr_nonnull(t);
 
-   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t)"value1", ValueString));
+   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t) "value1", ValueString));
    ck_assert(!pgagroal_art_insert(t, "key_int", 1, ValueInt32));
 
    ck_assert(pgagroal_art_contains_key(t, "key_str"));
@@ -248,7 +248,7 @@ START_TEST(test_art_clear)
    ck_assert_ptr_nonnull(t);
    test_obj_create(0, &obj);
 
-   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t)"value1", ValueString));
+   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t) "value1", ValueString));
    ck_assert(!pgagroal_art_insert(t, "key_int", 1, ValueInt32));
    ck_assert(!pgagroal_art_insert(t, "key_bool", true, ValueBool));
    ck_assert(!pgagroal_art_insert(t, "key_float", pgagroal_value_from_float(2.5), ValueFloat));
@@ -286,7 +286,7 @@ START_TEST(test_art_iterator_read)
    ck_assert_ptr_nonnull(t);
    test_obj_create(1, &obj);
 
-   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t)"value1", ValueString));
+   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t) "value1", ValueString));
    ck_assert(!pgagroal_art_insert(t, "key_int", 1, ValueInt32));
    ck_assert(!pgagroal_art_insert(t, "key_bool", true, ValueBool));
    ck_assert(!pgagroal_art_insert(t, "key_float", pgagroal_value_from_float(2.5), ValueFloat));
@@ -361,7 +361,7 @@ START_TEST(test_art_iterator_remove)
    ck_assert_ptr_nonnull(t);
    test_obj_create(1, &obj);
 
-   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t)"value1", ValueString));
+   ck_assert(!pgagroal_art_insert(t, "key_str", (uintptr_t) "value1", ValueString));
    ck_assert(!pgagroal_art_insert(t, "key_int", 1, ValueInt32));
    ck_assert(!pgagroal_art_insert(t, "key_bool", true, ValueBool));
    ck_assert(!pgagroal_art_insert(t, "key_float", pgagroal_value_from_float(2.5), ValueFloat));

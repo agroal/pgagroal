@@ -1635,7 +1635,7 @@ accept_mgt_cb(struct io_watcher* watcher)
          pgagroal_json_create(&js);
 
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
-         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)true, ValueBool);
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t) true, ValueBool);
 
          pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
       }
@@ -1653,7 +1653,7 @@ accept_mgt_cb(struct io_watcher* watcher)
                pgagroal_json_create(&js);
 
                pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
-               pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)true, ValueBool);
+               pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t) true, ValueBool);
 
                pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
 
@@ -1698,7 +1698,7 @@ accept_mgt_cb(struct io_watcher* watcher)
          pgagroal_json_create(&js);
 
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
-         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)false, ValueBool);
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t) false, ValueBool);
 
          pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
       }
@@ -1716,7 +1716,7 @@ accept_mgt_cb(struct io_watcher* watcher)
                pgagroal_json_create(&js);
 
                pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)database, ValueString);
-               pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)false, ValueBool);
+               pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t) false, ValueBool);
 
                pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
 

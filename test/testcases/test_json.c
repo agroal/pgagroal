@@ -50,17 +50,17 @@ START_TEST(test_json_put_basic)
    ck_assert_ptr_nonnull(obj);
    ck_assert_int_eq(obj->type, JSONUnknown);
 
-   ck_assert(!pgagroal_json_put(obj, "key1", (uintptr_t)"value1", ValueString));
+   ck_assert(!pgagroal_json_put(obj, "key1", (uintptr_t) "value1", ValueString));
    ck_assert(pgagroal_json_contains_key(obj, "key1"));
    ck_assert_str_eq((char*)pgagroal_json_get(obj, "key1"), "value1");
    ck_assert_int_eq(obj->type, JSONItem);
 
    // json only takes in certain types of value
-   ck_assert(pgagroal_json_put(obj, "key2", (uintptr_t)"value1", ValueMem));
+   ck_assert(pgagroal_json_put(obj, "key2", (uintptr_t) "value1", ValueMem));
    ck_assert(!pgagroal_json_contains_key(obj, "key2"));
 
    // item should not take entry input
-   ck_assert(pgagroal_json_append(obj, (uintptr_t)"entry", ValueString));
+   ck_assert(pgagroal_json_append(obj, (uintptr_t) "entry", ValueString));
 
    pgagroal_json_destroy(obj);
 }
@@ -73,11 +73,11 @@ START_TEST(test_json_append_basic)
    ck_assert_ptr_nonnull(obj);
    ck_assert_int_eq(obj->type, JSONUnknown);
 
-   ck_assert(!pgagroal_json_append(obj, (uintptr_t)"value1", ValueString));
+   ck_assert(!pgagroal_json_append(obj, (uintptr_t) "value1", ValueString));
    ck_assert_int_eq(obj->type, JSONArray);
 
-   ck_assert(pgagroal_json_append(obj, (uintptr_t)"value2", ValueMem));
-   ck_assert(pgagroal_json_put(obj, "key", (uintptr_t)"value", ValueString));
+   ck_assert(pgagroal_json_append(obj, (uintptr_t) "value2", ValueMem));
+   ck_assert(pgagroal_json_put(obj, "key", (uintptr_t) "value", ValueString));
 
    pgagroal_json_destroy(obj);
 }
@@ -137,45 +137,45 @@ START_TEST(test_json_parse_to_string)
    pgagroal_json_put(obj, "json_array_array_nested", (uintptr_t)json_array_array_nested, ValueJSON);
    pgagroal_json_put(obj, "json_item_array_nested", (uintptr_t)json_item_array_nested, ValueJSON);
    pgagroal_json_put(obj, "json_item_item_nested", (uintptr_t)json_item_item_nested, ValueJSON);
-   pgagroal_json_put(obj, "empty_value", (uintptr_t)"", ValueString);
+   pgagroal_json_put(obj, "empty_value", (uintptr_t) "", ValueString);
    pgagroal_json_put(obj, "null_value", (uintptr_t)NULL, ValueString);
 
    pgagroal_json_append(int_array, 1, ValueInt32);
    pgagroal_json_append(int_array, 2, ValueInt32);
    pgagroal_json_append(int_array, 3, ValueInt32);
 
-   pgagroal_json_append(str_array, (uintptr_t)"str1", ValueString);
-   pgagroal_json_append(str_array, (uintptr_t)"str2", ValueString);
-   pgagroal_json_append(str_array, (uintptr_t)"str3", ValueString);
+   pgagroal_json_append(str_array, (uintptr_t) "str1", ValueString);
+   pgagroal_json_append(str_array, (uintptr_t) "str2", ValueString);
+   pgagroal_json_append(str_array, (uintptr_t) "str3", ValueString);
 
    pgagroal_json_put(json_item_shallow, "int", (uintptr_t)-1, ValueInt32);
    pgagroal_json_put(json_item_shallow, "float", pgagroal_value_from_float(-2.5), ValueFloat);
    pgagroal_json_put(json_item_shallow, "double", pgagroal_value_from_double(2.5), ValueDouble);
    pgagroal_json_put(json_item_shallow, "bool_true", true, ValueBool);
    pgagroal_json_put(json_item_shallow, "bool_false", false, ValueBool);
-   pgagroal_json_put(json_item_shallow, "string", (uintptr_t)"str", ValueString);
+   pgagroal_json_put(json_item_shallow, "string", (uintptr_t) "str", ValueString);
 
    pgagroal_json_put(json_array_nested_item1, "1", 1, ValueInt32);
    pgagroal_json_put(json_array_nested_item1, "2", 2, ValueInt32);
    pgagroal_json_put(json_array_nested_item1, "3", 3, ValueInt32);
-   pgagroal_json_put(json_array_nested_item2, "1", (uintptr_t)"1", ValueString);
-   pgagroal_json_put(json_array_nested_item2, "2", (uintptr_t)"2", ValueString);
-   pgagroal_json_put(json_array_nested_item2, "3", (uintptr_t)"3", ValueString);
+   pgagroal_json_put(json_array_nested_item2, "1", (uintptr_t) "1", ValueString);
+   pgagroal_json_put(json_array_nested_item2, "2", (uintptr_t) "2", ValueString);
+   pgagroal_json_put(json_array_nested_item2, "3", (uintptr_t) "3", ValueString);
    pgagroal_json_append(json_array_item_nested, (uintptr_t)json_array_nested_item1, ValueJSON);
    pgagroal_json_append(json_array_item_nested, (uintptr_t)json_array_nested_item2, ValueJSON);
 
-   pgagroal_json_append(json_array_nested_array1, (uintptr_t)"1", ValueString);
-   pgagroal_json_append(json_array_nested_array1, (uintptr_t)"2", ValueString);
-   pgagroal_json_append(json_array_nested_array1, (uintptr_t)"3", ValueString);
+   pgagroal_json_append(json_array_nested_array1, (uintptr_t) "1", ValueString);
+   pgagroal_json_append(json_array_nested_array1, (uintptr_t) "2", ValueString);
+   pgagroal_json_append(json_array_nested_array1, (uintptr_t) "3", ValueString);
    pgagroal_json_append(json_array_nested_array2, true, ValueBool);
    pgagroal_json_append(json_array_nested_array2, false, ValueBool);
    pgagroal_json_append(json_array_nested_array2, false, ValueBool);
    pgagroal_json_append(json_array_array_nested, (uintptr_t)json_array_nested_array1, ValueJSON);
    pgagroal_json_append(json_array_array_nested, (uintptr_t)json_array_nested_array2, ValueJSON);
 
-   pgagroal_json_append(json_item_nested_array1, (uintptr_t)"1", ValueString);
-   pgagroal_json_append(json_item_nested_array1, (uintptr_t)"2", ValueString);
-   pgagroal_json_append(json_item_nested_array1, (uintptr_t)"3", ValueString);
+   pgagroal_json_append(json_item_nested_array1, (uintptr_t) "1", ValueString);
+   pgagroal_json_append(json_item_nested_array1, (uintptr_t) "2", ValueString);
+   pgagroal_json_append(json_item_nested_array1, (uintptr_t) "3", ValueString);
    pgagroal_json_append(json_item_nested_array2, true, ValueBool);
    pgagroal_json_append(json_item_nested_array2, false, ValueBool);
    pgagroal_json_append(json_item_nested_array2, true, ValueBool);
@@ -185,9 +185,9 @@ START_TEST(test_json_parse_to_string)
    pgagroal_json_put(json_item_nested_item1, "1", 1, ValueInt32);
    pgagroal_json_put(json_item_nested_item1, "2", 2, ValueInt32);
    pgagroal_json_put(json_item_nested_item1, "3", 3, ValueInt32);
-   pgagroal_json_put(json_item_nested_item2, "1", (uintptr_t)"1", ValueString);
-   pgagroal_json_put(json_item_nested_item2, "2", (uintptr_t)"2", ValueString);
-   pgagroal_json_put(json_item_nested_item2, "3", (uintptr_t)"3", ValueString);
+   pgagroal_json_put(json_item_nested_item2, "1", (uintptr_t) "1", ValueString);
+   pgagroal_json_put(json_item_nested_item2, "2", (uintptr_t) "2", ValueString);
+   pgagroal_json_put(json_item_nested_item2, "3", (uintptr_t) "3", ValueString);
    pgagroal_json_append(json_item_item_nested, (uintptr_t)json_item_nested_item1, ValueJSON);
    pgagroal_json_append(json_item_array_nested, (uintptr_t)json_item_nested_item2, ValueJSON);
 
@@ -223,9 +223,9 @@ START_TEST(test_json_remove)
    pgagroal_json_create(&obj);
    pgagroal_json_create(&array);
 
-   pgagroal_json_put(obj, "key1", (uintptr_t)"1", ValueString);
+   pgagroal_json_put(obj, "key1", (uintptr_t) "1", ValueString);
    pgagroal_json_put(obj, "key2", 2, ValueInt32);
-   pgagroal_json_append(array, (uintptr_t)"key1", ValueString);
+   pgagroal_json_append(array, (uintptr_t) "key1", ValueString);
    ck_assert(pgagroal_json_remove(array, "key1"));
    ck_assert(pgagroal_json_remove(obj, ""));
    ck_assert(pgagroal_json_remove(obj, NULL));

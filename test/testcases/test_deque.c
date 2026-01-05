@@ -59,8 +59,8 @@ START_TEST(test_deque_add_poll)
 
    pgagroal_deque_create(false, &dq);
    ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t)-1, ValueInt32));
-   ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t)true, ValueBool));
-   ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t)"value1", ValueString));
+   ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t) true, ValueBool));
+   ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t) "value1", ValueString));
    ck_assert_int_eq(dq->size, 3);
 
    ck_assert_int_eq((int)pgagroal_deque_peek(dq, NULL), -1);
@@ -88,8 +88,8 @@ START_TEST(test_deque_add_poll_last)
 
    pgagroal_deque_create(false, &dq);
    pgagroal_deque_add(dq, NULL, 0, ValueNone);
-   ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t)"value1", ValueString));
-   ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t)true, ValueBool));
+   ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t) "value1", ValueString));
+   ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t) true, ValueBool));
    ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t)-1, ValueInt32));
    ck_assert_int_eq(dq->size, 3);
 
@@ -117,8 +117,8 @@ START_TEST(test_deque_clear)
    struct deque* dq = NULL;
 
    pgagroal_deque_create(false, &dq);
-   ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t)"value1", ValueString));
-   ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t)true, ValueBool));
+   ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t) "value1", ValueString));
+   ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t) true, ValueBool));
    ck_assert(!pgagroal_deque_add(dq, NULL, (uintptr_t)-1, ValueInt32));
    ck_assert_int_eq(dq->size, 3);
 
@@ -136,8 +136,8 @@ START_TEST(test_deque_remove)
    char* tag = NULL;
 
    pgagroal_deque_create(false, &dq);
-   ck_assert(!pgagroal_deque_add(dq, "tag1", (uintptr_t)"value1", ValueString));
-   ck_assert(!pgagroal_deque_add(dq, "tag2", (uintptr_t)true, ValueBool));
+   ck_assert(!pgagroal_deque_add(dq, "tag1", (uintptr_t) "value1", ValueString));
+   ck_assert(!pgagroal_deque_add(dq, "tag2", (uintptr_t) true, ValueBool));
    ck_assert(!pgagroal_deque_add(dq, "tag2", (uintptr_t)-1, ValueInt32));
    ck_assert_int_eq(dq->size, 3);
 

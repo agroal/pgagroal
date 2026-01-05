@@ -6596,7 +6596,7 @@ pgagroal_conf_set(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compr
       pgagroal_json_put(response, CONFIGURATION_RESPONSE_CONFIG_KEY, (uintptr_t)config_key, ValueString);
       pgagroal_json_put(response, CONFIGURATION_RESPONSE_REQUESTED_VALUE, (uintptr_t)config_value, ValueString);
       pgagroal_json_put(response, CONFIGURATION_RESPONSE_CURRENT_VALUE, (uintptr_t)old_value, ValueString);
-      pgagroal_json_put(response, CONFIGURATION_RESPONSE_RESTART_REQUIRED, (uintptr_t)true, ValueBool);
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_RESTART_REQUIRED, (uintptr_t) true, ValueBool);
 
       pgagroal_log_info("Conf Set: Restart required for %s=%s. Current value: %s", config_key, config_value, old_value);
    }
@@ -6608,7 +6608,7 @@ pgagroal_conf_set(SSL* ssl __attribute__((unused)), int client_fd, uint8_t compr
       pgagroal_json_put(response, CONFIGURATION_RESPONSE_CONFIG_KEY, (uintptr_t)config_key, ValueString);
       pgagroal_json_put(response, CONFIGURATION_RESPONSE_OLD_VALUE, (uintptr_t)old_value, ValueString);
       pgagroal_json_put(response, CONFIGURATION_RESPONSE_NEW_VALUE, (uintptr_t)new_value, ValueString);
-      pgagroal_json_put(response, CONFIGURATION_RESPONSE_RESTART_REQUIRED, (uintptr_t)false, ValueBool);
+      pgagroal_json_put(response, CONFIGURATION_RESPONSE_RESTART_REQUIRED, (uintptr_t) false, ValueBool);
 
       pgagroal_log_info("Conf Set: Successfully applied %s: %s -> %s", config_key, old_value, new_value);
    }
