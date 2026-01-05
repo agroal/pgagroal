@@ -1788,7 +1788,7 @@ error:
          outcome_section = (struct json*)pgagroal_json_get(full_response, MANAGEMENT_CATEGORY_OUTCOME);
          if (outcome_section)
          {
-            pgagroal_json_put(outcome_section, MANAGEMENT_ARGUMENT_STATUS, (uintptr_t) false, ValueBool);
+            pgagroal_json_put(outcome_section, MANAGEMENT_ARGUMENT_STATUS, (uintptr_t)false, ValueBool);
          }
          // Set empty response section
          pgagroal_json_put(full_response, MANAGEMENT_CATEGORY_RESPONSE, (uintptr_t)filtered_response, ValueJSON);
@@ -1796,7 +1796,7 @@ error:
       }
       else
       {
-         pgagroal_json_put(filtered_response, "Outcome", (uintptr_t) false, ValueBool);
+         pgagroal_json_put(filtered_response, "Outcome", (uintptr_t)false, ValueBool);
          *r = (uintptr_t)filtered_response;
       }
 

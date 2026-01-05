@@ -832,7 +832,7 @@ pgagroal_management_create_outcome_success(struct json* json, time_t start_time,
 
    elapsed = pgagroal_get_timestamp_string(start_time, end_time, &total_seconds);
 
-   pgagroal_json_put(r, MANAGEMENT_ARGUMENT_STATUS, (uintptr_t) true, ValueBool);
+   pgagroal_json_put(r, MANAGEMENT_ARGUMENT_STATUS, (uintptr_t)true, ValueBool);
    pgagroal_json_put(r, MANAGEMENT_ARGUMENT_TIME, (uintptr_t)elapsed, ValueString);
 
    pgagroal_json_put(json, MANAGEMENT_CATEGORY_OUTCOME, (uintptr_t)r, ValueJSON);
@@ -864,7 +864,7 @@ pgagroal_management_create_outcome_failure(struct json* json, int32_t error, str
       goto error;
    }
 
-   pgagroal_json_put(r, MANAGEMENT_ARGUMENT_STATUS, (uintptr_t) false, ValueBool);
+   pgagroal_json_put(r, MANAGEMENT_ARGUMENT_STATUS, (uintptr_t)false, ValueBool);
    pgagroal_json_put(r, MANAGEMENT_ARGUMENT_ERROR, (uintptr_t)error, ValueInt32);
 
    pgagroal_json_put(json, MANAGEMENT_CATEGORY_OUTCOME, (uintptr_t)r, ValueJSON);

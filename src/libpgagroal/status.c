@@ -250,7 +250,7 @@ status_details(bool details, struct json* response)
             pgagroal_json_create(&js);
 
             pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)config->disabled[i], ValueString);
-            pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t) false, ValueBool);
+            pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)false, ValueBool);
 
             pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
 
@@ -264,7 +264,7 @@ status_details(bool details, struct json* response)
 
          pgagroal_json_create(&js);
 
-         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t) "*", ValueString);
+         pgagroal_json_put(js, MANAGEMENT_ARGUMENT_DATABASE, (uintptr_t)"*", ValueString);
          pgagroal_json_put(js, MANAGEMENT_ARGUMENT_ENABLED, (uintptr_t)!config->all_disabled, ValueBool);
 
          pgagroal_json_append(databases, (uintptr_t)js, ValueJSON);
