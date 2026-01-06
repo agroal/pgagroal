@@ -68,6 +68,8 @@ extern "C" {
 #define MAX_PROCESS_TITLE_LENGTH                 256
 
 #define DEFAULT_BUFFER_SIZE                      131072
+#define RECV_BUFFER_HEADROOM                     8
+#define MESSAGE_PARSE_BUFFER_SIZE                (DEFAULT_BUFFER_SIZE - RECV_BUFFER_HEADROOM)
 #define SECURITY_BUFFER_SIZE                     1024
 #define HTTP_BUFFER_SIZE                         1024
 
