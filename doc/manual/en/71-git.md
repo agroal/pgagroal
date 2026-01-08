@@ -78,13 +78,13 @@ and then create a pull request for it
 
 **Format source code**
 
-Use
+Use the `clang-format.sh` script from the root directory of the project to apply consistent formatting:
 
 ``` sh
 ./clang-format.sh
 ```
 
-to format the source code
+Note that the project uses `clang-format` version 21 (or higher).
 
 **Repeat**
 

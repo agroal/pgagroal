@@ -189,12 +189,52 @@ Here are some concrete guidelines for using LLMs as part of your communication w
 
 ## Code Style
 
-Please, follow the coding style of the project.
+Please, follow the coding style of the project when submitting contributions.
 
-You can use the [clang-format](https://clang.llvm.org/docs/ClangFormat.html) tool to help with the formatting, by running
+You can use the [clang-format](https://clang.llvm.org/docs/ClangFormat.html) tool to help with the formatting, by running the script `clang-format.sh` from the root directory of the project:
 
 ```
 ./clang-format.sh
 ```
 
 and verify the changes.
+
+
+
+### Installation of `clang-format`
+
+This project uses `clang-format` version 21 (or higher).
+The CI uses `clang-format` to ensure consistent formatting.
+Please install clang-format locally to match the CI environment.
+
+#### Fedora
+
+```
+dnf install clang-tools-extra
+```
+
+#### Ubuntu/Debian
+
+```
+apt install clang-format
+```
+
+or to specifically install version 21
+
+```
+sudo apt update -y
+sudo apt install -y lsb-release wget software-properties-common gnupg
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg
+echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg] http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-21 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+sudo apt update -y
+sudo apt remove -y clang-format 2>/dev/null || true
+sudo apt install -y clang-format-21
+sudo ln -sf /usr/bin/clang-format-21 /usr/bin/clang-format
+```
+
+
+#### RHEL/Rocky
+
+```
+dnf install clang-tools-extra   # or version-specific package if available
+```
