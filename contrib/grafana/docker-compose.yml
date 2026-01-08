@@ -1,0 +1,27 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pgagroal_prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:main
+    container_name: pgagroal_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./pgagroal-overview.json:/var/lib/grafana/dashboards/pgagroal-overview.json
+      - ./pgagroal-pool-details.json:/var/lib/grafana/dashboards/pgagroal-pool-details.json
+      - ./pgagroal-performance.json:/var/lib/grafana/dashboards/pgagroal-performance.json
+      - ./provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
