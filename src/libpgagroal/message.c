@@ -1338,7 +1338,7 @@ read_message(int socket, bool block, int timeout, struct message** msg)
    {
       keep_read = false;
       m = pgagroal_memory_message();
-      numbytes = read(socket, m->data, DEFAULT_BUFFER_SIZE);
+      numbytes = read(socket, m->data, MESSAGE_PARSE_BUFFER_SIZE);
 
       if (likely(numbytes > 0))
       {
@@ -1481,7 +1481,7 @@ ssl_read_message(SSL* ssl, int timeout, struct message** msg)
 
       m = pgagroal_memory_message();
 
-      numbytes = SSL_read(ssl, m->data, DEFAULT_BUFFER_SIZE);
+      numbytes = SSL_read(ssl, m->data, MESSAGE_PARSE_BUFFER_SIZE);
 
       if (likely(numbytes > 0))
       {

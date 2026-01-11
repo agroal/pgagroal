@@ -76,6 +76,7 @@ static int fds[MAX_NUMBER_OF_CONNECTIONS];
 static bool saw_x = false;
 static struct io_watcher io_mgt;
 static struct worker_io server_io;
+static bool io_watcher_active = false;
 
 struct pipeline
 transaction_pipeline(void)
@@ -172,7 +173,11 @@ transaction_stop(struct event_loop* loop, struct worker_io* w)
          pgagroal_write_rollback(w->server_ssl, config->connections[slot].fd);
       }
 
-      pgagroal_io_stop(&server_io.io);
+      if (io_watcher_active)
+      {
+         pgagroal_io_stop(&server_io.io);
+         io_watcher_active = false;
+      }
       pgagroal_tracking_event_slot(TRACKER_TX_RETURN_CONNECTION_STOP, w->slot);
       pgagroal_return_connection(slot, w->server_ssl, true);
       slot = -1;
@@ -232,6 +237,7 @@ transaction_client(struct io_watcher* watcher)
       fatal = false;
 
       pgagroal_io_start(&server_io.io);
+      io_watcher_active = true;
    }
 
    status = pgagroal_recv_message(watcher, &msg);
@@ -387,7 +393,6 @@ static void
 transaction_server(struct io_watcher* watcher)
 {
    int status = MESSAGE_STATUS_ERROR;
-   bool has_z = false;
    struct worker_io* wi = NULL;
    struct message* msg = NULL;
    struct main_configuration* config = NULL;
@@ -419,8 +424,6 @@ transaction_server(struct io_watcher* watcher)
             if (kind == 'Z')
             {
                char tx_state = pgagroal_read_byte(msg->data + offset + 5);
-
-               has_z = true;
 
                if (tx_state != 'I' && !in_tx)
                {
@@ -464,12 +467,18 @@ transaction_server(struct io_watcher* watcher)
          }
       }
 
-      if (!fatal)
+      /* Check for ReadyForQuery message (Z) to detect transaction completion */
+      if (msg->kind == 'Z' && !in_tx && slot != -1)
       {
-         if (has_z && !in_tx && slot != -1)
+         /* Transaction completed - stop I/O watcher immediately if still active */
+         if (io_watcher_active)
          {
             pgagroal_io_stop(&server_io.io);
+            io_watcher_active = false;
+         }
 
+         if (!fatal)
+         {
             if (deallocate)
             {
                pgagroal_write_deallocate_all(wi->server_ssl, wi->server_fd);
@@ -484,13 +493,8 @@ transaction_server(struct io_watcher* watcher)
 
             slot = -1;
          }
-      }
-      else
-      {
-         if (has_z && !in_tx && slot != -1)
+         else
          {
-            pgagroal_io_stop(&server_io.io);
-
             exit_code = WORKER_SERVER_FATAL;
             pgagroal_event_loop_break();
          }

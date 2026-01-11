@@ -199,8 +199,9 @@ struct event_loop
    } br;                            /**< The buffer ring struct */
 
 #if HAVE_LINUX
-   struct io_uring ring; /**< io_uring ring */
-   int bid;              /**< Next buffer id */
+   struct io_uring ring_rcv; /**< io_uring ring for receive operations */
+   struct io_uring ring_snd; /**< io_uring ring for send operations (separate to avoid CQE mixing) */
+   int bid;                  /**< Next buffer id */
 #if EXPERIMENTAL_FEATURE_IOVECS
    /* XXX: Test with iovecs for send/recv io_uring */
    int iovecs_nr;

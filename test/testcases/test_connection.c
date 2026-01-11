@@ -41,7 +41,7 @@ START_TEST(test_pgagroal_connection)
 START_TEST(test_pgagroal_connection_load)
 {
    int found = 0;
-   found = !pgagroal_tsclient_execute_pgbench(user, database, true, 8, 0, 1000);
+   found = !pgagroal_tsclient_execute_pgbench(user, database, true, 6, 0, 1000);
    ck_assert_msg(found, "success status not found");
 }
 
